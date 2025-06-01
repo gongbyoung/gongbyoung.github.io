@@ -2,76 +2,40 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>꽃말 주크박스</title>
+  <title>랜덤 주크박스</title>
   <style>
-    body {
-      font-family: 'Arial', sans-serif;
-      text-align: center;
-      background: url('img/bg.jpg') no-repeat center center fixed;
-      background-size: cover;
-      color: white;
-    }
-    h1 {
-      margin-top: 1em;
-      text-shadow: 1px 1px 3px black;
-    }
-    #nowPlaying {
-      margin: 20px 0;
-      font-size: 1.2em;
-    }
-    button {
-      background: url('img/btn.png') no-repeat center;
-      background-size: contain;
-      width: 200px;
-      height: 60px;
-      border: none;
-      cursor: pointer;
-    }
-    #audioPlayer {
-      margin-top: 20px;
-      width: 80%;
-      border: 5px solid rgba(255, 255, 255, 0.3);
-      border-radius: 10px;
-      background: rgba(0, 0, 0, 0.3);
-    }
+    body { font-family: sans-serif; text-align: center; padding: 40px; }
+    #status { margin-top: 20px; font-size: 1.2em; color: red; }
   </style>
 </head>
 <body>
-  <h1>🌸 꽃말 주크박스</h1>
-  <p id="nowPlaying">재생 중: 없음</p>
-  <button onclick="playRandom()"></button>
-  <br>
-  <audio id="audioPlayer" controls autoplay></audio>
+  <h1>🌸 꽃말 랜덤 주크박스 🌸</h1>
+  <button id="playBtn">랜덤 재생</button>
+  <div id="status"></div>
 
   <script>
-    const basePath = "mp3/";
-    let mp3Files = [];
+    document.getElementById('playBtn').addEventListener('click', () => {
+      fetch('files.json')
+        .then(response => {
+          if (!response.ok) throw new Error("파일 목록을 불러오지 못했습니다.");
+          return response.json();
+        })
+        .then(files => {
+          if (!files || files.length === 0) {
+            document.getElementById('status').textContent = "🎵 재생할 MP3 파일이 없습니다.";
+            return;
+          }
 
-    async function fetchMP3List() {
-      try {
-        const response = await fetch("files.json");
-        mp3Files = await response.json();
-        console.log("MP3 목록 불러오기 성공:", mp3Files);
-      } catch (error) {
-        console.error("MP3 목록 불러오기 실패", error);
-      }
-    }
-
-    function playRandom() {
-      if (mp3Files.length === 0) {
-        alert("MP3 파일이 없습니다.");
-        return;
-      }
-      const index = Math.floor(Math.random() * mp3Files.length);
-      const selected = mp3Files[index];
-      const audio = document.getElementById("audioPlayer");
-      audio.src = basePath + selected;
-      document.getElementById("nowPlaying").innerText = `재생 중: ${decodeURIComponent(selected)}`;
-      audio.play();
-    }
-
-    // 페이지 로드시 MP3 목록 불러오기
-    window.onload = fetchMP3List;
+          const randomFile = files[Math.floor(Math.random() * files.length)];
+          const audio = new Audio(`mp3/${encodeURIComponent(randomFile)}`);
+          audio.play();
+          document.getElementById('status').textContent = `▶️ 재생 중: ${randomFile}`;
+        })
+        .catch(err => {
+          document.getElementById('status').textContent = "🚫 파일 목록을 불러오는 중 오류 발생";
+          console.error(err);
+        });
+    });
   </script>
 </body>
 </html>
