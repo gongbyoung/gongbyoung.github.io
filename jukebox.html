@@ -1,494 +1,77 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>꽃말 뮤직비디오 쥬크박스</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            color: white;
-        }
-        
-        .container {
-            max-width: 1200px;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 30px;
-        }
-        
-        header {
-            text-align: center;
-            padding: 20px;
-        }
-        
-        h1 {
-            font-size: 3.5rem;
-            margin-bottom: 10px;
-            color: #FFD700;
-            text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
-        }
-        
-        .subtitle {
-            font-size: 1.2rem;
-            opacity: 0.9;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        
-        .jukebox {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 30px;
-            width: 100%;
-            justify-content: center;
-        }
-        
-        .video-container {
-            flex: 1;
-            min-width: 300px;
-            max-width: 800px;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
-            background: rgba(0, 0, 0, 0.7);
-            position: relative;
-        }
-        
-        video {
-            width: 100%;
-            display: block;
-        }
-        
-        .controls {
-            padding: 20px;
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        
-        .button-panel {
-            flex: 1;
-            min-width: 300px;
-            max-width: 350px;
-            background: rgba(0, 0, 0, 0.8);
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-        }
-        
-        .jukebox-title {
-            text-align: center;
-            font-size: 1.8rem;
-            margin-bottom: 10px;
-            color: #FFD700;
-        }
-        
-        .jukebox-controls {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        .control-btn {
-            aspect-ratio: 1;
-            background: #2c3e50;
-            border: none;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-            font-size: 1.5rem;
-            color: white;
-        }
-        
-        .control-btn:hover {
-            transform: translateY(-5px);
-            background: #3498db;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-        }
-        
-        .control-btn:active {
-            transform: translateY(2px);
-        }
-        
-        .control-btn.play {
-            grid-column: span 3;
-            width: 80px;
-            height: 80px;
-            margin: 0 auto;
-            background: #e74c3c;
-            font-size: 2rem;
-        }
-        
-        .control-btn.play:hover {
-            background: #c0392b;
-        }
-        
-        .current-video {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-        }
-        
-        .current-video h3 {
-            margin-bottom: 10px;
-            color: #FFD700;
-        }
-        
-        .video-list {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            border-radius: 10px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        
-        .video-list h3 {
-            margin-bottom: 10px;
-            color: #FFD700;
-            text-align: center;
-        }
-        
-        .video-list ul {
-            list-style-type: none;
-            padding: 0 10px;
-        }
-        
-        .video-list li {
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .video-list li:last-child {
-            border-bottom: none;
-        }
-        
-        .video-list li.playing {
-            color: #FFD700;
-            font-weight: bold;
-        }
-        
-        .instructions {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 20px;
-            border-radius: 10px;
-            margin-top: 20px;
-            text-align: center;
-        }
-        
-        .instructions h3 {
-            margin-bottom: 15px;
-            color: #FFD700;
-        }
-        
-        .instructions p {
-            margin-bottom: 10px;
-            line-height: 1.6;
-        }
-        
-        .folder-path {
-            background: rgba(0, 0, 0, 0.5);
-            padding: 8px 15px;
-            border-radius: 30px;
-            display: inline-block;
-            margin-top: 10px;
-            font-family: monospace;
-        }
-        
-        .volume-control {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        
-        .volume-control input {
-            flex: 1;
-        }
-        
-        @media (max-width: 768px) {
-            .jukebox {
-                flex-direction: column;
-            }
-            
-            h1 {
-                font-size: 2.5rem;
-            }
-            
-            .video-container {
-                min-width: 100%;
-            }
-        }
-        
-        .flower-decoration {
-            position: absolute;
-            width: 80px;
-            height: 80px;
-            opacity: 0.7;
-            z-index: 5;
-        }
-        
-        .flower-1 {
-            top: 20px;
-            left: 20px;
-        }
-        
-        .flower-2 {
-            bottom: 20px;
-            right: 20px;
-            transform: rotate(45deg);
-        }
-        
-        .flower-3 {
-            top: 50%;
-            left: 30px;
-            transform: rotate(-30deg);
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>꽃말 주크박스</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      text-align: center;
+      background: url('img/bg.jpg') no-repeat center center fixed;
+      background-size: cover;
+      color: white;
+    }
+    h1 {
+      margin-top: 1em;
+      text-shadow: 1px 1px 3px black;
+    }
+    #nowPlaying {
+      margin: 20px 0;
+      font-size: 1.2em;
+    }
+    button {
+      background: url('img/btn.png') no-repeat center;
+      background-size: contain;
+      width: 200px;
+      height: 60px;
+      border: none;
+      cursor: pointer;
+    }
+    #audioPlayer {
+      margin-top: 20px;
+      width: 80%;
+      border: 5px solid rgba(255, 255, 255, 0.3);
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.3);
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>꽃말 뮤직비디오 쥬크박스</h1>
-            <p class="subtitle">버튼을 누르면 폴더에 있는 뮤직비디오가 랜덤으로 재생됩니다</p>
-        </header>
-        
-        <div class="jukebox">
-            <div class="video-container">
-                <video id="music-video" controls>
-                    <source src="" type="video/mp4">
-                    이 브라우저는 비디오 태그를 지원하지 않습니다.
-                </video>
-                
-                <!-- 꽃 장식들 -->
-                <div class="flower-decoration flower-1">🌼</div>
-                <div class="flower-decoration flower-2">🌹</div>
-                <div class="flower-decoration flower-3">🌸</div>
-            </div>
-            
-            <div class="button-panel">
-                <div class="jukebox-title">
-                    <i class="fas fa-compact-disc"></i> 꽃말 뮤직비디오 쥬크박스
-                </div>
-                
-                <div class="jukebox-controls">
-                    <button class="control-btn" title="이전 곡">
-                        <i class="fas fa-step-backward"></i>
-                    </button>
-                    <button class="control-btn" title="재생/일시정지">
-                        <i class="fas fa-play"></i>
-                    </button>
-                    <button class="control-btn" title="다음 곡">
-                        <i class="fas fa-step-forward"></i>
-                    </button>
-                    
-                    <button class="control-btn play" id="random-btn">
-                        <i class="fas fa-random"></i>
-                    </button>
-                </div>
-                
-                <div class="current-video">
-                    <h3>현재 재생 중</h3>
-                    <div id="current-video-name">선택된 곡이 없습니다</div>
-                </div>
-                
-                <div class="volume-control">
-                    <i class="fas fa-volume-up"></i>
-                    <input type="range" id="volume-control" min="0" max="1" step="0.1" value="0.7">
-                </div>
-                
-                <div class="video-list">
-                    <h3>비디오 목록</h3>
-                    <ul id="video-list">
-                        <!-- 동적으로 채워집니다 -->
-                    </ul>
-                </div>
-            </div>
-        </div>
-        
-        <div class="instructions">
-            <h3>사용 방법</h3>
-            <p>1. "videos" 폴더에 MP4 형식의 뮤직비디오를 넣어주세요</p>
-            <p>2. <i class="fas fa-random"></i> 버튼을 클릭하면 폴더에서 랜덤으로 뮤직비디오가 재생됩니다</p>
-            <p class="folder-path">/videos/flower-video-1.mp4</p>
-        </div>
-    </div>
+  <h1>🌸 꽃말 주크박스</h1>
+  <p id="nowPlaying">재생 중: 없음</p>
+  <button onclick="playRandom()"></button>
+  <br>
+  <audio id="audioPlayer" controls autoplay></audio>
 
-    <script>
-        // 비디오 목록 (실제 사용 시 폴더 내 파일명으로 변경)
-        const videoFiles = [
-            "/video/꽃댕강나무-평안함.mp4",
-            "/video/매화-깨끗한마음.mp4",
-            "/video/명자꽃-수줍음.mp4",
-            "/video/목련-자연에사랑.mp4",
-            "/video/물망초-나를잊지말아요.mp4",
-            "/video/박태기나무-우정 02.mp4",
-            "/video/박태기나무-우정.mp4",
-            "/video/살구-부끄러움.mp4",
-            "/video/아디안텀-애교1.mp4",
-            "/video/아디안텀-애교2.mp4",
-            "/video/아이리스-좋은소식1.mp4",
-            "/video/아이리스-좋은소식2.mp4",
-            "/video/천남성-유혹.mp4"
-        ];
-        
-        // DOM 요소
-        const videoPlayer = document.getElementById('music-video');
-        const randomBtn = document.getElementById('random-btn');
-        const playBtn = document.querySelector('.control-btn:nth-child(2)');
-        const prevBtn = document.querySelector('.control-btn:nth-child(1)');
-        const nextBtn = document.querySelector('.control-btn:nth-child(3)');
-        const volumeControl = document.getElementById('volume-control');
-        const currentVideoName = document.getElementById('current-video-name');
-        const videoList = document.getElementById('video-list');
-        const playIcon = playBtn.querySelector('i');
-        
-        // 현재 재생 중인 비디오 인덱스
-        let currentVideoIndex = -1;
-        
-        // 비디오 목록 렌더링
-        function renderVideoList() {
-            videoList.innerHTML = '';
-            videoFiles.forEach((file, index) => {
-                const li = document.createElement('li');
-                li.textContent = file.split('/').pop();
-                li.dataset.index = index;
-                
-                if (index === currentVideoIndex) {
-                    li.classList.add('playing');
-                }
-                
-                li.addEventListener('click', () => {
-                    playVideo(index);
-                });
-                
-                videoList.appendChild(li);
-            });
-        }
-        
-        // 랜덤 비디오 재생
-        function playRandomVideo() {
-            // 현재 비디오를 제외한 목록에서 선택
-            let randomIndex;
-            do {
-                randomIndex = Math.floor(Math.random() * videoFiles.length);
-            } while (randomIndex === currentVideoIndex && videoFiles.length > 1);
-            
-            playVideo(randomIndex);
-        }
-        
-        // 특정 비디오 재생
-        function playVideo(index) {
-            if (index >= 0 && index < videoFiles.length) {
-                currentVideoIndex = index;
-                const videoFile = videoFiles[index];
-                videoPlayer.src = videoFile;
-                
-                // 비디오 이름 업데이트
-                const fileName = videoFile.split('/').pop();
-                currentVideoName.textContent = fileName;
-                
-                // 재생 상태 업데이트
-                videoPlayer.play()
-                    .then(() => {
-                        playIcon.classList.remove('fa-play');
-                        playIcon.classList.add('fa-pause');
-                    })
-                    .catch(e => {
-                        console.error("비디오 재생 오류:", e);
-                    });
-                
-                // 목록 업데이트
-                renderVideoList();
-            }
-        }
-        
-        // 이전 비디오 재생
-        function playPrevVideo() {
-            if (currentVideoIndex <= 0) {
-                playVideo(videoFiles.length - 1);
-            } else {
-                playVideo(currentVideoIndex - 1);
-            }
-        }
-        
-        // 다음 비디오 재생
-        function playNextVideo() {
-            if (currentVideoIndex >= videoFiles.length - 1) {
-                playVideo(0);
-            } else {
-                playVideo(currentVideoIndex + 1);
-            }
-        }
-        
-        // 볼륨 조절
-        volumeControl.addEventListener('input', () => {
-            videoPlayer.volume = volumeControl.value;
-        });
-        
-        // 재생/일시정지 토글
-        playBtn.addEventListener('click', () => {
-            if (videoPlayer.paused) {
-                videoPlayer.play();
-                playIcon.classList.remove('fa-play');
-                playIcon.classList.add('fa-pause');
-            } else {
-                videoPlayer.pause();
-                playIcon.classList.remove('fa-pause');
-                playIcon.classList.add('fa-play');
-            }
-        });
-        
-        // 비디오 재생 상태 변경 감지
-        videoPlayer.addEventListener('play', () => {
-            playIcon.classList.remove('fa-play');
-            playIcon.classList.add('fa-pause');
-        });
-        
-        videoPlayer.addEventListener('pause', () => {
-            playIcon.classList.remove('fa-pause');
-            playIcon.classList.add('fa-play');
-        });
-        
-        // 비디오 종료 시 다음 비디오 재생
-        videoPlayer.addEventListener('ended', playNextVideo);
-        
-        // 버튼 이벤트 연결
-        randomBtn.addEventListener('click', playRandomVideo);
-        prevBtn.addEventListener('click', playPrevVideo);
-        nextBtn.addEventListener('click', playNextVideo);
-        
-        // 초기화
-        renderVideoList();
-        videoPlayer.volume = volumeControl.value;
-        
-        // 초기 랜덤 재생
-        setTimeout(playRandomVideo, 1000);
-    </script>
+  <script>
+    const basePath = "mp3/";
+    let mp3Files = [];
+
+    async function fetchMP3List() {
+      try {
+        const response = await fetch("files.json");
+        mp3Files = await response.json();
+        console.log("MP3 목록 불러오기 성공:", mp3Files);
+      } catch (error) {
+        console.error("MP3 목록 불러오기 실패", error);
+      }
+    }
+
+    function playRandom() {
+      if (mp3Files.length === 0) {
+        alert("MP3 파일이 없습니다.");
+        return;
+      }
+      const index = Math.floor(Math.random() * mp3Files.length);
+      const selected = mp3Files[index];
+      const audio = document.getElementById("audioPlayer");
+      audio.src = basePath + selected;
+      document.getElementById("nowPlaying").innerText = `재생 중: ${decodeURIComponent(selected)}`;
+      audio.play();
+    }
+
+    // 페이지 로드시 MP3 목록 불러오기
+    window.onload = fetchMP3List;
+  </script>
 </body>
 </html>
