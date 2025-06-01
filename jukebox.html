@@ -5,102 +5,81 @@
   <title>꽃말 주크박스</title>
   <style>
     body {
-      margin: 0;
+      background-image: url('img/bg1.jpeg'); /* 원하는 배경 사용 */
       background-size: cover;
-      background-position: center;
+      color: white;
       font-family: sans-serif;
       text-align: center;
-      color: white;
-    }
-    #controls {
-      margin-top: 30px;
-    }
-    #buttons img {
-      width: 60px;
-      margin: 5px;
-      cursor: pointer;
-      transition: transform 0.3s;
-    }
-    #buttons img:hover {
-      transform: scale(1.2);
+      padding-top: 50px;
     }
     #nowPlaying {
-      margin-top: 20px;
-      font-size: 18px;
-      background: rgba(0,0,0,0.4);
-      display: inline-block;
-      padding: 10px 20px;
-      border-radius: 12px;
+      font-size: 24px;
+      margin: 20px;
     }
     audio {
-      margin-top: 15px;
-      width: 80%;
-      max-width: 400px;
+      margin-top: 20px;
+      width: 300px;
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.5/dist/jsmediatags.min.js"></script>
 </head>
 <body>
 
-  <h1>🌸 꽃말 랜덤 주크박스 🎶</h1>
-
-  <div id="nowPlaying">🎵 불러오는 중...</div>
-
+  <h1>🎵 꽃말 랜덤 주크박스</h1>
+  <div id="nowPlaying">재생 준비 중...</div>
   <audio id="audio" controls autoplay></audio>
 
-  <div id="controls">
-    <div id="buttons"></div>
-  </div>
-
   <script>
-    // 🔄 랜덤 배경 이미지 적용
-    function setRandomBackground() {
-      const bgNumber = Math.floor(Math.random() * 7) + 1;
-      document.body.style.backgroundImage = `url('img/bg${bgNumber}.jpeg')`;
-    }
+    let files = [];
+    let currentIndex = -1;
 
-    // 🎨 배경 변경 함수
-    function changeBackground(num) {
-      document.body.style.backgroundImage = `url('img/bg${num}.jpeg')`;
-    }
-
-    // 🎛️ 버튼 자동 생성
-    function createBgButtons() {
-      const buttonContainer = document.getElementById('buttons');
-      for (let i = 1; i <= 5; i++) {
-        const img = document.createElement('img');
-        img.src = `img/btn${i}.png`;
-        img.alt = `배경 ${i}`;
-        img.onclick = () => changeBackground(i);
-        buttonContainer.appendChild(img);
-      }
-    }
-
-    // 🎵 MP3 재생
-    function playRandomSong() {
+    function fetchFileList() {
       fetch('files.json')
         .then(res => res.json())
-        .then(files => {
-          if (!files.length) {
-            document.getElementById('nowPlaying').textContent = '❌ 재생할 노래가 없습니다.';
+        .then(data => {
+          files = data;
+          if (files.length === 0) {
+            document.getElementById('nowPlaying').textContent = '❌ 재생할 파일이 없습니다.';
             return;
           }
-          const randomIndex = Math.floor(Math.random() * files.length);
-          const selected = files[randomIndex];
-          const audio = document.getElementById('audio');
-          audio.src = `mp3/${selected}`;
-          audio.play();
-          document.getElementById('nowPlaying').textContent = `🎵 지금 재생 중: ${decodeURIComponent(selected)}`;
+          playNext(); // 첫 곡 재생
         })
         .catch(err => {
-          document.getElementById('nowPlaying').textContent = '⚠️ 파일 목록을 불러올 수 없습니다.';
           console.error(err);
+          document.getElementById('nowPlaying').textContent = '⚠️ 파일 목록을 불러올 수 없습니다.';
         });
     }
 
-    // 🚀 시작
-    setRandomBackground();
-    createBgButtons();
-    playRandomSong();
+    function playNext() {
+      if (files.length === 0) return;
+
+      currentIndex = (currentIndex + 1) % files.length;
+      const fileName = files[currentIndex];
+      const filePath = `mp3/${fileName}`;
+      const audio = document.getElementById('audio');
+      audio.src = filePath;
+      audio.play();
+
+      // 제목 초기 텍스트
+      document.getElementById('nowPlaying').textContent = `🎵 ${fileName}`;
+
+      // ID3 태그로 제목 읽기
+      jsmediatags.read(filePath, {
+        onSuccess: function(tag) {
+          const title = tag.tags.title || fileName;
+          document.getElementById('nowPlaying').textContent = `🎵 ${title}`;
+        },
+        onError: function(error) {
+          console.warn("메타데이터 오류:", error);
+        }
+      });
+    }
+
+    // 다음 곡 자동 재생
+    document.getElementById('audio').addEventListener('ended', playNext);
+
+    // 시작
+    fetchFileList();
   </script>
 
 </body>
