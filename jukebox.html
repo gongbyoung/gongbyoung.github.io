@@ -2,40 +2,106 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>랜덤 주크박스</title>
+  <title>꽃말 주크박스</title>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 40px; }
-    #status { margin-top: 20px; font-size: 1.2em; color: red; }
+    body {
+      margin: 0;
+      background-size: cover;
+      background-position: center;
+      font-family: sans-serif;
+      text-align: center;
+      color: white;
+    }
+    #controls {
+      margin-top: 30px;
+    }
+    #buttons img {
+      width: 60px;
+      margin: 5px;
+      cursor: pointer;
+      transition: transform 0.3s;
+    }
+    #buttons img:hover {
+      transform: scale(1.2);
+    }
+    #nowPlaying {
+      margin-top: 20px;
+      font-size: 18px;
+      background: rgba(0,0,0,0.4);
+      display: inline-block;
+      padding: 10px 20px;
+      border-radius: 12px;
+    }
+    audio {
+      margin-top: 15px;
+      width: 80%;
+      max-width: 400px;
+    }
   </style>
 </head>
 <body>
-  <h1>🌸 꽃말 랜덤 주크박스 🌸</h1>
-  <button id="playBtn">랜덤 재생</button>
-  <div id="status"></div>
+
+  <h1>🌸 꽃말 랜덤 주크박스 🎶</h1>
+
+  <div id="nowPlaying">🎵 불러오는 중...</div>
+
+  <audio id="audio" controls autoplay></audio>
+
+  <div id="controls">
+    <div id="buttons"></div>
+  </div>
 
   <script>
-    document.getElementById('playBtn').addEventListener('click', () => {
+    // 🔄 랜덤 배경 이미지 적용
+    function setRandomBackground() {
+      const bgNumber = Math.floor(Math.random() * 7) + 1;
+      document.body.style.backgroundImage = `url('img/bg${bgNumber}.jpg')`;
+    }
+
+    // 🎨 배경 변경 함수
+    function changeBackground(num) {
+      document.body.style.backgroundImage = `url('img/bg${num}.jpg')`;
+    }
+
+    // 🎛️ 버튼 자동 생성
+    function createBgButtons() {
+      const buttonContainer = document.getElementById('buttons');
+      for (let i = 1; i <= 5; i++) {
+        const img = document.createElement('img');
+        img.src = `img/btn${i}.png`;
+        img.alt = `배경 ${i}`;
+        img.onclick = () => changeBackground(i);
+        buttonContainer.appendChild(img);
+      }
+    }
+
+    // 🎵 MP3 재생
+    function playRandomSong() {
       fetch('files.json')
-        .then(response => {
-          if (!response.ok) throw new Error("파일 목록을 불러오지 못했습니다.");
-          return response.json();
-        })
+        .then(res => res.json())
         .then(files => {
-          if (!files || files.length === 0) {
-            document.getElementById('status').textContent = "🎵 재생할 MP3 파일이 없습니다.";
+          if (!files.length) {
+            document.getElementById('nowPlaying').textContent = '❌ 재생할 노래가 없습니다.';
             return;
           }
-
-          const randomFile = files[Math.floor(Math.random() * files.length)];
-          const audio = new Audio(`mp3/${encodeURIComponent(randomFile)}`);
+          const randomIndex = Math.floor(Math.random() * files.length);
+          const selected = files[randomIndex];
+          const audio = document.getElementById('audio');
+          audio.src = `mp3/${selected}`;
           audio.play();
-          document.getElementById('status').textContent = `▶️ 재생 중: ${randomFile}`;
+          document.getElementById('nowPlaying').textContent = `🎵 지금 재생 중: ${decodeURIComponent(selected)}`;
         })
         .catch(err => {
-          document.getElementById('status').textContent = "🚫 파일 목록을 불러오는 중 오류 발생";
+          document.getElementById('nowPlaying').textContent = '⚠️ 파일 목록을 불러올 수 없습니다.';
           console.error(err);
         });
-    });
+    }
+
+    // 🚀 시작
+    setRandomBackground();
+    createBgButtons();
+    playRandomSong();
   </script>
+
 </body>
 </html>
