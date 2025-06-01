@@ -2,126 +2,132 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>Jukebox</title>
+  <title>꽃말 주크박스</title>
   <style>
     body {
       margin: 0;
       overflow: hidden;
-      font-family: 'Arial';
-    }
-    #background {
-      position: fixed;
-      width: 100vw;
-      height: 100vh;
-      background-image: url("img/jukebox.jpg");
+      background: url('img/jukebox.jpg') no-repeat center center fixed;
       background-size: cover;
-      background-position: center;
+      font-family: sans-serif;
     }
-    #title {
+
+    #title-marquee {
       position: absolute;
-      top: 50px;
-      left: 100px;
+      top: 40px;
+      left: 50%;
+      transform: translateX(-50%);
       width: 80%;
       white-space: nowrap;
       overflow: hidden;
-      color: gold;
+      color: #fff;
       font-size: 24px;
-      animation: marquee 15s linear infinite;
+      text-shadow: 2px 2px 4px #000;
     }
-    @keyframes marquee {
-      0% { transform: translateX(100%); }
+
+    #title-marquee span {
+      display: inline-block;
+      padding-left: 100%;
+      animation: scroll-left 15s linear infinite;
+    }
+
+    @keyframes scroll-left {
+      0%   { transform: translateX(0); }
       100% { transform: translateX(-100%); }
     }
-    .btn {
+
+    .control-btn {
       position: absolute;
-      width: 60px;
-      height: 60px;
+      width: 50px;
+      height: 50px;
       cursor: pointer;
     }
-    #prevBtn { left: 80px; bottom: 120px; background: url('img/btn1.png') no-repeat center/contain; }
-    #nextBtn { left: 160px; bottom: 120px; background: url('img/btn2.png') no-repeat center/contain; }
-    #volDownBtn { right: 160px; bottom: 120px; background: url('img/btn3.png') no-repeat center/contain; }
-    #volUpBtn { right: 80px; bottom: 120px; background: url('img/btn4.png') no-repeat center/contain; }
+
+    #prevBtn { bottom: 40px; left: 30px; }
+    #nextBtn { bottom: 40px; left: 100px; }
+    #volDown { bottom: 40px; right: 100px; }
+    #volUp   { bottom: 40px; right: 30px; }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.5/dist/jsmediatags.min.js"></script>
 </head>
 <body>
-  <div id="background"></div>
-  <div id="title">재생 중인 제목 표시 영역</div>
-  <div id="prevBtn" class="btn"></div>
-  <div id="nextBtn" class="btn"></div>
-  <div id="volDownBtn" class="btn"></div>
-  <div id="volUpBtn" class="btn"></div>
+  <div id="title-marquee"><span id="title-text">곡 제목을 불러오는 중...</span></div>
+
+  <img id="prevBtn" class="control-btn" src="img/btn1.png" alt="이전">
+  <img id="nextBtn" class="control-btn" src="img/btn2.png" alt="다음">
+  <img id="volDown" class="control-btn" src="img/btn3.png" alt="볼륨다운">
+  <img id="volUp" class="control-btn" src="img/btn4.png" alt="볼륨업">
+
   <audio id="audio" autoplay></audio>
 
   <script>
+    const audio = document.getElementById('audio');
+    const titleText = document.getElementById('title-text');
     let playlist = [];
-    let currentTrack = 0;
-    let audio = document.getElementById("audio");
-    let title = document.getElementById("title");
+    let currentIndex = 0;
 
-    // JSON 파일에서 목록을 가져오기
-    window.onload = () => {
-      fetch("files.json")
-        .then((res) => res.json())
-        .then((data) => {
-          if (!Array.isArray(data) || data.length === 0) {
-            alert("파일 목록을 불러올 수 없습니다.");
+    function loadPlaylist() {
+      fetch('files.json')
+        .then(res => res.json())
+        .then(data => {
+          playlist = data;
+          if (playlist.length === 0) {
+            titleText.textContent = "MP3 파일이 없습니다.";
             return;
           }
-          playlist = data;
-          loadAndPlay(playlist[currentTrack]);
+          currentIndex = Math.floor(Math.random() * playlist.length);
+          playCurrent();
         })
-        .catch((err) => {
-          alert("파일 목록을 불러오는 데 실패했습니다.");
-          console.error(err);
+        .catch(err => {
+          console.error("목록 로딩 오류:", err);
+          titleText.textContent = "파일 목록을 불러올 수 없습니다.";
         });
-    };
+    }
 
-    // 메타데이터에서 제목 추출 함수
-    function extractTitleFromMetadata(file, callback) {
-      let tempAudio = document.createElement("audio");
-      tempAudio.src = file;
-      tempAudio.addEventListener("loadedmetadata", () => {
-        let titleText = file.split("/").pop(); // fallback 제목
-        try {
-          const titleTag = tempAudio.title;
-          if (titleTag) titleText = titleTag;
-        } catch {}
-        callback(titleText);
+    function playCurrent() {
+      const file = playlist[currentIndex];
+      audio.src = 'mp3/' + file;
+
+      // 메타태그 제목 읽기
+      jsmediatags.read(audio.src, {
+        onSuccess: function(tag) {
+          const title = tag.tags.title || file;
+          showTitle(title);
+        },
+        onError: function() {
+          showTitle(file);
+        }
       });
     }
 
-    // 음악 재생 함수
-    function loadAndPlay(file) {
-      audio.src = "mp3/" + file;
-      title.textContent = file.replace(/\.[^/.]+$/, ""); // 제목 텍스트 표시 (확장자 제거)
-      audio.play();
+    function showTitle(title) {
+      titleText.textContent = title;
     }
 
-    // 다음곡으로 자동 넘어가기
-    audio.addEventListener("ended", () => {
-      currentTrack = (currentTrack + 1) % playlist.length;
-      loadAndPlay(playlist[currentTrack]);
-    });
+    function nextTrack() {
+      currentIndex = (currentIndex + 1) % playlist.length;
+      playCurrent();
+    }
 
-    // 버튼 기능
-    document.getElementById("prevBtn").addEventListener("click", () => {
-      currentTrack = (currentTrack - 1 + playlist.length) % playlist.length;
-      loadAndPlay(playlist[currentTrack]);
-    });
+    function prevTrack() {
+      currentIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+      playCurrent();
+    }
 
-    document.getElementById("nextBtn").addEventListener("click", () => {
-      currentTrack = (currentTrack + 1) % playlist.length;
-      loadAndPlay(playlist[currentTrack]);
-    });
+    document.getElementById('nextBtn').addEventListener('click', nextTrack);
+    document.getElementById('prevBtn').addEventListener('click', prevTrack);
 
-    document.getElementById("volUpBtn").addEventListener("click", () => {
+    document.getElementById('volUp').addEventListener('click', () => {
       audio.volume = Math.min(1, audio.volume + 0.1);
     });
 
-    document.getElementById("volDownBtn").addEventListener("click", () => {
+    document.getElementById('volDown').addEventListener('click', () => {
       audio.volume = Math.max(0, audio.volume - 0.1);
     });
+
+    audio.addEventListener('ended', nextTrack);
+
+    loadPlaylist();
   </script>
 </body>
 </html>
