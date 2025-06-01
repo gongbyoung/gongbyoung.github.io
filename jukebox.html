@@ -2,36 +2,73 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>꽃말 주크박스</title>
+  <title>🎶 주크박스 플레이어</title>
   <style>
     body {
-      background-image: url('img/bg1.jpeg'); /* 원하는 배경 사용 */
+      margin: 0;
+      padding: 0;
+      background: url('img/jukebox.jpg') no-repeat center center fixed;
       background-size: cover;
-      color: white;
-      font-family: sans-serif;
+      font-family: 'Arial', sans-serif;
+      color: #fff;
       text-align: center;
-      padding-top: 50px;
     }
-    #nowPlaying {
-      font-size: 24px;
-      margin: 20px;
+    #marqueeTitle {
+      margin-top: 20px;
+      font-size: 22px;
+      font-weight: bold;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    marquee {
+      display: inline-block;
+      width: 80%;
     }
     audio {
-      margin-top: 20px;
-      width: 300px;
+      display: none;
+    }
+    .controls {
+      position: absolute;
+      bottom: 50px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      align-items: center;
+    }
+    .btn {
+      width: 80px;
+      height: 80px;
+      border: none;
+      border-radius: 50%;
+      font-size: 24px;
+      cursor: pointer;
+      background-color: rgba(0,0,0,0.4);
+      color: #fff;
+    }
+    #volume {
+      width: 100px;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.5/dist/jsmediatags.min.js"></script>
 </head>
 <body>
 
-  <h1>🎵 꽃말 랜덤 주크박스</h1>
-  <div id="nowPlaying">재생 준비 중...</div>
-  <audio id="audio" controls autoplay></audio>
+  <div id="marqueeTitle"><marquee behavior="scroll" direction="left">로딩 중입니다...</marquee></div>
+
+  <audio id="audio" autoplay controls></audio>
+
+  <div class="controls">
+    <button class="btn" onclick="playPrev()">⏮️</button>
+    <input type="range" id="volume" min="0" max="1" step="0.01" value="0.5">
+    <button class="btn" onclick="playNext()">⏭️</button>
+  </div>
 
   <script>
     let files = [];
-    let currentIndex = -1;
+    let currentIndex = 0;
+    const audio = document.getElementById("audio");
+    const marquee = document.querySelector("marquee");
 
     function fetchFileList() {
       fetch('files.json')
@@ -39,48 +76,60 @@
         .then(data => {
           files = data;
           if (files.length === 0) {
-            document.getElementById('nowPlaying').textContent = '❌ 재생할 파일이 없습니다.';
+            marquee.textContent = "❌ 파일이 없습니다.";
             return;
           }
-          playNext(); // 첫 곡 재생
+          playAt(currentIndex);
         })
         .catch(err => {
+          marquee.textContent = "⚠️ 목록을 불러올 수 없습니다.";
           console.error(err);
-          document.getElementById('nowPlaying').textContent = '⚠️ 파일 목록을 불러올 수 없습니다.';
         });
     }
 
-    function playNext() {
-      if (files.length === 0) return;
-
-      currentIndex = (currentIndex + 1) % files.length;
-      const fileName = files[currentIndex];
-      const filePath = `mp3/${fileName}`;
-      const audio = document.getElementById('audio');
-      audio.src = filePath;
+    function playAt(index) {
+      currentIndex = (index + files.length) % files.length;
+      const file = files[currentIndex];
+      const path = `mp3/${file}`;
+      audio.src = path;
       audio.play();
 
-      // 제목 초기 텍스트
-      document.getElementById('nowPlaying').textContent = `🎵 ${fileName}`;
+      marquee.textContent = file;
 
-      // ID3 태그로 제목 읽기
-      jsmediatags.read(filePath, {
+      // 메타데이터에서 제목 추출
+      jsmediatags.read(path, {
         onSuccess: function(tag) {
-          const title = tag.tags.title || fileName;
-          document.getElementById('nowPlaying').textContent = `🎵 ${title}`;
+          const title = tag.tags.title || file;
+          marquee.textContent = `🎵 ${title}`;
         },
-        onError: function(error) {
-          console.warn("메타데이터 오류:", error);
+        onError: function(err) {
+          console.warn("메타 정보 없음:", err);
         }
       });
     }
 
-    // 다음 곡 자동 재생
-    document.getElementById('audio').addEventListener('ended', playNext);
+    function playNext() {
+      playAt(currentIndex + 1);
+    }
+
+    function playPrev() {
+      playAt(currentIndex - 1);
+    }
+
+    // 오디오 끝나면 다음 곡
+    audio.addEventListener("ended", playNext);
+
+    // 볼륨 제어
+    const volumeSlider = document.getElementById("volume");
+    volumeSlider.addEventListener("input", () => {
+      audio.volume = volumeSlider.value;
+    });
+
+    // 초기 볼륨 설정
+    audio.volume = volumeSlider.value;
 
     // 시작
     fetchFileList();
   </script>
-
 </body>
 </html>
