@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>⚾ 숫자야구 게임</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+        body {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #FFD700;
+            margin-bottom: 30px;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        .input-area {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        #user-input {
+            flex: 1;
+            padding: 15px;
+            font-size: 20px;
+            text-align: center;
+            border: 3px solid #4A90E2;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        button {
+            background: #4A90E2;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 15px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #357ABD;
+            transform: translateY(-2px);
+        }
+        #result {
+            margin-top: 30px;
+            min-height: 300px;
+            border: 2px solid #FFD700;
+            border-radius: 10px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            overflow-y: auto;
+            max-height: 400px;
+        }
+        .attempt {
+            padding: 10px;
+            border-bottom: 1px solid #444;
+            display: flex;
+            justify-content: space-between;
+        }
+        .strike { color: #FF5252; font-weight: bold; }
+        .ball { color: #4CAF50; font-weight: bold; }
+        .out { color: #9E9E9E; }
+        .win-message {
+            text-align: center;
+            font-size: 24px;
+            color: #FFD700;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚾ 숫자야구 게임</h1>
+        <div class="input-area">
+            <input 
+                type="number" 
+                id="user-input" 
+                placeholder="3자리 숫자 입력" 
+                min="100" 
+                max="999"
+                autofocus
+            >
+            <button id="submit-btn">확인</button>
+        </div>
+        <button id="reset-btn">게임 재시작</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // 게임 변수
+        let computerNumbers = [];
+        let attempts = 0;
+        const maxAttempts = 9;
+        const resultDiv = document.getElementById('result');
+        const userInput = document.getElementById('user-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const resetBtn = document.getElementById('reset-btn');
+
+        // 게임 초기화
+        function initGame() {
+            computerNumbers = generateComputerNumbers();
+            attempts = 0;
+            resultDiv.innerHTML = '';
+            userInput.value = '';
+            userInput.focus();
+            console.log("정답: ", computerNumbers.join('')); // 테스트용 (실제로는 삭제)
+        }
+
+        // 컴퓨터 숫자 생성 (중복없는 3자리)
+        function generateComputerNumbers() {
+            const numbers = [];
+            while(numbers.length < 3) {
+                const num = Math.floor(Math.random() * 10);
+                // 첫 자리는 0 금지, 중복 체크
+                if ((numbers.length === 0 && num !== 0) || 
+                    (numbers.length > 0 && !numbers.includes(num))) {
+                    numbers.push(num);
+                }
+            }
+            return numbers;
+        }
+
+        // 숫자 검증
+        function validateInput(input) {
+            if (input.length !== 3) return false;
+            
+            const numArray = input.split('').map(Number);
+            const uniqueNums = [...new Set(numArray)];
+            
+            // 중복 숫자 체크
+            if (uniqueNums.length !== 3) return false;
+            
+            // 0이 첫번째 자리에 있는지 체크
+            if (numArray[0] === 0) return false;
+            
+            return true;
+        }
+
+        // 결과 계산
+        function calculateResult(userNumbers) {
+            let strikes = 0;
+            let balls = 0;
+            
+            userNumbers.forEach((num, index) => {
+                if (num === computerNumbers[index]) {
+                    strikes++;
+                } else if (computerNumbers.includes(num)) {
+                    balls++;
+                }
+            });
+            
+            return { strikes, balls };
+        }
+
+        // 결과 표시
+        function displayResult(userInput, result) {
+            attempts++;
+            const attemptDiv = document.createElement('div');
+            attemptDiv.className = 'attempt';
+            
+            let resultText = '';
+            if (result.strikes === 3) {
+                attemptDiv.innerHTML = `
+                    <div>${attempts}회차: ${userInput}</div>
+                    <div class="win-message">🎉 정답입니다! ${attempts}번 만에 맞췄어요!</div>
+                `;
+                submitBtn.disabled = true;
+            } else if (attempts >= maxAttempts) {
+                attemptDiv.innerHTML = `
+                    <div>${attempts}회차: ${userInput}</div>
+                    <div>게임 오버! 정답은 <strong>${computerNumbers.join('')}</strong> 입니다</div>
+                `;
+                submitBtn.disabled = true;
+            } else {
+                if (result.strikes === 0 && result.balls === 0) {
+                    resultText = `<span class="out">OUT</span>`;
+                } else {
+                    resultText = `
+                        <span class="strike">${result.strikes}S</span> 
+                        <span class="ball">${result.balls}B</span>
+                    `;
+                }
+                attemptDiv.innerHTML = `
+                    <div>${attempts}회차: ${userInput}</div>
+                    <div>${resultText}</div>
+                `;
+            }
+            
+            resultDiv.prepend(attemptDiv);
+        }
+
+        // 게임 실행
+        submitBtn.addEventListener('click', () => {
+            const input = userInput.value;
+            
+            if (!validateInput(input)) {
+                alert('올바른 3자리 숫자를 입력해주세요!\n(첫자리 0 안됨, 중복 숫자 안됨)');
+                userInput.value = '';
+                userInput.focus();
+                return;
+            }
+            
+            const userNumbers = input.split('').map(Number);
+            const result = calculateResult(userNumbers);
+            displayResult(input, result);
+            
+            userInput.value = '';
+            userInput.focus();
+        });
+
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') submitBtn.click();
+        });
+
+        resetBtn.addEventListener('click', initGame);
+
+        // 게임 시작
+        initGame();
+    </script>
+</body>
+</html>
