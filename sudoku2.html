@@ -2,14 +2,14 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎮 스도쿠 게임 - 숫자 하이라이트</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🎮 스도쿠 게임 - 모바일 최적화</title>
     <style>
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
         }
         
         body {
@@ -18,17 +18,19 @@
             align-items: center;
             min-height: 100vh;
             background: linear-gradient(135deg, #1a2980, #26d0ce);
-            padding: 20px;
+            padding: 15px;
             color: #333;
+            overflow-x: hidden;
+            touch-action: manipulation;
         }
         
         .container {
             width: 100%;
             max-width: 800px;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            padding: 30px;
+            background: rgba(255, 255, 255, 0.97);
+            border-radius: 18px;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25);
+            padding: 25px;
             position: relative;
             overflow: hidden;
         }
@@ -38,11 +40,11 @@
             position: absolute;
             top: -50px;
             right: -50px;
-            width: 200px;
-            height: 200px;
+            width: 180px;
+            height: 180px;
             background: linear-gradient(45deg, #ff9a9e, #fad0c4);
             border-radius: 50%;
-            opacity: 0.1;
+            opacity: 0.12;
             z-index: 0;
         }
         
@@ -51,50 +53,56 @@
             position: absolute;
             bottom: -50px;
             left: -50px;
-            width: 250px;
-            height: 250px;
+            width: 220px;
+            height: 220px;
             background: linear-gradient(45deg, #a1c4fd, #c2e9fb);
             border-radius: 50%;
-            opacity: 0.1;
+            opacity: 0.12;
             z-index: 0;
         }
         
         header {
             text-align: center;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             position: relative;
             z-index: 1;
         }
         
         h1 {
-            font-size: 2.5rem;
+            font-size: 2.3rem;
             color: #2c3e50;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.08);
         }
         
         .subtitle {
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             color: #7f8c8d;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
         
         .game-container {
             display: flex;
-            flex-wrap: wrap;
-            gap: 30px;
+            flex-direction: column;
+            gap: 25px;
             position: relative;
             z-index: 1;
         }
         
         .board-section {
-            flex: 1;
-            min-width: 300px;
+            order: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         
         .controls-section {
-            flex: 1;
-            min-width: 300px;
+            order: 3;
+        }
+        
+        .number-pad-section {
+            order: 2;
+            margin: 15px 0;
         }
         
         .sudoku-board {
@@ -103,22 +111,23 @@
             gap: 1px;
             background: #2c3e50;
             border: 3px solid #2c3e50;
-            border-radius: 5px;
+            border-radius: 6px;
             overflow: hidden;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            max-width: 100%;
+            aspect-ratio: 1/1;
         }
         
         .cell {
-            aspect-ratio: 1;
-            background: white;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 1.5rem;
+            font-size: 1.4rem;
             font-weight: bold;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.25s ease;
             position: relative;
+            aspect-ratio: 1;
         }
         
         .cell.fixed {
@@ -132,7 +141,10 @@
         }
         
         .cell.selected {
-            background: #ffeaa7;
+            background: #ffeaa7 !important;
+            transform: scale(1.05);
+            z-index: 2;
+            box-shadow: 0 0 8px rgba(0,0,0,0.2);
         }
         
         /* 같은 행 하이라이트 */
@@ -150,13 +162,20 @@
             background: #b3e0ff;
         }
         
-        /* 같은 3x3 박스 하이라이트
+        /* 같은 3x3 박스 하이라이트 */
         .cell.box-highlight {
             background: #e0f7fa;
-        } */
+        }
         
         .cell.error {
             color: #e74c3c;
+            animation: shake 0.4s ease;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-3px); }
+            40%, 80% { transform: translateX(3px); }
         }
         
         .cell:nth-child(3n):not(:nth-child(9n)) {
@@ -171,8 +190,8 @@
         .number-pad {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 10px;
-            margin-top: 20px;
+            gap: 12px;
+            margin-top: 0;
         }
         
         .number-btn {
@@ -180,81 +199,80 @@
             background: #3498db;
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 1.3rem;
+            border-radius: 10px;
+            font-size: 1.4rem;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.2s ease;
             display: flex;
             justify-content: center;
             align-items: center;
-            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
-        }
-        
-        .number-btn:hover {
-            background: #2980b9;
-            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+            min-height: 55px;
         }
         
         .number-btn:active {
-            transform: translateY(1px);
+            transform: translateY(2px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        }
+        
+        .number-btn.disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            opacity: 0.6;
+            transform: none !important;
         }
         
         .number-btn.clear {
             background: #e74c3c;
             grid-column: span 2;
             aspect-ratio: unset;
-        }
-        
-        .number-btn.clear:hover {
-            background: #c0392b;
+            font-size: 1.1rem;
         }
         
         .number-btn.hint {
             background: #2ecc71;
             grid-column: span 2;
             aspect-ratio: unset;
-        }
-        
-        .number-btn.hint:hover {
-            background: #27ae60;
+            font-size: 1.1rem;
         }
         
         .control-panel {
             background: #f8f9fa;
-            border-radius: 10px;
+            border-radius: 12px;
             padding: 20px;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
         
         .difficulty-selector {
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         
         .difficulty-selector h3 {
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             color: #2c3e50;
+            font-size: 1.1rem;
         }
         
         .difficulty-buttons {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
         }
         
         .difficulty-btn {
-            flex: 1;
-            padding: 12px;
+            padding: 12px 5px;
             background: #ecf0f1;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
+            font-size: 0.9rem;
             transition: all 0.2s ease;
         }
         
-        .difficulty-btn:hover {
-            background: #d5dbdb;
+        .difficulty-btn:active {
+            transform: translateY(2px);
         }
         
         .difficulty-btn.active {
@@ -265,45 +283,49 @@
         .game-stats {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin: 25px 0;
+            gap: 12px;
+            margin: 20px 0;
         }
         
         .stat-card {
             background: white;
             border-radius: 10px;
-            padding: 15px;
+            padding: 14px;
             text-align: center;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06);
         }
         
         .stat-card h4 {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: #7f8c8d;
             margin-bottom: 5px;
         }
         
         .stat-card .value {
-            font-size: 1.8rem;
+            font-size: 1.6rem;
             font-weight: 700;
             color: #2c3e50;
         }
         
         .game-controls {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
             gap: 10px;
-            margin-top: 20px;
+            margin-top: 15px;
         }
         
         .game-btn {
-            flex: 1;
-            padding: 15px;
+            padding: 14px 8px;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 700;
-            font-size: 1rem;
+            font-size: 0.95rem;
             transition: all 0.2s ease;
+        }
+        
+        .game-btn:active {
+            transform: translateY(2px);
         }
         
         .game-btn.new {
@@ -311,17 +333,9 @@
             color: white;
         }
         
-        .game-btn.new:hover {
-            background: #8e44ad;
-        }
-        
         .game-btn.check {
             background: #f39c12;
             color: white;
-        }
-        
-        .game-btn.check:hover {
-            background: #d35400;
         }
         
         .game-btn.solve {
@@ -329,16 +343,17 @@
             color: white;
         }
         
-        .game-btn.solve:hover {
-            background: #27ae60;
-        }
-        
         .message {
             text-align: center;
-            padding: 15px;
-            margin-top: 20px;
+            padding: 14px;
+            margin-top: 18px;
             border-radius: 8px;
             font-weight: 600;
+            font-size: 0.95rem;
+            min-height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .highlight-info {
@@ -362,10 +377,11 @@
         
         .highlight-info .color-box {
             display: inline-block;
-            width: 20px;
-            height: 20px;
-            margin-right: 10px;
-            border-radius: 3px;
+            width: 22px;
+            height: 22px;
+            margin-right: 12px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
         }
         
         .message.success {
@@ -383,22 +399,112 @@
             color: #8e44ad;
         }
         
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f00;
+            border-radius: 50%;
+            z-index: 10;
+            pointer-events: none;
+        }
+        
         footer {
             text-align: center;
-            margin-top: 30px;
+            margin-top: 25px;
             color: #7f8c8d;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             position: relative;
             z-index: 1;
         }
         
+        /* 모바일 최적화 */
         @media (max-width: 768px) {
-            .game-container {
-                flex-direction: column;
+            .container {
+                padding: 18px;
+                border-radius: 16px;
             }
             
             h1 {
                 font-size: 2rem;
+            }
+            
+            .sudoku-board {
+                max-width: 95vw;
+            }
+            
+            .cell {
+                font-size: 1.3rem;
+            }
+            
+            .number-btn {
+                min-height: 50px;
+                font-size: 1.3rem;
+            }
+            
+            .game-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .stat-card .value {
+                font-size: 1.5rem;
+            }
+            
+            .difficulty-buttons {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .subtitle {
+                font-size: 0.95rem;
+            }
+            
+            .cell {
+                font-size: 1.2rem;
+            }
+            
+            .number-btn {
+                min-height: 45px;
+                font-size: 1.25rem;
+                border-radius: 8px;
+            }
+            
+            .game-btn {
+                font-size: 0.9rem;
+                padding: 12px 5px;
+            }
+            
+            .stat-card {
+                padding: 12px 8px;
+            }
+            
+            .stat-card .value {
+                font-size: 1.4rem;
+            }
+            
+            .stat-card h4 {
+                font-size: 0.8rem;
+            }
+            
+            .message {
+                font-size: 0.9rem;
+                padding: 12px;
+            }
+        }
+        
+        /* 작은 화면에서 게임 컨트롤 버튼 텍스트 줄바꿈 */
+        @media (max-width: 360px) {
+            .game-btn {
+                font-size: 0.8rem;
             }
         }
     </style>
@@ -406,14 +512,16 @@
 <body>
     <div class="container">
         <header>
-            <h1>🎮 스도쿠 게임</h1>
-            <p class="subtitle"></p>
+            <h1>🎮 모바일 스도쿠</h1>
+            <p class="subtitle">숫자를 모두 채우면 버튼이 비활성화됩니다!</p>
         </header>
         
         <div class="game-container">
             <div class="board-section">
                 <div class="sudoku-board" id="sudoku-board"></div>
-                
+            </div>
+            
+            <div class="number-pad-section">
                 <div class="number-pad">
                     <button class="number-btn" data-number="1">1</button>
                     <button class="number-btn" data-number="2">2</button>
@@ -484,7 +592,7 @@
         </div>
         
         <footer>
-            <p></p>
+            <p>© 2023 모바일 최적화 스도쿠 게임</p>
         </footer>
     </div>
 
@@ -508,6 +616,9 @@
         const errorsElement = document.getElementById('errors');
         const progressElement = document.getElementById('progress');
         const messageElement = document.getElementById('message');
+        
+        // 숫자 버튼 비활성화 상태 추적
+        const numberButtons = {};
         
         // 랜덤 퍼즐 생성 알고리즘
         function generateRandomSudoku() {
@@ -670,6 +781,14 @@
             messageElement.textContent = '퍼즐 생성 중...';
             messageElement.className = 'message generating';
             
+            // 숫자 버튼 활성화
+            document.querySelectorAll('.number-btn').forEach(btn => {
+                if (!btn.classList.contains('clear') && !btn.classList.contains('hint')) {
+                    btn.disabled = false;
+                    btn.classList.remove('disabled');
+                }
+            });
+            
             // 잠시 후 퍼즐 생성 (사용자 경험 개선)
             setTimeout(() => {
                 // 랜덤 스도쿠 퍼즐 생성
@@ -718,6 +837,38 @@
             
             // 진행률 업데이트
             updateProgress();
+            
+            // 숫자 버튼 상태 업데이트
+            updateNumberButtons();
+        }
+        
+        // 숫자 버튼 상태 업데이트
+        function updateNumberButtons() {
+            // 각 숫자(1-9)에 대해 보드에 모두 채워졌는지 확인
+            for (let num = 1; num <= 9; num++) {
+                let count = 0;
+                
+                // 보드에서 해당 숫자의 개수 세기
+                for (let row = 0; row < 9; row++) {
+                    for (let col = 0; col < 9; col++) {
+                        if (board[row][col] === num) {
+                            count++;
+                        }
+                    }
+                }
+                
+                // 해당 숫자 버튼
+                const btn = document.querySelector(`.number-btn[data-number="${num}"]`);
+                
+                // 숫자가 모두 채워졌으면 비활성화
+                if (count === 9) {
+                    btn.disabled = true;
+                    btn.classList.add('disabled');
+                } else {
+                    btn.disabled = false;
+                    btn.classList.remove('disabled');
+                }
+            }
         }
         
         // 셀 선택
@@ -735,28 +886,30 @@
             
             // 새 셀 선택
             selectedCell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
-            selectedCell.classList.add('selected');
-            
-            // 같은 행 하이라이트
-            highlightRow(row);
-            
-            // 같은 열 하이라이트
-            highlightCol(col);
-            
-            // 같은 3x3 박스 하이라이트
-            highlightBox(row, col);
-            
-            // 같은 숫자 하이라이트
-            highlightSameNumbers(row, col);
-            
-            messageElement.textContent = `${row + 1}행 ${col + 1}열 선택됨`;
+            if (selectedCell) {
+                selectedCell.classList.add('selected');
+                
+                // 같은 행 하이라이트
+                highlightRow(row);
+                
+                // 같은 열 하이라이트
+                highlightCol(col);
+                
+                // 같은 3x3 박스 하이라이트
+                highlightBox(row, col);
+                
+                // 같은 숫자 하이라이트
+                highlightSameNumbers(row, col);
+                
+                messageElement.textContent = `${row + 1}행 ${col + 1}열 선택됨`;
+            }
         }
         
         // 같은 행 하이라이트
         function highlightRow(row) {
             for (let col = 0; col < 9; col++) {
                 const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
-                cell.classList.add('row-highlight');
+                if (cell) cell.classList.add('row-highlight');
             }
         }
         
@@ -764,7 +917,7 @@
         function highlightCol(col) {
             for (let row = 0; row < 9; row++) {
                 const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
-                cell.classList.add('col-highlight');
+                if (cell) cell.classList.add('col-highlight');
             }
         }
         
@@ -776,7 +929,7 @@
             for (let r = boxRowStart; r < boxRowStart + 3; r++) {
                 for (let c = boxColStart; c < boxColStart + 3; c++) {
                     const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-                    cell.classList.add('box-highlight');
+                    if (cell) cell.classList.add('box-highlight');
                 }
             }
         }
@@ -790,7 +943,7 @@
                 for (let c = 0; c < 9; c++) {
                     if (board[r][c] === value) {
                         const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-                        cell.classList.add('number-highlight');
+                        if (cell) cell.classList.add('number-highlight');
                     }
                 }
             }
@@ -819,10 +972,12 @@
                     errorsElement.textContent = errors;
                     messageElement.textContent = '틀렸습니다! 다시 시도해보세요.';
                     messageElement.className = 'message error';
+                    playSound('error');
                 } else {
                     selectedCell.classList.remove('error');
                     messageElement.textContent = '정답입니다! 계속 진행하세요.';
                     messageElement.className = 'message';
+                    playSound('correct');
                 }
                 
                 selectedCell.textContent = number;
@@ -837,6 +992,9 @@
             
             // 진행률 업데이트
             updateProgress();
+            
+            // 숫자 버튼 상태 업데이트
+            updateNumberButtons();
             
             // 게임 완료 여부 확인
             checkGameCompletion();
@@ -876,8 +1034,12 @@
             gameCompleted = true;
             clearInterval(timerInterval);
             
-            messageElement.textContent = `축하합니다! 스도쿠를 완성했습니다! (시간: ${timerElement.textContent})`;
+            messageElement.textContent = `🎉 축하합니다! 스도쿠를 완성했습니다! (시간: ${timerElement.textContent})`;
             messageElement.className = 'message success';
+            
+            // 축하 효과
+            createConfetti();
+            playSound('win');
             
             return true;
         }
@@ -916,9 +1078,13 @@
             
             messageElement.textContent = `힌트: ${row + 1}행 ${col + 1}열은 ${hint}입니다.`;
             messageElement.className = 'message';
+            playSound('hint');
             
             // 진행률 업데이트
             updateProgress();
+            
+            // 숫자 버튼 상태 업데이트
+            updateNumberButtons();
             
             // 게임 완료 여부 확인
             checkGameCompletion();
@@ -946,9 +1112,11 @@
             if (hasError) {
                 messageElement.textContent = '아직 오답이 있습니다. 다시 확인해주세요.';
                 messageElement.className = 'message error';
+                playSound('error');
             } else if (checkGameCompletion()) {
-                messageElement.textContent = `축하합니다! 스도쿠를 완성했습니다! (시간: ${timerElement.textContent})`;
+                messageElement.textContent = `🎉 축하합니다! 스도쿠를 완성했습니다! (시간: ${timerElement.textContent})`;
                 messageElement.className = 'message success';
+                playSound('win');
             } else {
                 messageElement.textContent = '아직 풀지 않은 셀이 있지만 오류는 없습니다.';
                 messageElement.className = 'message';
@@ -977,6 +1145,9 @@
             progressElement.textContent = '100%';
             messageElement.textContent = '정답을 보여드립니다. 새 게임을 시작해보세요!';
             messageElement.className = 'message';
+            
+            // 숫자 버튼 상태 업데이트
+            updateNumberButtons();
         }
         
         // 셀 지우기
@@ -996,6 +1167,42 @@
             
             // 새 게임 시작
             initGame();
+        }
+        
+        // 효과음 재생
+        function playSound(type) {
+            // 실제 구현에서는 오디오 파일을 사용하지만 여기서는 시뮬레이션
+            console.log(`Playing ${type} sound`);
+        }
+        
+        // 축하 효과 (컨페티)
+        function createConfetti() {
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+            const container = document.querySelector('.container');
+            
+            for (let i = 0; i < 150; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.left = `${Math.random() * 100}%`;
+                confetti.style.top = `${Math.random() * -20}%`;
+                confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+                confetti.style.width = `${Math.random() * 10 + 5}px`;
+                confetti.style.height = confetti.style.width;
+                
+                container.appendChild(confetti);
+                
+                // 애니메이션
+                const animation = confetti.animate([
+                    { transform: `translate(0, 0) rotate(0deg)`, opacity: 1 },
+                    { transform: `translate(${Math.random() * 200 - 100}px, ${window.innerHeight}px) rotate(${Math.random() * 360}deg)`, opacity: 0 }
+                ], {
+                    duration: Math.random() * 3000 + 2000,
+                    easing: 'cubic-bezier(0,0.8,0.2,1)'
+                });
+                
+                animation.onfinish = () => confetti.remove();
+            }
         }
         
         // 이벤트 리스너 등록
@@ -1030,6 +1237,16 @@
             } else if (key === 'h' || key === 'H') {
                 showHint();
             }
+        });
+        
+        // 터치 이벤트를 클릭 이벤트로 매핑 (모바일 대응)
+        document.querySelectorAll('.cell').forEach(cell => {
+            cell.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const row = parseInt(cell.dataset.row);
+                const col = parseInt(cell.dataset.col);
+                selectCell(row, col);
+            }, { passive: false });
         });
         
         // 게임 시작
