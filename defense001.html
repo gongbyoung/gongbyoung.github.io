@@ -249,6 +249,54 @@
             return null; // No path found
         }
 
+        // --- Game Assets (Images) ---
+        const gameAssets = {
+            images: {
+                // Tower images (placeholder URLs, replace with your actual image URLs)
+                Hydrogen: { url: 'https://placehold.co/60x60/ADD8E6/000000?text=H_Tower', img: null },
+                Oxygen: { url: 'https://placehold.co/60x60/FF6347/000000?text=O_Tower', img: null },
+                Carbon: { url: 'https://placehold.co/60x60/A9A9A9/000000?text=C_Tower', img: null },
+                // Enemy images (placeholder URLs, replace with your actual image URLs)
+                NitrogenMolecule: { url: 'https://placehold.co/40x40/90EE90/000000?text=N2', img: null },
+                OxygenMolecule: { url: 'https://placehold.co/40x40/FFA07A/000000?text=O2', img: null },
+                HydrogenMolecule: { url: 'https://placehold.co/40x40/87CEEB/000000?text=H2', img: null },
+                // Boss images (placeholder URLs, replace with your actual image URLs)
+                FreonGas: { url: 'https://placehold.co/70x70/800080/FFFFFF?text=CFC_Boss', img: null },
+                HydrofluoricAcid: { url: 'https://placehold.co/70x70/4682B4/FFFFFF?text=HF_Boss', img: null }
+            }
+        };
+
+        // --- Preload Images Function ---
+        function preloadImages(callback) {
+            let loadedCount = 0;
+            let totalImages = Object.keys(gameAssets.images).length;
+
+            if (totalImages === 0) { // If no images to load, proceed immediately
+                callback();
+                return;
+            }
+
+            for (const key in gameAssets.images) {
+                const asset = gameAssets.images[key];
+                asset.img = new Image();
+                asset.img.src = asset.url;
+                asset.img.onload = () => {
+                    loadedCount++;
+                    if (loadedCount === totalImages) {
+                        callback(); // All images loaded
+                    }
+                };
+                asset.img.onerror = () => {
+                    console.error(`이미지 로드 실패: ${asset.url}`);
+                    // Fallback: If image fails to load, still increment count to prevent blocking
+                    loadedCount++;
+                    if (loadedCount === totalImages) {
+                        callback();
+                    }
+                };
+            }
+        }
+
         // --- Game Entities ---
 
         class Tower {
@@ -259,53 +307,63 @@
                 this.y = r * GRID_SIZE + GRID_SIZE / 2;
                 this.type = type;
                 this.level = 1;
-                this.color = '';
+                this.color = ''; // Fallback color if image fails
                 this.attackRange = 0;
                 this.attackDamage = 0;
                 this.fireRate = 0; // Attacks per second
                 this.lastAttackTime = 0;
                 this.cost = 0;
 
+                // Assign image and set dimensions
+                this.image = gameAssets.images[type].img;
+                this.width = GRID_SIZE * 0.9; // Image width relative to grid size
+                this.height = GRID_SIZE * 0.9; // Image height relative to grid size
+
                 switch (type) {
                     case 'Hydrogen':
                         this.color = '#ADD8E6'; // Light Blue
                         this.attackRange = GRID_SIZE * 2.5;
-                        this.attackDamage = 10; // Increased from 5
-                        this.fireRate = 2; // 2 attacks per second
+                        this.attackDamage = 20;
+                        this.fireRate = 2;
                         this.cost = 50;
                         break;
                     case 'Oxygen':
                         this.color = '#FF6347'; // Tomato (Reddish)
                         this.attackRange = GRID_SIZE * 3;
-                        this.attackDamage = 30; // Increased from 15
-                        this.fireRate = 1; // 1 attack per second
+                        this.attackDamage = 50;
+                        this.fireRate = 1;
                         this.cost = 100;
                         break;
                     case 'Carbon':
                         this.color = '#A9A9A9'; // Dark Gray
                         this.attackRange = GRID_SIZE * 2;
-                        this.attackDamage = 60; // Increased from 30
-                        this.fireRate = 0.5; // 0.5 attacks per second (every 2 seconds)
+                        this.attackDamage = 100;
+                        this.fireRate = 0.5;
                         this.cost = 150;
                         break;
                 }
             }
 
             draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, GRID_SIZE / 2 * 0.8, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.fill();
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 2;
-                ctx.stroke();
+                if (this.image && this.image.complete && this.image.naturalWidth > 0) {
+                    // Draw image if loaded
+                    ctx.drawImage(this.image, this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
+                } else {
+                    // Fallback: Draw circle and symbol if image not loaded or failed
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, GRID_SIZE / 2 * 0.8, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
 
-                // Draw element symbol
-                ctx.fillStyle = 'black';
-                ctx.font = `${GRID_SIZE * 0.5}px Inter`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(this.type[0], this.x, this.y);
+                    ctx.fillStyle = 'black';
+                    ctx.font = `${GRID_SIZE * 0.5}px Inter`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.type[0], this.x, this.y);
+                }
 
                 // Draw range for selected tower (for visual feedback)
                 if (selectedTowerType === this.type && !waveInProgress) {
@@ -357,14 +415,19 @@
                 this.health = 0;
                 this.maxHealth = 0;
                 this.speed = 0; // Pixels per second
-                this.color = '';
+                this.color = ''; // Fallback color if image fails
                 this.path = path;
                 this.pathIndex = 0;
                 this.x = this.path[0].c * GRID_SIZE + GRID_SIZE / 2;
                 this.y = this.path[0].r * GRID_SIZE + GRID_SIZE / 2;
-                this.radius = GRID_SIZE * 0.3;
+                this.radius = GRID_SIZE * 0.3; // Fallback radius
                 this.isDead = false;
                 this.moneyReward = 10;
+
+                // Assign image and set dimensions
+                this.image = gameAssets.images[type].img;
+                this.width = GRID_SIZE * 0.7; // Image width relative to grid size
+                this.height = GRID_SIZE * 0.7; // Image height relative to grid size
 
                 switch (type) {
                     case 'NitrogenMolecule': // N2 - Most common, basic
@@ -387,22 +450,28 @@
             }
 
             draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.fill();
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 1;
-                ctx.stroke();
+                if (this.image && this.image.complete && this.image.naturalWidth > 0) {
+                    // Draw image if loaded
+                    ctx.drawImage(this.image, this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
+                } else {
+                    // Fallback: Draw circle if image not loaded or failed
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
 
                 // Health bar
-                const barWidth = this.radius * 2;
+                const barWidth = this.width * 0.8; // Health bar width relative to image width
                 const barHeight = 5;
                 const healthRatio = this.health / this.maxHealth;
                 ctx.fillStyle = 'red';
-                ctx.fillRect(this.x - barWidth / 2, this.y - this.radius - barHeight - 2, barWidth, barHeight);
+                ctx.fillRect(this.x - barWidth / 2, this.y - this.height / 2 - barHeight - 2, barWidth, barHeight);
                 ctx.fillStyle = 'lime';
-                ctx.fillRect(this.x - barWidth / 2, this.y - this.radius - barHeight - 2, barWidth * healthRatio, barHeight);
+                ctx.fillRect(this.x - barWidth / 2, this.y - this.height / 2 - barHeight - 2, barWidth * healthRatio, barHeight);
             }
 
             update(deltaTime) {
@@ -452,8 +521,13 @@
         class BossEnemy extends Enemy {
             constructor(type, path) {
                 super(type, path); // Call parent constructor
-                this.radius = GRID_SIZE * 0.45; // Larger radius for boss
+                this.radius = GRID_SIZE * 0.45; // Fallback radius
                 this.moneyReward = 100; // More money for boss
+
+                // Assign image and set dimensions for boss
+                this.image = gameAssets.images[type].img;
+                this.width = GRID_SIZE * 1.2; // Larger image width for boss
+                this.height = GRID_SIZE * 1.2; // Larger image height for boss
 
                 switch (type) {
                     case 'FreonGas': // CFC - High health, moderate speed
@@ -471,30 +545,34 @@
             }
 
             draw() {
-                // Draw a distinct shape for boss (e.g., a hexagon or larger circle)
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.fill();
-                ctx.strokeStyle = '#FFD700'; // Gold border for boss
-                ctx.lineWidth = 3;
-                ctx.stroke();
+                if (this.image && this.image.complete && this.image.naturalWidth > 0) {
+                    // Draw image if loaded
+                    ctx.drawImage(this.image, this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
+                } else {
+                    // Fallback: Draw distinct shape for boss if image not loaded or failed
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                    ctx.strokeStyle = '#FFD700'; // Gold border for boss
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
 
-                // Draw boss name/symbol
-                ctx.fillStyle = 'white';
-                ctx.font = `${GRID_SIZE * 0.4}px Inter`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(this.type === 'FreonGas' ? 'CFC' : 'HF', this.x, this.y);
+                    ctx.fillStyle = 'white';
+                    ctx.font = `${GRID_SIZE * 0.4}px Inter`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.type === 'FreonGas' ? 'CFC' : 'HF', this.x, this.y);
+                }
 
                 // Health bar (same as regular enemy)
-                const barWidth = this.radius * 2;
+                const barWidth = this.width * 0.8; // Health bar width relative to image width
                 const barHeight = 5;
                 const healthRatio = this.health / this.maxHealth;
                 ctx.fillStyle = 'red';
-                ctx.fillRect(this.x - barWidth / 2, this.y - this.radius - barHeight - 2, barWidth, barHeight);
+                ctx.fillRect(this.x - barWidth / 2, this.y - this.height / 2 - barHeight - 2, barWidth, barHeight);
                 ctx.fillStyle = 'lime';
-                ctx.fillRect(this.x - barWidth / 2, this.y - this.radius - barHeight - 2, barWidth * healthRatio, barHeight);
+                ctx.fillRect(this.x - barWidth / 2, this.y - this.height / 2 - barHeight - 2, barWidth * healthRatio, barHeight);
             }
         }
 
@@ -561,13 +639,6 @@
                 ctx.lineWidth = 4;
                 ctx.stroke();
             }
-
-            // Removed drawing of spawn and end points to make them "outside" visually
-            // ctx.fillStyle = 'rgba(0, 255, 0, 0.5)'; // Green for spawn
-            // ctx.fillRect(SPAWN_POINT.c * GRID_SIZE, SPAWN_POINT.r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
-            // ctx.fillStyle = 'rgba(255, 0, 0, 0.5)'; // Red for end
-            // ctx.fillRect(END_POINT.c * GRID_SIZE, END_POINT.r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
-
 
             // Draw towers
             for (const tower of towers) {
@@ -746,7 +817,13 @@
 
 
         // Initialize the game when the window loads
-        window.onload = initGame;
+        window.onload = () => {
+            showMessageBox("로딩 중...", "게임에 필요한 이미지를 불러오는 중입니다...");
+            preloadImages(() => {
+                messageBox.style.display = 'none'; // Hide loading message
+                initGame();
+            });
+        };
 
         // Handle window resize for responsiveness
         window.addEventListener('resize', () => {
