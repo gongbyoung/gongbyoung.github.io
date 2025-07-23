@@ -190,7 +190,7 @@
         canvas.height = MAP_ROWS * GRID_SIZE;
 
         // Game state
-        let money = 300;
+        let money = 100;
         let health = 10;
         let wave = 0;
         let towers = [];
@@ -486,7 +486,7 @@
         }
 
         class Enemy {
-            constructor(type, path) {
+            constructor(type, path, currentWave = 0) { // Added currentWave parameter
                 this.type = type;
                 this.health = 0;
                 this.maxHealth = 0;
@@ -505,23 +505,30 @@
                 this.width = GRID_SIZE * 0.7; // Image width relative to grid size
                 this.height = GRID_SIZE * 0.7; // Image height relative to grid size
 
+                let baseHealth = 0;
+                let healthScaleFactor = 0;
+
                 switch (type) {
                     case 'NitrogenMolecule': // N2 - Most common, basic
-                        this.maxHealth = 60;
+                        baseHealth = 60;
                         this.speed = 70;
                         this.color = '#90EE90'; // Light Green
+                        healthScaleFactor = 0.15; // 15% health increase per wave
                         break;
                     case 'OxygenMolecule': // O2 - More common, slightly stronger
-                        this.maxHealth = 90;
+                        baseHealth = 90;
                         this.speed = 60;
                         this.color = '#FFA07A'; // Light Salmon
+                        healthScaleFactor = 0.18; // 18% health increase per wave
                         break;
                     case 'HydrogenMolecule': // H2 - Less common, very fast, low health
-                        this.maxHealth = 40;
+                        baseHealth = 40;
                         this.speed = 100;
                         this.color = '#87CEEB'; // Sky Blue
+                        healthScaleFactor = 0.12; // 12% health increase per wave
                         break;
                 }
+                this.maxHealth = baseHealth * (1 + currentWave * healthScaleFactor);
                 this.health = this.maxHealth;
             }
 
@@ -595,8 +602,8 @@
         }
 
         class BossEnemy extends Enemy {
-            constructor(type, path) {
-                super(type, path); // Call parent constructor
+            constructor(type, path, currentWave = 0) { // Added currentWave parameter
+                super(type, path, currentWave); // Call parent constructor, pass currentWave
                 this.radius = GRID_SIZE * 0.45; // Fallback radius
                 this.moneyReward = 100; // More money for boss
 
@@ -605,18 +612,24 @@
                 this.width = GRID_SIZE * 1.2; // Larger image width for boss
                 this.height = GRID_SIZE * 1.2; // Larger image height for boss
 
+                let baseHealth = 0;
+                let healthScaleFactor = 0;
+
                 switch (type) {
                     case 'FreonGas': // CFC - High health, moderate speed
-                        this.maxHealth = 500;
+                        baseHealth = 500;
                         this.speed = 40;
                         this.color = '#800080'; // Purple
+                        healthScaleFactor = 0.25; // 25% health increase per wave
                         break;
                     case 'HydrofluoricAcid': // HF - Very high health, slow
-                        this.maxHealth = 800;
+                        baseHealth = 800;
                         this.speed = 30;
                         this.color = '#4682B4'; // Steel Blue
+                        healthScaleFactor = 0.30; // 30% health increase per wave
                         break;
                 }
+                this.maxHealth = baseHealth * (1 + currentWave * healthScaleFactor);
                 this.health = this.maxHealth;
             }
 
@@ -965,7 +978,7 @@
                         }
                     }
 
-                    const newEnemy = new Enemy(selectedEnemyType, path);
+                    const newEnemy = new Enemy(selectedEnemyType, path, currentWave); // Pass currentWave
                     enemies.push(newEnemy);
                     spawnedCount++;
                 } else {
@@ -987,7 +1000,7 @@
 
             // Add a slight delay before boss spawns after last regular enemy
             setTimeout(() => {
-                const newBoss = new BossEnemy(bossType, path);
+                const newBoss = new BossEnemy(bossType, path, currentWave); // Pass currentWave
                 enemies.push(newBoss);
                 showMessageBox("보스 등장!", `${newBoss.type} 보스가 나타났습니다!`);
             }, 2000); // 2 seconds after last regular enemy
