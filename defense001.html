@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>화학 원소 타워 디펜스</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Dark background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden; /* Prevent scrollbars */
+        }
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            background-color: #2d3748; /* Slightly lighter dark */
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5);
+            padding: 1.5rem;
+            max-width: 90vw; /* Responsive width */
+            max-height: 90vh; /* Responsive height */
+            box-sizing: border-box;
+        }
+        canvas {
+            background-color: #4a5568; /* Game map background */
+            border-radius: 0.75rem;
+            border: 2px solid #a0aec0;
+            display: block;
+            touch-action: none; /* Disable default touch actions */
+        }
+        .info-panel, .tower-selection {
+            background-color: #2d3748;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            margin-top: 1rem;
+            color: #e2e8f0;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap; /* Allow wrapping on small screens */
+            gap: 0.5rem; /* Space between items */
+        }
+        .tower-button {
+            background-color: #4299e1; /* Blue */
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .tower-button:hover {
+            background-color: #3182ce;
+            transform: translateY(-2px);
+        }
+        .tower-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        .tower-button.selected {
+            background-color: #d69e2e; /* Yellow for selected */
+            border: 2px solid #ecc94b;
+        }
+        .message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            text-align: center;
+            z-index: 1000;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.7);
+            display: none; /* Hidden by default */
+        }
+        .message-box button {
+            background-color: #4299e1;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            cursor: pointer;
+            border: none;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container" class="flex flex-col items-center">
+        <div class="info-panel w-full mb-4">
+            <div class="flex items-center gap-2">
+                <span class="text-xl">💰</span>
+                <span id="money" class="text-lg font-bold">100</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-xl">❤️</span>
+                <span id="health" class="text-lg font-bold">10</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-xl">🌊</span>
+                <span id="wave" class="text-lg font-bold">0</span>
+            </div>
+            <button id="start-wave-button" class="tower-button bg-green-500 hover:bg-green-600">
+                다음 웨이브 시작
+            </button>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+        <div class="tower-selection w-full mt-4">
+            <button class="tower-button" data-tower-type="Hydrogen">
+                <span class="text-2xl">H</span> 수소 ($50)
+            </button>
+            <button class="tower-button" data-tower-type="Oxygen">
+                <span class="text-2xl">O</span> 산소 ($100)
+            </button>
+            <button class="tower-button" data-tower-type="Carbon">
+                <span class="text-2xl">C</span> 탄소 ($150)
+            </button>
+        </div>
+    </div>
+
+    <div id="message-box" class="message-box">
+        <h2 id="message-title" class="text-2xl font-bold mb-4"></h2>
+        <p id="message-text" class="text-lg mb-6"></p>
+        <button id="message-ok-button">확인</button>
+    </div>
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game dimensions and grid
+        const GRID_SIZE = 30; // Size of each grid cell in pixels
+        const MAP_COLS = 20;
+        const MAP_ROWS = 15;
+        canvas.width = MAP_COLS * GRID_SIZE;
+        canvas.height = MAP_ROWS * GRID_SIZE;
+
+        // Game state
+        let money = 100;
+        let health = 10;
+        let wave = 0;
+        let towers = [];
+        let enemies = [];
+        let path = []; // Current calculated path for enemies
+        let selectedTowerType = null;
+        let gameRunning = false;
+        let waveInProgress = false;
+        let bossSpawnedThisWave = false; // Track if boss has spawned for current wave
+
+        // HTML elements
+        const moneyDisplay = document.getElementById('money');
+        const healthDisplay = document.getElementById('health');
+        const waveDisplay = document.getElementById('wave');
+        const startWaveButton = document.getElementById('start-wave-button');
+        const towerButtons = document.querySelectorAll('.tower-button');
+        const messageBox = document.getElementById('message-box');
+        const messageTitle = document.getElementById('message-title');
+        const messageText = document.getElementById('message-text');
+        const messageOkButton = document.getElementById('message-ok-button');
+
+        // Game map (0: empty, 1: path, 2: tower)
+        // This map will be dynamic based on tower placement
+        let gameMap = Array(MAP_ROWS).fill(0).map(() => Array(MAP_COLS).fill(0));
+
+        // Start and end points for enemies (grid coordinates)
+        const SPAWN_POINT = { r: 7, c: 0 }; // Row 7, Col 0
+        const END_POINT = { r: 7, c: MAP_COLS - 1 }; // Row 7, Last Col
+
+        // --- Utility Functions ---
+
+        // Show a custom message box
+        function showMessageBox(title, text, callback = null) {
+            messageTitle.textContent = title;
+            messageText.textContent = text;
+            messageBox.style.display = 'block';
+            messageOkButton.onclick = () => {
+                messageBox.style.display = 'none';
+                if (callback) callback();
+            };
+        }
+
+        // Update UI displays
+        function updateUI() {
+            moneyDisplay.textContent = money;
+            healthDisplay.textContent = health;
+            waveDisplay.textContent = wave;
+            startWaveButton.disabled = waveInProgress;
+        }
+
+        // Convert pixel coordinates to grid coordinates
+        function getGridCoords(pixelX, pixelY) {
+            return {
+                c: Math.floor(pixelX / GRID_SIZE),
+                r: Math.floor(pixelY / GRID_SIZE)
+            };
+        }
+
+        // --- Pathfinding (Breadth-First Search) ---
+        // Finds the shortest path from start to end, avoiding obstacles (towers)
+        function findPath(map, start, end) {
+            const queue = [{ r: start.r, c: start.c, path: [{ r: start.r, c: start.c }] }];
+            const visited = new Set();
+            visited.add(`${start.r},${start.c}`);
+
+            const directions = [
+                { dr: -1, dc: 0 }, // Up
+                { dr: 1, dc: 0 },  // Down
+                { dr: 0, dc: -1 }, // Left
+                { dr: 0, dc: 1 }   // Right
+            ];
+
+            while (queue.length > 0) {
+                const { r, c, path } = queue.shift();
+
+                if (r === end.r && c === end.c) {
+                    return path; // Path found!
+                }
+
+                for (const dir of directions) {
+                    const nr = r + dir.dr;
+                    const nc = c + dir.dc;
+
+                    // Check bounds
+                    if (nr >= 0 && nr < MAP_ROWS && nc >= 0 && nc < MAP_COLS) {
+                        // Check if not visited and not a tower (obstacle)
+                        if (!visited.has(`${nr},${nc}`) && map[nr][nc] !== 2) {
+                            visited.add(`${nr},${nc}`);
+                            queue.push({ r: nr, c: nc, path: [...path, { r: nr, c: nc }] });
+                        }
+                    }
+                }
+            }
+            return null; // No path found
+        }
+
+        // --- Game Entities ---
+
+        class Tower {
+            constructor(r, c, type) {
+                this.r = r;
+                this.c = c;
+                this.x = c * GRID_SIZE + GRID_SIZE / 2;
+                this.y = r * GRID_SIZE + GRID_SIZE / 2;
+                this.type = type;
+                this.level = 1;
+                this.color = '';
+                this.attackRange = 0;
+                this.attackDamage = 0;
+                this.fireRate = 0; // Attacks per second
+                this.lastAttackTime = 0;
+                this.cost = 0;
+
+                switch (type) {
+                    case 'Hydrogen':
+                        this.color = '#ADD8E6'; // Light Blue
+                        this.attackRange = GRID_SIZE * 2.5;
+                        this.attackDamage = 10; // Increased from 5
+                        this.fireRate = 2; // 2 attacks per second
+                        this.cost = 50;
+                        break;
+                    case 'Oxygen':
+                        this.color = '#FF6347'; // Tomato (Reddish)
+                        this.attackRange = GRID_SIZE * 3;
+                        this.attackDamage = 30; // Increased from 15
+                        this.fireRate = 1; // 1 attack per second
+                        this.cost = 100;
+                        break;
+                    case 'Carbon':
+                        this.color = '#A9A9A9'; // Dark Gray
+                        this.attackRange = GRID_SIZE * 2;
+                        this.attackDamage = 60; // Increased from 30
+                        this.fireRate = 0.5; // 0.5 attacks per second (every 2 seconds)
+                        this.cost = 150;
+                        break;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, GRID_SIZE / 2 * 0.8, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw element symbol
+                ctx.fillStyle = 'black';
+                ctx.font = `${GRID_SIZE * 0.5}px Inter`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.type[0], this.x, this.y);
+
+                // Draw range for selected tower (for visual feedback)
+                if (selectedTowerType === this.type && !waveInProgress) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.attackRange, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+
+            update(deltaTime) {
+                const now = Date.now();
+                if (now - this.lastAttackTime >= (1000 / this.fireRate)) {
+                    // Find target
+                    let target = null;
+                    // Prioritize bosses if present
+                    for (const enemy of enemies) {
+                        const dist = Math.hypot(this.x - enemy.x, this.y - enemy.y);
+                        if (dist <= this.attackRange) {
+                            if (enemy instanceof BossEnemy) { // Target boss first
+                                target = enemy;
+                                break;
+                            } else if (!target) { // Otherwise, target first regular enemy
+                                target = enemy;
+                            }
+                        }
+                    }
+
+                    if (target) {
+                        target.takeDamage(this.attackDamage);
+                        this.lastAttackTime = now;
+
+                        // Draw projectile (simple line for now)
+                        ctx.beginPath();
+                        ctx.moveTo(this.x, this.y);
+                        ctx.lineTo(target.x, target.y);
+                        ctx.strokeStyle = 'white';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        class Enemy {
+            constructor(type, path) {
+                this.type = type;
+                this.health = 0;
+                this.maxHealth = 0;
+                this.speed = 0; // Pixels per second
+                this.color = '';
+                this.path = path;
+                this.pathIndex = 0;
+                this.x = this.path[0].c * GRID_SIZE + GRID_SIZE / 2;
+                this.y = this.path[0].r * GRID_SIZE + GRID_SIZE / 2;
+                this.radius = GRID_SIZE * 0.3;
+                this.isDead = false;
+                this.moneyReward = 10;
+
+                switch (type) {
+                    case 'NitrogenMolecule': // N2 - Most common, basic
+                        this.maxHealth = 60;
+                        this.speed = 70;
+                        this.color = '#90EE90'; // Light Green
+                        break;
+                    case 'OxygenMolecule': // O2 - More common, slightly stronger
+                        this.maxHealth = 90;
+                        this.speed = 60;
+                        this.color = '#FFA07A'; // Light Salmon
+                        break;
+                    case 'HydrogenMolecule': // H2 - Less common, very fast, low health
+                        this.maxHealth = 40;
+                        this.speed = 100;
+                        this.color = '#87CEEB'; // Sky Blue
+                        break;
+                }
+                this.health = this.maxHealth;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Health bar
+                const barWidth = this.radius * 2;
+                const barHeight = 5;
+                const healthRatio = this.health / this.maxHealth;
+                ctx.fillStyle = 'red';
+                ctx.fillRect(this.x - barWidth / 2, this.y - this.radius - barHeight - 2, barWidth, barHeight);
+                ctx.fillStyle = 'lime';
+                ctx.fillRect(this.x - barWidth / 2, this.y - this.radius - barHeight - 2, barWidth * healthRatio, barHeight);
+            }
+
+            update(deltaTime) {
+                if (this.isDead) return;
+
+                if (this.pathIndex < this.path.length - 1) {
+                    const nextWaypoint = {
+                        x: this.path[this.pathIndex + 1].c * GRID_SIZE + GRID_SIZE / 2,
+                        y: this.path[this.pathIndex + 1].r * GRID_SIZE + GRID_SIZE / 2
+                    };
+
+                    const dx = nextWaypoint.x - this.x;
+                    const dy = nextWaypoint.y - this.y;
+                    const distance = Math.hypot(dx, dy);
+
+                    const moveAmount = this.speed * (deltaTime / 1000);
+
+                    if (distance <= moveAmount) {
+                        this.x = nextWaypoint.x;
+                        this.y = nextWaypoint.y;
+                        this.pathIndex++;
+                    } else {
+                        this.x += (dx / distance) * moveAmount;
+                        this.y += (dy / distance) * moveAmount;
+                    }
+                } else {
+                    // Reached the end
+                    this.isDead = true;
+                    health--;
+                    updateUI();
+                    if (health <= 0) {
+                        gameOver();
+                    }
+                }
+            }
+
+            takeDamage(amount) {
+                this.health -= amount;
+                if (this.health <= 0) {
+                    this.isDead = true;
+                    money += this.moneyReward; // Reward for killing enemy
+                    updateUI();
+                }
+            }
+        }
+
+        class BossEnemy extends Enemy {
+            constructor(type, path) {
+                super(type, path); // Call parent constructor
+                this.radius = GRID_SIZE * 0.45; // Larger radius for boss
+                this.moneyReward = 100; // More money for boss
+
+                switch (type) {
+                    case 'FreonGas': // CFC - High health, moderate speed
+                        this.maxHealth = 500;
+                        this.speed = 40;
+                        this.color = '#800080'; // Purple
+                        break;
+                    case 'HydrofluoricAcid': // HF - Very high health, slow
+                        this.maxHealth = 800;
+                        this.speed = 30;
+                        this.color = '#4682B4'; // Steel Blue
+                        break;
+                }
+                this.health = this.maxHealth;
+            }
+
+            draw() {
+                // Draw a distinct shape for boss (e.g., a hexagon or larger circle)
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.strokeStyle = '#FFD700'; // Gold border for boss
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Draw boss name/symbol
+                ctx.fillStyle = 'white';
+                ctx.font = `${GRID_SIZE * 0.4}px Inter`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.type === 'FreonGas' ? 'CFC' : 'HF', this.x, this.y);
+
+                // Health bar (same as regular enemy)
+                const barWidth = this.radius * 2;
+                const barHeight = 5;
+                const healthRatio = this.health / this.maxHealth;
+                ctx.fillStyle = 'red';
+                ctx.fillRect(this.x - barWidth / 2, this.y - this.radius - barHeight - 2, barWidth, barHeight);
+                ctx.fillStyle = 'lime';
+                ctx.fillRect(this.x - barWidth / 2, this.y - this.radius - barHeight - 2, barWidth * healthRatio, barHeight);
+            }
+        }
+
+
+        // --- Game Loop ---
+        let lastTime = 0;
+        function gameLoop(currentTime) {
+            if (!gameRunning) return;
+
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+
+            update(deltaTime);
+            draw();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update(deltaTime) {
+            // Update enemies
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                enemies[i].update(deltaTime);
+                if (enemies[i].isDead) {
+                    enemies.splice(i, 1);
+                }
+            }
+
+            // Update towers
+            for (const tower of towers) {
+                tower.update(deltaTime);
+            }
+
+            // Check wave completion
+            if (waveInProgress && enemies.length === 0) {
+                waveInProgress = false;
+                bossSpawnedThisWave = false; // Reset for next wave
+                startWaveButton.disabled = false;
+                showMessageBox("웨이브 완료!", `웨이브 ${wave}를 성공적으로 막았습니다! 다음 웨이브를 시작하세요.`, () => {
+                    // Optional: give bonus money, health, etc.
+                });
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+
+            // Draw grid lines
+            ctx.strokeStyle = '#606c80'; // Lighter gray for grid
+            ctx.lineWidth = 0.5;
+            for (let r = 0; r < MAP_ROWS; r++) {
+                for (let c = 0; c < MAP_COLS; c++) {
+                    ctx.strokeRect(c * GRID_SIZE, r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                }
+            }
+
+            // Draw path (if exists)
+            if (path && path.length > 0) {
+                ctx.beginPath();
+                ctx.moveTo(path[0].c * GRID_SIZE + GRID_SIZE / 2, path[0].r * GRID_SIZE + GRID_SIZE / 2);
+                for (let i = 1; i < path.length; i++) {
+                    ctx.lineTo(path[i].c * GRID_SIZE + GRID_SIZE / 2, path[i].r * GRID_SIZE + GRID_SIZE / 2);
+                }
+                ctx.strokeStyle = 'rgba(255, 255, 0, 0.5)'; // Yellow transparent path
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            }
+
+            // Removed drawing of spawn and end points to make them "outside" visually
+            // ctx.fillStyle = 'rgba(0, 255, 0, 0.5)'; // Green for spawn
+            // ctx.fillRect(SPAWN_POINT.c * GRID_SIZE, SPAWN_POINT.r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+            // ctx.fillStyle = 'rgba(255, 0, 0, 0.5)'; // Red for end
+            // ctx.fillRect(END_POINT.c * GRID_SIZE, END_POINT.r * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+
+
+            // Draw towers
+            for (const tower of towers) {
+                tower.draw();
+            }
+
+            // Draw enemies
+            for (const enemy of enemies) {
+                enemy.draw();
+            }
+        }
+
+        // --- Game Initialization & Events ---
+
+        function initGame() {
+            updateUI();
+            // Initial path calculation (before any towers are placed)
+            path = findPath(gameMap, SPAWN_POINT, END_POINT);
+            if (!path) {
+                showMessageBox("오류", "초기 경로를 찾을 수 없습니다. 맵 설정 오류.");
+                gameRunning = false;
+                return;
+            }
+            gameRunning = true;
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            waveInProgress = false;
+            showMessageBox("게임 오버!", `기지가 파괴되었습니다! 웨이브 ${wave}까지 진행했습니다.`, () => {
+                // Reset game or go to main menu
+                location.reload(); // Simple reload for now
+            });
+        }
+
+        // Tower placement logic
+        canvas.addEventListener('click', (e) => {
+            if (!selectedTowerType || waveInProgress) {
+                if (waveInProgress) showMessageBox("경고", "웨이브가 진행 중일 때는 타워를 배치할 수 없습니다.");
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            const { r, c } = getGridCoords(clickX, clickY);
+
+            // Prevent placing on spawn or end points
+            if ((r === SPAWN_POINT.r && c === SPAWN_POINT.c) || (r === END_POINT.r && c === END_POINT.c)) {
+                showMessageBox("경고", "시작 또는 종료 지점에는 타워를 배치할 수 없습니다.");
+                return;
+            }
+
+            // Check if cell is already occupied by a tower
+            if (gameMap[r][c] === 2) {
+                showMessageBox("경고", "이미 타워가 있는 위치입니다.");
+                return;
+            }
+
+            // Get tower cost
+            const towerCost = new Tower(0, 0, selectedTowerType).cost;
+            if (money < towerCost) {
+                showMessageBox("경고", "자금이 부족합니다!");
+                return;
+            }
+
+            // --- Path validation: Crucial for maze building ---
+            // Temporarily place the tower on the map
+            gameMap[r][c] = 2;
+            const newPath = findPath(gameMap, SPAWN_POINT, END_POINT);
+
+            if (newPath) {
+                // Path is still valid, commit placement
+                const newTower = new Tower(r, c, selectedTowerType);
+                towers.push(newTower);
+                money -= towerCost;
+                path = newPath; // Update global path
+                updateUI();
+                // Deselect tower after placement
+                selectedTowerType = null;
+                towerButtons.forEach(btn => btn.classList.remove('selected'));
+            } else {
+                // No path found, revert placement
+                gameMap[r][c] = 0; // Revert to empty
+                showMessageBox("경고", "타워를 배치하면 적의 경로가 막힙니다! 다른 곳에 배치하세요.");
+            }
+        });
+
+        // Tower selection buttons
+        towerButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const type = button.dataset.towerType;
+                if (selectedTowerType === type) {
+                    selectedTowerType = null; // Deselect if already selected
+                    button.classList.remove('selected');
+                } else {
+                    selectedTowerType = type;
+                    towerButtons.forEach(btn => btn.classList.remove('selected'));
+                    button.classList.add('selected');
+                }
+            });
+        });
+
+        // Start wave button
+        startWaveButton.addEventListener('click', () => {
+            if (waveInProgress) return;
+            wave++;
+            waveInProgress = true;
+            bossSpawnedThisWave = false; // Ensure boss flag is reset for new wave
+            updateUI();
+            spawnWave(wave);
+        });
+
+        // --- Wave Spawning Logic ---
+        function spawnWave(currentWave) {
+            let regularEnemyCount = 10 + currentWave * 3; // More regular enemies per wave
+            let enemyTypes = [];
+
+            // Add enemy types based on wave progress, simulating atmospheric composition
+            // Nitrogen (N2) is always present
+            enemyTypes.push({ type: 'NitrogenMolecule', weight: 78 }); // ~78% of atmosphere
+            if (currentWave >= 1) {
+                enemyTypes.push({ type: 'OxygenMolecule', weight: 21 }); // ~21% of atmosphere
+            }
+            if (currentWave >= 3) {
+                enemyTypes.push({ type: 'HydrogenMolecule', weight: 1 }); // Trace amounts, but distinct gameplay
+            }
+
+            let spawnedCount = 0;
+            const spawnDelay = 700 - (currentWave * 20); // Faster spawns in later waves, min 200ms
+            if (spawnDelay < 200) spawnDelay = 200;
+
+            const spawnInterval = setInterval(() => {
+                if (spawnedCount < regularEnemyCount) {
+                    // Weighted random selection for enemy types
+                    let totalWeight = enemyTypes.reduce((sum, type) => sum + type.weight, 0);
+                    let randomNum = Math.random() * totalWeight;
+                    let selectedType = null;
+                    for (const type of enemyTypes) {
+                        randomNum -= type.weight;
+                        if (randomNum <= 0) {
+                            selectedType = type.type;
+                            break;
+                        }
+                    }
+
+                    const newEnemy = new Enemy(selectedType, path);
+                    enemies.push(newEnemy);
+                    spawnedCount++;
+                } else {
+                    clearInterval(spawnInterval);
+                    // All regular enemies spawned, now spawn boss if not already
+                    if (!bossSpawnedThisWave) {
+                        spawnBoss(currentWave);
+                        bossSpawnedThisWave = true;
+                    }
+                }
+            }, spawnDelay);
+        }
+
+        function spawnBoss(currentWave) {
+            let bossType = 'FreonGas';
+            if (currentWave % 2 === 0) { // Alternate boss types
+                bossType = 'HydrofluoricAcid';
+            }
+
+            // Add a slight delay before boss spawns after last regular enemy
+            setTimeout(() => {
+                const newBoss = new BossEnemy(bossType, path);
+                enemies.push(newBoss);
+                showMessageBox("보스 등장!", `${newBoss.type} 보스가 나타났습니다!`);
+            }, 2000); // 2 seconds after last regular enemy
+        }
+
+
+        // Initialize the game when the window loads
+        window.onload = initGame;
+
+        // Handle window resize for responsiveness
+        window.addEventListener('resize', () => {
+            // Recalculate canvas size based on container or fixed ratio
+            // For simplicity, we'll keep fixed grid size and map dimensions for now.
+            // If you want dynamic resizing, you'd need to adjust GRID_SIZE or MAP_COLS/MAP_ROWS
+            // and re-render all elements. For this example, we'll rely on CSS for container scaling.
+        });
+    </script>
+</body>
+</html>
