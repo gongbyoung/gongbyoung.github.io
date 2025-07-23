@@ -98,6 +98,29 @@
             border: none;
             font-weight: bold;
         }
+
+        /* Tower Details Panel Specific Styles */
+        #tower-details-panel {
+            position: absolute;
+            background-color: #3d4858;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            text-align: left;
+            width: 200px; /* Fixed width for the panel */
+            z-index: 999; /* Below message box, above game elements */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+            display: none; /* Hidden by default */
+        }
+        #tower-details-panel h3 {
+            border-bottom: 1px solid #606c80;
+            padding-bottom: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        #tower-details-panel p {
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
@@ -105,7 +128,7 @@
         <div class="info-panel w-full mb-4">
             <div class="flex items-center gap-2">
                 <span class="text-xl">💰</span>
-                <span id="money" class="text-lg font-bold">300</span>
+                <span id="money" class="text-lg font-bold">100</span>
             </div>
             <div class="flex items-center gap-2">
                 <span class="text-xl">❤️</span>
@@ -117,6 +140,9 @@
             </div>
             <button id="start-wave-button" class="tower-button bg-green-500 hover:bg-green-600">
                 다음 웨이브 시작
+            </button>
+            <button id="restart-game-button" class="tower-button bg-red-500 hover:bg-red-600">
+                게임 다시 시작
             </button>
         </div>
         <canvas id="gameCanvas"></canvas>
@@ -131,6 +157,18 @@
                 <span class="text-2xl">C</span> 탄소 ($150)
             </button>
         </div>
+    </div>
+
+    <!-- Tower Details Panel -->
+    <div id="tower-details-panel">
+        <h3 id="detail-tower-type"></h3>
+        <p>레벨: <span id="detail-tower-level"></span> / 5</p>
+        <p>공격력: <span id="detail-tower-damage"></span></p>
+        <p>사거리: <span id="detail-tower-range"></span></p>
+        <p>공격 속도: <span id="detail-tower-fire-rate"></span></p>
+        <button id="upgrade-tower-button" class="tower-button bg-purple-600 hover:bg-purple-700 mt-3 w-full">
+            업그레이드 (<span id="detail-upgrade-cost"></span>💰)
+        </button>
     </div>
 
     <div id="message-box" class="message-box">
@@ -158,7 +196,8 @@
         let towers = [];
         let enemies = [];
         let path = []; // Current calculated path for enemies
-        let selectedTowerType = null;
+        let selectedTowerType = null; // For new tower placement
+        let selectedTower = null; // For existing tower selection/upgrade
         let gameRunning = false;
         let waveInProgress = false;
         let bossSpawnedThisWave = false; // Track if boss has spawned for current wave
@@ -168,11 +207,23 @@
         const healthDisplay = document.getElementById('health');
         const waveDisplay = document.getElementById('wave');
         const startWaveButton = document.getElementById('start-wave-button');
+        const restartGameButton = document.getElementById('restart-game-button');
         const towerButtons = document.querySelectorAll('.tower-button');
         const messageBox = document.getElementById('message-box');
         const messageTitle = document.getElementById('message-title');
         const messageText = document.getElementById('message-text');
         const messageOkButton = document.getElementById('message-ok-button');
+
+        // New HTML elements for tower details panel
+        const towerDetailsPanel = document.getElementById('tower-details-panel');
+        const detailTowerType = document.getElementById('detail-tower-type');
+        const detailTowerLevel = document.getElementById('detail-tower-level');
+        const detailTowerDamage = document.getElementById('detail-tower-damage');
+        const detailTowerRange = document.getElementById('detail-tower-range');
+        const detailTowerFireRate = document.getElementById('detail-tower-fire-rate');
+        const upgradeTowerButton = document.getElementById('upgrade-tower-button');
+        const detailUpgradeCost = document.getElementById('detail-upgrade-cost');
+
 
         // Game map (0: empty, 1: path, 2: tower)
         // This map will be dynamic based on tower placement
@@ -309,10 +360,14 @@
                 this.level = 1;
                 this.color = ''; // Fallback color if image fails
                 this.attackRange = 0;
-                this.attackDamage = 0;
+                this.baseAttackDamage = 0; // Store initial damage for calculation
+                this.attackDamage = 0; // Current damage
                 this.fireRate = 0; // Attacks per second
                 this.lastAttackTime = 0;
-                this.cost = 0;
+                this.cost = 0; // Initial placement cost
+                this.baseCost = 0; // Store initial cost for upgrade cost calculation
+                this.maxLevel = 5;
+                this.currentUpgradeCost = 0;
 
                 // Assign image and set dimensions
                 this.image = gameAssets.images[type].img;
@@ -323,25 +378,46 @@
                     case 'Hydrogen':
                         this.color = '#ADD8E6'; // Light Blue
                         this.attackRange = GRID_SIZE * 2.5;
-                        this.attackDamage = 20;
+                        this.baseAttackDamage = 10;
                         this.fireRate = 2;
-                        this.cost = 50;
+                        this.baseCost = 50;
                         break;
                     case 'Oxygen':
                         this.color = '#FF6347'; // Tomato (Reddish)
                         this.attackRange = GRID_SIZE * 3;
-                        this.attackDamage = 50;
+                        this.baseAttackDamage = 30;
                         this.fireRate = 1;
-                        this.cost = 100;
+                        this.baseCost = 100;
                         break;
                     case 'Carbon':
                         this.color = '#A9A9A9'; // Dark Gray
                         this.attackRange = GRID_SIZE * 2;
-                        this.attackDamage = 100;
+                        this.baseAttackDamage = 60;
                         this.fireRate = 0.5;
-                        this.cost = 150;
+                        this.baseCost = 150;
                         break;
                 }
+                this.attackDamage = this.baseAttackDamage; // Initialize current damage
+                this.cost = this.baseCost; // Initialize placement cost
+                this.currentUpgradeCost = this.calculateUpgradeCost(); // Initialize upgrade cost
+            }
+
+            // Calculate the cost for the next upgrade
+            calculateUpgradeCost() {
+                if (this.level >= this.maxLevel) return Infinity; // Max level reached, no more upgrades
+                // Cost increases by 75% of base cost per level
+                return Math.floor(this.baseCost * (1 + this.level * 0.75));
+            }
+
+            // Upgrade the tower
+            upgrade() {
+                if (this.level < this.maxLevel) {
+                    this.level++;
+                    this.attackDamage = this.baseAttackDamage * (2 ** (this.level - 1)); // Damage x2 per level
+                    this.currentUpgradeCost = this.calculateUpgradeCost(); // Recalculate for next level
+                    return true;
+                }
+                return false;
             }
 
             draw() {
@@ -366,7 +442,7 @@
                 }
 
                 // Draw range for selected tower (for visual feedback)
-                if (selectedTowerType === this.type && !waveInProgress) {
+                if (selectedTower === this) { // Only show range for the currently selected tower
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this.attackRange, 0, Math.PI * 2);
                     ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
@@ -675,18 +751,87 @@
             });
         }
 
-        // Tower placement logic
-        canvas.addEventListener('click', (e) => {
-            if (!selectedTowerType || waveInProgress) {
-                if (waveInProgress) showMessageBox("경고", "웨이브가 진행 중일 때는 타워를 배치할 수 없습니다.");
-                return;
-            }
+        // Function to update the tower details panel
+        function updateTowerDetailsPanel() {
+            if (selectedTower) {
+                detailTowerType.textContent = selectedTower.type;
+                detailTowerLevel.textContent = selectedTower.level;
+                detailTowerDamage.textContent = selectedTower.attackDamage;
+                detailTowerRange.textContent = (selectedTower.attackRange / GRID_SIZE).toFixed(1) + '칸'; // Convert pixels to grid units
+                detailTowerFireRate.textContent = selectedTower.fireRate + '회/초';
 
+                if (selectedTower.level < selectedTower.maxLevel) {
+                    detailUpgradeCost.textContent = selectedTower.currentUpgradeCost;
+                    upgradeTowerButton.disabled = false;
+                    upgradeTowerButton.textContent = `업그레이드 (${selectedTower.currentUpgradeCost}💰)`;
+                    if (money < selectedTower.currentUpgradeCost) {
+                        upgradeTowerButton.classList.add('opacity-50', 'cursor-not-allowed');
+                    } else {
+                        upgradeTowerButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
+                } else {
+                    upgradeTowerButton.textContent = '최대 레벨';
+                    upgradeTowerButton.disabled = true;
+                    upgradeTowerButton.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+                towerDetailsPanel.style.display = 'block';
+                // Position the panel near the tower
+                // Adjust position to prevent going off-screen on the right
+                const panelX = selectedTower.x + GRID_SIZE;
+                const panelY = selectedTower.y;
+                const panelWidth = towerDetailsPanel.offsetWidth;
+                const panelHeight = towerDetailsPanel.offsetHeight;
+
+                if (panelX + panelWidth > canvas.width) {
+                    towerDetailsPanel.style.left = `${selectedTower.x - GRID_SIZE - panelWidth}px`;
+                } else {
+                    towerDetailsPanel.style.left = `${panelX}px`;
+                }
+                if (panelY + panelHeight > canvas.height) {
+                    towerDetailsPanel.style.top = `${canvas.height - panelHeight - 10}px`; // 10px padding from bottom
+                } else {
+                    towerDetailsPanel.style.top = `${panelY}px`;
+                }
+
+            } else {
+                towerDetailsPanel.style.display = 'none';
+            }
+        }
+
+
+        // Tower placement and selection logic
+        canvas.addEventListener('click', (e) => {
             const rect = canvas.getBoundingClientRect();
             const clickX = e.clientX - rect.left;
             const clickY = e.clientY - rect.top;
-
             const { r, c } = getGridCoords(clickX, clickY);
+
+            // 1. Check if an existing tower was clicked
+            let clickedExistingTower = false;
+            for (const tower of towers) {
+                if (tower.r === r && tower.c === c) {
+                    selectedTower = tower;
+                    updateTowerDetailsPanel();
+                    clickedExistingTower = true;
+                    break;
+                }
+            }
+
+            if (clickedExistingTower) {
+                // If an existing tower was clicked, clear any new tower type selection
+                selectedTowerType = null;
+                towerButtons.forEach(btn => btn.classList.remove('selected'));
+                return; // Stop here, no new tower placement
+            }
+
+            // 2. If no existing tower was clicked, proceed with new tower placement logic
+            if (!selectedTowerType || waveInProgress) {
+                if (waveInProgress) showMessageBox("경고", "웨이브가 진행 중일 때는 타워를 배치할 수 없습니다.");
+                // If no tower type is selected and no existing tower was clicked, hide the panel
+                selectedTower = null;
+                updateTowerDetailsPanel();
+                return;
+            }
 
             // Prevent placing on spawn or end points
             if ((r === SPAWN_POINT.r && c === SPAWN_POINT.c) || (r === END_POINT.r && c === END_POINT.c)) {
@@ -700,7 +845,7 @@
                 return;
             }
 
-            // Get tower cost
+            // Get tower cost (create a temporary instance to get cost)
             const towerCost = new Tower(0, 0, selectedTowerType).cost;
             if (money < towerCost) {
                 showMessageBox("경고", "자금이 부족합니다!");
@@ -719,9 +864,12 @@
                 money -= towerCost;
                 path = newPath; // Update global path
                 updateUI();
-                // Deselect tower after placement
+                // Deselect tower type after placement
                 selectedTowerType = null;
                 towerButtons.forEach(btn => btn.classList.remove('selected'));
+                // Hide tower details panel if it was open
+                selectedTower = null;
+                updateTowerDetailsPanel();
             } else {
                 // No path found, revert placement
                 gameMap[r][c] = 0; // Revert to empty
@@ -741,6 +889,9 @@
                     towerButtons.forEach(btn => btn.classList.remove('selected'));
                     button.classList.add('selected');
                 }
+                // When a new tower type is selected, clear any existing tower selection
+                selectedTower = null;
+                updateTowerDetailsPanel(); // Hide the panel
             });
         });
 
@@ -751,8 +902,35 @@
             waveInProgress = true;
             bossSpawnedThisWave = false; // Ensure boss flag is reset for new wave
             updateUI();
+            // Hide tower details panel when wave starts
+            selectedTower = null;
+            updateTowerDetailsPanel();
             spawnWave(wave);
         });
+
+        // Restart Game button
+        restartGameButton.addEventListener('click', () => {
+            // Simply reload the page to restart the entire game
+            location.reload();
+        });
+
+        // Event listener for upgrade button
+        upgradeTowerButton.addEventListener('click', () => {
+            if (selectedTower && selectedTower.level < selectedTower.maxLevel) {
+                const cost = selectedTower.currentUpgradeCost;
+                if (money >= cost) {
+                    money -= cost;
+                    selectedTower.upgrade();
+                    updateUI();
+                    updateTowerDetailsPanel(); // Update panel with new stats
+                } else {
+                    showMessageBox("자금 부족", "타워를 업그레이드할 자금이 부족합니다!");
+                }
+            } else if (selectedTower && selectedTower.level >= selectedTower.maxLevel) {
+                showMessageBox("최대 레벨", "이 타워는 이미 최대 레벨입니다.");
+            }
+        });
+
 
         // --- Wave Spawning Logic ---
         function spawnWave(currentWave) {
@@ -778,16 +956,16 @@
                     // Weighted random selection for enemy types
                     let totalWeight = enemyTypes.reduce((sum, type) => sum + type.weight, 0);
                     let randomNum = Math.random() * totalWeight;
-                    let selectedType = null;
+                    let selectedEnemyType = null;
                     for (const type of enemyTypes) {
                         randomNum -= type.weight;
                         if (randomNum <= 0) {
-                            selectedType = type.type;
+                            selectedEnemyType = type.type;
                             break;
                         }
                     }
 
-                    const newEnemy = new Enemy(selectedType, path);
+                    const newEnemy = new Enemy(selectedEnemyType, path);
                     enemies.push(newEnemy);
                     spawnedCount++;
                 } else {
