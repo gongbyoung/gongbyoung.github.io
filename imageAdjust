@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이미지 색상 조정 도구</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 1rem; /* rounded-xl */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
+            padding: 2rem;
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        @media (min-width: 768px) { /* md breakpoint */
+            .md\\:flex-row {
+                flex-direction: row;
+            }
+            .md\\:w-1\\/2 {
+                width: 50%;
+            }
+        }
+        canvas {
+            border: 1px solid #e5e7eb; /* border-gray-200 */
+            border-radius: 0.5rem; /* rounded-md */
+            width: 100%;
+            height: auto;
+            max-width: 100%; /* Ensure canvas doesn't overflow */
+            display: block; /* Remove extra space below canvas */
+        }
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 8px;
+            background: #d1d5db; /* bg-gray-300 */
+            border-radius: 0.5rem; /* rounded-full */
+            outline: none;
+            opacity: 0.7;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+        }
+        input[type="range"]:hover {
+            opacity: 1;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4f46e5; /* indigo-600 */
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #4f46e5; /* indigo-600 */
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            text-align: center;
+        }
+        .button-primary {
+            background-color: #4f46e5; /* indigo-600 */
+            color: white;
+        }
+        .button-primary:hover {
+            background-color: #4338ca; /* indigo-700 */
+        }
+        .button-secondary {
+            background-color: #e5e7eb; /* gray-200 */
+            color: #374151; /* gray-700 */
+        }
+        .button-secondary:hover {
+            background-color: #d1d5db; /* gray-300 */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">이미지 색상 조정 도구</h1>
+
+        <!-- File Upload Section -->
+        <div class="flex flex-col gap-4">
+            <label for="imageUpload" class="block text-sm font-medium text-gray-700">이미지 업로드</label>
+            <input type="file" id="imageUpload" accept="image/*" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <!-- Image and Controls Section -->
+        <div class="flex flex-col md:flex-row gap-6">
+            <!-- Canvas for Image Display -->
+            <div class="md:w-1/2 flex justify-center items-center bg-gray-50 p-4 rounded-md">
+                <canvas id="imageCanvas"></canvas>
+            </div>
+
+            <!-- Controls Section -->
+            <div class="md:w-1/2 flex flex-col gap-6">
+                <div class="control-group">
+                    <label for="hueRange" class="text-gray-700">색조 (Hue): <span id="hueValue">0</span></label>
+                    <input type="range" id="hueRange" min="-180" max="180" value="0">
+                </div>
+                <div class="control-group">
+                    <label for="saturationRange" class="text-gray-700">채도 (Saturation): <span id="saturationValue">100</span></label>
+                    <input type="range" id="saturationRange" min="0" max="200" value="100">
+                </div>
+                <div class="control-group">
+                    <label for="brightnessRange" class="text-gray-700">밝기 (Brightness): <span id="brightnessValue">100</span></label>
+                    <input type="range" id="brightnessRange" min="0" max="200" value="100">
+                </div>
+                <div class="flex flex-col sm:flex-row gap-4 mt-4">
+                    <button id="resetButton" class="button button-secondary flex-1">초기화</button>
+                    <button id="downloadButton" class="button button-primary flex-1">이미지 다운로드</button>
+                </div>
+                <div id="messageBox" class="hidden p-3 mt-4 text-sm text-center text-red-700 bg-red-100 rounded-lg" role="alert"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get references to DOM elements
+        const imageUpload = document.getElementById('imageUpload');
+        const imageCanvas = document.getElementById('imageCanvas');
+        const ctx = imageCanvas.getContext('2d');
+
+        const hueRange = document.getElementById('hueRange');
+        const saturationRange = document.getElementById('saturationRange');
+        const brightnessRange = document.getElementById('brightnessRange');
+
+        const hueValueSpan = document.getElementById('hueValue');
+        const saturationValueSpan = document.getElementById('saturationValue');
+        const brightnessValueSpan = document.getElementById('brightnessValue');
+
+        const resetButton = document.getElementById('resetButton');
+        const downloadButton = document.getElementById('downloadButton');
+        const messageBox = document.getElementById('messageBox');
+
+        let originalImage = null; // Stores the original uploaded image
+
+        // Function to display messages in the message box
+        function showMessage(message, type = 'error') {
+            messageBox.textContent = message;
+            messageBox.className = `p-3 mt-4 text-sm text-center rounded-lg ${type === 'error' ? 'text-red-700 bg-red-100' : 'text-green-700 bg-green-100'}`;
+            messageBox.classList.remove('hidden');
+        }
+
+        // Function to hide the message box
+        function hideMessage() {
+            messageBox.classList.add('hidden');
+        }
+
+        // Function to convert RGB to HSL
+        // r, g, b are values from 0 to 255
+        // Returns h, s, l in the range [0, 1]
+        function rgbToHsl(r, g, b) {
+            r /= 255;
+            g /= 255;
+            b /= 255;
+
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+
+            if (max === min) {
+                h = s = 0; // achromatic
+            } else {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            return [h, s, l];
+        }
+
+        // Function to convert HSL to RGB
+        // h, s, l are values from 0 to 1
+        // Returns r, g, b in the range [0, 255]
+        function hslToRgb(h, s, l) {
+            let r, g, b;
+
+            if (s === 0) {
+                r = g = b = l; // achromatic
+            } else {
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1 / 6) return p + (q - p) * 6 * t;
+                    if (t < 1 / 2) return q;
+                    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                    return p;
+                };
+
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1 / 3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1 / 3);
+            }
+
+            return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+        }
+
+        // Function to apply filters to the image
+        function applyFilters() {
+            if (!originalImage) return;
+
+            // Clear the canvas and redraw the original image
+            ctx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+            ctx.drawImage(originalImage, 0, 0, imageCanvas.width, imageCanvas.height);
+
+            // Get image data from the canvas
+            const imageData = ctx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+            const data = imageData.data; // Pixel data (R, G, B, A)
+
+            // Get current filter values
+            const hueShift = parseInt(hueRange.value); // -180 to 180 degrees
+            const saturationAdjust = parseInt(saturationRange.value) / 100; // 0 to 2
+            const brightnessAdjust = parseInt(brightnessRange.value) / 100; // 0 to 2
+
+            // Update display values
+            hueValueSpan.textContent = hueShift;
+            saturationValueSpan.textContent = parseInt(saturationRange.value);
+            brightnessValueSpan.textContent = parseInt(brightnessRange.value);
+
+            // Iterate over each pixel
+            for (let i = 0; i < data.length; i += 4) {
+                let r = data[i];
+                let g = data[i + 1];
+                let b = data[i + 2];
+                // Alpha channel (data[i + 3]) is ignored for color adjustments
+
+                // Convert RGB to HSL
+                let [h, s, l] = rgbToHsl(r, g, b);
+
+                // Apply hue shift
+                h = (h * 360 + hueShift) % 360;
+                if (h < 0) h += 360; // Ensure hue stays positive
+                h /= 360; // Convert back to 0-1 range
+
+                // Apply saturation adjustment
+                s = Math.min(1, Math.max(0, s * saturationAdjust));
+
+                // Apply lightness (brightness) adjustment
+                l = Math.min(1, Math.max(0, l * brightnessAdjust));
+
+                // Convert HSL back to RGB
+                [r, g, b] = hslToRgb(h, s, l);
+
+                // Update pixel data
+                data[i] = r;
+                data[i + 1] = g;
+                data[i + 2] = b;
+            }
+
+            // Put the modified image data back to the canvas
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        // Event listener for image upload
+        imageUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                hideMessage();
+                return;
+            }
+
+            if (!file.type.startsWith('image/')) {
+                showMessage('유효한 이미지 파일을 업로드해주세요.', 'error');
+                return;
+            }
+
+            hideMessage(); // Hide any previous error messages
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    originalImage = img; // Store the original image
+                    // Set canvas dimensions to match image, or limit it for display
+                    imageCanvas.width = img.width;
+                    imageCanvas.height = img.height;
+                    // For display, scale down if image is too large
+                    const maxWidth = 800; // Max width for display
+                    const maxHeight = 600; // Max height for display
+                    let ratio = 1;
+                    if (img.width > maxWidth) {
+                        ratio = maxWidth / img.width;
+                    }
+                    if (img.height * ratio > maxHeight) {
+                        ratio = maxHeight / img.height;
+                    }
+                    imageCanvas.style.width = `${img.width * ratio}px`;
+                    imageCanvas.style.height = `${img.height * ratio}px`;
+
+
+                    // Draw the image on the canvas
+                    ctx.drawImage(originalImage, 0, 0, imageCanvas.width, imageCanvas.height);
+
+                    // Reset filter values
+                    hueRange.value = 0;
+                    saturationRange.value = 100;
+                    brightnessRange.value = 100;
+                    applyFilters(); // Apply initial filters (which are reset values)
+                };
+                img.onerror = () => {
+                    showMessage('이미지를 로드하는 데 실패했습니다. 파일이 손상되었을 수 있습니다.', 'error');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Add event listeners for filter sliders
+        hueRange.addEventListener('input', applyFilters);
+        saturationRange.addEventListener('input', applyFilters);
+        brightnessRange.addEventListener('input', applyFilters);
+
+        // Reset button functionality
+        resetButton.addEventListener('click', () => {
+            if (originalImage) {
+                hueRange.value = 0;
+                saturationRange.value = 100;
+                brightnessRange.value = 100;
+                applyFilters(); // Re-apply with reset values
+            } else {
+                showMessage('먼저 이미지를 업로드해주세요.', 'error');
+            }
+        });
+
+        // Download button functionality
+        downloadButton.addEventListener('click', () => {
+            if (originalImage) {
+                const link = document.createElement('a');
+                link.download = 'modified_image.png';
+                link.href = imageCanvas.toDataURL('image/png');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                showMessage('다운로드할 이미지가 없습니다. 먼저 이미지를 업로드해주세요.', 'error');
+            }
+        });
+
+        // Initial setup for the canvas to show a placeholder message
+        function drawPlaceholder() {
+            ctx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+            ctx.fillStyle = '#f9fafb'; // gray-50
+            ctx.fillRect(0, 0, imageCanvas.width, imageCanvas.height);
+            ctx.font = '16px Inter, sans-serif';
+            ctx.fillStyle = '#6b7280'; // gray-500
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('이미지를 업로드해주세요', imageCanvas.width / 2, imageCanvas.height / 2);
+        }
+
+        // Set initial canvas size and draw placeholder
+        imageCanvas.width = 400;
+        imageCanvas.height = 300;
+        drawPlaceholder();
+
+    </script>
+</body>
+</html>
