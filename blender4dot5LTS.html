@@ -32,21 +32,25 @@
             // 데이터: Blender 4.5 LTS Geometry Nodes
             const nodeData = {
                 "Group Input": {
+                    description: "노드 그룹의 시작점입니다. 외부에서 지오메트리나 속성 값을 입력받을 때 사용됩니다.",
                     inputs: [],
                     outputs: [{ type: "Geometry", description: "입력된 지오메트리" }],
                     connectsTo: ["Group Output", "Join Geometry", "Set Position", "Extrude Mesh", "Subdivision Surface"]
                 },
                 "Group Output": {
+                    description: "노드 그룹의 최종 결과물을 정의하는 노드입니다. 그룹의 모든 작업이 이 노드를 통해 외부로 출력됩니다.",
                     inputs: [{ type: "Geometry", description: "출력할 최종 지오메트리" }],
                     outputs: [],
                     connectsTo: ["Group Input"]
                 },
                 "Join Geometry": {
+                    description: "여러 개의 지오메트리를 하나로 합쳐주는 노드입니다. 오브젝트를 합치거나, 다른 노드의 결과를 병합할 때 유용합니다.",
                     inputs: [{ type: "Geometry", description: "합칠 지오메트리들" }],
                     outputs: [{ type: "Geometry", description: "하나로 합쳐진 지오메트리" }],
                     connectsTo: ["Set Position", "Extrude Mesh", "Group Output", "Subdivision Surface"]
                 },
                 "Set Position": {
+                    description: "지오메트리의 위치를 변경하는 노드입니다. 점, 엣지, 면의 위치를 개별적으로 조절하여 복잡한 변형을 만들 수 있습니다.",
                     inputs: [
                         { type: "Geometry", description: "위치를 변경할 지오메트리" },
                         { type: "Vector", description: "새로운 위치" },
@@ -56,6 +60,7 @@
                     connectsTo: ["Join Geometry", "Extrude Mesh", "Group Output", "Subdivision Surface"]
                 },
                 "Extrude Mesh": {
+                    description: "메쉬의 면이나 엣지를 돌출시켜 새로운 형태를 만드는 노드입니다. 건물의 벽이나 모델의 팔다리를 만들 때 주로 사용됩니다.",
                     inputs: [
                         { type: "Mesh", description: "압출할 메쉬" },
                         { type: "Vector", description: "압출 방향" },
@@ -65,6 +70,7 @@
                     connectsTo: ["Join Geometry", "Group Output", "Set Position", "Subdivision Surface"]
                 },
                 "Transform": {
+                    description: "오브젝트를 이동, 회전, 크기 조절하는 기본적인 변환 노드입니다. 여러 오브젝트에 동일한 변환을 적용할 때 편리합니다.",
                     inputs: [
                         { type: "Geometry", description: "변환할 지오메트리" },
                         { type: "Vector", description: "이동 값" },
@@ -75,6 +81,7 @@
                     connectsTo: ["Join Geometry", "Group Output"]
                 },
                 "Instance on Points": {
+                    description: "점(Points)에 특정 오브젝트(Instance)를 복사하여 배치하는 노드입니다. 숲을 만들거나 도시를 시뮬레이션할 때 유용합니다.",
                     inputs: [
                         { type: "Geometry", description: "인스턴스를 배치할 점" },
                         { type: "Geometry", description: "인스턴스 할 지오메트리" },
@@ -85,6 +92,7 @@
                     connectsTo: ["Join Geometry", "Group Output"]
                 },
                 "Distribute Points on Faces": {
+                    description: "메쉬의 면에 점(Points)을 무작위로 생성하는 노드입니다. 생성된 점들은 'Instance on Points'와 결합하여 자연스러운 분포를 만들 수 있습니다.",
                     inputs: [
                         { type: "Mesh", description: "점을 생성할 메쉬" },
                         { type: "Float", description: "점 밀도" }
@@ -96,6 +104,7 @@
                     connectsTo: ["Instance on Points", "Set Position"]
                 },
                 "Curve to Mesh": {
+                    description: "커브를 메쉬로 변환하는 노드입니다. 라인 형태의 커브에 두께를 주거나 프로파일을 적용하여 파이프, 로프 등을 만들 수 있습니다.",
                     inputs: [
                         { type: "Curve", description: "변환할 커브" },
                         { type: "Mesh", description: "프로파일 메쉬" }
@@ -104,6 +113,7 @@
                     connectsTo: ["Extrude Mesh", "Join Geometry"]
                 },
                 "Resample Curve": {
+                    description: "커브의 점(Vertex) 개수를 재조정하는 노드입니다. 균일한 간격으로 점을 재배치하여 'Instance on Points' 노드와 함께 사용하면 규칙적인 배열을 만들 수 있습니다.",
                     inputs: [
                         { type: "Curve", description: "재샘플링할 커브" },
                         { type: "Float", description: "길이" },
@@ -113,6 +123,7 @@
                     connectsTo: ["Curve to Mesh", "Set Position"]
                 },
                 "Subdivision Surface": {
+                    description: "메쉬를 세분화하여 부드럽게 만드는 노드입니다. 딱딱한 메쉬를 부드러운 유기체 모양으로 변환할 때 사용됩니다.",
                     inputs: [
                         { type: "Geometry", description: "세분화할 지오메트리" },
                         { type: "Integer", description: "세분화 레벨" }
@@ -121,6 +132,7 @@
                     connectsTo: ["Group Output", "Extrude Mesh", "Set Position", "Join Geometry"]
                 },
                 "Merge by Distance": {
+                    description: "서로 가까이 있는 버텍스들을 하나로 합쳐주는 노드입니다. 겹쳐진 버텍스를 정리하여 모델링 오류를 수정할 때 유용합니다.",
                     inputs: [
                         { type: "Geometry", description: "병합할 지오메트리" },
                         { type: "Float", description: "병합 거리" }
@@ -129,6 +141,7 @@
                     connectsTo: ["Group Output", "Subdivision Surface"]
                 },
                 "Delete Geometry": {
+                    description: "지정된 조건에 따라 지오메트리의 일부를 삭제하는 노드입니다. 선택된 점, 엣지, 면을 지워 모델을 편집하거나 구멍을 낼 수 있습니다.",
                     inputs: [
                         { type: "Geometry", description: "삭제할 지오메트리" },
                         { type: "Boolean", description: "선택" }
@@ -200,6 +213,12 @@
                 // JSX structure translated to React.createElement calls
                 return e("div", { className: "p-6 border-2 border-yellow-500 rounded-lg bg-gray-900" },
                     e("h2", { className: "text-3xl font-bold mb-4 text-yellow-300" }, nodeName),
+                    
+                    // 노드에 대한 일반적인 설명 추가
+                    e("div", { className: "mb-6" },
+                        e("h3", { className: "text-xl font-semibold mb-2" }, "노드 설명"),
+                        e("p", { className: "text-gray-300" }, data.description || "해당 노드에 대한 설명이 없습니다.")
+                    ),
                     
                     // Input section
                     e("div", { className: "mb-6" },
@@ -302,6 +321,16 @@
                     e("div", { className: "max-w-4xl mx-auto" },
                         e("h1", { className: "text-3xl md:text-4xl font-extrabold text-center mb-6 text-yellow-300" }, "Blender 4.5 LTS Geometry Node 정보 탐색기"),
                         e("p", { className: "text-center text-sm md:text-base text-gray-400 mb-8" }, "노드 이름을 검색하고 클릭하여 입출력 값과 연결 가능한 노드를 확인하세요."),
+                        // 설명 섹션 추가
+                        e("div", { className: "mb-8 p-6 bg-gray-900 rounded-2xl shadow-lg border border-gray-700" },
+                            e("h2", { className: "text-2xl font-bold mb-4 text-yellow-300" }, "사용 방법"),
+                            e("ul", { className: "list-disc list-inside space-y-2 text-gray-300" },
+                                e("li", null, "위 검색창에 찾고 싶은 노드의 이름을 입력하세요."),
+                                e("li", null, "아래 목록에서 노드를 클릭하면 해당 노드의 상세 정보가 나타납니다."),
+                                e("li", null, "상세 정보 페이지에서 '자세히 보기' 버튼을 클릭하면, Gemini AI가 노드에 대한 상세한 설명을 제공합니다.")
+                            ),
+                            e("p", { className: "mt-4 text-sm text-gray-400 italic" }, "이 앱은 Blender 4.5 LTS 버전의 지오메트리 노드를 기반으로 합니다.")
+                        ),
                         e("div", { className: "flex justify-center mb-8" },
                             e("input", {
                                 type: "text",
