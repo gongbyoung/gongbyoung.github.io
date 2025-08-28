@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>웹 이미지 에디터</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Inter 폰트 적용 */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* 캔버스 기본 스타일 */
+        canvas {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #e2e8f0; /* Tailwind gray-200 */
+            border-radius: 0.5rem; /* Tailwind rounded-lg */
+            background-color: #f8fafc; /* Tailwind gray-50 */
+        }
+        /* 슬라이더 트랙 커스터마이징 (Tailwind가 모든 스타일을 덮어쓰지 않을 수 있으므로 직접 정의) */
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: #cbd5e1; /* Tailwind gray-300 */
+            height: 8px;
+            border-radius: 4px;
+        }
+        input[type="range"]::-moz-range-track {
+            background: #cbd5e1; /* Tailwind gray-300 */
+            height: 8px;
+            border-radius: 4px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6; /* Tailwind blue-500 */
+            cursor: grab;
+            margin-top: -6px; /* 트랙 중앙에 위치 */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6; /* Tailwind blue-500 */
+            cursor: grab;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl w-full bg-white p-6 sm:p-8 rounded-xl shadow-lg">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 text-center mb-6">간편 웹 이미지 에디터(By Gemini Flash2.5)</h1>
+        <p class="text-gray-600 text-center mb-8">이미지를 업로드하고 채도, 밝기, 대비를 조절한 후 저장해보세요.</p>
+
+        <div class="mb-8 flex flex-col items-center">
+            <input type="file" id="imageUpload" accept="image/*" class="hidden" onchange="loadImage(event)">
+            <label for="imageUpload" class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                이미지 불러오기
+            </label>
+        </div>
+
+        <div id="editorArea" class="flex flex-col lg:flex-row gap-8" style="display: none;">
+            <!-- 이미지 미리보기 영역 -->
+            <div class="flex-1 flex justify-center items-center bg-gray-50 p-4 rounded-lg shadow-inner border border-gray-200">
+                <canvas id="imageCanvas" class="rounded-lg"></canvas>
+            </div>
+
+            <!-- 컨트롤러 영역 -->
+            <div class="w-full lg:w-1/3 flex flex-col space-y-6">
+                <!-- 밝기 조절 -->
+                <div>
+                    <label for="brightnessSlider" class="block text-lg font-medium text-gray-800 mb-2">밝기 (<span id="brightnessValue">100</span>%)</label>
+                    <input type="range" id="brightnessSlider" min="0" max="200" value="100" class="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <!-- 대비 조절 -->
+                <div>
+                    <label for="contrastSlider" class="block text-lg font-medium text-gray-800 mb-2">대비 (<span id="contrastValue">100</span>%)</label>
+                    <input type="range" id="contrastSlider" min="0" max="200" value="100" class="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <!-- 채도 조절 -->
+                <div>
+                    <label for="saturationSlider" class="block text-lg font-medium text-gray-800 mb-2">채도 (<span id="saturationValue">100</span>%)</label>
+                    <input type="range" id="saturationSlider" min="0" max="200" value="100" class="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <!-- 저장 버튼 -->
+                <button id="saveButton" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                    이미지 저장
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const imageUpload = document.getElementById('imageUpload');
+        const editorArea = document.getElementById('editorArea');
+        const imageCanvas = document.getElementById('imageCanvas');
+        const ctx = imageCanvas.getContext('2d');
+
+        const brightnessSlider = document.getElementById('brightnessSlider');
+        const contrastSlider = document.getElementById('contrastSlider');
+        const saturationSlider = document.getElementById('saturationSlider');
+
+        const brightnessValue = document.getElementById('brightnessValue');
+        const contrastValue = document.getElementById('contrastValue');
+        const saturationValue = document.getElementById('saturationValue');
+
+        const saveButton = document.getElementById('saveButton');
+
+        let originalImage = new Image();
+        let loadedImageUrl = ''; // 원본 이미지 URL (혹은 데이터 URL) 저장
+
+        // 이미지 로드 및 캔버스에 그리기
+        function loadImage(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                originalImage.onload = () => {
+                    // 에디터 영역 표시
+                    editorArea.style.display = 'flex';
+                    
+                    // 캔버스 크기 조정 (최대 폭 600px, 높이 자동)
+                    const maxWidth = 600;
+                    const scaleFactor = maxWidth / originalImage.width;
+                    imageCanvas.width = originalImage.width * Math.min(1, scaleFactor);
+                    imageCanvas.height = originalImage.height * Math.min(1, scaleFactor);
+
+                    // 슬라이더 초기값으로 재설정
+                    brightnessSlider.value = 100;
+                    contrastSlider.value = 100;
+                    saturationSlider.value = 100;
+                    updateSlidersValue(); // 슬라이더 값 표시 업데이트
+
+                    applyFilters(); // 이미지 로드 후 필터 적용 (초기 상태)
+                };
+                originalImage.src = e.target.result;
+                loadedImageUrl = e.target.result; // 원본 이미지 데이터 URL 저장
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 슬라이더 값에 따라 캔버스 이미지 업데이트
+        function applyFilters() {
+            if (!originalImage.src) return;
+
+            // 원본 이미지를 캔버스에 그리기 (매번 원본으로 시작)
+            ctx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+            ctx.drawImage(originalImage, 0, 0, imageCanvas.width, imageCanvas.height);
+
+            let imageData = ctx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+            let pixels = imageData.data;
+            
+            const brightness = parseFloat(brightnessSlider.value) / 100; // 0.0 to 2.0
+            const contrast = parseFloat(contrastSlider.value) / 100;     // 0.0 to 2.0
+            const saturation = parseFloat(saturationSlider.value) / 100; // 0.0 to 2.0
+
+            // 대비 조절을 위한 중간값
+            const contrastFactor = (contrast > 1) ? (contrast - 1) * 255 : (1 - contrast) * 255;
+            const intercept = 128 * (1 - contrast); // 대비 조절 공식에 사용될 절편
+
+            for (let i = 0; i < pixels.length; i += 4) {
+                let r = pixels[i];
+                let g = pixels[i + 1];
+                let b = pixels[i + 2];
+
+                // 밝기 조절 (값 추가)
+                r = r * brightness;
+                g = g * brightness;
+                b = b * brightness;
+
+                // 대비 조절 (중간값 기준으로 확대/축소)
+                r = r * contrast + intercept;
+                g = g * contrast + intercept;
+                b = b * contrast + intercept;
+
+                // 채도 조절 (HSL 변환 대신 단순화된 방법)
+                // 회색조 값 계산
+                const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                r = gray * (1 - saturation) + r * saturation;
+                g = gray * (1 - saturation) + g * saturation;
+                b = gray * (1 - saturation) + b * saturation;
+                
+                // 픽셀 값 범위 클리핑 (0-255)
+                pixels[i] = Math.max(0, Math.min(255, r));
+                pixels[i + 1] = Math.max(0, Math.min(255, g));
+                pixels[i + 2] = Math.max(0, Math.min(255, b));
+            }
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        // 슬라이더 값 표시 업데이트
+        function updateSlidersValue() {
+            brightnessValue.textContent = brightnessSlider.value;
+            contrastValue.textContent = contrastSlider.value;
+            saturationValue.textContent = saturationSlider.value;
+        }
+
+        // 슬라이더 이벤트 리스너 등록
+        brightnessSlider.addEventListener('input', () => {
+            updateSlidersValue();
+            applyFilters();
+        });
+        contrastSlider.addEventListener('input', () => {
+            updateSlidersValue();
+            applyFilters();
+        });
+        saturationSlider.addEventListener('input', () => {
+            updateSlidersValue();
+            applyFilters();
+        });
+
+        // 이미지 저장
+        saveButton.addEventListener('click', () => {
+            if (!originalImage.src) {
+                alert('먼저 이미지를 불러와주세요.');
+                return;
+            }
+            const link = document.createElement('a');
+            link.download = 'edited_image.png'; // 저장될 파일 이름
+            link.href = imageCanvas.toDataURL('image/png'); // 캔버스 내용을 PNG 데이터 URL로 변환
+            link.click();
+        });
+        
+        // 초기 슬라이더 값 표시
+        updateSlidersValue();
+    </script>
+</body>
+</html>
