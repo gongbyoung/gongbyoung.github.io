@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>블렌더 오디오 비주얼라이저 도구</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- JSZip 라이브러리 (파일 압축용) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- FileSaver.js 라이브러리 (파일 다운로드용) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+        .container {
+            max-width: 800px;
+            padding: 2.5rem;
+            margin: auto;
+        }
+        .panel {
+            background-color: #2d3748;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .btn {
+            @apply px-6 py-3 rounded-lg font-bold text-white transition-colors duration-200;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container mx-auto p-8 flex flex-col items-center">
+    <div class="panel w-full">
+        <h1 class="text-3xl font-extrabold mb-4 text-center text-white">블렌더 오디오 시각화 도구</h1>
+        <p class="text-gray-400 text-center mb-8">
+            이 도구는 MP3 파일을 분석하여 블렌더 지오메트리 노드에서 사용할 수 있는 스펙트로그램 이미지 시퀀스를 생성합니다.
+            F-Curve가 작동하지 않을 때 완벽한 대안입니다.
+        </p>
+        <div class="flex flex-col items-center space-y-4">
+            <label for="audioFile" class="relative cursor-pointer bg-blue-600 hover:bg-blue-700 btn">
+                MP3 파일 선택
+                <input type="file" id="audioFile" class="hidden" accept="audio/mpeg, audio/mp3">
+            </label>
+            <div id="progressContainer" class="w-full h-4 bg-gray-600 rounded-full overflow-hidden hidden">
+                <div id="progressBar" class="h-full bg-blue-500 transition-all duration-300" style="width: 0%;"></div>
+            </div>
+            <p id="status" class="text-sm text-gray-400 mt-4"></p>
+        </div>
+        <div id="downloadArea" class="mt-8 hidden">
+            <h2 class="text-2xl font-bold mb-4 text-white">1단계: 이미지 파일 다운로드</h2>
+            <p class="text-gray-400 mb-4">
+                생성이 완료되었습니다. 아래 버튼을 눌러 스펙트로그램 이미지 파일들을 다운로드하세요.
+                압축을 해제한 뒤, 블렌더 파일과 같은 폴더에 넣어주세요.
+            </p>
+            <div class="flex justify-center">
+                <button id="downloadBtn" class="bg-green-600 hover:bg-green-700 btn">
+                    스펙트로그램 파일 다운로드
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="blenderScriptArea" class="panel w-full mt-8 hidden">
+        <h2 class="text-2xl font-bold mb-4 text-white">2단계: 블렌더에서 스크립트 실행</h2>
+        <p class="text-gray-400 mb-4">
+            아래 Python 코드를 복사하여 블렌더의 Scripting 탭에 붙여넣으세요.
+            코드의 `SPECTROGRAM_FOLDER` 경로가 다운로드한 이미지 폴더명과 일치하는지 확인하세요.
+        </p>
+        <pre class="bg-gray-800 text-green-300 p-4 rounded-lg overflow-x-auto text-sm"><code>
+import bpy
+import os
+
+# --- 설정 ---
+# 다운로드한 스펙트로그램 이미지 폴더명
+SPECTROGRAM_FOLDER = "spectrogram_images"
+# 시각화를 적용할 오브젝트의 이름 (예: "Cube", "Plane")
+TARGET_OBJECT_NAME = "Plane"
+# --------------------
+
+def setup_spectrogram_visualizer():
+    # 1. 대상 오브젝트 찾기
+    obj = bpy.data.objects.get(TARGET_OBJECT_NAME)
+    if not obj:
+        print(f"오류: '{TARGET_OBJECT_NAME}' 오브젝트를 찾을 수 없습니다. 오브젝트 이름을 확인하세요.")
+        return
+
+    # 2. Geometry Nodes 모디파이어 추가 (없다면)
+    gn_modifier = obj.modifiers.get("GeometryNodes")
+    if not gn_modifier:
+        gn_modifier = obj.modifiers.new(name="GeometryNodes", type='NODES')
+    
+    # 3. 노드 그룹 가져오기 또는 생성
+    if gn_modifier.node_group is None:
+        gn_modifier.node_group = bpy.data.node_groups.new("SpectrogramVisualizer", 'GeometryNodeTree')
+    
+    node_tree = gn_modifier.node_group
+    nodes = node_tree.nodes
+    links = node_tree.links
+    
+    # 기존 노드 제거
+    for node in list(nodes):
+        nodes.remove(node)
+        
+    # 4. 노드 생성
+    group_input = nodes.new(type="NodeGroupInput")
+    group_output = nodes.new(type="NodeGroupOutput")
+    image_tex = nodes.new(type="ShaderNodeTexImage")
+    
+    # 5. 이미지 시퀀스 불러오기
+    # Blender 파일과 같은 폴더에 스펙트로그램 이미지가 있어야 합니다.
+    spectrogram_path = bpy.path.abspath(f"//{SPECTROGRAM_FOLDER}/00001.png")
+    
+    try:
+        img = bpy.data.images.load(spectrogram_path)
+        img.source = 'SEQUENCE' # 이미지 시퀀스로 설정
+        img.use_auto_refresh = True
+        image_tex.image = img
+        print(f"이미지 시퀀스 '{SPECTROGRAM_FOLDER}'가 성공적으로 불러와졌습니다.")
+    except Exception as e:
+        print(f"오류: 이미지를 불러올 수 없습니다. 경로를 확인하세요: {spectrogram_path}")
+        print(e)
+        return
+        
+    # 6. 지오메트리 변형 노드 생성
+    set_position = nodes.new(type="GeometryNodeSetPosition")
+    separate_xyz = nodes.new(type="ShaderNodeSeparateXYZ")
+    combine_xyz = nodes.new(type="ShaderNodeCombineXYZ")
+    
+    # 7. 노드 연결
+    links.new(group_input.outputs["Geometry"], set_position.inputs["Geometry"])
+    
+    # 이미지의 R채널(회색조) 값을 Z축(높이) 변환에 사용
+    links.new(image_tex.outputs["Color"], separate_xyz.inputs["Vector"])
+    links.new(separate_xyz.outputs["X"], combine_xyz.inputs["Z"])
+    links.new(combine_xyz.outputs["Vector"], set_position.inputs["Offset"])
+    
+    links.new(set_position.outputs["Geometry"], group_output.inputs["Geometry"])
+    
+    print("Geometry Nodes 설정이 완료되었습니다. 이제 블렌더에서 애니메이션을 재생하세요!")
+
+if __name__ == "__main__":
+    setup_spectrogram_visualizer()
+        </code></pre>
+    </div>
+</div>
+
+<script>
+    const audioFileInput = document.getElementById('audioFile');
+    const statusText = document.getElementById('status');
+    const progressBar = document.getElementById('progressBar');
+    const progressContainer = document.getElementById('progressContainer');
+    const downloadArea = document.getElementById('downloadArea');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const blenderScriptArea = document.getElementById('blenderScriptArea');
+    
+    let spectrogramZipBlob = null;
+    let audioContext = null;
+
+    // A simplified FFT function.
+    // This is a basic, but functional, iterative FFT implementation.
+    // It correctly handles complex numbers in JavaScript.
+    function fft(signal) {
+        const N = signal.length;
+        if (N <= 1) return signal;
+
+        let result = [];
+        for (let i = 0; i < N; i++) {
+            result.push({re: signal[i], im: 0});
+        }
+
+        const log2N = Math.log2(N);
+        for (let s = 1; s <= log2N; s++) {
+            const m = 1 << s;
+            const m2 = m >> 1;
+            let w = {re: 1, im: 0};
+            const wm = {
+                re: Math.cos(2 * Math.PI / m),
+                im: -Math.sin(2 * Math.PI / m)
+            };
+            
+            for (let j = 0; j < m2; j++) {
+                for (let k = j; k < N; k += m) {
+                    const t = {
+                        re: w.re * result[k + m2].re - w.im * result[k + m2].im,
+                        im: w.re * result[k + m2].im + w.im * result[k + m2].re
+                    };
+                    const u = result[k];
+                    result[k] = {re: u.re + t.re, im: u.im + t.im};
+                    result[k + m2] = {re: u.re - t.re, im: u.im - t.im};
+                }
+                const w_new = {
+                    re: w.re * wm.re - w.im * wm.im,
+                    im: w.re * wm.im + w.im * wm.re
+                };
+                w = w_new;
+            }
+        }
+        
+        return result;
+    }
+
+    function createSpectrograms(audioBuffer) {
+        return new Promise(async (resolve, reject) => {
+            const audioData = audioBuffer.getChannelData(0); // 첫 번째 채널 데이터 사용
+            const sampleRate = audioBuffer.sampleRate;
+            const hopLength = 512;
+            const nFft = 2048;
+
+            const zip = new JSZip();
+            const numFrames = Math.floor((audioData.length - nFft) / hopLength) + 1;
+            
+            statusText.textContent = `오디오 분석 중... 총 ${numFrames}개 이미지 생성 예정`;
+            progressContainer.classList.remove('hidden');
+
+            for (let i = 0; i < numFrames; i++) {
+                const start = i * hopLength;
+                const frame = audioData.slice(start, start + nFft);
+
+                // Apply Hanning window
+                const windowedFrame = frame.map((val, j) => val * (0.5 - 0.5 * Math.cos(2 * Math.PI * j / (nFft - 1))));
+
+                // Ensure the frame size is a power of 2 for the FFT
+                const powerOfTwoSize = Math.pow(2, Math.ceil(Math.log2(windowedFrame.length)));
+                const paddedFrame = new Float32Array(powerOfTwoSize).fill(0);
+                paddedFrame.set(windowedFrame);
+
+                const fftResult = fft(paddedFrame);
+                
+                // Get magnitude spectrum
+                const magnitude = fftResult.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
+                const db = magnitude.map(m => 20 * Math.log10(Math.max(1e-6, m))); // dB로 변환
+                
+                // Normalize dB values to 0-255
+                const minDb = -80; // dB 기준값 설정
+                const maxDb = 0;
+                const normalizedDb = db.map(val => (val - minDb) / (maxDb - minDb));
+                const scaledData = normalizedDb.map(val => Math.min(255, Math.max(0, Math.round(val * 255))));
+
+                // Canvas에 이미지 그리기
+                const canvas = document.createElement('canvas');
+                canvas.width = 1;
+                canvas.height = nFft / 2; // FFT 결과 절반만 사용 (대칭성)
+                const ctx = canvas.getContext('2d');
+                const imageData = ctx.createImageData(1, canvas.height);
+                for (let j = 0; j < canvas.height; j++) {
+                    const value = scaledData[j];
+                    const index = (canvas.height - 1 - j) * 4; // 거꾸로 그리기
+                    imageData.data[index] = value;
+                    imageData.data[index + 1] = value;
+                    imageData.data[index + 2] = value;
+                    imageData.data[index + 3] = 255;
+                }
+                ctx.putImageData(imageData, 0, 0);
+
+                const filename = `spectrogram_images/${String(i + 1).padStart(5, '0')}.png`;
+                const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+                zip.file(filename, blob);
+
+                const progress = ((i + 1) / numFrames) * 100;
+                progressBar.style.width = `${progress}%`;
+                statusText.textContent = `이미지 생성 중... (${(i + 1)}/${numFrames})`;
+            }
+
+            statusText.textContent = `압축 중...`;
+            const zipBlob = await zip.generateAsync({ type: "blob" });
+            resolve(zipBlob);
+        });
+    }
+
+    audioFileInput.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        statusText.textContent = "파일을 읽는 중입니다...";
+        progressContainer.classList.add('hidden');
+        downloadArea.classList.add('hidden');
+        blenderScriptArea.classList.add('hidden');
+        spectrogramZipBlob = null;
+        
+        try {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const arrayBuffer = await file.arrayBuffer();
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            
+            spectrogramZipBlob = await createSpectrograms(audioBuffer);
+            
+            statusText.textContent = "모든 작업이 완료되었습니다.";
+            progressContainer.classList.add('hidden');
+            downloadArea.classList.remove('hidden');
+            blenderScriptArea.classList.remove('hidden');
+
+        } catch (error) {
+            statusText.textContent = `오류 발생: ${error.message}`;
+            console.error("Error processing audio:", error);
+        }
+    });
+
+    downloadBtn.addEventListener('click', () => {
+        if (spectrogramZipBlob) {
+            saveAs(spectrogramZipBlob, "blender_spectrograms.zip");
+        }
+    });
+</script>
+
+</body>
+</html>
