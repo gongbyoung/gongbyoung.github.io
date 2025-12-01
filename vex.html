@@ -1,25 +1,243 @@
-if (jsonMatch) {
-                    cleanText = jsonMatch[1];
-                }
-                // 백슬래시 이스케이프 제거 (마크다운 특수문자용)
-                cleanText = cleanText.replace(/\\([\[\]*])/g, '$1');
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Houdini VEX 학습 및 구문 검사기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Nanum+Gothic+Coding&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7fafc;
+        }
+        .code-container {
+            position: relative;
+            font-family: 'Nanum Gothic Coding', monospace;
+        }
+        /* 입력 영역과 하이라이트 영역 정렬 */
+        .code-area, .syntax-highlight {
+            width: 100%;
+            height: 300px;
+            padding: 1rem;
+            line-height: 1.5;
+            tab-size: 4;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+        .code-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            color: white; /* 텍스트 보임 (투명 아님) */
+            background-color: #282c34; /* 배경 불투명 */
+            z-index: 10; 
+            resize: none;
+        }
+        .syntax-highlight {
+            pointer-events: none;
+            overflow-y: auto;
+            background-color: #282c34; 
+            color: white;
+            border-radius: 0.5rem;
+            z-index: 5; 
+        }
+        /* 구문 강조 색상 */
+        .keyword { color: #c678dd; } 
+        .attribute { color: #e5c07b; } 
+        .type { color: #61afef; } 
+        .function { color: #56b6c2; } 
+        .comment { color: #7f848e; } 
+        .string { color: #98c379; } 
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Houdini VEX 학습 및 구문 검사기</h1>
+            <p class="text-gray-500">웹 기반 VEX 구문 강조 및 함수 사전입니다. (단일 파일 통합 버전)</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- 에디터 영역 -->
+            <div class="bg-white p-6 shadow-xl rounded-xl">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">VEX 코드 편집</h2>
                 
+                <div class="code-container rounded-lg overflow-hidden border border-gray-700">
+                    <div id="syntaxHighlight" class="syntax-highlight"></div>
+                    <textarea id="vexCodeInput" class="code-area focus:outline-none" spellcheck="false" 
+                        placeholder="// VEX 코드를 입력하세요..."
+                        oninput="checkSyntax()"></textarea>
+                </div>
+
+                <div id="syntaxFeedback" class="mt-4 p-3 rounded-lg text-sm transition-all duration-300 min-h-[40px] border">
+                    <p class="text-gray-500">준비 완료</p>
+                </div>
+
+                <button id="explainButton" onclick="explainVEXCode()" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 disabled:bg-indigo-400">
+                    코드 설명 요청 (AI 분석)
+                </button>
+                <h3 class="text-lg font-semibold mt-6 mb-2 text-gray-700">AI 코드 분석 결과</h3>
+                <div id="explanationOutput" class="mt-2 p-4 rounded-lg text-sm bg-gray-50 border min-h-[50px]">
+                    <p class="text-gray-500">코드를 입력하고 버튼을 누르면 설명이 여기에 표시됩니다.</p>
+                </div>
+            </div>
+
+            <!-- 사전 및 노트 영역 -->
+            <div class="bg-white p-6 shadow-xl rounded-xl">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">VEX 함수 사전</h2>
+                <input type="text" id="functionSearch" oninput="searchFunctions()" placeholder="함수, 어트리뷰트 검색..."
+                       class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4">
+                
+                <div id="functionList" class="space-y-4 max-h-[400px] overflow-y-auto mb-8">
+                    <!-- 함수 목록 -->
+                </div>
+
+                <h2 class="text-xl font-semibold mb-4 text-gray-700 border-t pt-4">VEX 학습 노트</h2>
+                <div id="learningNotes" class="bg-gray-50 p-4 rounded-lg space-y-3 max-h-[500px] overflow-y-auto text-sm">
+                    <!-- 학습 노트 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+const match = cleanText.match(jsonBlockRegex);
+                if (match) {
+                    cleanText = match[1];
+                }
                 return JSON.parse(cleanText);
             } catch (e) {
-                console.error(`JSON 파싱 오류 (${path}):`, e);
-                // 파싱 실패 시 원본 텍스트로 재시도 (혹시 마크다운 없이 순수 JSON일 경우)
-                try {
-                    return JSON.parse(text);
-                } catch (retryError) {
-                    throw new Error(`JSON 파싱 실패: ${path}`);
-                }
+                console.error(`Error loading ${path}:`, e);
+                throw e;
             }
         }
 
-        // ==== UI 렌더링 함수들 ====
+        // ==== 2. 구문 강조용 정규식 생성 (안전한 방식) ====
+        function buildTokenizerRegex() {
+            // 정규식 특수문자 이스케이프 함수
+            const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            
+            // 데이터가 없으면 기본값 처리
+            if (!VEX_FUNCTIONS.length) return null;
+
+            // 이름순/길이순 정렬하여 매칭 정확도 향상
+            const funcNames = VEX_FUNCTIONS.map(f => f.name).sort((a,b) => b.length - a.length).map(escapeRegExp);
+            const keywords = VEX_KEYWORDS.sort((a,b) => b.length - a.length).map(escapeRegExp);
+            const attributes = VEX_ATTRIBUTES.sort((a,b) => b.length - a.length).map(escapeRegExp);
+            const types = ['int', 'float', 'vector', 'string', 'void', 'matrix', 'vector2', 'vector4', 'matrix3'].map(escapeRegExp);
+
+            // 패턴 그룹화 (문자열 연결 방식)
+            const patterns = [
+                "(\\/\\/.*)",                       // 1. Comments: //...
+                "(\".*?\")",                        // 2. Strings: "..."
+                `\\b(${funcNames.join('|')})\\b`,   // 3. Functions
+                `\\b(${types.join('|')})\\b`,       // 4. Types
+                `\\b(${keywords.join('|')})\\b`,    // 5. Keywords
+                `(${attributes.join('|')}|[ivfsm4]?@\\w+)` // 6. Attributes (@P or f@name)
+            ];
+
+            // 빈 배열 등으로 인해 잘못된 정규식이 생성되지 않도록 필터링
+            const validPatterns = patterns.filter(p => !p.includes("()"));
+            
+            return new RegExp(validPatterns.join('|'), 'g');
+        }
+
+        // ==== 3. 하이라이팅 로직 (Tokenizer) ====
+        function highlightCode(code) {
+            // HTML 이스케이프 (태그 꺽쇠 변환)
+            const escapeHtml = (str) => str.replace(new RegExp("<", "g"), "&lt;").replace(new RegExp(">", "g"), "&gt;");
+
+            if (!TOKENIZER_REGEX) return escapeHtml(code);
+
+            let lastIndex = 0;
+            let highlightedHtml = "";
+            let match;
+
+            TOKENIZER_REGEX.lastIndex = 0; // 정규식 상태 초기화
+
+            while ((match = TOKENIZER_REGEX.exec(code)) !== null) {
+                // 매칭되지 않은 앞부분 (일반 텍스트) 추가
+                if (match.index > lastIndex) {
+                    highlightedHtml += escapeHtml(code.substring(lastIndex, match.index));
+                }
+
+                const text = match[0];
+                let className = "text-white"; 
+
+                // 그룹 인덱스 확인 (패턴 배열 순서와 일치)
+                if (match[1]) className = "comment";
+                else if (match[2]) className = "string";
+                else if (match[3]) className = "function";
+                else if (match[4]) className = "type";
+                else if (match[5]) className = "keyword";
+                else if (match[6]) className = "attribute";
+
+                highlightedHtml += `<span class="${className}">${escapeHtml(text)}</span>`;
+                lastIndex = TOKENIZER_REGEX.lastIndex;
+            }
+
+            // 남은 뒷부분 추가
+            if (lastIndex < code.length) {
+                highlightedHtml += escapeHtml(code.substring(lastIndex));
+            }
+
+            return highlightedHtml;
+        }
+
+        // ==== 4. 간단 구문 검사 ====
+        function simpleSyntaxCheck(code) {
+            if (VEX_FUNCTIONS.length === 0) return;
+            
+            const errors = [];
+            const lines = code.split('\n').filter(line => line.trim() !== '' && !line.trim().startsWith('//'));
+            // Regex: ^\s*(if|else|for|while|#include|int|float|vector|string|void)
+            const structPattern = new RegExp("^\\s*(if|else|for|while|#include|int|float|vector|string|void)");
+
+            lines.forEach((line, index) => {
+                const trimmed = line.trim();
+                // 세미콜론 검사 (구조적 구문 및 괄호 제외)
+                if (!structPattern.test(trimmed) && !trimmed.endsWith(';') && !trimmed.endsWith('}') && !trimmed.endsWith('{')) {
+                     errors.push(`[라인 ${index + 1}] 세미콜론(;) 누락 가능성.`);
+                }
+            });
+
+            // 괄호 짝 검사
+            let curly = 0, paren = 0;
+            for(let char of code) {
+                if(char === '{') curly++;
+                else if(char === '}') curly--;
+                else if(char === '(') paren++;
+                else if(char === ')') paren--;
+            }
+
+            if (curly !== 0) errors.push(`중괄호 {} 불일치.`);
+            if (paren !== 0) errors.push(`소괄호 () 불일치.`);
+
+            // 결과 표시
+            if (errors.length > 0) {
+                feedback.className = 'mt-4 p-3 rounded-lg text-sm border border-red-400 bg-red-100 text-red-700';
+                feedback.innerHTML = `<strong>발견된 이슈:</strong><ul>${errors.map(err => `<li>${err}</li>`).join('')}</ul>`;
+            } else {
+                feedback.className = 'mt-4 p-3 rounded-lg text-sm border border-green-400 bg-green-100 text-green-700';
+                feedback.innerHTML = '<strong>구문 검사 완료:</strong> 문법적으로 큰 문제가 없어 보입니다.';
+            }
+        }
+
+        // ==== 5. UI 업데이트 및 이벤트 핸들러 ====
+        function checkSyntax() {
+            const code = input.value;
+            highlight.innerHTML = highlightCode(code);
+            simpleSyntaxCheck(code);
+        }
+
         function renderLearningNotes() {
             if (!VEX_NOTES_DATA || VEX_NOTES_DATA.length === 0) {
-                 learningNotes.innerHTML = '<p class="text-gray-500">로딩된 학습 노트가 없습니다.</p>';
+                 learningNotes.innerHTML = '<p class="text-gray-500">학습 노트 데이터가 없습니다.</p>';
                  return;
             }
             learningNotes.innerHTML = VEX_NOTES_DATA.map(note => `
@@ -31,41 +249,21 @@ if (jsonMatch) {
             `).join('');
         }
 
-        function loadAllFunctions() {
-            if (!VEX_FUNCTIONS || VEX_FUNCTIONS.length === 0) {
-                functionList.innerHTML = '<p class="text-gray-500">로딩된 함수가 없습니다.</p>';
-                return;
-            }
-            const allSearchableItems = [
-                ...VEX_FUNCTIONS, 
-                ...VEX_KEYWORDS.map(k => ({ name: k, desc: "VEX 키워드", syntax: k })),
-                ...VEX_ATTRIBUTES.map(a => ({ name: a, desc: "VEX 어트리뷰트", syntax: a }))
-            ];
-
-            functionList.innerHTML = allSearchableItems.map(f => `
-                <div class="p-3 bg-gray-50 rounded-lg border hover:bg-gray-100 transition-colors">
-                    <code class="font-bold text-lg text-blue-700 select-all">${f.name}</code>
-                    <p class="text-gray-600 my-1">${f.desc}</p>
-                    <code class="text-sm text-gray-500 block overflow-x-auto">${f.syntax || f.name}</code>
-                </div>
-            `).join('');
-        }
-
         function searchFunctions() {
             const query = functionSearchInput.value.toLowerCase();
-            const allSearchableItems = [
+            const allItems = [
                 ...VEX_FUNCTIONS, 
                 ...VEX_KEYWORDS.map(k => ({ name: k, desc: "VEX 키워드", syntax: k })),
                 ...VEX_ATTRIBUTES.map(a => ({ name: a, desc: "VEX 어트리뷰트", syntax: a }))
             ];
 
-            const filteredItems = allSearchableItems.filter(item => 
+            const filtered = allItems.filter(item => 
                 item.name.toLowerCase().includes(query) || 
                 item.desc.toLowerCase().includes(query) ||
                 (item.syntax && item.syntax.toLowerCase().includes(query))
             ).slice(0, 100);
 
-            functionList.innerHTML = filteredItems.map(f => `
+            functionList.innerHTML = filtered.map(f => `
                 <div class="p-3 bg-gray-50 rounded-lg border hover:bg-gray-100 transition-colors">
                     <code class="font-bold text-lg text-blue-700 select-all">${f.name}</code>
                     <p class="text-gray-600 my-1">${f.desc}</p>
@@ -73,136 +271,73 @@ if (jsonMatch) {
                 </div>
             `).join('');
 
-            if (filteredItems.length === 0) {
-                functionList.innerHTML = `<p class="text-gray-500 p-4">검색 결과가 없습니다.</p>`;
-            }
+            if (filtered.length === 0) functionList.innerHTML = `<p class="text-gray-500 p-4">검색 결과가 없습니다.</p>`;
         }
 
-        // ==== 구문 강조 및 검사 함수들 ====
-        function highlightCode(code) {
-            let highlightedCode = code;
-
-            if (VEX_FUNCTIONS.length === 0) return highlightedCode;
-
-            // 주석
-            highlightedCode = highlightedCode.replace(/(\/\/.*)/g, '<span class="comment">$1</span>');
-            // 문자열
-            highlightedCode = highlightedCode.replace(/(".*?")/g, '<span class="string">$1</span>');
-
-            const allVexWords = [
-                ...VEX_FUNCTIONS.map(f => f.name), 
-                ...VEX_KEYWORDS, 
-                ...VEX_ATTRIBUTES
-            ].sort((a, b) => b.length - a.length);
-
-            allVexWords.forEach(word => {
-                let tagClass = 'keyword';
-                if (VEX_FUNCTIONS.map(f => f.name).includes(word)) { tagClass = 'function'; }
-                else if (VEX_ATTRIBUTES.includes(word)) { tagClass = 'attribute'; }
-                else if (['int', 'float', 'vector', 'string', 'void'].includes(word)) { tagClass = 'type'; }
-
-                // HTML 태그 내부가 아닌 텍스트만 치환하기 위한 정규식
-                const regex = new RegExp(`(?<!<span[^>]*>)\\b(${word.replace(/[@$]/g, '\\$&')})\\b`, 'g'); 
-                highlightedCode = highlightedCode.replace(regex, `<span class="${tagClass}">$1</span>`);
-            });
-            
-            // HTML 엔티티 변환 (보안 및 표시용)
-            highlightedCode = highlightedCode.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            
-            return highlightedCode;
-        }
-
-        function simpleSyntaxCheck(code) {
-            if (VEX_FUNCTIONS.length === 0) return;
-            
-            const errors = [];
-            const lines = code.split('\n').filter(line => line.trim() !== '' && !line.trim().startsWith('//'));
-            const structuralLineRegex = /^\s*(if|else|for|while|#include|int|float|vector|string|void)/; 
-
-            lines.forEach((line, index) => {
-                const trimmed = line.trim();
-                if (!structuralLineRegex.test(trimmed) && !trimmed.endsWith(';') && !trimmed.endsWith('}') && !trimmed.endsWith('{')) {
-                     errors.push(`[라인 ${index + 1}] 세미콜론(;) 누락 가능성.`);
-                }
-            });
-
-            // 괄호 검사
-            let curly = 0, paren = 0;
-            for(let char of code) {
-                if(char === '{') curly++;
-                if(char === '}') curly--;
-                if(char === '(') paren++;
-                if(char === ')') paren--;
-            }
-
-            if (curly !== 0) errors.push(`중괄호 {} 불일치.`);
-            if (paren !== 0) errors.push(`소괄호 () 불일치.`);
-
-            // 피드백 출력
-            if (errors.length > 0) {
-                feedback.className = 'mt-4 p-3 rounded-lg text-sm border border-red-400 bg-red-100 text-red-700';
-                feedback.innerHTML = `<strong>오류/경고:</strong><ul>${errors.map(err => `<li>${err}</li>`).join('')}</ul>`;
-            } else {
-                feedback.className = 'mt-4 p-3 rounded-lg text-sm border border-green-400 bg-green-100 text-green-700';
-                feedback.innerHTML = '<strong>구문 검사 완료:</strong> 큰 문제가 발견되지 않았습니다.';
-            }
-        }
-
-        function checkSyntax() {
-            const code = input.value;
-            highlight.innerHTML = highlightCode(code);
-            simpleSyntaxCheck(code);
-        }
-
-        // ==== AI 설명 요청 (더미/API 연동) ====
         async function explainVEXCode() {
             const code = input.value.trim();
             const output = document.getElementById('explanationOutput');
+            const explainButton = document.getElementById('explainButton');
             
             if (!code) {
-                output.innerHTML = '<p class="text-red-500">코드를 입력해주세요.</p>';
+                output.innerHTML = '<p class="text-red-500">분석할 코드를 입력해주세요.</p>';
                 return;
             }
 
             output.innerHTML = '<p class="text-indigo-600">AI 분석 중...</p>';
+            explainButton.disabled = true;
             
-            // 실제 API 호출 로직은 여기에 위치합니다. 
-            // 현재는 데모용으로 간단한 응답을 표시합니다.
-            // 실제 환경에서는 API 키와 함께 fetch 요청을 보내야 합니다.
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             
             try {
-                // 예시: API 호출 시뮬레이션
-                await new Promise(r => setTimeout(r, 1000));
-                
-                // 실제 구현 시: const response = await fetch(...);
-                // 지금은 오류 메시지가 아닌 안내 메시지 출력
-                output.innerHTML = `
-                    <p class="text-gray-800">
-                        <strong>[AI 분석 데모]</strong><br>
-                        현재 환경에서는 외부 API 호출이 제한될 수 있습니다.<br>
-                        입력하신 코드(<code>${code.substring(0, 20)}...</code>)는 
-                        VEX 문법에 따라 어트리뷰트를 조작하는 로직으로 보입니다.
-                    </p>`;
-                output.className = 'mt-2 p-4 rounded-lg text-sm bg-white border border-gray-300';
-                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `다음 VEX 코드의 의미를 설명해주세요:\n\n${code}` }] }],
+                        systemInstruction: { parts: [{ text: "당신은 Houdini VEX 언어 전문가입니다." }] }
+                    })
+                });
+
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (text) {
+                    const formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                          .replace(/```vex\n|```/g, '')
+                                          .replace(/\n/g, '<br>');
+                    output.innerHTML = formatted;
+                    output.className = 'mt-2 p-4 rounded-lg text-sm bg-white border border-gray-300';
+                } else {
+                    output.innerHTML = '<p class="text-red-500">결과를 가져오지 못했습니다.</p>';
+                }
             } catch (error) {
+                console.error(error);
                 output.innerHTML = `<p class="text-red-500">오류 발생: ${error.message}</p>`;
+            } finally {
+                explainButton.disabled = false;
             }
         }
 
-        // ==== 초기화 ====
+        // ==== 초기화 실행 ====
         async function initializeApp() {
             try {
-                // 데이터 로드
-                const funcData = await loadVexData('vex_functions.txt');
+                // 1. JSON 파일 로드
+                const funcData = await loadVexData('vex_functions.json');
+                const noteData = await loadVexData('vex_learning_notes.json');
+
+                // 2. 변수 할당
                 VEX_KEYWORDS = funcData.keywords || [];
                 VEX_ATTRIBUTES = funcData.attributes || [];
                 VEX_FUNCTIONS = funcData.functions || [];
-
-                const noteData = await loadVexData('vex_learning_notes.txt');
                 VEX_NOTES_DATA = Array.isArray(noteData) ? noteData : [];
 
-                // UI 초기화
+                // 3. 정규식 생성
+                TOKENIZER_REGEX = buildTokenizerRegex();
+
+                // 4. UI 활성화
                 input.placeholder = "// VEX 코드를 입력하세요...";
                 input.value = "// 예시 코드\n@N = {0,1,0};\nv@v = @N * 2.0;";
                 
@@ -213,21 +348,20 @@ if (jsonMatch) {
 
                 loadAllFunctions();
                 renderLearningNotes();
-                checkSyntax();
+                checkSyntax(); // 초기 실행
 
             } catch (error) {
                 console.error("Init Error:", error);
-                feedback.innerHTML = `<strong class="text-red-600">초기화 실패:</strong> ${error.message}`;
+                feedback.innerHTML = `<strong class="text-red-600">초기화 실패:</strong><br>${error.message}<br><br>같은 폴더에 <strong>vex_functions.json</strong>과 <strong>vex_learning_notes.json</strong> 파일이 있는지 확인해주세요.`;
             }
         }
 
-        // 스크롤 동기화
+        // 이벤트 리스너
         input.addEventListener('scroll', () => {
             highlight.scrollTop = input.scrollTop;
             highlight.scrollLeft = input.scrollLeft;
         });
 
-        // 탭 키 처리
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Tab') {
                 e.preventDefault();
@@ -239,7 +373,6 @@ if (jsonMatch) {
             }
         });
 
-        // 시작
         window.onload = initializeApp;
 
     </script>
