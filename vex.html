@@ -71,18 +71,12 @@
                     <div id="syntaxHighlight" class="syntax-highlight"></div>
                     <textarea id="vexCodeInput" class="code-area focus:outline-none" spellcheck="false" 
                         placeholder="// 여기에 VEX 코드를 입력하세요.
-// @N (Normal)은 vector 타입이며, @P.z는 float 타입입니다.
-
 // @P.z를 @N의 z 성분으로 할당 (올바른 방법)
 @N.z = @P.z; 
 
-// Normal을 Z축 방향으로 @P.z만큼의 길이로 설정
-@N = set(0, 0, @P.z);
-@N = normalize(@N);
-
-// 길이에 따라 색상을 설정하는 일반적인 예
-float dist = length(@P);
-@Cd = chramp('color_ramp', dist);"
+// 노이즈와 시간 기반으로 @P를 움직이는 예제
+vector noise_pos = @P * chf('scale') + @Time;
+@P += curlnoise(noise_pos) * chf('amp');"
                         oninput="checkSyntax()"></textarea>
                 </div>
 
@@ -104,7 +98,7 @@ float dist = length(@P);
             <!-- VEX 함수 사전 -->
             <div class="bg-white p-6 shadow-xl rounded-xl">
                 <h2 class="text-xl font-semibold mb-4 text-gray-700">VEX 함수 사전</h2>
-                <input type="text" id="functionSearch" oninput="searchFunctions()" placeholder="함수 이름 검색 (예: length, chf, noise)"
+                <input type="text" id="functionSearch" oninput="searchFunctions()" placeholder="함수, 어트리뷰트, 키워드 검색"
                        class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 mb-4">
                 
                 <div id="functionList" class="space-y-4 max-h-[500px] overflow-y-auto">
@@ -119,45 +113,75 @@ float dist = length(@P);
         // VEX 키워드 및 함수 정의 (사전 역할)
         const VEX_KEYWORDS = [
             "if", "else", "for", "while", "return", "continue", "break",
-            "int", "float", "vector", "vector2", "vector4", "matrix", "matrix3", "string", "void"
-        ];
-        const VEX_ATTRIBUTES = [
-            "@P", "@N", "@Cd", "@Alpha", "@uv", "@v", "@vtxnum", "@ptnum", "@primnum", "@Time", "@Frame",
-            "@dPdu", "@dPdv", "@OpInput1", "@TimeInc" // 자주 사용되는 것 추가
+            "int", "float", "vector", "vector2", "vector4", "matrix", "matrix3", "string", "void",
+            "export", "extern", "local", "global", "inline", "cvex", "op", "vop" 
         ];
         
-        // 사용자가 제공한 전체 함수 목록으로 업데이트
+        // VEX Attribute 목록 확장 (타입 명시 어트리뷰트 포함)
+        const VEX_ATTRIBUTES = [
+            "@P", "@N", "@Cd", "@Alpha", "@uv", "@v", "@vtxnum", "@ptnum", "@primnum", "@Time", "@Frame",
+            "@dPdu", "@dPdv", "@OpInput1", "@TimeInc",
+            // Type-prefixed attributes
+            "i@", "f@", "v@", "s@", "m@", "4@", // @i, @f, @v, @s, @m, @4
+            // Common attributes
+            "@density", "@scale", "@pscale", "@orient", "@force", "@torque", "@pivot", "@id", "@name", "@group"
+        ];
+        
+        // 사용자가 제공한 전체 함수 목록으로 업데이트 및 추가 확장
         const VEX_FUNCTIONS = [
+            // Channel Functions
             { name: "ch", desc: "Float 채널 값을 가져옵니다.", syntax: "float ch(string name)" },
-            { name: "chi", desc: "Integer 채널 값을 가져옵니다.", syntax: "int chi(string name)" },
+            { name: "chi", desc: "Integer 채널 값을 가져옵s니다.", syntax: "int chi(string name)" },
             { name: "chf", desc: "Float 채널(파라미터) 값을 가져옵니다.", syntax: "float chf(string name)" },
             { name: "chs", desc: "String 채널 값을 가져옵니다.", syntax: "string chs(string name)" },
             { name: "chv", desc: "Vector 채널 값을 가져옵니다.", syntax: "vector chv(string name)" },
             { name: "chp", desc: "Vector4(Quaternion) 채널 값을 가져옵니다.", syntax: "vector4 chp(string name)" },
             { name: "chramp", desc: "Ramp 파라미터에서 값을 샘플링합니다.", syntax: "float chramp(string name, float pos)" },
+            
+            // Math Functions (Expanded)
             { name: "sin", desc: "사인 값을 반환합니다.", syntax: "float sin(float x)" },
             { name: "cos", desc: "코사인 값을 반환합니다.", syntax: "float cos(float x)" },
             { name: "tan", desc: "탄젠트 값을 반환합니다.", syntax: "float tan(float x)" },
             { name: "pow", desc: "거듭제곱 값을 반환합니다.", syntax: "float pow(float base, float exp)" },
             { name: "sqrt", desc: "제곱근을 반환합니다.", syntax: "float sqrt(float x)" },
             { name: "abs", desc: "절댓값을 반환합니다.", syntax: "float abs(float x)" },
+            { name: "log", desc: "로그 값을 반환합니다.", syntax: "float log(float x)" },
+            { name: "exp", desc: "자연 로그의 밑 e의 거듭제곱 값을 반환합니다.", syntax: "float exp(float x)" },
+            { name: "floor", desc: "가장 가까운 정수로 내림합니다.", syntax: "float floor(float x)" },
+            { name: "ceil", desc: "가장 가까운 정수로 올림합니다.", syntax: "float ceil(float x)" },
+            { name: "round", desc: "가장 가까운 정수로 반올림합니다.", syntax: "float round(float x)" },
+            
+            // Noise & Randomness
             { name: "noise", desc: "다양한 종류의 노이즈 값을 생성합니다.", syntax: "float noise(vector pos)" },
+            { name: "curlnoise", desc: "컬 노이즈(흐름장) 벡터를 생성합니다.", syntax: "vector curlnoise(vector pos)" },
             { name: "rand", desc: "0과 1 사이의 난수를 생성합니다.", syntax: "float rand(float seed)" },
-            { name: "fit", desc: "값을 다른 범위로 매핑합니다.", syntax: "float fit(float value, float omin, float omax, float nmin, float nmax)" },
+            
+            // Interpolation & Mapping
+            { name: "fit", desc: "값을 한 범위에서 다른 범위로 매핑합니다.", syntax: "float fit(float value, float omin, float omax, float nmin, float nmax)" },
             { name: "fit01", desc: "0~1 범위를 다른 범위로 매핑합니다.", syntax: "float fit01(float value, float min, float max)" },
             { name: "clamp", desc: "값을 최소~최대 범위로 제한합니다.", syntax: "float clamp(float value, float min, float max)" },
+            { name: "lerp", desc: "두 값 사이를 선형 보간합니다.", syntax: "float lerp(float a, float b, float t)" },
+            { name: "smoothstep", desc: "부드러운 에지 보간을 수행합니다.", syntax: "float smoothstep(float min, float max, float value)" },
+            
+            // Vector/Matrix Functions
             { name: "dot", desc: "두 벡터의 내적을 계산합니다.", syntax: "float dot(vector a, vector b)" },
             { name: "cross", desc: "두 벡터의 외적을 계산합니다.", syntax: "vector cross(vector a, vector b)" },
             { name: "length", desc: "벡터의 길이를 반환합니다.", syntax: "float length(vector v)" },
             { name: "normalize", desc: "벡터를 정규화합니다.", syntax: "vector normalize(vector v)" },
             { name: "distance", desc: "두 점 사이의 거리를 반환합니다.", syntax: "float distance(vector a, vector b)" },
-            { name: "lerp", desc: "두 값 사이를 선형 보간합니다.", syntax: "float lerp(float a, float b, float t)" },
             { name: "set", desc: "별도의 값으로 벡터나 행렬을 생성합니다.", syntax: "vector set(float x, float y, float z)" },
+            { name: "vtransform", desc: "벡터를 공간 사이에서 변환합니다.", syntax: "vector vtransform(string space, vector v)" },
+            { name: "eular_to_quaternion", desc: "오일러 각을 쿼터니언으로 변환합니다.", syntax: "vector4 euler_to_quaternion(vector euler)" },
+            
+            // String Functions
             { name: "itoa", desc: "정수를 문자열로 변환합니다.", syntax: "string itoa(int x)" },
             { name: "ftoa", desc: "실수를 문자열로 변환합니다.", syntax: "string ftoa(float x)" },
             { name: "sprintf", desc: "포맷 문자열을 생성합니다.", syntax: "string sprintf(string format, ...)" },
             { name: "substr", desc: "문자열의 일부를 반환합니다.", syntax: "string substr(string s, int start, int length)" },
             { name: "len", desc: "문자열 길이를 반환합니다.", syntax: "int len(string s)" },
+            { name: "split", desc: "구분 기호로 문자열을 분할합니다.", syntax: "int split(string s, string separators, string [] array)" },
+
+            // Geometry/Attribute Access & Modification
             { name: "point", desc: "포인트 속성 값을 가져옵니다.", syntax: "float point(int input, string attrib, int ptnum)" },
             { name: "prim", desc: "프림 속성 값을 가져옵니다.", syntax: "float prim(int input, string attrib, int primnum)" },
             { name: "vertex", desc: "버텍스 속성 값을 가져옵니다.", syntax: "float vertex(int input, string attrib, int vtxnum)" },
@@ -167,6 +191,11 @@ float dist = length(@P);
             { name: "removepoint", desc: "포인트를 제거합니다.", syntax: "void removepoint(int input, int ptnum)" },
             { name: "hasattrib", desc: "지오메트리에 해당 어트리뷰트가 있는지 확인합니다.", syntax: "int hasattrib(int geometry, string type, string name)" },
             { name: "getattrib", desc: "다른 지오메트리에서 어트리뷰트 값을 가져옵니다.", syntax: "float getattrib(int geometry, string type, string name, int index)" },
+            { name: "primcount", desc: "프리미티브의 개수를 반환합니다.", syntax: "int primcount(int input)" },
+            { name: "npoints", desc: "포인트의 총 개수를 반환합니다.", syntax: "int npoints(int input)" },
+            { name: "nearpoint", desc: "주어진 위치에서 가장 가까운 포인트 번호를 반환합니다.", syntax: "int nearpoint(int input, vector pos)" },
+            { name: "primuv", desc: "주어진 UV에서 프리미티브 어트리뷰트 값을 샘플링합니다.", syntax: "float primuv(int input, string attrib, int primnum, vector uv)" },
+            
         ];
         
         const input = document.getElementById('vexCodeInput');
@@ -177,7 +206,11 @@ float dist = length(@P);
 
         // 초기 함수 목록 로드 (전체 목록)
         function loadAllFunctions() {
-            functionList.innerHTML = VEX_FUNCTIONS.map(f => `
+            functionList.innerHTML = [...VEX_FUNCTIONS, ...VEX_ATTRIBUTES.map(a => ({
+                name: a, 
+                desc: a.startsWith('@') ? "내장 어트리뷰트" : (a.includes('@') ? "타입 명시 어트리뷰트" : "알 수 없는 어트리뷰트"),
+                syntax: a
+            }))].map(f => `
                 <div class="p-3 bg-gray-50 rounded-lg border hover:bg-gray-100 transition-colors">
                     <code class="font-bold text-lg text-blue-700">${f.name}</code>
                     <p class="text-gray-600 my-1">${f.desc}</p>
@@ -191,12 +224,19 @@ float dist = length(@P);
         // 함수 검색 기능
         function searchFunctions() {
             const query = functionSearchInput.value.toLowerCase();
-            const filteredFunctions = VEX_FUNCTIONS.filter(f => 
-                f.name.toLowerCase().includes(query) || 
-                f.desc.toLowerCase().includes(query)
-            );
+            const allSearchableItems = [
+                ...VEX_FUNCTIONS, 
+                ...VEX_KEYWORDS.map(k => ({ name: k, desc: "키워드", syntax: k })),
+                ...VEX_ATTRIBUTES.map(a => ({ name: a, desc: "어트리뷰트", syntax: a }))
+            ];
 
-            functionList.innerHTML = filteredFunctions.map(f => `
+            const filteredItems = allSearchableItems.filter(item => 
+                item.name.toLowerCase().includes(query) || 
+                item.desc.toLowerCase().includes(query) ||
+                (item.syntax && item.syntax.toLowerCase().includes(query))
+            ).slice(0, 100); // 검색 결과를 100개로 제한하여 성능 유지
+
+            functionList.innerHTML = filteredItems.map(f => `
                 <div class="p-3 bg-gray-50 rounded-lg border hover:bg-gray-100 transition-colors">
                     <code class="font-bold text-lg text-blue-700">${f.name}</code>
                     <p class="text-gray-600 my-1">${f.desc}</p>
@@ -204,7 +244,7 @@ float dist = length(@P);
                 </div>
             `).join('');
 
-            if (filteredFunctions.length === 0) {
+            if (filteredItems.length === 0) {
                 functionList.innerHTML = `<p class="text-gray-500 p-4">검색 결과가 없습니다.</p>`;
             }
         }
@@ -233,7 +273,7 @@ float dist = length(@P);
             });
             // 어트리뷰트 강조
             VEX_ATTRIBUTES.forEach(a => {
-                // @로 시작하는 어트리뷰트만 정확히 일치하도록
+                // @로 시작하거나 @를 포함하는 어트리뷰트만 정확히 일치하도록
                 const regex = new RegExp(`(${a})`, 'g'); 
                 highlightedCode = highlightedCode.replace(regex, '<span class="attribute">$1</span>');
             });
