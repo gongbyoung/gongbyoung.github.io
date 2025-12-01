@@ -1,0 +1,22 @@
+[
+{"title": "어트리뷰트 조작 및 타입 변환", "code": "v@v = @N;", "desc": "vector 타입의 Velocity (v@v)에 vector 타입의 Normal (@N) 값을 할당합니다. 즉, 오브젝트의 움직이는 방향을 표면의 법선 방향과 일치시킵니다.", "category": "Attribute"},
+{"title": "타입 명시 및 할당", "code": "f@emission = @Cd.r;", "desc": "float 타입의 emission 어트리뷰트를 생성하고, Color (@Cd)의 빨간색(r) 성분 값(float 값)을 할당합니다.", "category": "Attribute"},
+{"title": "어트리뷰트 생성 (Float)", "code": "f@width = 0.03;", "desc": "float 타입의 width 어트리뷰트를 생성하고 0.03 값을 할당합니다. 이는 주로 Copy to Points 노드 등에서 인스턴스 크기를 조절하는 데 사용됩니다.", "category": "Attribute"},
+{"title": "컬러 값 할당", "code": "@Cd = @curveu;", "desc": "컬러 어트리뷰트 (@Cd, vector 타입)에 Sweep 노드 등이 생성하는 float 타입의 curveu 값을 할당합니다. VEX가 내부적으로 float을 vector({float, float, float})로 변환하여 할당합니다.", "category": "Attribute"},
+{"title": "벡터 스케일링", "code": "v@v * 5;", "desc": "vector 타입의 Velocity (v@v) 값을 5배로 늘리지만, 할당 연산자(=)가 없으므로 이 코드는 실제 값을 변경하지 않습니다. 값을 변경하려면 v@v = v@v * 5; 또는 v@v *= 5;처럼 사용해야 합니다.", "category": "Vector"},
+{"title": "벡터 생성 및 Normal 설정", "code": "@N = {0,0,1};", "desc": "Normal 벡터 (@N)를 {0, 0, 1}(Z축 양의 방향)으로 설정합니다. set(0,0,1)과 동일한 의미이며, 방향 벡터를 지정할 때 주로 사용됩니다.", "category": "Vector"},
+{"title": "Normal에 힘(Strength) 곱하기", "code": "@N = {0,0,3}*chf("strength");", "desc": "Normal의 방향을 Z축으로 설정하고, 그 크기를 strength라는 float 채널 파라미터 값으로 스케일링하여 힘을 표현합니다.", "category": "Vector"},
+{"title": "벡터 정규화", "code": "@N = normalize(normal);", "desc": "현재 Normal 어트리뷰트의 값을 가져와서 길이를 1로 정규화(Normalize)한 후 다시 @N에 할당합니다. Normal은 보통 길이 1이어야 하므로 흔히 사용됩니다.", "category": "Vector"},
+{"title": "프레임 기반 조건식", "code": "$F>=18", "desc": "현재 프레임 번호 ($F)가 18보다 크거나 같을 때 ($F >= 18) 참(True)을 반환하는 조건식입니다. 주로 애니메이션 활성화/비활성화에 사용됩니다.", "category": "Condition"},
+{"title": "복합 프레임 조건", "code": "$F>50 && $F<80 || $F>150", "desc": "프레임이 50과 80 사이 (AND: &&) 이거나, 프레임이 150보다 클 때 (OR: ||) 참을 반환합니다. 논리 연산자를 사용한 복합 조건입니다.", "category": "Condition"},
+{"title": "모듈로 연산 (나머지)", "code": "i@result = @a % @b;", "desc": "int 타입의 result 어트리뷰트에 @a를 @b로 나눈 나머지(Remainder) 값을 할당합니다. 반복 또는 주기적인 이벤트에 유용합니다.", "category": "Math"},
+{"title": "프레임 모듈로 조건", "code": "$F%5==0", "desc": "현재 프레임을 5로 나누었을 때 나머지가 0이라면 (즉, 5의 배수 프레임일 때) 참(True, 1)을 반환하고, 아니면 거짓(False, 0)을 반환합니다.", "category": "Condition"},
+{"title": "값 범위 재매핑 (Fit)", "code": "fit(mask, 0, 1, 1, 2)", "desc": "mask 변수의 값이 0에서 1 사이일 때, 이 값을 새로운 범위인 1에서 2 사이로 선형적으로 변환합니다.", "category": "Math"},
+{"title": "값 범위 재매핑 (Fit01)", "code": "fit01(@P.y, 2, 4)", "desc": "입력값 (@P.y)이 이미 0에서 1 사이의 노멀라이즈된 값이라고 가정하고, 이 값을 2에서 4 사이의 범위로 변환합니다. fit(val, 0, 1, min, max)와 동일합니다.", "category": "Math"},
+{"title": "포인트 어트리뷰트 가져오기", "code": "float noise = point(0,"noise",@ptnum);", "desc": "입력 0번 지오메트리의 'noise'라는 이름의 어트리뷰트 값을 현재 포인트 번호(@ptnum)에 대해 가져와 noise 변수(float 타입)에 저장합니다.", "category": "Geometry"},
+{"title": "랜덤 값과 Fit01 조합", "code": "f@result = fit01(rand(@ptnum+chf("Seed")),5,30);", "desc": "포인트 번호와 Seed 파라미터를 기반으로 랜덤 값을 생성하고 (0~1 범위), 이 0~1 값을 5에서 30 사이의 범위로 변환하여 result 어트리뷰트에 저장합니다.", "category": "Math"},
+{"title": "Ramp 파라미터 샘플링", "code": "f@result = chramp("pscale",@pscale);", "desc": "pscale이라는 이름의 Ramp 파라미터에서 현재 @pscale 값(0~1 사이)을 기준으로 값을 샘플링하여 result 어트리뷰트에 저장합니다.", "category": "Channel"},
+{"title": "지오메트리 생성 (포인트)", "code": "addpoint(0,{0,0,0});", "desc": "입력 0번 포트에 {0, 0, 0} 위치에 새로운 포인트를 생성하고 그 포인트 번호(int)를 반환합니다.", "category": "Geometry"},
+{"title": "지오메트리 생성 (프리미티브)", "code": "int prim0 = addprim(0,"poly");", "desc": "입력 0번 포트에 'poly' 타입의 새로운 프리미티브(면)를 생성하고 그 프리미티브 번호(int)를 prim0 변수에 저장합니다.", "category": "Geometry"},
+{"title": "지오메트리 조립 (버텍스 추가)", "code": "addvertex(0, prim0, point0);", "desc": "입력 0번 포트의 prim0 프리미티브에 point0 포인트 번호를 가진 버텍스를 추가합니다. 면을 구성하는 데 사용됩니다.", "category": "Geometry"}
+]
