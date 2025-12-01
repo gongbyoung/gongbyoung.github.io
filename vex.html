@@ -1,4 +1,4 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -18,7 +18,7 @@
         /* 핵심 수정: 정렬 일치 및 텍스트 래핑/크기 통일 */
         .code-area, .syntax-highlight {
             width: 100%;
-            height: 100px;
+            height: 300px;
             padding: 1rem;
             line-height: 1.5;
             tab-size: 4;
@@ -34,7 +34,7 @@
             left: 0;
             color: white; /* 텍스트가 보이도록 수정됨 */
             background-color: #282c34; 
-            z-index: 10;
+            z-index: 10; /* 최상위 레이어 */
             resize: none;
         }
         .syntax-highlight {
@@ -43,7 +43,7 @@
             background-color: #282c34; /* Dark background */
             color: white;
             border-radius: 0.5rem;
-            z-index: 5; /* Z-index 조정 */
+            z-index: 5; /* 그 아래 레이어 */
         }
         /* VEX Syntax Colors */
         .keyword { color: #c678dd; } /* 보라색: float, vector, if, for */
@@ -125,41 +125,49 @@ float dist = length(@P);
             "@P", "@N", "@Cd", "@Alpha", "@uv", "@v", "@vtxnum", "@ptnum", "@primnum", "@Time", "@Frame",
             "@dPdu", "@dPdv", "@OpInput1", "@TimeInc" // 자주 사용되는 것 추가
         ];
+        
+        // 사용자가 제공한 전체 함수 목록으로 업데이트
         const VEX_FUNCTIONS = [
-           { "name": "ch", "desc": "Float 채널 값을 가져옵니다.", "syntax": "float ch(string name)" },
-{ "name": "chi", "desc": "Integer 채널 값을 가져옵니다.", "syntax": "int chi(string name)" },
-{ "name": "chf", "desc": "Float 채널(파라미터) 값을 가져옵니다.", "syntax": "float chf(string name)" },
-{ "name": "chs", "desc": "String 채널 값을 가져옵니다.", "syntax": "string chs(string name)" },
-{ "name": "chv", "desc": "Vector 채널 값을 가져옵니다.", "syntax": "vector chv(string name)" },
-{ "name": "chp", "desc": "Vector4(Quaternion) 채널 값을 가져옵니다.", "syntax": "vector4 chp(string name)" },
-{ "name": "sin", "desc": "사인 값을 반환합니다.", "syntax": "float sin(float x)" },
-{ "name": "cos", "desc": "코사인 값을 반환합니다.", "syntax": "float cos(float x)" },
-{ "name": "tan", "desc": "탄젠트 값을 반환합니다.", "syntax": "float tan(float x)" },
-{ "name": "pow", "desc": "거듭제곱 값을 반환합니다.", "syntax": "float pow(float base, float exp)" },
-{ "name": "sqrt", "desc": "제곱근을 반환합니다.", "syntax": "float sqrt(float x)" },
-{ "name": "abs", "desc": "절댓값을 반환합니다.", "syntax": "float abs(float x)" },
-{ "name": "fit", "desc": "값을 다른 범위로 매핑합니다.", "syntax": "float fit(float value, float omin, float omax, float nmin, float nmax)" },
-{ "name": "fit01", "desc": "0~1 범위를 다른 범위로 매핑합니다.", "syntax": "float fit01(float value, float min, float max)" },
-{ "name": "clamp", "desc": "값을 최소~최대 범위로 제한합니다.", "syntax": "float clamp(float value, float min, float max)" },
-{ "name": "dot", "desc": "두 벡터의 내적을 계산합니다.", "syntax": "float dot(vector a, vector b)" },
-{ "name": "cross", "desc": "두 벡터의 외적을 계산합니다.", "syntax": "vector cross(vector a, vector b)" },
-{ "name": "length", "desc": "벡터의 길이를 반환합니다.", "syntax": "float length(vector v)" },
-{ "name": "normalize", "desc": "벡터를 정규화합니다.", "syntax": "vector normalize(vector v)" },
-{ "name": "distance", "desc": "두 점 사이의 거리를 반환합니다.", "syntax": "float distance(vector a, vector b)" },
-{ "name": "lerp", "desc": "두 값 사이를 선형 보간합니다.", "syntax": "float lerp(float a, float b, float t)" },
-{ "name": "itoa", "desc": "정수를 문자열로 변환합니다.", "syntax": "string itoa(int x)" },
-{ "name": "ftoa", "desc": "실수를 문자열로 변환합니다.", "syntax": "string ftoa(float x)" },
-{ "name": "sprintf", "desc": "포맷 문자열을 생성합니다.", "syntax": "string sprintf(string format, ...)" },
-{ "name": "substr", "desc": "문자열의 일부를 반환합니다.", "syntax": "string substr(string s, int start, int length)" },
-{ "name": "len", "desc": "문자열 길이를 반환합니다.", "syntax": "int len(string s)" },
-{ "name": "point", "desc": "포인트 속성 값을 가져옵니다.", "syntax": "float point(int input, string attrib, int ptnum)" },
-{ "name": "prim", "desc": "프림 속성 값을 가져옵니다.", "syntax": "float prim(int input, string attrib, int primnum)" },
-{ "name": "vertex", "desc": "버텍스 속성 값을 가져옵니다.", "syntax": "float vertex(int input, string attrib, int vtxnum)" },
-        { "name": "setpointattrib", "desc": "포인트 속성 값을 설정합니다.", "syntax": "int setpointattrib(int input, string attrib, int ptnum, value, string mode)" },
-        { "name": "addpoint", "desc": "새로운 포인트를 추가합니다.", "syntax": "int addpoint(int input, vector pos)" },
-        { "name": "addprim", "desc": "새로운 프림을 추가합니다.", "syntax": "int addprim(int input, string type, int ...)" },
-        { "name": "removepoint", "desc": "포인트를 제거합니다.", "syntax": "void removepoint(int input, int ptnum)" },
-         ];
+            { name: "ch", desc: "Float 채널 값을 가져옵니다.", syntax: "float ch(string name)" },
+            { name: "chi", desc: "Integer 채널 값을 가져옵니다.", syntax: "int chi(string name)" },
+            { name: "chf", desc: "Float 채널(파라미터) 값을 가져옵니다.", syntax: "float chf(string name)" },
+            { name: "chs", desc: "String 채널 값을 가져옵니다.", syntax: "string chs(string name)" },
+            { name: "chv", desc: "Vector 채널 값을 가져옵니다.", syntax: "vector chv(string name)" },
+            { name: "chp", desc: "Vector4(Quaternion) 채널 값을 가져옵니다.", syntax: "vector4 chp(string name)" },
+            { name: "chramp", desc: "Ramp 파라미터에서 값을 샘플링합니다.", syntax: "float chramp(string name, float pos)" },
+            { name: "sin", desc: "사인 값을 반환합니다.", syntax: "float sin(float x)" },
+            { name: "cos", desc: "코사인 값을 반환합니다.", syntax: "float cos(float x)" },
+            { name: "tan", desc: "탄젠트 값을 반환합니다.", syntax: "float tan(float x)" },
+            { name: "pow", desc: "거듭제곱 값을 반환합니다.", syntax: "float pow(float base, float exp)" },
+            { name: "sqrt", desc: "제곱근을 반환합니다.", syntax: "float sqrt(float x)" },
+            { name: "abs", desc: "절댓값을 반환합니다.", syntax: "float abs(float x)" },
+            { name: "noise", desc: "다양한 종류의 노이즈 값을 생성합니다.", syntax: "float noise(vector pos)" },
+            { name: "rand", desc: "0과 1 사이의 난수를 생성합니다.", syntax: "float rand(float seed)" },
+            { name: "fit", desc: "값을 다른 범위로 매핑합니다.", syntax: "float fit(float value, float omin, float omax, float nmin, float nmax)" },
+            { name: "fit01", desc: "0~1 범위를 다른 범위로 매핑합니다.", syntax: "float fit01(float value, float min, float max)" },
+            { name: "clamp", desc: "값을 최소~최대 범위로 제한합니다.", syntax: "float clamp(float value, float min, float max)" },
+            { name: "dot", desc: "두 벡터의 내적을 계산합니다.", syntax: "float dot(vector a, vector b)" },
+            { name: "cross", desc: "두 벡터의 외적을 계산합니다.", syntax: "vector cross(vector a, vector b)" },
+            { name: "length", desc: "벡터의 길이를 반환합니다.", syntax: "float length(vector v)" },
+            { name: "normalize", desc: "벡터를 정규화합니다.", syntax: "vector normalize(vector v)" },
+            { name: "distance", desc: "두 점 사이의 거리를 반환합니다.", syntax: "float distance(vector a, vector b)" },
+            { name: "lerp", desc: "두 값 사이를 선형 보간합니다.", syntax: "float lerp(float a, float b, float t)" },
+            { name: "set", desc: "별도의 값으로 벡터나 행렬을 생성합니다.", syntax: "vector set(float x, float y, float z)" },
+            { name: "itoa", desc: "정수를 문자열로 변환합니다.", syntax: "string itoa(int x)" },
+            { name: "ftoa", desc: "실수를 문자열로 변환합니다.", syntax: "string ftoa(float x)" },
+            { name: "sprintf", desc: "포맷 문자열을 생성합니다.", syntax: "string sprintf(string format, ...)" },
+            { name: "substr", desc: "문자열의 일부를 반환합니다.", syntax: "string substr(string s, int start, int length)" },
+            { name: "len", desc: "문자열 길이를 반환합니다.", syntax: "int len(string s)" },
+            { name: "point", desc: "포인트 속성 값을 가져옵니다.", syntax: "float point(int input, string attrib, int ptnum)" },
+            { name: "prim", desc: "프림 속성 값을 가져옵니다.", syntax: "float prim(int input, string attrib, int primnum)" },
+            { name: "vertex", desc: "버텍스 속성 값을 가져옵니다.", syntax: "float vertex(int input, string attrib, int vtxnum)" },
+            { name: "setpointattrib", desc: "포인트 속성 값을 설정합니다.", syntax: "int setpointattrib(int input, string attrib, int ptnum, value, string mode)" },
+            { name: "addpoint", desc: "새로운 포인트를 추가합니다.", syntax: "int addpoint(int input, vector pos)" },
+            { name: "addprim", desc: "새로운 프림을 추가합니다.", syntax: "int addprim(int input, string type, int ...)" },
+            { name: "removepoint", desc: "포인트를 제거합니다.", syntax: "void removepoint(int input, int ptnum)" },
+            { name: "hasattrib", desc: "지오메트리에 해당 어트리뷰트가 있는지 확인합니다.", syntax: "int hasattrib(int geometry, string type, string name)" },
+            { name: "getattrib", desc: "다른 지오메트리에서 어트리뷰트 값을 가져옵니다.", syntax: "float getattrib(int geometry, string type, string name, int index)" },
+        ];
         
         const input = document.getElementById('vexCodeInput');
         const highlight = document.getElementById('syntaxHighlight');
@@ -324,7 +332,8 @@ float dist = length(@P);
                 });
 
                 if (!response.ok) {
-                    throw new Error(`API error: ${response.statusText}`);
+                    const errorDetail = `API 서버에서 응답을 받지 못했습니다. (Status: ${response.status})`;
+                    throw new Error(errorDetail); 
                 }
 
                 const result = await response.json();
@@ -343,7 +352,8 @@ float dist = length(@P);
 
             } catch (error) {
                 console.error("VEX Explanation API Error:", error);
-                explanationOutput.innerHTML = `<p class="text-red-500">코드 분석 중 오류가 발생했습니다: ${error.message}</p>`;
+                // API 오류 메시지를 사용자에게 더 명확하게 전달
+                explanationOutput.innerHTML = `<p class="text-red-500"><strong>AI 분석 오류:</strong> ${error.message} <br> * 웹 환경에서 Gemini API 호출에 실패했습니다. (API 키 오류 또는 서버 문제일 수 있습니다.)</p>`;
             } finally {
                 explainButton.disabled = false;
             }
