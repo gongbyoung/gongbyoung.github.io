@@ -2,23 +2,53 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- 모바일 뷰포트 추가 -->
     <title>후디니 VEX 수식 검색</title>
     <style>
         /* 기본적인 스타일링을 여기에 추가합니다 */
-        body { font-family: sans-serif; line-height: 1.6; }
+        body { 
+            font-family: sans-serif; 
+            line-height: 1.6; 
+            padding: 20px; /* 모바일 환경을 위한 기본 패딩 */
+            max-width: 600px; /* 컨테이너 최대 너비 제한 */
+            margin: 0 auto;
+        }
         #output { margin-top: 20px; }
         .result-item { border: 3px solid #ccc; padding: 10px; margin-bottom: 10px; }
         .type { font-weight: bold; color: #1e88e5; }
         .name { font-size: 1.2em; color: #d81b60; }
         .example-code { background-color: #eee; padding: 5px; border-radius: 5px; font-family: monospace; }
+        
+        /* 모바일 최적화 및 크기 조정 */
+        #vexInput {
+            width: 100%; /* textarea 너비를 100%로 설정 */
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        #input-controls button {
+            width: 100%; /* 버튼 너비를 100%로 설정 (검색창과 동일) */
+            padding: 15px 10px; /* 큰 터치 영역 확보 */
+            font-size: 1.2em;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #input-controls button:hover {
+            background-color: #1976D2;
+        }
     </style>
 </head>
 <body>
     <h1>후디니 VEX 수식 검색</h1>
     
-    <label for="vexInput">VEX 수식 입력:VEX가 VOP 10배이상 빠름, 수식의 마지막 ;, 대소문자구분, 띄어쓰기 확인</label><br>
-    <textarea id="vexInput" rows="5" cols="80" placeholder="예: v@Cd = set(chf('r'), chf('g'), chf('b'));"></textarea>
-    <button onclick="analyzeVEX()">Go</button>
+    <div id="input-controls">
+        <label for="vexInput">VEX 수식 입력: VEX가 VOP 10배이상 빠름, 수식의 마지막 ;, 대소문자구분, 띄어쓰기 확인</label><br>
+        <textarea id="vexInput" rows="5" placeholder="예: v@Cd = set(chf('r'), chf('g'), chf('b'));"></textarea>
+        <button onclick="analyzeVEX()">Go</button>
+    </div>
     
     <hr>
     
@@ -29,5 +59,3 @@
     <script src="analyzer.js"></script>
 </body>
 </html>
-
-
