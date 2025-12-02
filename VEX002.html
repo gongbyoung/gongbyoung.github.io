@@ -2,142 +2,135 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Houdini VEX 코드 검사기</title>
+    <title>Houdini VEX 지식 탐색기</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
-        .container { max-width: 900px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
-        textarea { width: 100%; height: 150px; padding: 10px; border: 1px solid #ccc; font-family: Consolas, monospace; font-size: 14px; box-sizing: border-box; }
-        button { padding: 10px 15px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; }
-        .output-box { margin-top: 20px; padding: 15px; border: 1px solid #ddd; background-color: #ecf0f1; border-radius: 4px; white-space: pre-wrap; }
-        .result-title { font-weight: bold; margin-bottom: 10px; color: #2c3e50; }
-        .error { color: #e74c3c; font-weight: bold; }
-        .info { color: #2ecc71; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f7f9fc; color: #333; }
+        .container { max-width: 900px; margin: auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1); }
+        h1 { color: #3498db; border-bottom: 3px solid #3498db; padding-bottom: 10px; margin-bottom: 20px; }
+        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 20px; border: 2px solid #ccc; border-radius: 6px; font-size: 16px; box-sizing: border-box; transition: border-color 0.3s; }
+        input[type="text"]:focus { border-color: #2980b9; outline: none; }
+        .result-section { margin-top: 30px; }
+        .section-title { font-size: 1.4em; color: #2c3e50; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 15px; font-weight: bold; }
+        .item { padding: 10px; border-left: 5px solid #bdc3c7; margin-bottom: 10px; background-color: #ecf0f1; border-radius: 4px; }
+        .item strong { display: block; margin-bottom: 5px; }
+        .attribute-name { color: #27ae60; font-family: Consolas, monospace; font-weight: bold; }
+        .function-name { color: #e74c3c; font-family: Consolas, monospace; font-weight: bold; }
+        .learning-topic { color: #9b59b6; }
+        .loading { text-align: center; color: #7f8c8d; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>VEX 코드 분석 (Attribute Wrangle - Point 모드 가정)</h1>
-    <p>아래 VEX 코드를 입력하고 분석하세요. (VEX는 VOP보다 10배 이상 빠릅니다 [1, 8].)</p>
+    <h1>Houdini VEX 지식 탐색기</h1>
+    <p>VEX는 VOP 노드 방식보다 10배 이상 빠릅니다 [223].</p>
+    <input type="text" id="searchInput" placeholder="VEX 함수, 속성, 타입 또는 학습 주제를 검색하세요 (예: @P, set, if, quaternion)">
 
-    <textarea id="vexCodeInput">// 예시: 모든 포인트의 Y 위치를 시간으로 애니메이션하고 색상을 설정
-float d = length(@P);
-@P.y = sin(d + @Time) * 0.5;
-@Cd = {0.5, 0.5, 0.5};</textarea>
+    <div id="loadingStatus" class="loading">VEX 지식 데이터베이스 로드 중...</div>
 
-    <button onclick="analyzeVEXCode()">코드 분석</button>
+    <div class="result-section" id="functionResults">
+        <div class="section-title">VEX 함수 및 속성</div>
+    </div>
 
-    <div class="output-box" id="analysisOutput">
-        <div class="result-title">분석 대기 중...</div>
+    <div class="result-section" id="learningResults">
+        <div class="section-title">Joy of VEX 학습 주제</div>
     </div>
 </div>
 
 <script>
-    let vexData = {};
-    const output = document.getElementById('analysisOutput');
-    const input = document.getElementById('vexCodeInput');
+    let vexData = null;
+    const searchInput = document.getElementById('searchInput');
+    const funcOutput = document.getElementById('functionResults');
+    const learnOutput = document.getElementById('learningResults');
+    const loadingStatus = document.getElementById('loadingStatus');
 
     // 1. JSON 데이터 로드
     async function loadVEXData() {
-        // 이 로직은 실제 JSON 파일을 로드한다고 가정합니다.
-        // 실제 실행 환경에 맞게 fetch 경로를 설정해야 합니다.
         try {
+            // vex_functions.json 파일 로드
             const funcRes = await fetch('vex_functions.json');
-            const notesRes = await fetch('vex_learning_notes.json');
-            if (!funcRes.ok || !notesRes.ok) throw new Error("JSON files not found");
-
-            vexData.functions = await funcRes.json();
-            vexData.notes = await notesRes.json();
-            output.innerHTML = '<div class="result-title">분석 대기 중:</div><p>VEX 지식 데이터베이스 로드 완료.</p>';
-        } catch (e) {
-            output.innerHTML = `<p class="error">데이터 로드 실패: vex_functions.json 또는 vex_learning_notes.json 파일을 확인하세요.</p>`;
-            // 디버깅을 위한 최소 데이터 (소스 자료 기반)
-            vexData.notes = {
-                syntax_rules: [
-                    { code: "R1", error_type: "Syntax Error", pattern: ";\\s*//", message: "모든 명령문은 세미콜론(;)으로 끝나야 합니다 [5, 6]." },
-                    { code: "R2", error_type: "Critical Logic Error", pattern: "if\\s*\\([^=]*\\s*=\\s*[^=]*\\)", message: "조건문에서 '할당'(=) 대신 '동등성 테스트'(==)를 사용해야 합니다 [3, 9]." },
-                    { code: "R3", error_type: "Vector Construction Error", pattern: "=\\s*\\{[^\\}]*(float|int|vector|@)\\s*[^\\}]*\\}", message: "변수 포함 벡터 할당 시 중괄호({}) 대신 set() 함수를 사용해야 합니다 [4, 10]." },
-                    { code: "R5", error_type: "Global Variable Error", pattern: "\\$F|\\$T|\\$FF", message: "HScript 전역 변수($F, $T) 대신 VEX 속성인 @Frame 또는 @Time을 사용해야 합니다 [7, 11]." }
-                ]
-            };
-            output.innerHTML += `<p class="error">경로 오류: 임시 규칙 데이터로 분석을 진행합니다.</p>`;
-        }
-    }
-
-    // 2. VEX 코드 분석 로직
-    function analyzeVEXCode() {
-        const code = input.value;
-        const cleanCode = code.replace(/\/\/.*$/gm, '').trim(); // 주석 제거
-        const lines = cleanCode.split(';').map(line => line.trim()).filter(line => line.length > 0);
-
-        let issues = [];
-        let hasError = false;
-        let predictedResult = "결과 예측: ";
-
-        // R1: 세미콜론 검사 (마지막 문장이 세미콜론으로 끝나지 않았는지 확인)
-        if (code.trim().slice(-1) !== ';') {
-            issues.push({ type: 'error', message: `R1: 마지막 줄에 세미콜론(;)이 누락되었습니다. VEX의 모든 명령문은 세미콜론으로 끝나야 합니다 [5, 6].` });
-            hasError = true;
-        }
-
-        // 구문 규칙 검사 (R2, R3, R5 등)
-        vexData.notes.syntax_rules.forEach(rule => {
-            const regex = new RegExp(rule.pattern, 'g');
-            let match;
-            while ((match = regex.exec(cleanCode)) !== null) {
-                let typeClass = rule.error_type.includes('Error') ? 'error' : 'warning';
-                issues.push({ type: typeClass, message: `${rule.code}: ${rule.message}` });
-                if (typeClass === 'error') hasError = true;
-            }
-        });
-
-        // 3. 결과 예측 (오류가 없을 경우)
-        if (!hasError) {
-            let actions = [];
             
-            if (cleanCode.includes('@Cd =')) {
-                actions.push("지오메트리의 색상(@Cd)이 계산된 값으로 설정됩니다 [12, 13].");
-            }
-            if (cleanCode.includes('@P =') || cleanCode.includes('@P +=')) {
-                actions.push("지오메트리의 위치(@P)가 수정되어 형태가 변형됩니다 [14, 15].");
-            }
-            if (cleanCode.includes('length(@P)')) {
-                actions.push("원점으로부터의 거리(Length)를 기반으로 동심원 형태의 패턴이 계산됩니다 [16].");
-            }
-            if (cleanCode.includes('sin(') || cleanCode.includes('cos(')) {
-                actions.push("삼각 함수를 사용하여 물결 또는 파동 애니메이션 효과가 적용됩니다 [15, 17].");
-            }
-            if (cleanCode.includes('chf(') || cleanCode.includes('chv(')) {
-                actions.push("chf(), chv() 함수를 통해 노드 인터페이스에 외부 조절 가능한 파라미터(채널)가 생성됩니다 [18, 19].");
-            }
-            if (cleanCode.includes('fit(') || cleanCode.includes('clamp(')) {
-                actions.push("값의 범위가 조정되거나(fit), 특정 범위로 제한됩니다(clamp) [20, 21].");
-            }
-            if (cleanCode.includes('@Time')) {
-                actions.push("@Time 속성을 사용하여 시간에 따라 연속적으로 변화하는 애니메이션이 생성됩니다 [15, 22].");
-            }
+            if (!funcRes.ok) throw new Error("JSON file not found or failed to load");
 
-            predictedResult = actions.length > 0 
-                ? actions.join('\n- ')
-                : "코드가 속성 할당이나 계산을 포함하지만, 지오메트리에 명확한 변화를 주는 주요 속성(@P, @Cd 등) 조작은 발견되지 않았습니다.";
+            const data = await funcRes.json();
+            vexData = {
+                attributes: data.attributes,
+                functions: data.functions,
+                learningTopics: data.learning_topics
+            };
+
+            loadingStatus.style.display = 'none';
+            searchInput.addEventListener('input', handleSearch);
+            handleSearch(); // 초기 전체 목록 표시
+        } catch (e) {
+            loadingStatus.innerHTML = `<p style="color:red;">데이터 로드 실패: ${e.message}. 'vex_functions.json' 파일을 확인해 주세요.</p>`;
+            console.error(e);
         }
-
-
-        // --- 결과 출력 ---
-        output.innerHTML = `
-            <div class="result-title">오류 진단:</div>
-            ${issues.length > 0 
-                ? issues.map(issue => `<p class="${issue.type}">${issue.message}</p>`).join('')
-                : '<p class="info">문법 및 논리적 오류가 발견되지 않았습니다. 코드는 유효합니다.</p>'
-            }
-            <br>
-            <div class="result-title">예상 결과 및 해설:</div>
-            <p>${predictedResult}</p>
-        `;
     }
 
-    // 초기 데이터 로드
+    // 2. 검색 처리 로직
+    function handleSearch() {
+        if (!vexData) return;
+
+        const query = searchInput.value.toLowerCase().trim();
+        // 검색어를 공백 기준으로 분리 (다중 키워드 검색 지원)
+        const keywords = query.split(/\s+/).filter(k => k.length > 1);
+
+        // 검색 필터링 함수
+        const filterItems = (items) => {
+            if (query === "") return items; 
+            
+            return items.filter(item => {
+                const searchString = JSON.stringify(item).toLowerCase();
+                return keywords.every(kw => searchString.includes(kw));
+            });
+        };
+
+        // --- 함수 및 속성 검색 (통합) ---
+        const combinedFunctions = [
+            ...vexData.attributes.map(a => ({...a, category: '속성', className: 'attribute-name'})),
+            ...vexData.functions.map(f => ({...f, category: '함수', className: 'function-name'}))
+        ];
+
+        const filteredFunctions = filterItems(combinedFunctions);
+        let funcHtml = '<div class="section-title">VEX 함수 및 속성</div>';
+        
+        if (filteredFunctions.length > 0) {
+            filteredFunctions.forEach(item => {
+                funcHtml += `
+                    <div class="item">
+                        <span class="${item.className}">${item.name}</span> (${item.type}) 
+                        <br><strong>[${item.category}]</strong> ${item.description}
+                    </div>
+                `;
+            });
+        } else {
+            funcHtml += `<p>일치하는 VEX 함수/속성을 찾을 수 없습니다.</p>`;
+        }
+        funcOutput.innerHTML = funcHtml;
+
+        // --- 학습 주제 검색 ---
+        const filteredLearning = filterItems(vexData.learningTopics);
+        let learnHtml = '<div class="section-title">Joy of VEX 학습 주제</div>';
+
+        if (filteredLearning.length > 0) {
+            filteredLearning.forEach(item => {
+                learnHtml += `
+                    <div class="item">
+                        <span class="learning-topic">Day ${item.day}:</span> ${item.topic} 
+                        <br><strong>(핵심 개념: ${item.concept})</strong>
+                    </div>
+                `;
+            });
+        } else {
+            learnHtml += `<p>일치하는 학습 주제를 찾을 수 없습니다.</p>`;
+        }
+        learnOutput.innerHTML = learnHtml;
+    }
+
+    // 초기 데이터 로드 시작
     loadVEXData();
 </script>
+
 </body>
 </html>
