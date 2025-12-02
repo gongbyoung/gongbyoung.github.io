@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>후디니 VEX 검색</title>
+    <style>
+        /* 기본적인 스타일링을 여기에 추가합니다 */
+        body { font-family: sans-serif; line-height: 1.6; }
+        #output { margin-top: 20px; }
+        .result-item { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+        .type { font-weight: bold; color: #1e88e5; }
+        .name { font-size: 1.2em; color: #d81b60; }
+        .example-code { background-color: #eee; padding: 5px; border-radius: 3px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>후디니 VEX 수식 검사기가 되지 못한 검색기</h1>
+    
+    <label for="vexInput">VEX 수식:</label><br>
+    <textarea id="vexInput" rows="5" cols="80" placeholder="예: v@Cd = set(chf('r'), chf('g'), chf('b'));"></textarea>
+    <button onclick="analyzeVEX()">Go</button>
+    
+    <hr>
+    
+    <h2>🔍 검색 결과</h2>
+    <div id="output">
+        </div>
+    
+    <script src="analyzer.js"></script>
+</body>
+</html>
