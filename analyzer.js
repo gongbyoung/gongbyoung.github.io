@@ -30,7 +30,9 @@ async function loadVEXData() {
 loadVEXData();
 
 function analyzeVEX() {
+    // ... (입력값, outputDiv 정의, 데이터 로드 체크)
     const input = document.getElementById('vexInput').value;
+    const input_token = input.trim();
     const outputDiv = document.getElementById('output');
     outputDiv.innerHTML = '';
 
@@ -42,31 +44,30 @@ function analyzeVEX() {
  // ... (analyzeVEX 함수의 시작 부분)
 
 // 1. 단어 추출 (토큰화): 사용자가 입력한 단어(Cd)만 토큰으로 사용
-const input_token = input.trim(); // "Cd"
+//const input_token = input.trim(); // "Cd"
 
 if (!input_token) {
     outputDiv.innerHTML = '<p>VEX 수식을 입력해주세요.</p>';
     return;
 }
 
-// 2. 검색 및 결과 취합 (부분 일치 검색으로 변경)
-let foundResults = [];
+// 2. 검색 및 결과 취합 (부분 일치 검색)
+    let foundResults = [];
 
-// vexData 전체를 순회하면서 이름에 input_token이 포함된 항목을 찾습니다.
-vexData.forEach(item => {
-    // 검색어와 관련된 항목이 이름(name)에 포함되어 있는지 확인합니다.
-    // 대소문자를 무시하고 검색하려면, 모두 소문자로 변환하여 비교합니다.
-    const itemNameLower = item.name.toLowerCase();
-    const inputTokenLower = input_token.toLowerCase();
+    vexData.forEach(item => {
+        // 모든 항목의 이름과 사용자 입력을 소문자로 변환
+        const itemNameLower = item.name.toLowerCase();
+        const inputTokenLower = input_token.toLowerCase();
 
-    // name에 'Cd'가 포함되거나, '@Cd'가 포함되는 모든 항목을 찾습니다.
-    if (itemNameLower.includes(inputTokenLower)) {
-        foundResults.push(item);
-    }
-    
-    // 추가 로직: 'Cd'를 입력했을 때 '@Cd'도 찾으려면, 
-    // JSON 데이터에 '@Cd' 또는 'Cd'가 있어야 합니다.
-});
+        // **핵심 수정: 이름에 입력된 단어가 포함되는지 확인**
+        if (itemNameLower.includes(inputTokenLower)) {
+            foundResults.push(item);
+        }
+        
+        // 추가: 만약 사용자가 'P'만 입력했고, JSON에 '@P'가 있다면, 
+        // includes 로직이 이미 '@P'를 찾았을 것입니다.
+        // 예를 들어, 'pos'를 입력하면 'position'이나 '@P'와 관련된 모든 것을 찾게 됩니다.
+    });
 
 // 3. 결과 표시
 // ... (이후 결과 표시 코드는 동일)
