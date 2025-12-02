@@ -39,29 +39,37 @@ function analyzeVEX() {
         return;
     }
     
-    if (!input.trim()) {
-        outputDiv.innerHTML = '<p>VEX 수식을 입력해주세요.</p>';
-        return;
+ // ... (analyzeVEX 함수의 시작 부분)
+
+// 1. 단어 추출 (토큰화): 사용자가 입력한 단어(Cd)만 토큰으로 사용
+const input_token = input.trim(); // "Cd"
+
+if (!input_token) {
+    outputDiv.innerHTML = '<p>VEX 수식을 입력해주세요.</p>';
+    return;
+}
+
+// 2. 검색 및 결과 취합 (부분 일치 검색으로 변경)
+let foundResults = [];
+
+// vexData 전체를 순회하면서 이름에 input_token이 포함된 항목을 찾습니다.
+vexData.forEach(item => {
+    // 검색어와 관련된 항목이 이름(name)에 포함되어 있는지 확인합니다.
+    // 대소문자를 무시하고 검색하려면, 모두 소문자로 변환하여 비교합니다.
+    const itemNameLower = item.name.toLowerCase();
+    const inputTokenLower = input_token.toLowerCase();
+
+    // name에 'Cd'가 포함되거나, '@Cd'가 포함되는 모든 항목을 찾습니다.
+    if (itemNameLower.includes(inputTokenLower)) {
+        foundResults.push(item);
     }
+    
+    // 추가 로직: 'Cd'를 입력했을 때 '@Cd'도 찾으려면, 
+    // JSON 데이터에 '@Cd' 또는 'Cd'가 있어야 합니다.
+});
 
-    // 1. 단어 추출 (토큰화)
-    const regex = /[A-Za-z_][A-Za-z0-9_]*|v@[A-Za-z_][A-Za-z0-9_]*/g;
-    const tokensMatch = input.match(regex);
-    const tokens = tokensMatch ? new Set(tokensMatch) : new Set(); 
-
-    if (tokens.size === 0) {
-        outputDiv.innerHTML = '<p>유효한 VEX 식별자나 단어를 찾을 수 없습니다.</p>';
-        return;
-    }
-
-    // 2. 검색 및 결과 취합
-    let foundResults = [];
-    tokens.forEach(token => {
-        const match = vexData.find(item => item.name === token);
-        if (match) {
-            foundResults.push(match);
-        }
-    });
+// 3. 결과 표시
+// ... (이후 결과 표시 코드는 동일)
 
     // 3. 결과 표시
     if (foundResults.length === 0) {
