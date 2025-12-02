@@ -7,18 +7,21 @@ async function loadVEXData() {
         
         if (!response.ok) {
             console.error(`Fetch Error! Status: ${response.status} - 파일 이름을 다시 확인하세요.`);
-            // vexData를 빈 상태로 두고 함수를 종료합니다.
             return; 
         }
         
         vexData = await response.json();
-        console.log("✅ VEX 데이터 로드 및 파싱 완료:", vexData.length, "개 항목");
+        console.log(`✅ VEX 데이터 로드 및 파싱 완료: ${vexData.length} 개 항목`);
 
-        document.getElementById('vexInput').disabled = false;
-        document.getElementById('vexInput').placeholder = "VEX 수식을 입력하세요...";
+        // 로드 성공 시 입력 필드 활성화
+        const vexInput = document.getElementById('vexInput');
+        if (vexInput) {
+            vexInput.disabled = false;
+            vexInput.placeholder = "VEX 수식을 입력하세요...";
+        }
 
     } catch (error) {
-        console.error("❌ VEX 데이터를 불러오거나 파싱하는 중 심각한 오류가 발생했습니다:", error);
+        console.error("❌ VEX 데이터를 불러오거나 파싱하는 중 오류가 발생했습니다:", error);
     }
 }
 
@@ -30,7 +33,7 @@ function analyzeVEX() {
     outputDiv.innerHTML = '';
 
     if (vexData.length === 0) {
-        outputDiv.innerHTML = '<p style="color:red;">⚠️ **VEX 데이터 로드 실패.** 콘솔 오류를 확인하거나, 잠시 후 다시 시도하세요. (파일 이름 또는 JSON 형식 문제일 수 있습니다.)</p>';
+        outputDiv.innerHTML = '<p style="color:red;">⚠️ **VEX 데이터 로드 실패.** 콘솔 오류를 확인하거나, 잠시 후 다시 시도하세요.</p>';
         return;
     }
     
@@ -39,6 +42,7 @@ function analyzeVEX() {
         return;
     }
 
+    // 1. 단어 추출 (토큰화)
     const regex = /[A-Za-z_][A-Za-z0-9_]*|v@[A-Za-z_][A-Za-z0-9_]*/g;
     const tokensMatch = input.match(regex);
     const tokens = tokensMatch ? new Set(tokensMatch) : new Set(); 
@@ -48,6 +52,7 @@ function analyzeVEX() {
         return;
     }
 
+    // 2. 검색 및 결과 취합
     let foundResults = [];
     tokens.forEach(token => {
         const match = vexData.find(item => item.name === token);
@@ -56,6 +61,7 @@ function analyzeVEX() {
         }
     });
 
+    // 3. 결과 표시
     if (foundResults.length === 0) {
         outputDiv.innerHTML = `<p>입력된 수식에서 관련된 VEX 항목을 찾을 수 없습니다. (검색된 단어: ${Array.from(tokens).join(', ')})</p>`;
         return;
@@ -64,7 +70,7 @@ function analyzeVEX() {
     foundResults.forEach(item => {
         const itemHtml = `
             <div class="result-item">
-                <p><span class="type">**${item.type}**</span>: <span class="name">${item.name}</span></p>
+                <p><span class="type"><strong>${item.type}</strong></span>: <span class="name">${item.name}</span></p>
                 <p><strong>설명:</strong> ${item.description}</p>
                 <p><strong>사용방식:</strong> <code>${item.usage}</code></p>
                 <p><strong>사용예:</strong> <span class="example-code">${item.example}</span></p>
