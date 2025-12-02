@@ -5,15 +5,17 @@ async function loadVEXData() {
     try {
         const response = await fetch('vex_reference.json');
         
+        // 1. 응답 상태 확인
         if (!response.ok) {
             console.error(`Fetch Error! Status: ${response.status} - 파일 이름을 다시 확인하세요.`);
-            return; 
+            return; // 파일 로드 실패 시 함수 종료
         }
         
-        vexData = await response.json();
+        // 2. JSON 파싱 시도 (response.ok가 true일 때만 실행됨)
+        vexData = await response.json(); // <-- 이 부분이 if 블록 밖에 있어야 합니다.
+        
         console.log(`✅ VEX 데이터 로드 및 파싱 완료: ${vexData.length} 개 항목`);
 
-        // 로드 성공 시 입력 필드 활성화
         const vexInput = document.getElementById('vexInput');
         if (vexInput) {
             vexInput.disabled = false;
@@ -21,7 +23,7 @@ async function loadVEXData() {
         }
 
     } catch (error) {
-        console.error("❌ VEX 데이터를 불러오거나 파싱하는 중 오류가 발생했습니다:", error);
+        // ...
     }
 }
 
