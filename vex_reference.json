@@ -485,5 +485,362 @@
     "description": "포인트 클라우드(pcopen, pcfilter) 및 추가 학습 내용을 다룹니다. [77]",
     "usage": "N/A",
     "example": "int pc = pcopen(1, 'P', @P, 10, 30); [77]"
-  }
+  },
+     {
+        "type": "VEX 코드 노트",
+        "name": "Vector_V_Equals_N",
+        "description": "vector 타입의 Velocity에 Normal 값을 할당합니다. 오브젝트의 움직이는 방향을 표면의 법선 방향과 일치시키는 데 사용됩니다.",
+        "usage": "Vector Attribute Assignment",
+        "example": "v@v = @N;"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Attribute_Init_Int",
+        "description": "integer 타입의 found_overlap 어트리뷰트를 1로 초기화합니다. 주로 플래그(Flag) 값으로 사용됩니다.",
+        "usage": "Attribute Initialization",
+        "example": "i@found_overlap = 1;"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Ramp_Attribute_Link",
+        "description": "ramp라는 이름의 변수에 nage 어트리뷰트 값을 연결하여, 램프 파라미터에서 샘플링할 위치(Position) 값으로 사용합니다.",
+        "usage": "Ramp Position Input",
+        "example": "ramp = @nage;"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Global_Var_FF",
+        "description": "후디니의 전역 변수로, 현재 프레임 번호를 소수점 단위까지 나타냅니다 (Floating Frame).",
+        "usage": "Global Variable",
+        "example": "$FF"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Global_Var_Time_Multiply",
+        "description": "현재 시간($T, 초 단위)에 25를 곱한 값입니다. 애니메이션 속도를 조절하는 데 흔히 사용됩니다.",
+        "usage": "Global Variable Math",
+        "example": "$T * 25"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Attribute_Float_Red",
+        "description": "float 타입의 emission 어트리뷰트를 만들고, @Cd (컬러)의 빨간색(r) 성분 값(float)을 할당합니다.",
+        "usage": "Float Attribute Assignment",
+        "example": "f@emission = @Cd.r;"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Attribute_Float_Width",
+        "description": "float 타입의 width 어트리뷰트를 생성하고 0.03을 할당합니다. 주로 인스턴스(Copy)의 크기 조절에 사용됩니다.",
+        "usage": "Float Attribute Initialization",
+        "example": "f@width = 0.03;"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "System_Path_Variables",
+        "description": "파일 이름 또는 경로를 생성하는 시스템 변수 조합입니다. ($HIP: 현재 폴더, $HIPNAME: 파일 이름, $OS: 노드 이름, $F4: 0001 형식의 프레임)",
+        "usage": "System Path",
+        "example": "$HIP/render/$HIPNAME.$OS.$F4.exr"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Attribute_Color_CurveU",
+        "description": "컬러(@Cd, Vector)에 float 타입인 curveu 어트리뷰트 값을 할당합니다. VEX가 float을 vector로 자동 변환합니다.",
+        "usage": "Attribute Assignment with Cast",
+        "example": "@Cd = @curveu;"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Vector_Multiply_No_Assign",
+        "description": "벡터에 5를 곱하는 수식입니다. 하지만 할당 연산자(=)가 없으므로 @v의 값은 실제로 변하지 않습니다.",
+        "usage": "Vector Math (Needs Assignment)",
+        "example": "v@v * 5;"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Attribute_Noise_Function",
+        "description": "f@noise라는 float 어트리뷰트를 만들고 noise 함수 값을 할당합니다. (주의: `noise` 함수는 보통 위치(vector) 인자를 필요로 합니다.)",
+        "usage": "Function Call",
+        "example": "f@noise = noise(@P);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Attribute_Get_Point_Value",
+        "description": "point 함수를 사용하여 0번 입력 지오메트리에서 'noise' 어트리뷰트의 현재 포인트 값을 가져와 float 변수에 저장합니다.",
+        "usage": "Function: point()",
+        "example": "float noise = point(0,\"noise\",@ptnum);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Vector_Component_Multiply",
+        "description": "wind 벡터의 x 성분에 noise 값을 곱하여 저장합니다.",
+        "usage": "Vector Component Math",
+        "example": "wind.x *= noise;"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Function_Fit_Remap",
+        "description": "fit 함수를 사용하여 mask의 값을 0~1 범위에서 1~2 범위로 변경합니다.",
+        "usage": "Function: fit()",
+        "example": "fit(mask, 0, 1, 1, 2)"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Attribute_P_Swap_XZ",
+        "description": "X축 포지션(@P.x) 값을 Z축 포지션(@P.z)에 복사하여 좌표를 교환합니다.",
+        "usage": "Vector Component Assignment",
+        "example": "@P.z = @P.x;"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Attribute_P_Remap_X",
+        "description": "X 포지션(@P.x) 값을 0~1 범위에서 -2~2 범위로 재매핑하여 다시 X 포지션에 할당합니다.",
+        "usage": "Function: fit() on Component",
+        "example": "@P.x = fit(@P.x, 0, 1, -2, 2);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Attribute_P_Remap_Y_to_Z",
+        "description": "Y 좌표(@P.y) 값을 0~1 범위에서 2~-4 범위로 재매핑하여 Z 좌표(@P.z)에 할당합니다.",
+        "usage": "Function: fit() Cross-Component",
+        "example": "@P.z = fit(@P.y, 0, 1, 2, -4);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Function_Fit01_Remap",
+        "description": "fit01 함수를 사용하여 @P.y가 0~1 범위라고 가정하고 2~4 범위로 변경합니다.",
+        "usage": "Function: fit01()",
+        "example": "fit01(@P.y, 2, 4)"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Function_Fit11_Remap",
+        "description": "fit11 함수를 사용하여 입력값(mask)이 -1~1 범위라고 가정하고 1~4 범위로 변경합니다.",
+        "usage": "Function: fit11()",
+        "example": "fit11(mask, 1, 4)"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Function_Centroid_X",
+        "description": "centroid 함수를 사용하여 0번 입력 지오메트리의 X축 중심점을 계산합니다.",
+        "usage": "Function: centroid()",
+        "example": "float cx = centroid(0, D_X);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Global_Var_GCX",
+        "description": "전역 변수: 로딩된 그룹의 X 중심 좌표를 가져옵니다. (Geometry Centroid X)",
+        "usage": "Global Variable",
+        "example": "$GCX"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Attribute_Float_Stop",
+        "description": "float 타입의 stop_ani 변수를 만들고 0을 넣습니다. (애니메이션 제어 플래그)",
+        "usage": "Attribute Initialization",
+        "example": "f@stop_ani = 0;"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Attribute_Get_Input_2",
+        "description": "3번째 입력(index 2)에서 'strechstiffness' 어트리뷰트 값을 가져와 float 변수 st에 저장합니다.",
+        "usage": "Function: point()",
+        "example": "float st = point(2,\"strechstiffness\",@ptnum);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Attribute_Remap_Channel",
+        "description": "st 변수의 0~1 영역을 'min', 'max' 채널 파라미터 값으로 재매핑하여 st에 저장합니다.",
+        "usage": "Function: fit01() with chf()",
+        "example": "st = fit01(st, chf(\"min\"), chf(\"max\"));"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Condition_Frame_Start",
+        "description": "프레임이 18 이상일 때(18프레임부터) 참을 반환합니다.",
+        "usage": "Conditional Logic",
+        "example": "$F >= 18"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Condition_Frame_Compound",
+        "description": "50~80프레임 사이 (AND 조건) 이거나 150프레임보다 클 때 (OR 조건) 실행합니다.",
+        "usage": "Compound Conditional Logic",
+        "example": "$F > 50 && $F < 80 || $F > 150"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Math_Modulo",
+        "description": "a를 b로 나눈 나머지 값을 result 어트리뷰트에 넣습니다. (주기적인 이벤트에 사용)",
+        "usage": "Math: Modulo Operator",
+        "example": "i@result = @a % @b;"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Attribute_Frame_Float",
+        "description": "현재 프레임의 float 값을 a 어트리뷰트에 저장합니다.",
+        "usage": "Attribute Assignment",
+        "example": "f@a = @Frame;"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Attribute_Frame_Int_Cast",
+        "description": "@Frame(float) 값을 정수(int)로 변환하여 a 어트리뷰트에 저장합니다.",
+        "usage": "Type Casting",
+        "example": "i@a = int(@Frame);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Condition_Frame_Periodic",
+        "description": "프레임($F)을 5로 나누었을 때 나머지가 0일 때 (5의 배수 프레임) 참을 반환합니다.",
+        "usage": "Periodic Condition",
+        "example": "$F % 5 == 0"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Global_Var_TimeInc",
+        "description": "전역 변수: 한 프레임당 걸리는 시간(1/FPS)을 나타냅니다.",
+        "usage": "Global Variable",
+        "example": "@TimeInc"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Function_PrimPoint",
+        "description": "primitive 정보를 기반으로 point 번호를 가져옵니다. (Primitive의 버텍스를 구성하는 포인트)",
+        "usage": "Function: primpoint()",
+        "example": "primpoint(0, @primnum, 0);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Function_Random_Simple",
+        "description": "포인트 번호를 시드로 사용하여 0~1 사이의 랜덤 float 값을 result에 저장합니다.",
+        "usage": "Function: rand()",
+        "example": "f@result = rand(@ptnum);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Function_Random_Seed_Remap",
+        "description": "랜덤 시드와 fit01 함수를 조합하여 0~1 랜덤 값을 5~30 범위로 변환합니다.",
+        "usage": "Randomness & Remap",
+        "example": "f@result = fit01(rand(@ptnum + chf(\"Seed\")), 5, 30);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Function_Chramp_Attribute",
+        "description": "pscale 램프 파라미터에서 @pscale 값을 기준으로 샘플링한 값을 result에 저장합니다.",
+        "usage": "Function: chramp()",
+        "example": "f@result = chramp(\"pscale\", @pscale);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Variable_Random_Float",
+        "description": "랜덤 값을 1~10 범위로 변환하여 float 변수에 저장합니다.",
+        "usage": "Variable Assignment",
+        "example": "float result = fit01(rand(@ptnum + chf(\"Seed\")), 1, 10);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Condition_If_Else_Physics",
+        "description": "age 변수가 4보다 크면 airresist에 5를 할당하고, 아니면 0을 할당하는 조건문입니다.",
+        "usage": "Conditional Block",
+        "example": "if(f@age > 4) { airresist = 5; } else { airresist = 0; }"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Vector_Normal_Set_Z",
+        "description": "Normal(@N) 벡터를 Z축 방향({0, 0, 1})으로 설정합니다.",
+        "usage": "Vector Initialization",
+        "example": "@N = {0, 0, 1};"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Concept_Vector_Direction_Force",
+        "description": "벡터에서 크기 1은 방향, 1 초과는 힘(Force)의 크기로 해석될 수 있습니다.",
+        "usage": "Conceptual Note",
+        "example": "Vector {0, 0, 1} (Direction) vs Vector {0, 0, 5} (Force)"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Vector_Normal_Scale_Channel",
+        "description": "Normal의 방향을 Z축으로 설정하고, 'strength' 채널 파라미터 값으로 크기를 조절하여 힘을 표현합니다.",
+        "usage": "Vector Scaling by Channel",
+        "example": "@N = {0, 0, 3} * chf(\"strength\");"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Vector_Normal_Normalize",
+        "description": "Normal의 크기를 1로 정규화(Normalize)하여 방향 벡터로 만듭니다.",
+        "usage": "Function: normalize()",
+        "example": "@N = normalize(@N);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Vector_Normal_Normalize_Var",
+        "description": "변수(nn)의 크기를 1로 정규화하여 Normal에 할당합니다.",
+        "usage": "Function: normalize()",
+        "example": "@N = normalize(nn);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Vector_Up_Set",
+        "description": "Up 벡터(@up)를 Y축 방향({0, 1, 0})으로 지정합니다.",
+        "usage": "Vector Initialization",
+        "example": "@up = {0, 1, 0};"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Vector_Velocity_Set_Z",
+        "description": "Velocity(@v)를 Z축 방향({0, 0, 1})으로 설정합니다. Normal이 없는 경우 속도가 설정됩니다.",
+        "usage": "Vector Initialization",
+        "example": "@v = {0, 0, 1};"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Vector_Translate_With_Frame",
+        "description": "지오메트리(@P)를 Z축 음의 방향으로 프레임당 0.1씩 이동시켜 백스텝 애니메이션을 만듭니다.",
+        "usage": "Position Translation",
+        "example": "@P += {0, 0, -0.1} * $F;"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Geometry_AddPoint",
+        "description": "0번 입력 지오메트리에 {0, 0, 0} 위치의 새로운 점을 생성합니다.",
+        "usage": "Function: addpoint()",
+        "example": "addpoint(0, {0, 0, 0});"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Channel_Get_Vector",
+        "description": "v0 벡터 변수에 'V0'라는 이름의 Vector Channel (파라미터) 값을 가져와서 저장합니다.",
+        "usage": "Function: chv()",
+        "example": "vector v0 = chv(\"V0\");"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Geometry_AddPoint_Var",
+        "description": "v3 벡터 좌표로 포인트를 생성하고, 그 포인트 번호(int)를 point3 변수에 저장합니다.",
+        "usage": "Function: addpoint()",
+        "example": "int point3 = addpoint(0, v3);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Geometry_AddPrim_Poly",
+        "description": "0번 입력에 'poly' 타입의 새로운 면(프리미티브)을 생성하고 그 번호를 prim0 변수에 저장합니다.",
+        "usage": "Function: addprim()",
+        "example": "int prim0 = addprim(0, \"poly\");"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Geometry_AddVertex",
+        "description": "prim0 프리미티브에 point0 포인트를 연결하여 버텍스를 추가합니다. 면을 조립하는 데 사용됩니다.",
+        "usage": "Function: addvertex()",
+        "example": "addvertex(0, prim0, point0);"
+    },
+    {
+        "type": "VEX 코드 노트",
+        "name": "Vector_Midpoint_Calculation",
+        "description": "v0와 v2 벡터의 중간 지점 벡터(평균)를 계산하여 v6에 저장합니다.",
+        "usage": "Vector Math",
+        "example": "vector v6 = (v0 + v2) / 2.0;"
+    }
 ]
