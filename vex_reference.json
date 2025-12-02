@@ -1,0 +1,501 @@
+[
+  // ====================================================================
+  // 1. 예약어 (Keyword)
+  // ====================================================================
+  {
+    "type": "예약어 (Keyword)",
+    "name": "float",
+    "description": "부동 소수점 숫자를 선언합니다. VEX는 별도 지정 없으면 float을 가정합니다. [1-3]",
+    "usage": "float 변수명 = 값;",
+    "example": "float b = 4.56; [4]"
+  },
+  {
+    "type": "예약어 (Keyword)",
+    "name": "int / integer",
+    "description": "정수형 숫자를 선언합니다. [1, 2]",
+    "usage": "int 변수명 = 값;",
+    "example": "int a = 123; [4]"
+  },
+  {
+    "type": "예약어 (Keyword)",
+    "name": "vector",
+    "description": "3개의 float 값(XYZ)을 가지는 벡터 타입입니다. [1, 2]",
+    "usage": "vector 변수명 = set(x, y, z);",
+    "example": "vector c = set(1, 2, 3); [4]"
+  },
+  {
+    "type": "예약어 (Keyword)",
+    "name": "string",
+    "description": "문자열을 선언합니다. [2, 5]",
+    "usage": "string 변수명 = \"문자열\";",
+    "example": "string e = \"abc\"; [4]"
+  },
+  {
+    "type": "예약어 (Keyword)",
+    "name": "matrix",
+    "description": "4x4 행렬을 선언합니다. [2, 6]",
+    "usage": "matrix d = ident();",
+    "example": "matrix d = ident(); [4]"
+  },
+  {
+    "type": "예약어 (Keyword)",
+    "name": "if",
+    "description": "조건문을 시작합니다. [2, 7]",
+    "usage": "if (조건) { 실행; }",
+    "example": "if (d > ch('cutoff')) { @Cd = {1, 1, 1}; } [7]"
+  },
+  {
+    "type": "예약어 (Keyword)",
+    "name": "else",
+    "description": "if 조건이 거짓일 때 실행되는 부분을 정의합니다. [2, 7]",
+    "usage": "if (조건) { 참; } else { 거짓; }",
+    "example": "else { @Cd = {1, 0, 0}; } [7]"
+  },
+  {
+    "type": "예약어 (Keyword)",
+    "name": "return",
+    "description": "함수를 종료하고 값을 반환합니다. [2, 8]",
+    "usage": "return 값;",
+    "example": "if (@age > 0) return; [9]"
+  },
+  {
+    "type": "예약어 (Keyword)",
+    "name": "for / foreach",
+    "description": "루프(반복문)를 정의합니다. foreach는 배열 처리에 편리합니다. [2, 10, 11]",
+    "usage": "for (초기화; 조건; 증감) { 실행; } / foreach (변수; 배열) { 실행; }",
+    "example": "for (i = 0; i < len(pts); i++) { ... } [12]"
+  },
+  
+  // ====================================================================
+  // 2. 타입 접두사 (Type Prefix)
+  // ====================================================================
+  {
+    "type": "타입 접두사 (Type Prefix)",
+    "name": "f@",
+    "description": "Float 타입 속성을 명시합니다. [3, 13, 14]",
+    "usage": "f@속성명",
+    "example": "f@abc = 1.0; [15]"
+  },
+  {
+    "type": "타입 접두사 (Type Prefix)",
+    "name": "i@",
+    "description": "Integer 타입 속성을 명시합니다. [3, 13, 14]",
+    "usage": "i@속성명",
+    "example": "i@result = @a % @b; [16]"
+  },
+  {
+    "type": "타입 접두사 (Type Prefix)",
+    "name": "v@",
+    "description": "Vector (3 floats) 타입 속성을 명시합니다. [3, 13, 14]",
+    "usage": "v@속성명",
+    "example": "v@v = @N; [17]"
+  },
+  {
+    "type": "타입 접두사 (Type Prefix)",
+    "name": "p@",
+    "description": "Vector4 또는 Quaternion (4 floats) 타입 속성을 명시합니다. [3, 13, 14]",
+    "usage": "p@속성명",
+    "example": "p@orient = {0, 0, 0, 1}; [3]"
+  },
+  
+  // ====================================================================
+  // 3. 내장/암묵적 속성 및 전역 변수 (Intrinsic/Implicit Attributes & Global Variables)
+  // ====================================================================
+  {
+    "type": "내장 속성 (Attribute)",
+    "name": "@P",
+    "description": "위치(Position). 모든 포인트의 3D 공간 좌표입니다. 지오메트리에서 가장 중요한 속성입니다. [18, 19]",
+    "usage": "v@P (자동 캐스팅됨)",
+    "example": "@P.y = sin(d); [20]"
+  },
+  {
+    "type": "내장 속성 (Attribute)",
+    "name": "@Cd",
+    "description": "색상(Color Diffuse). Red, Green, Blue 값을 저장하는 벡터입니다. [18, 19]",
+    "usage": "v@Cd (자동 캐스팅됨)",
+    "example": "@Cd = @curveu; [21]"
+  },
+  {
+    "type": "내장 속성 (Attribute)",
+    "name": "@N",
+    "description": "법선 벡터(Normal). 지오메트리의 표면 방향을 나타냅니다. [18, 19]",
+    "usage": "v@N (자동 캐스팅됨)",
+    "example": "@P += @N * sin(d); [22]"
+  },
+  {
+    "type": "내장 속성 (Attribute)",
+    "name": "@ptnum",
+    "description": "포인트 번호. 현재 처리 중인 포인트의 인덱스입니다 (0부터 시작). [19, 23, 24]",
+    "usage": "i@ptnum (자동 캐스팅됨)",
+    "example": "float(@ptnum) / ch('scale'); [25]"
+  },
+  {
+    "type": "내장 속성 (Attribute)",
+    "name": "@primnum",
+    "description": "프리미티브 번호. 현재 처리 중인 프리미티브의 인덱스입니다. [19, 23, 26]",
+    "usage": "i@primnum (자동 캐스팅됨)",
+    "example": "int pt = primpoint(0, @primnum, 0); [27]"
+  },
+  {
+    "type": "내장 속성 (Attribute)",
+    "name": "@pscale",
+    "description": "패킹된 스케일 (Packed Scale). Copy to Points의 균일 크기를 제어하는 float 값입니다. [23, 28]",
+    "usage": "f@pscale",
+    "example": "@pscale = ch('pscale'); [29]"
+  },
+  {
+    "type": "내장 속성 (Attribute)",
+    "name": "@orient",
+    "description": "방향(Orientation). 쿼터니언 타입(vector4)으로 저장되며, 물체의 회전을 제어합니다. [19, 23, 30]",
+    "usage": "p@orient",
+    "example": "@orient = quaternion(angle, axis); [31]"
+  },
+  {
+    "type": "내장 속성 (Attribute)",
+    "name": "@v",
+    "description": "속도(Velocity). 시뮬레이션 및 모션 블러에 사용되는 벡터입니다. [19, 28]",
+    "usage": "v@v",
+    "example": "v@v = @N; [17]"
+  },
+  {
+    "type": "내장 속성 (Attribute)",
+    "name": "@uv",
+    "description": "UV 좌표. 텍스처 매핑에 사용되는 vector2입니다. [18, 19, 30]",
+    "usage": "v@uv 또는 u@uv",
+    "example": "@P = primuv(1, 'P', @primid, @uv); [32]"
+  },
+  {
+    "type": "암묵적 전역 변수 (Implicit Global)",
+    "name": "@Time",
+    "description": "현재 시간(float, 초 단위)입니다. 애니메이션 구동에 사용됩니다. HScript의 $T 대신 사용해야 합니다. [33, 34]",
+    "usage": "@Time",
+    "example": "@P.y = fit(sin(d + @Time), -1, 1, 0, 1); [35]"
+  },
+  {
+    "type": "암묵적 전역 변수 (Implicit Global)",
+    "name": "@Frame",
+    "description": "현재 프레임 번호(float)입니다. HScript의 $FF 대신 사용합니다. [33, 34]",
+    "usage": "@Frame",
+    "example": "i@a = int(@Frame); [16]"
+  },
+  {
+    "type": "암묵적 전역 변수 (Implicit Global)",
+    "name": "@TimeInc",
+    "description": "한 프레임의 시간 간격(1/$FPS)을 나타냅니다. [16]",
+    "usage": "@TimeInc",
+    "example": "f@age += @TimeInc; [27]"
+  },
+  {
+    "type": "HScript 전역 변수 (Global Variable)",
+    "name": "$F",
+    "description": "HScript의 현재 프레임 번호입니다. VEX wrangle에서는 @Frame을 권장합니다. [17, 33]",
+    "usage": "$F",
+    "example": "if ($F >= 18) [36]"
+  },
+  {
+    "type": "HScript 전역 변수 (Global Variable)",
+    "name": "$FF",
+    "description": "HScript의 현재 프레임 번호(float)입니다. VEX wrangle에서는 @Frame을 권장합니다. [17]",
+    "usage": "$FF",
+    "example": "flow 파라미터에 -$FF * 0.05 입력 [37]"
+  },
+  {
+    "type": "시스템 변수 (System Variable)",
+    "name": "$HIP",
+    "description": "현재 Houdini 파일이 저장된 폴더 경로입니다. [38]",
+    "usage": "$HIP/경로",
+    "example": "$HIP/render/$HIPNAME.$OS.$F4.exr [38]"
+  },
+  
+  // ====================================================================
+  // 4. 채널 및 파라미터 함수 (Channel & Parameter Function)
+  // ====================================================================
+  {
+    "type": "함수 (Channel)",
+    "name": "ch",
+    "description": "Float 타입 채널을 생성하고 값을 읽어옵니다. [39, 40]",
+    "usage": "float ch(string channel_name)",
+    "example": "@pscale = ch('pscale'); [29]"
+  },
+  {
+    "type": "함수 (Channel)",
+    "name": "chf",
+    "description": "Float 타입 파라미터(채널)의 값을 읽어옵니다. (ch와 유사) [41-43]",
+    "usage": "float chf(string channel_name)",
+    "example": "float global_scale = chf(\"global_scale\"); [44]"
+  },
+  {
+    "type": "함수 (Channel)",
+    "name": "chi",
+    "description": "Integer 타입 파라미터(채널)의 값을 읽어옵니다. [41-43]",
+    "usage": "int chi(string channel_name)",
+    "example": "int seed = chi(\"seed\"); [44]"
+  },
+  {
+    "type": "함수 (Channel)",
+    "name": "chv",
+    "description": "Vector (3 floats) 타입 파라미터(채널)의 값을 읽어옵니다. [42, 45, 46]",
+    "usage": "vector chv(string channel_name)",
+    "example": "vector axis = chv('axis'); [31]"
+  },
+  {
+    "type": "함수 (Channel)",
+    "name": "chramp",
+    "description": "Ramp 파라미터를 생성하고, 입력값(X축)에 대한 곡선이 조정된 값(Y축)을 반환합니다. [43, 47, 48]",
+    "usage": "float chramp(string name, float input_position)",
+    "example": "@P.y = chramp('myramp', d); [49]"
+  },
+  
+  // ====================================================================
+  // 5. 핵심 VEX 함수 및 수학 (Core VEX Functions & Math)
+  // ====================================================================
+  {
+    "type": "함수 (Math)",
+    "name": "sin() / cos()",
+    "description": "삼각 함수입니다. VEX에서 sin/cos 함수는 각도가 아닌 라디안(radians) 값을 사용합니다. [25, 50, 51]",
+    "usage": "float sin(float x)",
+    "example": "@P.y = sin(d + @Time); [35]"
+  },
+  {
+    "type": "함수 (Math)",
+    "name": "length()",
+    "description": "벡터의 크기, 즉 원점({0,0,0})으로부터의 거리를 float으로 반환합니다. [52, 53]",
+    "usage": "float length(vector v)",
+    "example": "float d = length(@P); [52]"
+  },
+  {
+    "type": "함수 (Math)",
+    "name": "distance()",
+    "description": "두 벡터/포인트 사이의 거리를 float으로 반환합니다. [53, 54]",
+    "usage": "float distance(vector a, vector b)",
+    "example": "float d = distance(@P, center); [45]"
+  },
+  {
+    "type": "함수 (Math)",
+    "name": "fit() / fit01()",
+    "description": "값을 한 범위(min, max)에서 다른 범위(new_min, new_max)로 재매핑(Remap)합니다. fit01은 입력 범위가 0~1이라고 가정합니다. [36, 55, 56]",
+    "usage": "float fit(value, in_min, in_max, out_min, out_max)",
+    "example": "@Cd = fit(sin(d), -1, 1, 0, 1); [55]"
+  },
+  {
+    "type": "함수 (Math)",
+    "name": "clamp()",
+    "description": "값의 범위를 최소/최대값 사이로 강제 제한합니다. [56, 57]",
+    "usage": "float clamp(float value, float min, float max)",
+    "example": "@P.y = clamp(d, 0, 3); [57]"
+  },
+  {
+    "type": "함수 (Vector)",
+    "name": "set()",
+    "description": "변수나 속성을 사용하여 벡터를 안전하게 생성합니다. 중괄호({})를 사용할 수 없습니다. [9, 58-60]",
+    "usage": "vector set(float x, float y, float z)",
+    "example": "@scale = set(min, d, min); [61]"
+  },
+  {
+    "type": "함수 (Vector)",
+    "name": "normalize()",
+    "description": "벡터의 크기를 1로 만들고 방향만 유지합니다. [53]",
+    "usage": "vector normalize(vector v)",
+    "example": "@N = normalize(@N); [62]"
+  },
+  {
+    "type": "함수 (Vector)",
+    "name": "dot()",
+    "description": "두 벡터의 내적을 계산하여 방향성을 비교합니다 (예: 가짜 조명). [53, 63]",
+    "usage": "float dot(vector a, vector b)",
+    "example": "@Cd = dot(@N, chv('angle')); [63]"
+  },
+  {
+    "type": "함수 (Noise)",
+    "name": "noise() / curlnoise()",
+    "description": "절차적 노이즈를 생성합니다. curlnoise는 흐름장(Vector)을 생성합니다. [64, 65]",
+    "usage": "vector/float noise(vector pos)",
+    "example": "@Cd = noise(@P + @Time); [66]"
+  },
+  {
+    "type": "함수 (Noise)",
+    "name": "rand()",
+    "description": "시드(seed)를 기반으로 0~1 사이의 난수를 생성합니다. [16, 56]",
+    "usage": "float rand(float seed)",
+    "example": "f@result = rand(@ptnum); [16]"
+  },
+  {
+    "type": "함수 (Geometry Query)",
+    "name": "point() / prim()",
+    "description": "다른 입력(input)의 포인트나 프리미티브 속성 값을 가져옵니다. [67]",
+    "usage": "float point(int input_num, string attrib_name, int ptnum)",
+    "example": "float st = point(2, \"strechstiffness\", @ptnum); [36]"
+  },
+  {
+    "type": "함수 (Geometry Query)",
+    "name": "xyzdist() / primuv()",
+    "description": "xyzdist는 표면까지의 최단 거리를 찾고, primuv는 주어진 UV에서 프리미티브 속성을 샘플링합니다. [32, 68, 69]",
+    "usage": "@dist = xyzdist(input_num, @P, @primid, @uv);",
+    "example": "@P = primuv(1, 'P', @primid, @uv); [32]"
+  },
+  {
+    "type": "함수 (Geometry Manipulation)",
+    "name": "addpoint() / addprim()",
+    "description": "새로운 포인트나 프리미티브를 생성합니다. [70, 71]",
+    "usage": "int addpoint(int input, vector pos)",
+    "example": "pt = addpoint(0, pos); [70]"
+  },
+  {
+    "type": "함수 (Geometry Manipulation)",
+    "name": "removepoint()",
+    "description": "지정된 포인트를 제거합니다. [71, 72]",
+    "usage": "void removepoint(int input, int ptnum)",
+    "example": "if(@Cd_Ramp_value < 0.5) removepoint(0, @ptnum); [72]"
+  },
+  {
+    "type": "함수 (Geometry Query)",
+    "name": "nearpoints() / len()",
+    "description": "nearpoints는 근접한 포인트 배열을 반환하며, len은 배열의 길이를 반환합니다. [67, 73]",
+    "usage": "int[] nearpoints(int input, vector pos, float radius, int max_pts)",
+    "example": "int pts[]; pts = nearpoints(1, @P, ch('radius'), chi('numpoints')); [74]"
+  },
+  {
+    "type": "함수 (Quaternions)",
+    "name": "quaternion()",
+    "description": "각도와 축을 사용하여 쿼터니언(vector4) 회전 정보를 생성합니다. [31]",
+    "usage": "vector4 quaternion(float angle, vector axis)",
+    "example": "@orient = quaternion(angle, axis); [31]"
+  },
+  {
+    "type": "함수 (Math Utility)",
+    "name": "radians()",
+    "description": "도(Degree) 값을 VEX에서 사용하는 라디안(Radian) 값으로 변환합니다. [75]",
+    "usage": "float radians(float degrees)",
+    "example": "axis *= radians(90); [75]"
+  },
+  {
+    "type": "함수 (Bounding Box)",
+    "name": "relpointbbox()",
+    "description": "지오메트리 바운딩 박스를 기준으로 0~1 범위로 정규화된 좌표를 반환합니다. [76]",
+    "usage": "vector relpointbbox(int input, vector pos)",
+    "example": "@Cd = relpointbbox(0, @P); [76]"
+  },
+  {
+    "type": "함수 (Point Cloud)",
+    "name": "pcopen() / pcfilter()",
+    "description": "pcopen은 포인트 클라우드를 열고(핸들 반환), pcfilter는 해당 핸들을 사용하여 필터링된 평균값을 가져옵니다. [77]",
+    "usage": "int pc = pcopen(input, 'P', @P, radius, max_pts); vector avg = pcfilter(pc, 'v');",
+    "example": "vector avgv = pcfilter(pc, 'v'); [77]"
+  },
+  
+  // ====================================================================
+  // 6. 학습 주제 (Joy of VEX Learning Topic)
+  // ====================================================================
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex01",
+    "description": "기본 할당, 컴포넌트 할당 (@P.x), 산술 조작을 다룹니다.",
+    "usage": "N/A",
+    "example": "@Cd = @P.x; [78]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex02",
+    "description": "length() 및 distance() 함수, @Time을 이용한 애니메이션을 다룹니다.",
+    "usage": "N/A",
+    "example": "@Cd = sin(length(@P) * ch('scale') + @Time); [35, 79]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex03",
+    "description": "clamp() 및 fit() 함수, 파동(Waves) 생성을 다룹니다.",
+    "usage": "N/A",
+    "example": "@P += @N * sin(d) * ch('wave_height'); [80]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex04",
+    "description": "chramp, 어트리뷰트 컴포넌트 사용, 시간 및 범위 재조정을 다룹니다. [48, 81]",
+    "usage": "N/A",
+    "example": "@P.y = chramp('myramp', d); [49]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex05",
+    "description": "모듈로(%) 연산, 양자화(quantising) 및 단계별 램프 사용을 다룹니다. [82, 83]",
+    "usage": "N/A",
+    "example": "d %= 1; (d를 0~1 범위로 반복); [84]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex06",
+    "description": "Point, Prim, Detail Wrangle의 차이점 및 사용자 정의 속성 생성(@mydistance)을 다룹니다. [85, 86]",
+    "usage": "N/A",
+    "example": "@mydistance = length(@P); [87]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex08",
+    "description": "다양한 유형의 노이즈(noise, curlnoise) 및 벡터 vs 스칼라 노이즈를 다룹니다. [64]",
+    "usage": "N/A",
+    "example": "@Cd = curlnoise(@P + @Time); [88]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex09",
+    "description": "Dot Product 및 Cross Product, 법선을 이용한 가짜 조명(Fake Lighting)을 다룹니다. [63]",
+    "usage": "N/A",
+    "example": "@Cd = dot(@N, chv('angle')); [63]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex10",
+    "description": "relpointbbox() 함수를 이용한 바운딩 박스 기반 정규화 (Normalization)를 다룹니다. [76]",
+    "usage": "N/A",
+    "example": "@Cd = relpointbbox(0, @P); [76]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex11",
+    "description": "If 조건문, 동등성 테스트(==) 및 삼항 연산자(Ternary Operator)를 다룹니다. [7, 89]",
+    "usage": "N/A",
+    "example": "@Cd = @Time % 1 == 0 ? 1 : 0; [89]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex12",
+    "description": "nearpoints() 함수 및 배열(Arrays)을 다룹니다. [73, 90]",
+    "usage": "N/A",
+    "example": "float myfloatarray[] = {1, 2, 3, 4, 5}; [91]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex14",
+    "description": "지오메트리 생성(addpoint, addprim), 삭제(removepoint) 및 디버깅 팁을 다룹니다. [70, 92]",
+    "usage": "N/A",
+    "example": "pt = addpoint(0, pos); [70]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex15",
+    "description": "Copy SOP 및 단순 인스턴스 속성 (@pscale, @scale) 제어를 다룹니다. [29, 61]",
+    "usage": "N/A",
+    "example": "@pscale = fit(sin(d), -1, 1, min, max); [29]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex17",
+    "description": "Copy SOP, @orient 속성, 쿼터니언(Quaternions)을 이용한 회전 제어를 다룹니다. [31]",
+    "usage": "N/A",
+    "example": "@orient = quaternion(@Time, chv('axis')); [31]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex19",
+    "description": "primuv(), xyzdist() 함수를 이용한 표면 속성 쿼리 및 샘플링을 다룹니다. [32, 68]",
+    "usage": "N/A",
+    "example": "@P = primuv(1, 'P', @primid, @uv); [32]"
+  },
+  {
+    "type": "학습 주제 (Learning Topic)",
+    "name": "JoyOfVex20",
+    "description": "포인트 클라우드(pcopen, pcfilter) 및 추가 학습 내용을 다룹니다. [77]",
+    "usage": "N/A",
+    "example": "int pc = pcopen(1, 'P', @P, 10, 30); [77]"
+  }
+]
