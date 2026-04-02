@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio to CSV Generator for Houdini</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #2d2d2d;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            width: 400px;
+            text-align: center;
+        }
+        h2 { margin-top: 0; color: #ff9800; }
+        input[type="file"], input[type="number"] {
+            width: 90%;
+            padding: 10px;
+            margin: 15px 0;
+            background-color: #1e1e1e;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #ff9800;
+            color: #1e1e1e;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+        button:hover { background-color: #e68a00; }
+        #status { margin-top: 15px; font-size: 14px; color: #aaa; }
+        #downloadBtn {
+            display: none;
+            margin-top: 20px;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        #downloadBtn:hover { background-color: #45a049; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🎵 Audio to CSV Extractor</h2>
+    <p>음악 파일을 후디니용 데이터로 변환합니다.</p>
+    
+    <input type="file" id="audioInput" accept="audio/*">
+    
+    <div style="text-align: left; padding-left: 5%;">
+        <label for="fpsInput">Target FPS (후디니 프레임과 동일하게 설정):</label>
+        <input type="number" id="fpsInput" value="30" min="1" max="120">
+    </div>
+
+    <button id="processBtn">분석 및 CSV 생성</button>
+    <div id="status"></div>
+    <a id="downloadBtn">CSV 다운로드</a>
+</div>
+
+<script>
+    document.getElementById('processBtn').addEventListener('click', async () => {
+        const fileInput = document.getElementById('audioInput');
+        const fps = parseInt(document.getElementById('fpsInput').value) || 30;
+        const statusEl = document.getElementById('status');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        if (!fileInput.files.length) {
+            statusEl.innerText = '❌ 오디오 파일을 먼저 선택해주세요.';
+            return;
+        }
+
+        const file = fileInput.files[0];
+        statusEl.innerText = '⏳ 오디오 디코딩 및 분석 중...';
+        downloadBtn.style.display = 'none';
+
+        try {
+            // 1. 파일 읽기
+            const arrayBuffer = await file.arrayBuffer();
+            
+            // 2. 오디오 데이터 디코딩 (Web Audio API)
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+            // 3. 첫 번째 채널(Mono) 데이터 가져오기
+            const channelData = audioBuffer.getChannelData(0); 
+            const sampleRate = audioBuffer.sampleRate;
+            
+            // 4. 1프레임당 샘플 수 계산
+            const samplesPerFrame = Math.floor(sampleRate / fps);
+            const totalFrames = Math.floor(channelData.length / samplesPerFrame);
+
+            let csvContent = "Frame,RMS,Onset_Energy\n";
+            let prevRms = 0;
+
+            // 5. 프레임 단위로 쪼개서 데이터 추출
+            for (let i = 0; i < totalFrames; i++) {
+                let start = i * samplesPerFrame;
+                let end = start + samplesPerFrame;
+                let sumSquares = 0;
+
+                // 해당 프레임 구간의 소리 데이터 제곱합 계산
+                for (let j = start; j < end; j++) {
+                    sumSquares += channelData[j] * channelData[j];
+                }
+
+                // RMS (Root Mean Square) - 전반적인 볼륨 강도
+                let rms = Math.sqrt(sumSquares / samplesPerFrame);
+
+                // Onset Energy (타격감) - 이전 프레임 대비 볼륨 증가량
+                let onsetEnergy = Math.max(0, rms - prevRms);
+                prevRms = rms;
+
+                // 소수점 6자리까지 기록
+                csvContent += `${i + 1},${rms.toFixed(6)},${onsetEnergy.toFixed(6)}\n`;
+            }
+
+            // 6. CSV 파일 생성 및 다운로드 링크 활성화
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            downloadBtn.href = url;
+            downloadBtn.download = `${file.name.split('.')[0]}_audio_data.csv`;
+            downloadBtn.innerText = '📥 CSV 파일 다운로드';
+            downloadBtn.style.display = 'inline-block';
+            statusEl.innerText = '✅ 분석 완료!';
+
+        } catch (err) {
+            console.error(err);
+            statusEl.innerText = '❌ 오류 발생: ' + err.message;
+        }
+    });
+</script>
+
+</body>
+</html>
