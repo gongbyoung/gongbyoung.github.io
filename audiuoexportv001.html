@@ -27,12 +27,33 @@
         input[type="file"], input[type="number"] {
             width: 90%;
             padding: 10px;
-            margin: 15px 0;
+            margin: 10px 0;
             background-color: #1e1e1e;
             border: 1px solid #444;
             color: white;
             border-radius: 5px;
         }
+        
+        /* 체크박스 디자인 추가 */
+        .checkbox-group {
+            text-align: left;
+            background-color: #1e1e1e;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #444;
+            margin-bottom: 15px;
+        }
+        .checkbox-group label {
+            display: block;
+            margin: 8px 0;
+            cursor: pointer;
+            font-size: 15px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
         button {
             background-color: #ff9800;
             color: #1e1e1e;
@@ -64,12 +85,18 @@
 
 <div class="container">
     <h2>🎵 Audio to CSV Extractor</h2>
-    <p>음악 파일을 후디니용 데이터로 변환합니다.</p>
+    <p>추출할 데이터를 선택하세요.</p>
     
     <input type="file" id="audioInput" accept="audio/*">
     
+    <div class="checkbox-group">
+        <strong>출력할 속성 선택:</strong><br>
+        <label><input type="checkbox" id="chkRms" checked> RMS (전체 볼륨 크기)</label>
+        <label><input type="checkbox" id="chkOnset" checked> Onset Energy (타격감/비트)</label>
+    </div>
+
     <div style="text-align: left; padding-left: 5%;">
-        <label for="fpsInput">Target FPS (후디니 프레임과 동일하게 설정):</label>
+        <label for="fpsInput">Target FPS (후디니 프레임):</label>
         <input type="number" id="fpsInput" value="30" min="1" max="120">
     </div>
 
@@ -85,8 +112,16 @@
         const statusEl = document.getElementById('status');
         const downloadBtn = document.getElementById('downloadBtn');
 
+        // 체크박스 상태 읽어오기
+        const useRms = document.getElementById('chkRms').checked;
+        const useOnset = document.getElementById('chkOnset').checked;
+
         if (!fileInput.files.length) {
             statusEl.innerText = '❌ 오디오 파일을 먼저 선택해주세요.';
+            return;
+        }
+        if (!useRms && !useOnset) {
+            statusEl.innerText = '❌ 출력할 속성을 하나 이상 체크해주세요.';
             return;
         }
 
@@ -95,47 +130,46 @@
         downloadBtn.style.display = 'none';
 
         try {
-            // 1. 파일 읽기
             const arrayBuffer = await file.arrayBuffer();
-            
-            // 2. 오디오 데이터 디코딩 (Web Audio API)
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
-            // 3. 첫 번째 채널(Mono) 데이터 가져오기
             const channelData = audioBuffer.getChannelData(0); 
             const sampleRate = audioBuffer.sampleRate;
-            
-            // 4. 1프레임당 샘플 수 계산
             const samplesPerFrame = Math.floor(sampleRate / fps);
             const totalFrames = Math.floor(channelData.length / samplesPerFrame);
 
-            let csvContent = "Frame,RMS,Onset_Energy\n";
+            // 1. CSV 헤더(첫 줄) 동적 생성
+            let headers = ["Frame"];
+            if (useRms) headers.push("RMS");
+            if (useOnset) headers.push("Onset_Energy");
+            
+            let csvContent = headers.join(",") + "\n";
             let prevRms = 0;
 
-            // 5. 프레임 단위로 쪼개서 데이터 추출
+            // 2. 프레임 단위 데이터 추출
             for (let i = 0; i < totalFrames; i++) {
                 let start = i * samplesPerFrame;
                 let end = start + samplesPerFrame;
                 let sumSquares = 0;
 
-                // 해당 프레임 구간의 소리 데이터 제곱합 계산
                 for (let j = start; j < end; j++) {
                     sumSquares += channelData[j] * channelData[j];
                 }
 
-                // RMS (Root Mean Square) - 전반적인 볼륨 강도
                 let rms = Math.sqrt(sumSquares / samplesPerFrame);
-
-                // Onset Energy (타격감) - 이전 프레임 대비 볼륨 증가량
                 let onsetEnergy = Math.max(0, rms - prevRms);
                 prevRms = rms;
 
-                // 소수점 6자리까지 기록
-                csvContent += `${i + 1},${rms.toFixed(6)},${onsetEnergy.toFixed(6)}\n`;
+                // 3. 체크된 항목만 배열에 담아서 행(Row) 생성
+                let rowData = [`${i + 1}`];
+                if (useRms) rowData.push(rms.toFixed(6));
+                if (useOnset) rowData.push(onsetEnergy.toFixed(6));
+
+                // 콤마(,)로 연결해서 CSV 포맷으로 붙이기
+                csvContent += rowData.join(",") + "\n";
             }
 
-            // 6. CSV 파일 생성 및 다운로드 링크 활성화
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             
