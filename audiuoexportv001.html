@@ -20,8 +20,10 @@
             padding: 30px;
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            width: 400px;
+            width: 450px;
             text-align: center;
+            max-height: 90vh;
+            overflow-y: auto;
         }
         h2 { margin-top: 0; color: #ff9800; }
         input[type="file"], input[type="number"] {
@@ -33,8 +35,6 @@
             color: white;
             border-radius: 5px;
         }
-        
-        /* 체크박스 디자인 추가 */
         .checkbox-group {
             text-align: left;
             background-color: #1e1e1e;
@@ -49,11 +49,6 @@
             cursor: pointer;
             font-size: 15px;
         }
-        .checkbox-group input[type="checkbox"] {
-            margin-right: 10px;
-            cursor: pointer;
-        }
-
         button {
             background-color: #ff9800;
             color: #1e1e1e;
@@ -68,9 +63,31 @@
         }
         button:hover { background-color: #e68a00; }
         #status { margin-top: 15px; font-size: 14px; color: #aaa; }
+        
+        /* 미리보기 창 디자인 추가 */
+        #previewBox {
+            display: none;
+            text-align: left;
+            background-color: #1a1a1a;
+            border: 1px solid #555;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #cfd8dc;
+        }
+        #previewBox pre {
+            background-color: #000;
+            padding: 10px;
+            border-radius: 3px;
+            color: #a5d6a7;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+
         #downloadBtn {
             display: none;
-            margin-top: 20px;
+            margin-top: 15px;
             background-color: #4CAF50;
             color: white;
             text-decoration: none;
@@ -92,7 +109,7 @@
     <div class="checkbox-group">
         <strong>출력할 속성 선택:</strong><br>
         <label><input type="checkbox" id="chkRms" checked> RMS (전체 볼륨 크기)</label>
-        <label><input type="checkbox" id="chkOnset" checked> Onset Energy (타격감/비트)</label>
+        <label><input type="checkbox" id="chkOnset" checked> Onset_Energy (타격감/비트)</label>
     </div>
 
     <div style="text-align: left; padding-left: 5%;">
@@ -100,8 +117,11 @@
         <input type="number" id="fpsInput" value="30" min="1" max="120">
     </div>
 
-    <button id="processBtn">분석 및 CSV 생성</button>
+    <button id="processBtn">분석 및 미리보기</button>
     <div id="status"></div>
+    
+    <div id="previewBox"></div>
+
     <a id="downloadBtn">CSV 다운로드</a>
 </div>
 
@@ -110,9 +130,9 @@
         const fileInput = document.getElementById('audioInput');
         const fps = parseInt(document.getElementById('fpsInput').value) || 30;
         const statusEl = document.getElementById('status');
+        const previewBox = document.getElementById('previewBox');
         const downloadBtn = document.getElementById('downloadBtn');
 
-        // 체크박스 상태 읽어오기
         const useRms = document.getElementById('chkRms').checked;
         const useOnset = document.getElementById('chkOnset').checked;
 
@@ -127,6 +147,7 @@
 
         const file = fileInput.files[0];
         statusEl.innerText = '⏳ 오디오 디코딩 및 분석 중...';
+        previewBox.style.display = 'none';
         downloadBtn.style.display = 'none';
 
         try {
@@ -138,16 +159,16 @@
             const sampleRate = audioBuffer.sampleRate;
             const samplesPerFrame = Math.floor(sampleRate / fps);
             const totalFrames = Math.floor(channelData.length / samplesPerFrame);
+            const durationSec = (audioBuffer.length / sampleRate).toFixed(2);
 
-            // 1. CSV 헤더(첫 줄) 동적 생성
             let headers = ["Frame"];
             if (useRms) headers.push("RMS");
             if (useOnset) headers.push("Onset_Energy");
             
             let csvContent = headers.join(",") + "\n";
             let prevRms = 0;
+            let sampleRows = []; // 미리보기용 5줄 저장 배열
 
-            // 2. 프레임 단위 데이터 추출
             for (let i = 0; i < totalFrames; i++) {
                 let start = i * samplesPerFrame;
                 let end = start + samplesPerFrame;
@@ -161,15 +182,31 @@
                 let onsetEnergy = Math.max(0, rms - prevRms);
                 prevRms = rms;
 
-                // 3. 체크된 항목만 배열에 담아서 행(Row) 생성
                 let rowData = [`${i + 1}`];
                 if (useRms) rowData.push(rms.toFixed(6));
                 if (useOnset) rowData.push(onsetEnergy.toFixed(6));
 
-                // 콤마(,)로 연결해서 CSV 포맷으로 붙이기
-                csvContent += rowData.join(",") + "\n";
+                let rowString = rowData.join(",");
+                csvContent += rowString + "\n";
+
+                // 처음 5개의 프레임만 미리보기용으로 저장
+                if (i < 5) {
+                    sampleRows.push(rowString);
+                }
             }
 
+            // 📊 요약 정보 UI 업데이트
+            let summaryHtml = `<strong>📊 분석 요약</strong><br><br>`;
+            summaryHtml += `📌 <strong>총 프레임 수:</strong> ${totalFrames} frames<br>`;
+            summaryHtml += `⏱ <strong>곡 길이:</strong> 약 ${durationSec}초<br>`;
+            summaryHtml += `📁 <strong>저장 변수:</strong> ${headers.join(", ")}<br><br>`;
+            summaryHtml += `<strong>📝 데이터 미리보기 (처음 5프레임):</strong>`;
+            summaryHtml += `<pre>${headers.join(",")}\n${sampleRows.join("\n")}\n...</pre>`;
+
+            previewBox.innerHTML = summaryHtml;
+            previewBox.style.display = 'block';
+
+            // CSV 파일 세팅
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             
