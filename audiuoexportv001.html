@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1e1e1e;
+            background-color: #222;
             color: #ffffff;
             display: flex;
             justify-content: center;
@@ -16,13 +16,13 @@
             margin: 0;
         }
         .container {
-            background-color: #2d2d2d;
+            background-color: #333;
             padding: 30px;
             border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6);
             width: 450px;
             text-align: center;
-            max-height: 90vh;
+            max-height: 95vh;
             overflow-y: auto;
         }
         h2 { margin-top: 0; color: #ff9800; }
@@ -31,23 +31,27 @@
             padding: 10px;
             margin: 10px 0;
             background-color: #1e1e1e;
-            border: 1px solid #444;
+            border: 1px solid #555;
             color: white;
             border-radius: 5px;
         }
         .checkbox-group {
             text-align: left;
-            background-color: #1e1e1e;
+            background-color: #2a2a2a;
             padding: 15px;
             border-radius: 5px;
-            border: 1px solid #444;
+            border: 1px solid #555;
             margin-bottom: 15px;
         }
         .checkbox-group label {
             display: block;
             margin: 8px 0;
             cursor: pointer;
-            font-size: 15px;
+            font-size: 14px;
+        }
+        .checkbox-group hr {
+            border-top: 1px solid #444;
+            margin: 10px 0;
         }
         button {
             background-color: #ff9800;
@@ -62,9 +66,8 @@
             transition: background-color 0.3s;
         }
         button:hover { background-color: #e68a00; }
-        #status { margin-top: 15px; font-size: 14px; color: #aaa; }
+        #status { margin-top: 15px; font-size: 14px; color: #ffb74d; font-weight: bold; }
         
-        /* 미리보기 창 디자인 추가 */
         #previewBox {
             display: none;
             text-align: left;
@@ -73,7 +76,7 @@
             padding: 15px;
             margin-top: 15px;
             border-radius: 5px;
-            font-size: 14px;
+            font-size: 13px;
             color: #cfd8dc;
         }
         #previewBox pre {
@@ -82,9 +85,9 @@
             border-radius: 3px;
             color: #a5d6a7;
             overflow-x: auto;
-            font-size: 12px;
+            font-size: 11px;
+            margin-top: 5px;
         }
-
         #downloadBtn {
             display: none;
             margin-top: 15px;
@@ -102,30 +105,59 @@
 
 <div class="container">
     <h2>🎵 Audio to CSV Extractor</h2>
-    <p>추출할 데이터를 선택하세요.</p>
+    <p style="color:#aaa; font-size: 14px;">추출할 데이터를 선택하세요.</p>
     
     <input type="file" id="audioInput" accept="audio/*">
     
     <div class="checkbox-group">
-        <strong>출력할 속성 선택:</strong><br>
+        <strong style="color:#ff9800;">기본 속성 (Overall)</strong>
         <label><input type="checkbox" id="chkRms" checked> RMS (전체 볼륨 크기)</label>
         <label><input type="checkbox" id="chkOnset" checked> Onset_Energy (타격감/비트)</label>
+        <hr>
+        <strong style="color:#ff9800;">주파수 분리 (Frequency Bands)</strong>
+        <label><input type="checkbox" id="chkBass" checked> Bass (저음: 드럼, 베이스)</label>
+        <label><input type="checkbox" id="chkMid" checked> Mid (중음: 보컬, 메인 악기)</label>
+        <label><input type="checkbox" id="chkTreble" checked> Treble (고음: 하이햇, 신스)</label>
     </div>
 
     <div style="text-align: left; padding-left: 5%;">
-        <label for="fpsInput">Target FPS (후디니 프레임):</label>
+        <label for="fpsInput" style="font-size: 14px;">Target FPS (후디니 프레임):</label>
         <input type="number" id="fpsInput" value="30" min="1" max="120">
     </div>
 
     <button id="processBtn">분석 및 미리보기</button>
     <div id="status"></div>
-    
     <div id="previewBox"></div>
-
     <a id="downloadBtn">CSV 다운로드</a>
 </div>
 
 <script>
+    // 주파수 필터링을 위한 백그라운드 렌더링 함수
+    async function applyFilter(audioBuffer, type, freq1, freq2) {
+        const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        const offCtx = new OfflineCtx(1, audioBuffer.length, audioBuffer.sampleRate);
+        const src = offCtx.createBufferSource();
+        src.buffer = audioBuffer;
+        
+        if (type === 'bandpass') {
+            // 중음역대(Mid)를 위한 Highpass + Lowpass 조합
+            const hp = offCtx.createBiquadFilter();
+            hp.type = 'highpass'; hp.frequency.value = freq1;
+            const lp = offCtx.createBiquadFilter();
+            lp.type = 'lowpass'; lp.frequency.value = freq2;
+            src.connect(hp); hp.connect(lp); lp.connect(offCtx.destination);
+        } else {
+            // 저음(lowpass) 또는 고음(highpass)
+            const filter = offCtx.createBiquadFilter();
+            filter.type = type; filter.frequency.value = freq1;
+            src.connect(filter); filter.connect(offCtx.destination);
+        }
+        
+        src.start(0);
+        const renderedBuffer = await offCtx.startRendering();
+        return renderedBuffer.getChannelData(0);
+    }
+
     document.getElementById('processBtn').addEventListener('click', async () => {
         const fileInput = document.getElementById('audioInput');
         const fps = parseInt(document.getElementById('fpsInput').value) || 30;
@@ -135,18 +167,21 @@
 
         const useRms = document.getElementById('chkRms').checked;
         const useOnset = document.getElementById('chkOnset').checked;
+        const useBass = document.getElementById('chkBass').checked;
+        const useMid = document.getElementById('chkMid').checked;
+        const useTreble = document.getElementById('chkTreble').checked;
 
         if (!fileInput.files.length) {
             statusEl.innerText = '❌ 오디오 파일을 먼저 선택해주세요.';
             return;
         }
-        if (!useRms && !useOnset) {
+        if (!useRms && !useOnset && !useBass && !useMid && !useTreble) {
             statusEl.innerText = '❌ 출력할 속성을 하나 이상 체크해주세요.';
             return;
         }
 
         const file = fileInput.files[0];
-        statusEl.innerText = '⏳ 오디오 디코딩 및 분석 중...';
+        statusEl.innerText = '⏳ 오디오 주파수 대역 분리 및 분석 중... (수 초 소요)';
         previewBox.style.display = 'none';
         downloadBtn.style.display = 'none';
 
@@ -161,52 +196,68 @@
             const totalFrames = Math.floor(channelData.length / samplesPerFrame);
             const durationSec = (audioBuffer.length / sampleRate).toFixed(2);
 
+            // 주파수 대역별 데이터 추출 (체크된 항목만 백그라운드 연산)
+            let bassData, midData, trebleData;
+            if (useBass) bassData = await applyFilter(audioBuffer, 'lowpass', 250);
+            if (useMid) midData = await applyFilter(audioBuffer, 'bandpass', 250, 4000);
+            if (useTreble) trebleData = await applyFilter(audioBuffer, 'highpass', 4000);
+
+            // CSV 헤더 설정
             let headers = ["Frame"];
             if (useRms) headers.push("RMS");
             if (useOnset) headers.push("Onset_Energy");
+            if (useBass) headers.push("Bass");
+            if (useMid) headers.push("Mid");
+            if (useTreble) headers.push("Treble");
             
             let csvContent = headers.join(",") + "\n";
             let prevRms = 0;
-            let sampleRows = []; // 미리보기용 5줄 저장 배열
+            let sampleRows = []; 
 
+            // 프레임 단위 데이터 추출
             for (let i = 0; i < totalFrames; i++) {
                 let start = i * samplesPerFrame;
                 let end = start + samplesPerFrame;
-                let sumSquares = 0;
+                
+                let sumSq = 0, bassSq = 0, midSq = 0, trebleSq = 0;
 
                 for (let j = start; j < end; j++) {
-                    sumSquares += channelData[j] * channelData[j];
+                    if (useRms || useOnset) sumSq += channelData[j] * channelData[j];
+                    if (useBass) bassSq += bassData[j] * bassData[j];
+                    if (useMid) midSq += midData[j] * midData[j];
+                    if (useTreble) trebleSq += trebleData[j] * trebleData[j];
                 }
 
-                let rms = Math.sqrt(sumSquares / samplesPerFrame);
+                let rms = Math.sqrt(sumSq / samplesPerFrame);
                 let onsetEnergy = Math.max(0, rms - prevRms);
                 prevRms = rms;
 
+                // 행 데이터 생성
                 let rowData = [`${i + 1}`];
                 if (useRms) rowData.push(rms.toFixed(6));
                 if (useOnset) rowData.push(onsetEnergy.toFixed(6));
+                if (useBass) rowData.push(Math.sqrt(bassSq / samplesPerFrame).toFixed(6));
+                if (useMid) rowData.push(Math.sqrt(midSq / samplesPerFrame).toFixed(6));
+                if (useTreble) rowData.push(Math.sqrt(trebleSq / samplesPerFrame).toFixed(6));
 
                 let rowString = rowData.join(",");
                 csvContent += rowString + "\n";
 
-                // 처음 5개의 프레임만 미리보기용으로 저장
-                if (i < 5) {
-                    sampleRows.push(rowString);
-                }
+                if (i < 5) sampleRows.push(rowString);
             }
 
-            // 📊 요약 정보 UI 업데이트
+            // 요약 정보 업데이트
             let summaryHtml = `<strong>📊 분석 요약</strong><br><br>`;
-            summaryHtml += `📌 <strong>총 프레임 수:</strong> ${totalFrames} frames<br>`;
+            summaryHtml += `📌 <strong>총 프레임:</strong> ${totalFrames} frames<br>`;
             summaryHtml += `⏱ <strong>곡 길이:</strong> 약 ${durationSec}초<br>`;
             summaryHtml += `📁 <strong>저장 변수:</strong> ${headers.join(", ")}<br><br>`;
-            summaryHtml += `<strong>📝 데이터 미리보기 (처음 5프레임):</strong>`;
+            summaryHtml += `<strong>📝 데이터 미리보기:</strong>`;
             summaryHtml += `<pre>${headers.join(",")}\n${sampleRows.join("\n")}\n...</pre>`;
 
             previewBox.innerHTML = summaryHtml;
             previewBox.style.display = 'block';
 
-            // CSV 파일 세팅
+            // CSV 다운로드 세팅
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             
@@ -214,7 +265,7 @@
             downloadBtn.download = `${file.name.split('.')[0]}_audio_data.csv`;
             downloadBtn.innerText = '📥 CSV 파일 다운로드';
             downloadBtn.style.display = 'inline-block';
-            statusEl.innerText = '✅ 분석 완료!';
+            statusEl.innerText = '✅ 분석 완료! (CSV 저장 준비됨)';
 
         } catch (err) {
             console.error(err);
