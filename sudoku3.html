@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zen Sudoku - Pro</title>
+    <title>Zen Sudoku - Professional</title>
     <style>
         :root {
             --bg: #0f172a;
             --surface: #1e293b;
-            --primary: #818cf8; /* 보라색 계열 */
-            --secondary: #2dd4bf; /* 민트색 계열 */
-            --highlight: #2d3e5a; /* 가로세로 음영 */
-            --same-num-bg: #334155; /* 동일 숫자 배경 */
+            --primary: #818cf8;
+            --secondary: #2dd4bf;
+            --highlight: #2d3e5a;
+            --same-num-bg: #334155;
             --error: #fb7185;
             --text: #f8fafc;
             --text-dim: #94a3b8;
@@ -32,7 +32,7 @@
         .menu { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
         .menu button {
             background: var(--surface); border: 1px solid var(--cell-border); color: var(--text);
-            padding: 8px 16px; border-radius: 12px; font-weight: 600; cursor: pointer;
+            padding: 8px 16px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: 0.2s;
         }
         .menu button.active { background: var(--primary); color: white; border-color: var(--primary); }
 
@@ -54,14 +54,12 @@
             border: 0.5px solid var(--cell-border); color: var(--primary);
         }
         .cell.fixed { color: var(--text-dim); background: #162031; font-weight: bold; }
+        .cell.highlight-line { background: var(--highlight); }
+        .cell.same-number { background: var(--same-num-bg); font-weight: 900 !important; color: #fff !important; }
+        .cell.selected { background: var(--primary) !important; color: white !important; }
+        .cell.wrong { color: var(--error) !important; background: rgba(251, 113, 133, 0.15); }
         
-        /* 기능적 강조 스타일 */
-        .cell.highlight-line { background: var(--highlight); } /* 가로세로 음영 */
-        .cell.same-number { background: var(--same-num-bg); font-weight: 900 !important; color: #fff !important; } /* 동일 숫자 */
-        .cell.selected { background: var(--primary) !important; color: white !important; } /* 선택된 셀 */
-        .cell.wrong { color: var(--error) !important; background: rgba(251, 113, 133, 0.15); } /* 오답 */
-        
-        /* 3x3 구분을 위한 굵은 테두리 */
+        /* 3x3 Borders */
         .cell:nth-child(3n) { border-right: 2px solid var(--grid-outer); }
         .cell:nth-child(9n) { border-right: 0.5px solid var(--cell-border); }
         .cell:nth-of-type(n+19):nth-of-type(-n+27),
@@ -76,9 +74,18 @@
             background: var(--surface); height: 50px; border-radius: 12px;
             display: flex; align-items: center; justify-content: center;
             font-size: 1.3rem; font-weight: bold; cursor: pointer;
-            box-shadow: 0 4px 0px #0c121e;
+            box-shadow: 0 4px 0px #0c121e; transition: 0.2s;
         }
         .key:active { transform: translateY(2px); box-shadow: none; }
+        
+        /* 다 찾은 숫자 비활성화 스타일 */
+        .key.disabled {
+            opacity: 0.15;
+            pointer-events: none; /* 클릭 불가 */
+            filter: grayscale(1);
+            box-shadow: none;
+        }
+        
         .key.clear { color: var(--error); border: 1px solid var(--error); }
 
         /* Modal */
@@ -89,6 +96,7 @@
         }
         .modal-content {
             background: var(--surface); padding: 40px; border-radius: 24px; text-align: center;
+            border: 1px solid var(--primary);
         }
         .modal-content button {
             margin-top: 20px; padding: 12px 30px; background: var(--primary);
@@ -98,7 +106,7 @@
 </head>
 <body>
 
-<header><h1>ZEN SUDOKU PRO</h1></header>
+<header><h1>ZEN SUDOKU</h1></header>
 
 <div class="menu">
     <button onclick="startGame('easy')" id="easy-btn">Easy</button>
@@ -114,23 +122,24 @@
 
 <div id="sudoku-board"></div>
 
-<div class="keypad">
-    <div class="key" onclick="handleInput(1)">1</div>
-    <div class="key" onclick="handleInput(2)">2</div>
-    <div class="key" onclick="handleInput(3)">3</div>
-    <div class="key" onclick="handleInput(4)">4</div>
-    <div class="key" onclick="handleInput(5)">5</div>
-    <div class="key" onclick="handleInput(6)">6</div>
-    <div class="key" onclick="handleInput(7)">7</div>
-    <div class="key" onclick="handleInput(8)">8</div>
-    <div class="key" onclick="handleInput(9)">9</div>
+<div class="keypad" id="main-keypad">
+    <!-- ID 추가: key-1 ~ key-9 -->
+    <div class="key" id="key-1" onclick="handleInput(1)">1</div>
+    <div class="key" id="key-2" onclick="handleInput(2)">2</div>
+    <div class="key" id="key-3" onclick="handleInput(3)">3</div>
+    <div class="key" id="key-4" onclick="handleInput(4)">4</div>
+    <div class="key" id="key-5" onclick="handleInput(5)">5</div>
+    <div class="key" id="key-6" onclick="handleInput(6)">6</div>
+    <div class="key" id="key-7" onclick="handleInput(7)">7</div>
+    <div class="key" id="key-8" onclick="handleInput(8)">8</div>
+    <div class="key" id="key-9" onclick="handleInput(9)">9</div>
     <div class="key clear" onclick="handleInput(0)">C</div>
 </div>
 
 <div class="modal" id="game-modal">
     <div class="modal-content">
         <h2 id="modal-title">축하합니다!</h2>
-        <p id="modal-body">모든 퍼즐을 완료했습니다.</p>
+        <p id="modal-body"></p>
         <button onclick="closeModal()">새 게임 시작</button>
     </div>
 </div>
@@ -143,7 +152,7 @@
     let seconds = 0;
     let gameActive = false;
 
-    // --- 스도쿠 생성 로직 ---
+    // --- 로직: 스도쿠 알고리즘 ---
     function isValid(board, r, c, n) {
         for(let i=0; i<9; i++) if(board[r][i] === n || board[i][c] === n) return false;
         let rs = Math.floor(r/3)*3, cs = Math.floor(c/3)*3;
@@ -170,7 +179,7 @@
         return true;
     }
 
-    // --- 게임 UI 로직 ---
+    // --- 로직: 게임 엔진 ---
     function initUI() {
         const boardEl = document.getElementById('sudoku-board');
         boardEl.innerHTML = '';
@@ -199,7 +208,7 @@
         solveSudoku(fullBoard);
         currentSolution = JSON.parse(JSON.stringify(fullBoard));
 
-        let holes = diff === 'easy' ? 30 : diff === 'medium' ? 45 : 55;
+        let holes = diff === 'easy' ? 32 : diff === 'medium' ? 46 : 56;
         while(holes > 0) {
             let idx = Math.floor(Math.random() * 81);
             let r = Math.floor(idx/9), c = idx%9;
@@ -209,11 +218,7 @@
             }
         }
         renderBoard(fullBoard);
-    }
-
-    function startDaily() {
-        startGame('medium', true);
-        document.getElementById('daily-btn').classList.add('active');
+        checkNumberCounts(); // 시작 시 숫자패드 상태 체크
     }
 
     function renderBoard(board) {
@@ -226,7 +231,6 @@
         }
     }
 
-    // [핵심 기능] 셀 선택 및 가로/세로/동일숫자 강조
     function selectCell(idx) {
         if(!gameActive) return;
         selectedIdx = idx;
@@ -238,22 +242,10 @@
             const r = Math.floor(i / 9);
             const c = i % 9;
             const val = cell.textContent;
-
-            // 클래스 초기화
             cell.classList.remove('selected', 'highlight-line', 'same-number');
-
-            // 1. 가로 세로 음영
-            if (r === row || c === col) {
-                cell.classList.add('highlight-line');
-            }
-
-            // 2. 동일 숫자 강조 (숫자가 있을 때만)
-            if (selectedVal !== "" && val === selectedVal) {
-                cell.classList.add('same-number');
-            }
+            if (r === row || c === col) cell.classList.add('highlight-line');
+            if (selectedVal !== "" && val === selectedVal) cell.classList.add('same-number');
         });
-
-        // 3. 선택된 셀 강조
         document.getElementById(`cell-${idx}`).classList.add('selected');
     }
 
@@ -265,7 +257,8 @@
         if(num === 0) {
             cell.textContent = '';
             cell.classList.remove('wrong');
-            selectCell(selectedIdx); // 음영 업데이트
+            selectCell(selectedIdx);
+            checkNumberCounts(); 
             return;
         }
 
@@ -274,13 +267,36 @@
 
         if(currentSolution[r][c] === num) {
             cell.classList.remove('wrong');
-            selectCell(selectedIdx); // 동일 숫자 강조 업데이트
+            selectCell(selectedIdx);
+            checkNumberCounts(); // 정답을 맞출 때마다 개수 체크
             checkWin();
         } else {
             cell.classList.add('wrong');
             mistakes++;
             updateMistakes();
             if(mistakes >= 3) endGame(false);
+        }
+    }
+
+    // [추가 기능] 9개를 다 찾은 숫자는 비활성화
+    function checkNumberCounts() {
+        const counts = Array(10).fill(0);
+        for(let i=0; i<81; i++) {
+            const cell = document.getElementById(`cell-${i}`);
+            const val = parseInt(cell.textContent);
+            // 정답인 숫자(오답이 아닌 숫자)만 카운트
+            if(val && !cell.classList.contains('wrong')) {
+                counts[val]++;
+            }
+        }
+
+        for(let n=1; n<=9; n++) {
+            const keyBtn = document.getElementById(`key-${n}`);
+            if(counts[n] >= 9) {
+                keyBtn.classList.add('disabled');
+            } else {
+                keyBtn.classList.remove('disabled');
+            }
         }
     }
 
@@ -312,12 +328,17 @@
         document.getElementById('game-modal').style.display = 'flex';
         document.getElementById('modal-title').textContent = win ? "축하합니다!" : "게임 오버";
         document.getElementById('modal-title').style.color = win ? "var(--secondary)" : "var(--error)";
-        document.getElementById('modal-body').textContent = win ? `소요 시간: ${document.getElementById('timer-label').textContent}` : "3번의 실수를 하셨습니다.";
+        document.getElementById('modal-body').textContent = win ? `클리어 시간: ${document.getElementById('timer-label').textContent}` : "실수 제한을 초과했습니다.";
     }
 
     function closeModal() {
         document.getElementById('game-modal').style.display = 'none';
         startGame('easy');
+    }
+
+    function startDaily() {
+        startGame('medium', true);
+        document.getElementById('daily-btn').classList.add('active');
     }
 
     // 키보드 지원
