@@ -1,0 +1,6 @@
+{
+  "name": "EV Charging Station Finder",
+  "description": "An interactive web application to search, filter, and navigate electric vehicle (EV) charging stations across Korea with real-time status tracking and simulation.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
