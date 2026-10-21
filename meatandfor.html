@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>미트포앤 스마트 발주·배차·상차 자동화 시스템</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tesseract.js (캡처 이미지 한국어 OCR 엔진) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; background-color: #f1f5f9; }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    @media print {
+      .no-print { display: none !important; }
+      .print-full { width: 100% !important; max-width: 100% !important; }
+    }
+  </style>
+</head>
+<body class="text-slate-800">
+
+  <!-- 상단 헤더 -->
+  <header class="bg-slate-900 text-white shadow-md no-print">
+    <div class="max-w-[1600px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <span class="bg-amber-500 text-slate-950 font-extrabold px-2.5 py-1 rounded text-sm">MEAT FOR &</span>
+        <h1 class="text-lg md:text-xl font-bold tracking-tight">미트포앤 카톡 발주 자동 분류 · 5대 권역 배차 · 역순 상차 시스템</h1>
+      </div>
+      <div class="flex items-center gap-2 text-xs md:text-sm">
+        <label class="bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3 py-1.5 rounded cursor-pointer transition flex items-center gap-1.5">
+          <span>📂 거래처 주소록(CSV) 추가/갱신</span>
+          <input type="file" id="csvFileInput" accept=".csv" class="hidden" />
+        </label>
+        <button onclick="loadSampleOct20()" class="bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded font-semibold transition">
+          🧪 10월 20일 실제 카톡 데이터 샘플 불러오기
+        </button>
+        <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded font-semibold transition">
+          🖨️ 작업지시서 인쇄
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 레이아웃 -->
+  <main class="max-w-[1600px] mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+    <!-- 좌측 패널: 카톡 입력 (텍스트 / 파일 / 캡처 이미지 OCR) -->
+    <section class="lg:col-span-4 bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col gap-3 no-print">
+      <div class="flex items-center justify-between border-b pb-2">
+        <h2 class="font-bold text-base flex items-center gap-1.5">
+          <span>💬 1단계: 카카오톡 발주 데이터 입력</span>
+        </h2>
+        <span id="dbCountBadge" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">내장 거래처 115곳</span>
+      </div>
+
+      <!-- 날짜 및 시간 필터 설정 -->
+      <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <label class="font-semibold text-slate-600 block mb-1">📅 납품(출고) 기준일</label>
+          <input type="date" id="targetDate" value="2026-10-20" class="w-full border border-slate-300 rounded px-2 py-1.5 font-semibold text-slate-800" />
+        </div>
+        <div>
+          <label class="font-semibold text-slate-600 block mb-1">⏱️ 날짜 필터 모드</label>
+          <select id="dateFilterMode" class="w-full border border-slate-300 rounded px-2 py-1.5 font-medium text-slate-800">
+            <option value="auto" selected>전날 13시 ~ 당일 11시 (자동)</option>
+            <option value="all">입력된 텍스트 전체 분석 (캡처용)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 멀티 업로드 존 (.txt 파일 + 캡처 이미지 OCR) -->
+      <div class="grid grid-cols-2 gap-2">
+        <!-- 카톡 .txt 파일 업로드 -->
+        <label class="border-2 border-dashed border-amber-400 bg-amber-50/50 hover:bg-amber-50 rounded-lg p-3 text-center cursor-pointer transition flex flex-col items-center justify-center gap-1">
+          <span class="text-xl">📄</span>
+          <span class="text-xs font-bold text-amber-900">카톡 내보내기 (.txt) 업로드</span>
+          <span class="text-[11px] text-amber-700">클릭 또는 파일 드래그</span>
+          <input type="file" id="txtFileInput" accept=".txt" class="hidden" />
+        </label>
+
+        <!-- 카톡 캡처 이미지 업로드 (OCR) -->
+        <label class="border-2 border-dashed border-blue-400 bg-blue-50/50 hover:bg-blue-50 rounded-lg p-3 text-center cursor-pointer transition flex flex-col items-center justify-center gap-1">
+          <span class="text-xl">📸</span>
+          <span class="text-xs font-bold text-blue-900">카톡 캡처 이미지 업로드</span>
+          <span class="text-[11px] text-blue-700">여러 장 선택 또는 화면에 Ctrl+V</span>
+          <input type="file" id="imgFileInput" accept="image/*" multiple class="hidden" />
+        </label>
+      </div>
+
+      <!-- OCR 진행 상태 표시줄 -->
+      <div id="ocrStatusBox" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-2.5 text-xs text-blue-900">
+        <div class="flex justify-between font-bold mb-1">
+          <span id="ocrStatusText">📸 캡처 이미지에서 글자 읽는 중...</span>
+          <span id="ocrProgressPct">0%</span>
+        </div>
+        <div class="w-full bg-blue-200 h-2 rounded-full overflow-hidden">
+          <div id="ocrProgressBar" class="bg-blue-600 h-full transition-all duration-200" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- 텍스트 직접 붙여넣기 영역 -->
+      <div class="flex-1 flex flex-col">
+        <div class="flex justify-between items-center mb-1">
+          <label class="text-xs font-semibold text-slate-600">✍️ 카카오톡 대화 텍스트 (직접 붙여넣기 / 수정 가능)</label>
+          <button onclick="clearInput()" class="text-xs text-rose-600 hover:underline font-medium">비우기</button>
+        </div>
+        <textarea id="kakaoInput" rows="14" placeholder="여기에 카카오톡 대화 내용을 붙여넣거나(Ctrl+V), 위 버튼으로 카톡 내보내기(.txt) 파일 또는 캡처 이미지를 업로드하세요.&#10;&#10;[예시 형식]&#10;2026년 10월 19일 오후 6:10, 한재호 대표 : 한돈미트&#10;삼겹2.&#10;미삼2.&#10;목살3&#10;&#10;또는 날짜 없이 캡처된 텍스트:&#10;성대g마트&#10;삼겹살 4 박스&#10;갈비 6 박스" class="w-full flex-1 border border-slate-300 rounded-lg p-2.5 text-xs font-mono leading-relaxed focus:ring-2 focus:ring-indigo-500 focus:outline-none custom-scroll"></textarea>
+      </div>
+
+      <!-- 실행 버튼 -->
+      <button onclick="parseAndAnalyze()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow transition flex items-center justify-center gap-2 text-sm">
+        <span>🚀 발주 물품 자동 분류 & 차량 5대 배차 실행</span>
+      </button>
+    </section>
+
+    <!-- 우측 패널: 분석 결과, 피킹/상차 보드, ETA 스케줄러 -->
+    <section class="lg:col-span-8 flex flex-col gap-4 print-full">
+
+      <!-- 상단 요약 KPI 카드 -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200">
+          <div class="text-xs text-slate-500 font-medium">총 납품 거래처</div>
+          <div class="text-2xl font-extrabold text-slate-900 mt-0.5"><span id="kpiTotalStores">0</span><span class="text-sm font-normal text-slate-500 ml-1">곳</span></div>
+          <div id="kpiWaveSplit" class="text-[11px] text-slate-500 mt-1">1차(전날): 0곳 / 2차(아침): 0곳</div>
+        </div>
+        <div class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200">
+          <div class="text-xs text-slate-500 font-medium">총 환산 물량 (박스)</div>
+          <div class="text-2xl font-extrabold text-indigo-600 mt-0.5"><span id="kpiTotalBoxes">0.0</span><span class="text-sm font-normal text-slate-500 ml-1">박스</span></div>
+          <div id="kpiBoxSplit" class="text-[11px] text-slate-500 mt-1">1차: 0박 / 2차(추가): 0박</div>
+        </div>
+        <div class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200">
+          <div class="text-xs text-slate-500 font-medium">⚡ 아침 추가·변경(Delta)</div>
+          <div class="text-2xl font-extrabold text-rose-600 mt-0.5"><span id="kpiMorningAdds">0</span><span class="text-sm font-normal text-slate-500 ml-1">건</span></div>
+          <div class="text-[11px] text-rose-600 font-medium mt-1">07:00 이후 유입 및 ●추가 건</div>
+        </div>
+        <div class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200">
+          <div class="text-xs text-slate-500 font-medium">11시 전 출발 가능 여부</div>
+          <div id="kpiDepartureStatus" class="text-lg font-extrabold text-emerald-600 mt-1">대기 중</div>
+          <div id="kpiLatestReturn" class="text-[11px] text-slate-500 mt-1">정차시간 지점당 10분 기준</div>
+        </div>
+      </div>
+
+      <!-- 컨트롤 바: 모드 전환 (피킹/배차 vs 역순 상차 vs 카톡 공유) & 필터 -->
+      <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-2 no-print">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button onclick="setViewMode('route')" id="btnModeRoute" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition">
+            🚚 1. 배송 방문순 (1번➔끝번)
+          </button>
+          <button onclick="setViewMode('lifo')" id="btnModeLifo" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+            📦 2. 차량 역순 상차 지시서 (안쪽➔문쪽)
+          </button>
+          <button onclick="setViewMode('items')" id="btnModeItems" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+            🥩 3. 품목별 총 피킹 합산표
+          </button>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-1.5 text-xs font-bold text-rose-600 cursor-pointer bg-rose-50 border border-rose-200 px-2.5 py-1.5 rounded-lg">
+            <input type="checkbox" id="chkDeltaOnly" onchange="renderAll()" class="rounded text-rose-600 focus:ring-rose-500" />
+            <span>⚡ 아침 추가/변경분(2차)만 보기</span>
+          </label>
+          <div class="flex items-center gap-1 text-xs">
+            <span class="font-semibold text-slate-600">정차(하차):</span>
+            <input type="number" id="dwellMinutes" value="10" min="3" max="60" onchange="renderAll()" class="w-12 border border-slate-300 rounded px-1.5 py-1 text-center font-bold" />
+            <span class="text-slate-500">분/곳</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 차량 탭 선택 바 -->
+      <div class="flex overflow-x-auto gap-2 no-print" id="vehicleTabs"></div>
+
+      <!-- 메인 결과 보드 -->
+      <div id="resultContainer" class="flex flex-col gap-4"></div>
+
+    </section>
+  </main>
+
+<script>
+// ============================================================================
+// 1. 내장 거래처 마스터 DB (최근거래처 CSV 기반 + 좌표/권역/별명 매핑)
+// ============================================================================
+const DEPOT = { name: "미트포앤(안산 본사/창고)", lat: 37.305, lon: 126.855 };
+
+const VEHICLE_CONFIG = {
+  1: { name: "1호차 (안산 상록·화성 매송)", color: "blue", maxBoxes: 55, defaultDep: "10:45" },
+  2: { name: "2호차 (안산 단원·시흥 정왕·대부도)", color: "amber", maxBoxes: 55, defaultDep: "10:40" },
+  3: { name: "3호차 (시흥 중북부·인천·부천)", color: "emerald", maxBoxes: 55, defaultDep: "10:15" },
+  4: { name: "4호차 (광명·서울 서남부/동부)", color: "rose", maxBoxes: 55, defaultDep: "10:25" },
+  5: { name: "5호차 (군포·의왕·분당·용인·수원·지방)", color: "purple", maxBoxes: 55, defaultDep: "10:30" }
+};
+
+let CLIENT_DB = [
+  // 1호차 권역: 안산 상록구 & 화성 매송/비봉/봉담
+  { name: "주식회사 농민(본오)", aliases: ["본오농민마트", "본오농민"], addr: "경기도 안산시 상록구 선암로 44,1층2층(본오동)", zone: 1, region: "안산 상록", lat: 37.291, lon: 126.868 },
+  { name: "(주)한마음마트(일동)=>정육으로", aliases: ["한마음마트", "한마음", "한마음정육"], addr: "경기도 안산시 상록구 일동로20 (일동120-3)", zone: 1, region: "안산 상록", lat: 37.311, lon: 126.863 },
+  { name: "오늘은고기다(일동)", aliases: ["오늘은고기다"], addr: "경기도 안산시 상록구 도매시장로93,1층 102호(일동)", zone: 1, region: "안산 상록", lat: 37.315, lon: 126.867 },
+  { name: "오소돈", aliases: ["오소돈"], addr: "경기도 안산시 상록구 댕이길 80,1층(사동)", zone: 1, region: "안산 상록", lat: 37.294, lon: 126.851 },
+  { name: "한상궁한식주점", aliases: ["한상궁"], addr: "경기도 안산시 상록구 초당로20, 1층(사동)", zone: 1, region: "안산 상록", lat: 37.287, lon: 126.839 },
+  { name: "우도락(스타마트)", aliases: ["스타마트", "우도락"], addr: "경기도 안산시 상록구 화랑로513,지층38호(성포동,스타프라자)", zone: 1, region: "안산 상록", lat: 37.325, lon: 126.846 },
+  { name: "우리축산정육점(수암동)", aliases: ["우리축산정육점", "우리수암", "우리축산"], addr: "경기도 안산시 상록구 원당골길11,104호(수암동,이림지오팰리스)", zone: 1, region: "안산 상록", lat: 37.365, lon: 126.879 },
+  { name: "(주)태광푸드", aliases: ["태광", "태광푸드"], addr: "경기도 화성시 매송면 송라길39번길23,1동(송라리) 607-3", zone: 1, region: "화성 매송", lat: 37.269, lon: 126.892 },
+  { name: "쌈앤쌈(사동)", aliases: ["사동쌈엔쌈", "쌈엔쌈", "쌈앤쌈", "쌈"], addr: "경기도 안산시 상록구 성안2길5,2층(사동)", zone: 1, region: "안산 상록", lat: 37.300, lon: 126.848 },
+  { name: "(주)다온마트(10/1부터)", aliases: ["다온마트", "다온"], addr: "경기도 안산시 상록구 시낭로 25 (월피동)", zone: 1, region: "안산 상록", lat: 37.332, lon: 126.854 },
+  { name: "예서감자탕", aliases: ["예서감자탕"], addr: "경기도 안산시 상록구 매화로2길 21, 1층 일부호(이동)", zone: 1, region: "안산 상록", lat: 37.307, lon: 126.858 },
+  { name: "삼사오", aliases: ["삼사오"], addr: "경기 안산시 상록구 이동 공원로 53(이동,1층)", zone: 1, region: "안산 상록", lat: 37.308, lon: 126.853 },
+  { name: "원산면옥", aliases: ["원산면옥", "원산"], addr: "경기도 안산시 상록구 본오로70, 1층(본오동)", zone: 1, region: "안산 상록", lat: 37.292, lon: 126.865 },
+  { name: "삼겹연구소", aliases: ["삼겹연구소"], addr: "경기도 안산시 상록구 본오로79,1층 (본오동)", zone: 1, region: "안산 상록", lat: 37.293, lon: 126.866 },
+  { name: "으뜸장어(본오)", aliases: ["으뜸장어"], addr: "경기도 안산시 상록구 오목로60, 1층(본오동)", zone: 1, region: "안산 상록", lat: 37.289, lon: 126.871 },
+  { name: "정성가득집밥", aliases: ["정성가득집밥", "집밥"], addr: "경기도 안산시 상록구 네고지길 2,1층 일부호(사동)", zone: 1, region: "안산 상록", lat: 37.296, lon: 126.844 },
+  { name: "바른정육점(사동)", aliases: ["바른정육점"], addr: "경기도 안산시 상록구 해양5로11, 1층 142호 일부(사동)", zone: 1, region: "안산 상록", lat: 37.283, lon: 126.828 },
+  { name: "찐하오마라탕 그랑시티시그니처", aliases: ["찐하오마라탕", "찐하오"], addr: "경기도 안산시 상록구 해양3로 15, 1층 118호(사동)", zone: 1, region: "안산 상록", lat: 37.281, lon: 126.826 },
+  { name: "김치찌개전문점(사동)", aliases: ["김치찌개집", "김치찌개전문점"], addr: "경기도 안산시 상록구 석호로 178,1층 101호(사동)", zone: 1, region: "안산 상록", lat: 37.298, lon: 126.849 },
+  { name: "유포리바베큐장", aliases: ["유포리바베큐장", "유포리"], addr: "경기도 화성시 비봉면 유포길10-29", zone: 1, region: "화성 비봉", lat: 37.235, lon: 126.872 },
+
+  // 2호차 권역: 안산 단원구 & 시흥 남부(정왕/거모/배곧/목감) & 대부도
+  { name: "우신유통(주)-농민와동", aliases: ["농민마트와동", "와동"], addr: "경기도 안산시 단원구 와동공원로 162,1층 일부(와동)", zone: 2, region: "안산 단원", lat: 37.345, lon: 126.824 },
+  { name: "갈비면옥(갈비나라2호점)", aliases: ["갈비면옥"], addr: "경기도 안산시 단원구 선삼로22,1층(선부동)", zone: 2, region: "안산 단원", lat: 37.339, lon: 126.809 },
+  { name: "삼부자돌판골", aliases: ["삼부자돈판골", "삼부자돌판골", "삼부자"], addr: "경기도 안산시 단원구 선부광장1로 30,203,204호(선부동,단원프라자)", zone: 2, region: "안산 단원", lat: 37.334, lon: 126.811 },
+  { name: "백봉(선부동)", aliases: ["백봉"], addr: "경기도 안산시 단원구 선부광장1로 82,115호(선부동, 서림프라자)", zone: 2, region: "안산 단원", lat: 37.335, lon: 126.812 },
+  { name: "풍년돼지양념구이(상미네곱창집)", aliases: ["풍년돼지양념구이", "풍년"], addr: "경기도 안산시 단원구 화랑로 160, 상가동 125,126호(초지동)", zone: 2, region: "안산 단원", lat: 37.313, lon: 126.806 },
+  { name: "(주)큐엔씨육가공", aliases: ["큐엔씨육가공", "큐엔씨"], addr: "경기도 안산시 단원구 초지2로 59-18(초지동)", zone: 2, region: "안산 단원", lat: 37.309, lon: 126.798 },
+  { name: "농민마트 고잔점", aliases: ["농민마트고잔", "농민고잔", "고잔"], addr: "경기도 안산시 단원구 광덕4로88, 106호 외55개(고잔동)", zone: 2, region: "안산 단원", lat: 37.316, lon: 126.828 },
+  { name: "옥이네양평해장국(신길동)", aliases: ["신길양평해장국", "옥이네양평해장국"], addr: "경기도 안산시 단원구 신길로 9-3, 109호(신길동)", zone: 2, region: "안산 단원", lat: 37.334, lon: 126.789 },
+  { name: "샛터돌왕구이", aliases: ["샛터"], addr: "경기 안산시 단원구 신길로 20 (신길동,101호)", zone: 2, region: "안산 단원", lat: 37.335, lon: 126.790 },
+  { name: "횡성생고기", aliases: ["횡성본점", "횡성"], addr: "경기도 안산시 단원구 신길로 13-16, 1층(원곡동)", zone: 2, region: "안산 단원", lat: 37.333, lon: 126.791 },
+  { name: "덕이네쌈밥", aliases: ["덕이네쌈밥", "덕이네"], addr: "경기도 시흥시 군자로477번길5,1층 일부호(거모동)", zone: 2, region: "시흥 거모", lat: 37.345, lon: 126.783 },
+  { name: "(주)좋은축산유통", aliases: ["좋은축산유통", "좋은축산"], addr: "경기도 시흥시 군자로 387번길 21-1(거모동)", zone: 2, region: "시흥 거모", lat: 37.348, lon: 126.788 },
+  { name: "까만돼지", aliases: ["까만돼지"], addr: "경기도 시흥시 군자로534번안길 7, 나동 지1층 B101호(거모동)", zone: 2, region: "시흥 거모", lat: 37.344, lon: 126.780 },
+  { name: "오빠막창", aliases: ["오빠막창"], addr: "경기도 시흥시 한우물로7 1층 102호(거모동)", zone: 2, region: "시흥 거모", lat: 37.343, lon: 126.781 },
+  { name: "더갈비(거모)", aliases: ["더갈비"], addr: "경기도 시흥시 도일로 111-1, 1층(거모동)", zone: 2, region: "시흥 거모", lat: 37.346, lon: 126.779 },
+  { name: "전라도연탄구이", aliases: ["전라도연탄구이"], addr: "경기도 시흥시 서촌상가2길 29,1층 110호(정왕동 명동프라자)", zone: 2, region: "시흥 정왕", lat: 37.347, lon: 126.742 },
+  { name: "옥이네주물럭", aliases: ["옥이네주물럭", "옥이네"], addr: "경기도 시흥시 함송로13번길 6-7, 101,102호(정왕동)", zone: 2, region: "시흥 정왕", lat: 37.351, lon: 126.735 },
+  { name: "천하제일정육점(배곧동)", aliases: ["천하제일정육점", "천하제일", "천하"], addr: "경기도 시흥시 서울대학로278번길 19-13,108동 제비-103호(배곧동)", zone: 2, region: "시흥 배곧", lat: 37.368, lon: 126.728 },
+  { name: "대부지마트(주)", aliases: ["대부g마트", "대부지마트", "대부도"], addr: "경기도 안산시 단원구 대부황금로 1295(대부북동)", zone: 2, region: "안산 대부도", lat: 37.243, lon: 126.582 },
+  { name: "주식회사 두둑", aliases: ["두둑 양념육", "두둑"], addr: "경기도 시흥시 동서로 1198번길 33(목감동)", zone: 2, region: "시흥 목감", lat: 37.379, lon: 126.858 },
+  { name: "착한정육점(산현동)", aliases: ["착한정육점 (산현)", "착한정육점 산현", "착한산현", "착한정육점"], addr: "경기도 시흥시 목감둘레로 80,120동 110호(산현동)", zone: 2, region: "시흥 목감", lat: 37.375, lon: 126.849 },
+
+  // 3호차 권역: 시흥 중북부(포동/하중/하상/장곡/은계/은행/신천) & 인천 & 부천 & 일산
+  { name: "다연홈마트", aliases: ["다연", "다연홈마트"], addr: "경기도 시흥시 하중로128(하중동)", zone: 3, region: "시흥 하중", lat: 37.392, lon: 126.809 },
+  { name: "여기식당", aliases: ["여기식당", "여기"], addr: "경기도 시흥시 하중로 130-1, 1층(하중동)", zone: 3, region: "시흥 하중", lat: 37.393, lon: 126.809 },
+  { name: "청정맛집(하중동)", aliases: ["청정맛집"], addr: "경기도 시흥시 연성로29번길12(하중동)", zone: 3, region: "시흥 하중", lat: 37.395, lon: 126.807 },
+  { name: "곱창연가", aliases: ["곱창연가"], addr: "경기도 시흥시 하상로4번길 7(하상동,1층)", zone: 3, region: "시흥 하상", lat: 37.402, lon: 126.808 },
+  { name: "인화숯불갈비", aliases: ["인화숯불갈비"], addr: "경기도 시흥시 하상로8번길 1,1층일부호(하상동)", zone: 3, region: "시흥 하상", lat: 37.403, lon: 126.809 },
+  { name: "울트라분식", aliases: ["울트라", "울트라분식"], addr: "경기도 시흥시 상직길3-1,101(하상동)", zone: 3, region: "시흥 하상", lat: 37.404, lon: 126.810 },
+  { name: "참예소(포동)", aliases: ["참예소"], addr: "경기도 시흥시 신현로 38번길 23-1. 13동 101호(포동)", zone: 3, region: "시흥 포동", lat: 37.392, lon: 126.782 },
+  { name: "오늘은냉삼(구-이구집)", aliases: ["오늘은냉삼", "오늘냉삼"], addr: "경기도 시흥시 진말로 17,1층(장곡동)", zone: 3, region: "시흥 장곡", lat: 37.379, lon: 126.782 },
+  { name: "국민생고기(장곡동)", aliases: ["국민생고기 장곡", "국민생고기"], addr: "경기도 시흥시 장곡로37번길 5-3,101호(장곡동)", zone: 3, region: "시흥 장곡", lat: 37.378, lon: 126.780 },
+  { name: "한결축산", aliases: ["한결축산(은계)", "한결축산"], addr: "경기도 시흥시 은계남로 12,상가동 1층147호(은행동)", zone: 3, region: "시흥 은계", lat: 37.442, lon: 126.798 },
+  { name: "도담(은행)", aliases: ["도담(은행동) 식당", "도담(은행동)", "도담"], addr: "경기도 시흥시 대은로 16-14,1층(은행동)", zone: 3, region: "시흥 은행", lat: 37.444, lon: 126.795 },
+  { name: "전설갈비은행점", aliases: ["전설은행", "전설갈비"], addr: "경기도 시흥시 대은로 16-4,1층(은행동)", zone: 3, region: "시흥 은행", lat: 37.444, lon: 126.794 },
+  { name: "골목대장삼겹살", aliases: ["골목대장"], addr: "경기도 시흥시 시흥대로 1073번길 29,1층(신천동)", zone: 3, region: "시흥 신천", lat: 37.440, lon: 126.784 },
+  { name: "이모네민물매운탕", aliases: ["이모네민물메운탕", "이모네민물매운탕"], addr: "경기도 시흥시 신천3길27-7,101호(신천동)", zone: 3, region: "시흥 신천", lat: 37.441, lon: 126.782 },
+  { name: "서창별빛정육점", aliases: ["별빛정육점", "서창별빛"], addr: "인천시 남동구 서창남로 45,1층 105호(서창동,로데오프라자)", zone: 3, region: "인천 남동", lat: 37.424, lon: 126.749 },
+  { name: "SK축산물도소매", aliases: ["sk축산", "SK축산"], addr: "인천시 남동구 논고개로118,104(논현동,양진타워)", zone: 3, region: "인천 남동", lat: 37.402, lon: 126.724 },
+  { name: "푸줏단(동춘)", aliases: ["동춘동푸줏단", "푸줏단"], addr: "인천광역시 연수구 봉재산로48, 1층101호(동춘동)", zone: 3, region: "인천 연수", lat: 37.410, lon: 126.675 },
+  { name: "오복정육(옥련점)베스트식자재정", aliases: ["오복정육", "미트포앤<옥련>"], addr: "인천광역시 연수구 한나루로79번길 53,1층(옥련동)", zone: 3, region: "인천 연수", lat: 37.422, lon: 126.648 },
+  { name: "에이스미트(주안)", aliases: ["에이스미트 주안", "에이스미트주안", "에이스 주안"], addr: "인천시 미추홀구 주안로56번길3,에이스미트내정육코너(주안동)", zone: 3, region: "인천 미추홀", lat: 37.462, lon: 126.681 },
+  { name: "횡성생고기(인천점)", aliases: ["횡성생고기 인천점", "횡성 인천"], addr: "인천 동구 송화로20번길 11 (화평동,1층)", zone: 3, region: "인천 동구", lat: 37.478, lon: 126.632 },
+  { name: "신박축산", aliases: ["신박축산"], addr: "인천시 부평구 십정동 486-15 1층일부(3호)", zone: 3, region: "인천 부평", lat: 37.476, lon: 126.697 },
+  { name: "막뚱이정육점", aliases: ["막뚱이정육점", "막뚱이"], addr: "인천시 부평구 마장로220번길 13, 106동 113호(산곡동)", zone: 3, region: "인천 부평", lat: 37.502, lon: 126.709 },
+  { name: "일신할인마트(정육점)", aliases: ["일신할인마트"], addr: "인천광역시 부평구 경인로 1104번길 13-14 1층(일신동)", zone: 3, region: "인천 부평", lat: 37.485, lon: 126.742 },
+  { name: "원대성정육점", aliases: ["원대성정육점", "원대성"], addr: "경기도 부천시 오정구 성오로124번길47(원종동,49호)", zone: 3, region: "부천 원종", lat: 37.525, lon: 126.808 },
+  { name: "김치왕뚜껑삼겹살", aliases: ["김치왕뚜껑삼겹살1호점", "김치1"], addr: "경기도 부천시 역곡로 37(역곡동)", zone: 3, region: "부천 역곡", lat: 37.488, lon: 126.811 },
+  { name: "하늘소(역곡점)", aliases: ["하늘소역곡"], addr: "경기도 부천시 역곡로26번길 25,1층 101호(역곡동)", zone: 3, region: "부천 역곡", lat: 37.486, lon: 126.812 },
+  { name: "김치왕뚜껑삼겹살(3호점부천)", aliases: ["김치왕뚜껑삼겹살3호점", "김치왕뚜껑삼겹살 3호점", "김치3"], addr: "경기 부천시 부일로 446번길 10-1,1층(심곡동)", zone: 3, region: "부천 심곡", lat: 37.485, lon: 126.782 },
+  { name: "맛있는한우(부천상동)", aliases: ["맛있는한우"], addr: "경기도 부천시 원미구 도약로13,1층102호", zone: 3, region: "부천 상동", lat: 37.505, lon: 126.755 },
+  { name: "한우세상(부천상동)", aliases: ["한우세상"], addr: "경기도 부천시 원미구 송내대로 239, 1F10호(상동)", zone: 3, region: "부천 상동", lat: 37.504, lon: 126.753 },
+  { name: "(주)원신산업-보미마트", aliases: ["원신산업", "원신"], addr: "경기도 고양시 덕양구 백양로 107-1,1층(화정동)", zone: 3, region: "고양 덕양", lat: 37.634, lon: 126.832 },
+  { name: "효자축산(일산)", aliases: ["효자축산"], addr: "경기도 고양시 일산서구 중앙로 1406,110호(주엽동)", zone: 3, region: "고양 일산", lat: 37.670, lon: 126.761 },
+
+  // 4호차 권역: 광명 & 서울 서남부/전역 & 구리
+  { name: "꿀돼지꿀한우정육점(광명)", aliases: ["광명꿀", "광꿀"], addr: "경기도 광명시 광명로 848번길 32-2,1층 103호(광명동)", zone: 4, region: "경기 광명", lat: 37.476, lon: 126.858 },
+  { name: "하늘소(광명점)", aliases: ["하늘소광명"], addr: "경기도 광명시 오리로964번길 23-1(광명동)", zone: 4, region: "경기 광명", lat: 37.478, lon: 126.856 },
+  { name: "대박마포숯불갈비", aliases: ["대박마포"], addr: "경기도 광명시 광명로 848번길 5(광명동,1층)", zone: 4, region: "경기 광명", lat: 37.475, lon: 126.857 },
+  { name: "소하축산(광명)", aliases: ["소하축산광명", "소하축산"], addr: "경기도 광명시 소하로82,108호(소하동,한빛프라자)", zone: 4, region: "경기 광명", lat: 37.448, lon: 126.884 },
+  { name: "꿀돼지꿀한우(금천)", aliases: ["금천꿀돼지꿀한우", "금천꿀"], addr: "서울 금천구 금하로697 101호(시흥동)", zone: 4, region: "서울 금천", lat: 37.452, lon: 126.908 },
+  { name: "소문난정육점", aliases: ["소문난정육점", "소문난"], addr: "서울특별시 금천구 시흥대로 143, 1층108호(시흥동, 신라상가)", zone: 4, region: "서울 금천", lat: 37.447, lon: 126.902 },
+  { name: "대박축산(금천)하늘소", aliases: ["대박축산금천", "시흥대박축산", "시흥동 대박축산"], addr: "서울 금천구 시흥대로62길 53(시흥동)", zone: 4, region: "서울 금천", lat: 37.459, lon: 126.901 },
+  { name: "꿀돼지꿀한우(가리봉)", aliases: ["가리봉꿀돼지꿀한우", "가리봉꿀"], addr: "서울 금천구 가산로 106,상가동 1층104호(가산동)", zone: 4, region: "서울 금천", lat: 37.476, lon: 126.891 },
+  { name: "참새방앗간", aliases: ["참새방앗간", "참새"], addr: "서울 금천구 범안로 1138, 108호(가산동,고려테크온)", zone: 4, region: "서울 금천", lat: 37.471, lon: 126.885 },
+  { name: "김치왕뚜껑삼겹살(2호점)", aliases: ["김치왕뚜껑삼겹살 2호점", "김치왕뚜껑삼겹살2호점", "김치2"], addr: "서울특별시 구로구 고척로 127,1층(개봉동)", zone: 4, region: "서울 구로", lat: 37.498, lon: 126.848 },
+  { name: "대반전", aliases: ["대반전"], addr: "서울특별시 양천구 오목로 148, 1층(신정동)", zone: 4, region: "서울 양천", lat: 37.524, lon: 126.852 },
+  { name: "하늘소(화곡점)", aliases: ["하늘소 화곡", "하늘소화곡"], addr: "서울 강서구 강서로18길 8-10,103호.104호(화곡동)", zone: 4, region: "서울 강서", lat: 37.535, lon: 126.846 },
+  { name: "삼대축산정육점양평점", aliases: ["삼대축산", "삼대"], addr: "서울 영등포구 영등포로33,1층 104호(양평동2가,목동비즈타워)", zone: 4, region: "서울 영등포", lat: 37.523, lon: 126.889 },
+  { name: "신풍푸줏간(신길점)", aliases: ["신풍푸줏간 신길", "신풍푸줏간", "신풍신길", "신풍"], addr: "서울시 영등포구 신풍로 77.상가동 b105호(신길동, 래미안에스티움)", zone: 4, region: "서울 영등포", lat: 37.501, lon: 126.912 },
+  { name: "성대지마트(주)", aliases: ["성대g마트", "성대G마트", "성대지마트", "성대"], addr: "서울 동작구 상도로 102(상도동)", zone: 4, region: "서울 동작", lat: 37.502, lon: 126.939 },
+  { name: "한양축산도매센타(봉천동)", aliases: ["한양봉천", "봉천"], addr: "서울 관악구 봉천동 66-163", zone: 4, region: "서울 관악", lat: 37.485, lon: 126.953 },
+  { name: "정성마트정육코너(아차산)", aliases: ["정성마트", "아차산점"], addr: "서울특별시 광진구 천호대로661,지하1층(구의동,정성빌딩)", zone: 4, region: "서울 광진", lat: 37.552, lon: 127.089 },
+  { name: "프리미엄정육점(구리)", aliases: ["프리미엄정육점", "프리미"], addr: "경기도 구리시 체육관로 73 지하층(제이식자재마트)", zone: 4, region: "경기 구리", lat: 37.595, lon: 127.135 },
+
+  // 5호차 권역: 군포, 의왕, 안양, 수원, 성남(분당/판교), 용인, 화성(동탄), 오산, 평택, 충북 음성
+  { name: "상미왕할인마트(식자재)", aliases: ["상미마트", "상미마트 (군포)", "상미마트 금정"], addr: "경기도 군포시 금산로 9,지층 101-1호,101-2호(금정동)", zone: 5, region: "군포 금정", lat: 37.369, lon: 126.942 },
+  { name: "고기바보푸주간(부곡)", aliases: ["고기바보부곡", "고기바보 부곡", "부곡"], addr: "경기도 군포시 송부로291번길 16,1층 103호(부곡동)", zone: 5, region: "군포 부곡", lat: 37.326, lon: 126.936 },
+  { name: "거시기 함흥냉면", aliases: ["거시기함흥냉면", "거시기"], addr: "경기도 군포시 삼성로20번길 16-12, 1층(부곡동)", zone: 5, region: "군포 부곡", lat: 37.329, lon: 126.939 },
+  { name: "고기바보푸줏간(장안점)", aliases: ["고기바보장안", "장안점", "장안"], addr: "경기도 의왕시 장안중앙로7, 101.102호(삼동)", zone: 5, region: "의왕 삼동", lat: 37.321, lon: 126.953 },
+  { name: "형제정육점(평촌)", aliases: ["형제정육점1호점", "형제정육점"], addr: "경기도 안양시 동안구 흥안대로456번길42,지상1층일부호(평촌동)", zone: 5, region: "안양 평촌", lat: 37.396, lon: 126.968 },
+  { name: "에스농축수산마트(율전)", aliases: ["에스농축산마트 율전", "율전동에스할인마트", "율전"], addr: "경기도 수원시 장안구 덕영대로425번길 58-2(율전동)", zone: 5, region: "수원 장안", lat: 37.299, lon: 126.971 },
+  { name: "차이나감자탕", aliases: ["차이나감자탕"], addr: "경기도 수원시 장안구 수성로370번길32,1층 일부호(영화동)", zone: 5, region: "수원 장안", lat: 37.292, lon: 127.011 },
+  { name: "구들짱황소곱창삼겹살(인계동)", aliases: ["구들장", "구들짱"], addr: "경기도 수원시 팔달구 권광로 180번길 53-26,1층(인계동)", zone: 5, region: "수원 팔달", lat: 37.263, lon: 127.032 },
+  { name: "린이네축산(본점-영통)", aliases: ["린이네축산 본점", "린이네본점", "린본점"], addr: "경기도 수원시 영통구 봉영로1770번길 21, 지층 1호(영통동)", zone: 5, region: "수원 영통", lat: 37.265, lon: 127.081 },
+  { name: "푸른목장(삼평동)", aliases: ["푸른목장 삼평점", "푸른 삼평"], addr: "경기도 성남시 분당구 판교로 376,1층 105호(삼평동,마크시티 퍼플)", zone: 5, region: "성남 분당", lat: 37.402, lon: 127.118 },
+  { name: "푸른목장(판교)", aliases: ["푸른목장 판교점", "푸른목장판교", "푸른 판교"], addr: "경기도 성남시 분당구 운중로 242, 1층 110호(판교동,리버스토리)", zone: 5, region: "성남 분당", lat: 37.392, lon: 127.082 },
+  { name: "(주)판교1등축산(구-푸른 대장동", aliases: ["판교1등축산", "판교1등", "1등"], addr: "경기도 성남시 분당구 판교대장로6길 10, 108호(대장동)", zone: 5, region: "성남 분당", lat: 37.368, lon: 127.065 },
+  { name: "아이비유통", aliases: ["아이비유통", "아이비"], addr: "경기도 성남시 중원구 황송로 77, 비01~04호(금광동)", zone: 5, region: "성남 중원", lat: 37.448, lon: 127.168 },
+  { name: "한돈미트(N마트)기흥", aliases: ["한돈미트"], addr: "경기도 용인시 기흥구 공세로 236(공세동)", zone: 5, region: "용인 기흥", lat: 37.241, lon: 127.109 },
+  { name: "주식회사 정육점", aliases: ["주식회사정육점"], addr: "경기도 용인시 기흥구 평촌1로2번길 10,103호(동백동)", zone: 5, region: "용인 기흥", lat: 37.275, lon: 127.152 },
+  { name: "동탄식자재마트", aliases: ["동탄식자재마트", "동탄식자재"], addr: "경기도 오산시 외삼미로 162-54(외삼미동)", zone: 5, region: "오산/동탄", lat: 37.202, lon: 127.062 },
+  { name: "린이네축산동탄점(구미래)", aliases: ["린이네축산 동탄", "린이네동탄"], addr: "경기도 화성시 동탄중심상가1길 28,1층 미래마켓내(반송동)", zone: 5, region: "화성 동탄", lat: 37.204, lon: 127.072 },
+  { name: "진안축산", aliases: ["진안축산", "진안"], addr: "경기도 화성시 병점중앙로195, 진안식자재마트 내(진안동)", zone: 5, region: "화성 병점", lat: 37.212, lon: 127.041 },
+  { name: "주식회사에스할인마트(지점)평택", aliases: ["에스할인마트 (평택)", "에스할인마트 평택", "S평택"], addr: "경기도 평택시 모산영신2길34,1동1층101호 스타주차타워(동삭동)", zone: 5, region: "경기 평택", lat: 37.015, lon: 127.095 },
+  { name: "(주)굿모닝유통지마트", aliases: ["충북g마트", "충북지마트"], addr: "충북 음성군 맹동면 두성리 1486", zone: 5, region: "충북 음성", lat: 36.912, lon: 127.545 },
+  { name: "에스에이치미트(음성)", aliases: ["에스에이치마트 음성", "에스에이치마트", "음성엘마트", "음성"], addr: "충북 음성군 음성읍 시장로50번길5", zone: 5, region: "충북 음성", lat: 36.938, lon: 127.691 }
+];
+
+// 상태 관리 변수
+let parsedOrders = []; // 거래처별 통합 주문 리스트
+let currentViewMode = 'route'; // 'route' | 'lifo' | 'items'
+let selectedVehicleTab = 'all'; // 'all' | 1 | 2 | 3 | 4 | 5
+let customDepartureTimes = { 1: "10:45", 2: "10:40", 3: "10:15", 4: "10:25", 5: "10:30" };
+
+// ============================================================================
+// 2. 파일 업로드 & 클립보드 붙여넣기(OCR) 이벤트 핸들러
+// ============================================================================
+document.getElementById('txtFileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    document.getElementById('kakaoInput').value = evt.target.result;
+    parseAndAnalyze();
+  };
+  reader.readAsText(file, 'utf-8');
+});
+
+document.getElementById('csvFileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const lines = evt.target.result.split(/\r?\n/);
+    let added = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',');
+      if (cols.length >= 2 && cols[0].trim()) {
+        const name = cols[0].trim();
+        const addr = cols[1].trim();
+        const alias = cols[2] ? cols[2].trim() : '';
+        if (!CLIENT_DB.some(c => c.name === name)) {
+          const zInfo = autoClassifyAddress(name, addr);
+          CLIENT_DB.push({
+            name,
+            aliases: alias ? [alias, name] : [name],
+            addr,
+            zone: zInfo.zone,
+            region: zInfo.region,
+            lat: zInfo.lat,
+            lon: zInfo.lon
+          });
+          added++;
+        }
+      }
+    }
+    document.getElementById('dbCountBadge').innerText = `내장 거래처 ${CLIENT_DB.length}곳 (+${added}갱신)`;
+    alert(`최근거래처 CSV에서 신규 거래처 ${added}곳을 추가 연동했습니다.`);
+    if (document.getElementById('kakaoInput').value.trim()) parseAndAnalyze();
+  };
+  reader.readAsText(file, 'utf-8');
+});
+
+// 캡처 이미지 OCR 처리 함수
+async function runOcrOnImages(files) {
+  if (!files || files.length === 0) return;
+  const statusBox = document.getElementById('ocrStatusBox');
+  const statusText = document.getElementById('ocrStatusText');
+  const pctText = document.getElementById('ocrProgressPct');
+  const bar = document.getElementById('ocrProgressBar');
+  statusBox.classList.remove('hidden');
+
+  let combinedText = document.getElementById('kakaoInput').value;
+  if (combinedText && !combinedText.endsWith('\n')) combinedText += '\n\n';
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    statusText.innerText = `📸 캡처 이미지 인식 중 (${i + 1}/${files.length}): ${file.name || '클립보드 이미지'}`;
+    const result = await Tesseract.recognize(file, 'kor+eng', {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          const p = Math.round(m.progress * 100);
+          pctText.innerText = `${p}%`;
+          bar.style.width = `${p}%`;
+        }
+      }
+    });
+    combinedText += `\n[캡처이미지_${i + 1}]\n` + result.data.text.trim() + '\n';
+  }
+
+  document.getElementById('kakaoInput').value = combinedText.trim();
+  // 캡처 이미지는 날짜 헤더가 잘려 있을 수 있으므로 전체 분석 모드로 자동 전환 제안
+  document.getElementById('dateFilterMode').value = 'all';
+  statusText.innerText = `✅ 캡처 이미지 ${files.length}장 텍스트 추출 완료!`;
+  setTimeout(() => statusBox.classList.add('hidden'), 2500);
+  parseAndAnalyze();
+}
+
+document.getElementById('imgFileInput').addEventListener('change', function(e) {
+  runOcrOnImages(e.target.files);
+});
+
+// 화면 어디서나 Ctrl+V로 캡처 이미지를 붙여넣으면 자동 OCR 동작
+window.addEventListener('paste', function(e) {
+  if (!e.clipboardData) return;
+  const items = e.clipboardData.items;
+  const imgFiles = [];
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') !== -1) {
+      imgFiles.push(items[i].getAsFile());
+    }
+  }
+  if (imgFiles.length > 0) {
+    e.preventDefault();
+    runOcrOnImages(imgFiles);
+  }
+});
+
+// 주소 기반 자동 권역 분류기 (신규 거래처용)
+function autoClassifyAddress(name, addr) {
+  if (addr.includes('대부') || name.includes('대부')) return { zone: 2, region: '안산 대부도', lat: 37.243, lon: 126.582 };
+  if (addr.includes('안산시 상록구') || addr.includes('매송') || addr.includes('비봉')) return { zone: 1, region: '안산 상록/매송', lat: 37.298, lon: 126.860 };
+  if (addr.includes('안산시 단원구')) return { zone: 2, region: '안산 단원', lat: 37.330, lon: 126.812 };
+  if (addr.includes('정왕') || addr.includes('배곧') || addr.includes('거모')) return { zone: 2, region: '시흥 남부', lat: 37.347, lon: 126.755 };
+  if (addr.includes('시흥') || addr.includes('인천') || addr.includes('부천') || addr.includes('고양')) return { zone: 3, region: '시흥/인천/부천', lat: 37.450, lon: 126.765 };
+  if (addr.includes('광명') || addr.includes('서울') || addr.includes('구리')) return { zone: 4, region: '광명/서울권', lat: 37.485, lon: 126.905 };
+  return { zone: 5, region: '군포/분당/용인/수원', lat: 37.310, lon: 127.040 };
+}
+
+// ============================================================================
+// 3. 카카오톡 대화 파싱 & 거래처 매칭 & 물량(박스) 환산 엔진
+// ============================================================================
+function matchClientFromText(firstLine, fullBody) {
+  const cleanFirst = firstLine.replace(/[●■☆★\[\]\(\)]/g, ' ').replace(/(추가|더추가|정정|오늘|내일|오후에|급급)/g, '').trim();
+  if (!cleanFirst) return null;
+
+  // 1순위: 별명(aliases) 및 정식명칭 완전/전방 일치 검색
+  let bestMatch = null;
+  let longestKey = 0;
+
+  for (const client of CLIENT_DB) {
+    const candidates = [client.name, ...client.aliases];
+    for (const cand of candidates) {
+      const cleanCand = cand.replace(/\s+/g, '');
+      const cleanLineNoSpace = cleanFirst.replace(/\s+/g, '');
+      if (cleanCand.length >= 2 && cleanLineNoSpace.includes(cleanCand)) {
+        if (cleanCand.length > longestKey) {
+          longestKey = cleanCand.length;
+          bestMatch = client;
+        }
+      }
+    }
+  }
+  return bestMatch;
+}
+
+// 품목 줄에서 박스 환산 수량 및 냉동/세절 태그 추출
+function parseOrderItems(lines, isMorningWave) {
+  const items = [];
+  let totalBoxEq = 0;
+  const ignoreKeywords = ['안녕하십니까', '안녕하세요', '부탁드립니다', '부탁드려요', '감사합니다', '이상입니다', '보내주세요', '주세여', '주세요', '발주입니다', '발주드리려고', '문자드립니다', '여기까지', '고생했어'];
+
+  for (let rawLine of lines) {
+    let line = rawLine.trim();
+    if (!line) continue;
+    if (ignoreKeywords.some(k => line.includes(k) && line.length < 18)) continue;
+    if (/^(냉장|냉동)$/.test(line)) continue;
+
+    // 패스/취소 감지
+    const isPass = line.includes('패스') || line.includes('취소');
+
+    // 수량 파싱 (박스/빡스/박/b/Box vs 판/팩/봉/덩이/벌/마리/키로/k)
+    let boxEq = 0;
+    const boxMatch = line.match(/(\d+(?:\.\d+)?)\s*(?:박스|빡스|박|box|Box|b\b)/);
+    const packMatch = line.match(/(\d+(?:\.\d+)?)\s*(?:판|팩|펙|봉|봉지|덩이|덩어리)/);
+    const kgMatch = line.match(/(\d+(?:\.\d+)?)\s*(?:키로|kg|k\b)/i);
+    const bareNumMatch = line.match(/[가-힣a-zA-Z]+\s*[ㅡ\-:\.]?\s*(\d+)\s*(?:포크|대산|정담|재고|큰거|작은거|$)/);
+
+    if (isPass) {
+      boxEq = 0;
+    } else if (boxMatch) {
+      boxEq = parseFloat(boxMatch[1]);
+    } else if (packMatch) {
+      boxEq = Math.round(parseFloat(packMatch[1]) * 0.35 * 10) / 10;
+    } else if (kgMatch) {
+      boxEq = Math.round((parseFloat(kgMatch[1]) / 15) * 10) / 10;
+    } else if (bareNumMatch && parseInt(bareNumMatch[1]) <= 50) {
+      boxEq = parseFloat(bareNumMatch[1]);
+    } else if (/\d+/.test(line)) {
+      boxEq = 0.5;
+    } else {
+      continue;
+    }
+
+    // 작업 태그 감지
+    const tags = [];
+    if (line.includes('냉동') || line.includes('테니쉬') || line.includes('두메코') || line.includes('올리멜') || line.includes('우삼겹') || line.includes('차돌')) tags.push('❄️냉동/수입');
+    if (line.includes('mm') || line.includes('센치') || line.includes('슬라이스') || line.includes('제육') || line.includes('대패') || line.includes('소분') || line.includes('습지') || line.includes('작업')) tags.push('🔪세절/작업');
+    if (line.includes('행사') || line.includes('할인') || line.includes('써비스') || line.includes('서비스') || line.includes('반품')) tags.push('⚠️특이사항');
+    if (isPass) tags.push('🚫패스');
+
+    totalBoxEq += boxEq;
+    items.push({
+      text: line,
+      boxEq: Math.round(boxEq * 10) / 10,
+      isMorning: isMorningWave,
+      isPass,
+      tags
+    });
+  }
+
+  return { items, totalBoxEq: Math.round(totalBoxEq * 10) / 10 };
+}
+
+function parseAndAnalyze() {
+  const rawText = document.getElementById('kakaoInput').value.trim();
+  if (!rawText) {
+    alert('카카오톡 대화 텍스트를 입력하거나 파일을 업로드해 주세요.');
+    return;
+  }
+
+  const targetDateStr = document.getElementById('targetDate').value; // YYYY-MM-DD
+  const filterMode = document.getElementById('dateFilterMode').value;
+  const targetDt = new Date(targetDateStr + 'T00:00:00');
+  const prevDt = new Date(targetDt.getTime() - 24 * 60 * 60 * 1000);
+
+  const lines = rawText.split(/\r?\n/);
+  const msgRegex = /^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일\s*(오전|오후)\s*(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
+
+  // 1. 메시지 블록 분리 (카톡 정식 내보내기 포맷 vs 일반 캡처/복붙 텍스트 모두 호환)
+  const messages = [];
+  let currentMsg = null;
+  let hasKakaoTimestamps = false;
+
+  for (const line of lines) {
+    const m = line.match(msgRegex);
+    if (m) {
+      hasKakaoTimestamps = true;
+      if (currentMsg) messages.push(currentMsg);
+      const yr = parseInt(m[1]), mo = parseInt(m[2]), dy = parseInt(m[3]);
+      const ampm = m[4];
+      let hr = parseInt(m[5]);
+      const mn = parseInt(m[6]);
+      if (ampm === '오후' && hr !== 12) hr += 12;
+      if (ampm === '오전' && hr === 12) hr = 0;
+
+      const msgDate = new Date(yr, mo - 1, dy, hr, mn);
+      currentMsg = {
+        dt: msgDate,
+        dateStr: `${yr}-${String(mo).padStart(2,'0')}-${String(dy).padStart(2,'0')}`,
+        timeStr: `${String(hr).padStart(2,'0')}:${String(mn).padStart(2,'0')}`,
+        hr,
+        sender: m[7].trim(),
+        lines: [m[8].trim()]
+      };
+    } else {
+      if (/^\d{4}년\s*\d{1,2}월\s*\d{1,2}일\s*(오전|오후)/.test(line)) continue;
+      if (line.includes('저장한 날짜 :') || line.includes('초대했습니다') || line.includes('메시지가 삭제되었습니다')) continue;
+      if (currentMsg) {
+        currentMsg.lines.push(line);
+      } else {
+        // 타임스탬프가 없는 일반 복붙/OCR 텍스트 블록 처리
+        currentMsg = {
+          dt: targetDt,
+          dateStr: targetDateStr,
+          timeStr: '08:00',
+          hr: 8,
+          sender: '수동/캡처입력',
+          lines: [line]
+        };
+      }
+    }
+  }
+  if (currentMsg) messages.push(currentMsg);
+
+  // 타임스탬프 없는 복붙 텍스트일 경우 빈 줄 기준으로 업체 블록 분할
+  let finalBlocks = [];
+  if (!hasKakaoTimestamps && messages.length === 1) {
+    let tempLines = [];
+    for (const l of messages[0].lines) {
+      if (!l.trim()) {
+        if (tempLines.length > 0) {
+          finalBlocks.push({ ...messages[0], lines: tempLines });
+          tempLines = [];
+        }
+      } else {
+        tempLines.push(l);
+      }
+    }
+    if (tempLines.length > 0) finalBlocks.push({ ...messages[0], lines: tempLines });
+  } else {
+    finalBlocks = messages;
+  }
+
+  // 2. 날짜 범위 필터링 (전날 13:00 ~ 당일 11:30)
+  const startWindow = new Date(prevDt.getFullYear(), prevDt.getMonth(), prevDt.getDate(), 13, 0);
+  const endWindow = new Date(targetDt.getFullYear(), targetDt.getMonth(), targetDt.getDate(), 11, 30);
+
+  const orderMap = new Map(); // key: client.name
+
+  for (const msg of finalBlocks) {
+    if (hasKakaoTimestamps && filterMode === 'auto') {
+      if (msg.dt < startWindow || msg.dt > endWindow) continue;
+    }
+
+    const bodyText = msg.lines.join('\n').trim();
+    if (!bodyText || bodyText === '사진' || bodyText === '네' || bodyText.startsWith('발주체크')) continue;
+
+    // 계근/바코드 숫자 나열 메시지인지 판별 (예: 1650 1684 1732 또는 14대 9.80 10.9)
+    const isWeightLog = /\d+\.\d+\s+\d+\.\d+/.test(bodyText) || /\d{4}\s+\d{4}/.test(bodyText);
+
+    const firstLine = msg.lines[0] || '';
+    const matchedClient = matchClientFromText(firstLine, bodyText);
+    if (!matchedClient) continue;
+
+    // 당일 아침(06:00~11:30) 유입이거나 '추가/정정' 키워드가 있으면 2차(Morning Delta)로 분류
+    const isMorningWave = (msg.dateStr === targetDateStr && msg.hr >= 6) || bodyText.includes('추가') || bodyText.includes('정정');
+    const isUrgent = bodyText.includes('급급') || bodyText.includes('오전중') || bodyText.includes('지금');
+
+    if (isWeightLog) {
+      // 이미 등록된 발주처의 계근 완료 메모로 첨부
+      if (orderMap.has(matchedClient.name)) {
+        orderMap.get(matchedClient.name).weightLogs.push(`[${msg.timeStr} ${msg.sender}] ${msg.lines.slice(1).join(' ')}`);
+      }
+      continue;
+    }
+
+    const parsed = parseOrderItems(msg.lines.slice(1), isMorningWave);
+    if (parsed.items.length === 0) continue;
+
+    if (!orderMap.has(matchedClient.name)) {
+      orderMap.set(matchedClient.name, {
+        client: matchedClient,
+        nickUsed: firstLine.replace(/[●■☆★]/g, '').trim(),
+        vehicle: matchedClient.zone,
+        items: [],
+        wave1Boxes: 0,
+        wave2Boxes: 0,
+        totalBoxes: 0,
+        hasMorningAdd: isMorningWave,
+        isUrgent: isUrgent,
+        timestamps: [`${msg.dateStr.slice(5)} ${msg.timeStr}`],
+        weightLogs: []
+      });
+    }
+
+    const entry = orderMap.get(matchedClient.name);
+    entry.items.push(...parsed.items);
+    if (isMorningWave) {
+      entry.wave2Boxes = Math.round((entry.wave2Boxes + parsed.totalBoxEq) * 10) / 10;
+      entry.hasMorningAdd = true;
+    } else {
+      entry.wave1Boxes = Math.round((entry.wave1Boxes + parsed.totalBoxEq) * 10) / 10;
+    }
+    entry.totalBoxes = Math.round((entry.wave1Boxes + entry.wave2Boxes) * 10) / 10;
+    if (isUrgent) entry.isUrgent = true;
+    const tsLabel = `${msg.dateStr.slice(5)} ${msg.timeStr}`;
+    if (!entry.timestamps.includes(tsLabel)) entry.timestamps.push(tsLabel);
+  }
+
+  parsedOrders = Array.from(orderMap.values());
+  optimizeAllRoutes();
+  renderAll();
+}
+
+// ============================================================================
+// 4. 거리 계산 (Haversine) & 차량별 최적 방문 순서(Nearest Neighbor TSP) 정렬
+// ============================================================================
+function calcDistKm(lat1, lon1, lat2, lon2) {
+  const R = 6371.0;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.35; // 도로 굴곡 계수 1.35 반영
+}
+
+function estimateDriveMin(distKm) {
+  if (distKm < 1.2) return Math.max(3, Math.round(distKm / 25 * 60));
+  if (distKm < 12.0) return Math.max(5, Math.round(distKm / 30 * 60));
+  return Math.max(12, Math.round(distKm / 45 * 60));
+}
+
+function optimizeAllRoutes() {
+  for (let v = 1; v <= 5; v++) {
+    const group = parsedOrders.filter(o => o.vehicle === v);
+    const unvisited = [...group];
+    const ordered = [];
+    let curLat = DEPOT.lat, curLon = DEPOT.lon;
+
+    while (unvisited.length > 0) {
+      // 급급(isUrgent) 거래처 우선, 그 외에는 현재 위치에서 가장 가까운 거래처 선택 (대부도는 맨 마지막 방문 유도)
+      unvisited.sort((a, b) => {
+        if (a.isUrgent !== b.isUrgent) return a.isUrgent ? -1 : 1;
+        const aDaebu = a.client.region.includes('대부') ? 1 : 0;
+        const bDaebu = b.client.region.includes('대부') ? 1 : 0;
+        if (aDaebu !== bDaebu) return aDaebu - bDaebu;
+        const dA = calcDistKm(curLat, curLon, a.client.lat, a.client.lon);
+        const dB = calcDistKm(curLat, curLon, b.client.lat, b.client.lon);
+        return dA - dB;
+      });
+      const nextStop = unvisited.shift();
+      ordered.push(nextStop);
+      curLat = nextStop.client.lat;
+      curLon = nextStop.client.lon;
+    }
+
+    ordered.forEach((o, idx) => { o.stopOrder = idx + 1; });
+  }
+}
+
+function addMinutesToTimeStr(timeStr, addMins) {
+  const [hh, mm] = timeStr.split(':').map(Number);
+  const total = hh * 60 + mm + addMins;
+  const nh = Math.floor(total / 60) % 24;
+  const nm = total % 60;
+  return `${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
+}
+
+// ============================================================================
+// 5. 화면 렌더링 (배차/역순상차/품목합산 & 카톡 공유 복사)
+// ============================================================================
+function setViewMode(mode) {
+  currentViewMode = mode;
+  ['route', 'lifo', 'items'].forEach(m => {
+    const btn = document.getElementById('btnMode' + m.charAt(0).toUpperCase() + m.slice(1));
+    if (m === mode) {
+      btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition";
+    } else {
+      btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition";
+    }
+  });
+  renderAll();
+}
+
+function selectVehicleTab(v) {
+  selectedVehicleTab = v;
+  renderAll();
+}
+
+function changeStoreVehicle(clientName, newVehicle) {
+  const target = parsedOrders.find(o => o.client.name === clientName);
+  if (target) {
+    target.vehicle = parseInt(newVehicle);
+    optimizeAllRoutes();
+    renderAll();
+  }
+}
+
+function updateDepartureTime(v, newTime) {
+  customDepartureTimes[v] = newTime;
+  renderAll();
+}
+
+function renderAll() {
+  const deltaOnly = document.getElementById('chkDeltaOnly').checked;
+  const dwellMin = parseInt(document.getElementById('dwellMinutes').value) || 10;
+
+  // KPI 업데이트
+  const totalStores = parsedOrders.length;
+  const w1Stores = parsedOrders.filter(o => !o.hasMorningAdd).length;
+  const w2Stores = parsedOrders.filter(o => o.hasMorningAdd).length;
+  const totalBoxes = parsedOrders.reduce((s, o) => s + o.totalBoxes, 0);
+  const w1Boxes = parsedOrders.reduce((s, o) => s + o.wave1Boxes, 0);
+  const w2Boxes = parsedOrders.reduce((s, o) => s + o.wave2Boxes, 0);
+
+  document.getElementById('kpiTotalStores').innerText = totalStores;
+  document.getElementById('kpiWaveSplit').innerText = `전날확정: ${w1Stores}곳 / 아침추가포함: ${w2Stores}곳`;
+  document.getElementById('kpiTotalBoxes').innerText = totalBoxes.toFixed(1);
+  document.getElementById('kpiBoxSplit').innerText = `1차(전날): ${w1Boxes.toFixed(1)}박 / 2차(아침): ${w2Boxes.toFixed(1)}박`;
+  document.getElementById('kpiMorningAdds').innerText = w2Stores;
+
+  const allBefore11 = Object.values(customDepartureTimes).every(t => t < "11:00");
+  const statusEl = document.getElementById('kpiDepartureStatus');
+  if (totalStores === 0) {
+    statusEl.innerText = "데이터 입력 대기";
+    statusEl.className = "text-lg font-extrabold text-slate-400 mt-1";
+  } else if (allBefore11) {
+    statusEl.innerText = "✅ 전 차량 11:00 전 출발 완료";
+    statusEl.className = "text-lg font-extrabold text-emerald-600 mt-1";
+  } else {
+    statusEl.innerText = "⚠️ 11:00 이후 출발 차량 있음";
+    statusEl.className = "text-lg font-extrabold text-amber-600 mt-1";
+  }
+
+  // 차량 탭 렌더링
+  const tabsEl = document.getElementById('vehicleTabs');
+  let tabsHtml = `<button onclick="selectVehicleTab('all')" class="px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition ${selectedVehicleTab === 'all' ? 'bg-indigo-600 text-white shadow' : 'bg-white text-slate-700 border border-slate-200'}">전체 차량 보기 (${totalStores}곳 / ${totalBoxes.toFixed(1)}박)</button>`;
+  for (let v = 1; v <= 5; v++) {
+    const vOrders = parsedOrders.filter(o => o.vehicle === v);
+    const vBoxes = vOrders.reduce((s, o) => s + o.totalBoxes, 0);
+    const active = selectedVehicleTab === v;
+    tabsHtml += `<button onclick="selectVehicleTab(${v})" class="px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition ${active ? 'bg-indigo-600 text-white shadow' : 'bg-white text-slate-700 border border-slate-200'}">${v}호차 (${vOrders.length}곳 / ${vBoxes.toFixed(1)}박)</button>`;
+  }
+  tabsEl.innerHTML = tabsHtml;
+
+  const container = document.getElementById('resultContainer');
+  if (parsedOrders.length === 0) {
+    container.innerHTML = `<div class="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400">
+      <div class="text-4xl mb-2">📋</div>
+      <div class="font-bold text-slate-600 text-base">아직 분석된 발주 내역이 없습니다.</div>
+      <div class="text-xs mt-1">좌측에서 카톡 내보내기(.txt), 캡처 이미지 업로드, 또는 상단 [🧪 10월 20일 실제 카톡 데이터 샘플 불러오기] 버튼을 눌러보세요.</div>
+    </div>`;
+    return;
+  }
+
+  // 품목별 총 피킹 합산표 모드
+  if (currentViewMode === 'items') {
+    let html = `<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      <h3 class="font-bold text-base mb-3">🥩 전 차량 품목별 피킹 총괄표 ${deltaOnly ? '(⚡아침 추가분만 표시)' : ''}</h3>
+      <div class="overflow-x-auto"><table class="w-full text-xs text-left border-collapse">
+        <thead><tr class="bg-slate-100 border-b text-slate-700">
+          <th class="p-2">호차</th><th class="p-2">거래처명</th><th class="p-2">구분</th><th class="p-2">발주 품목 원문</th><th class="p-2">작업 태그</th><th class="p-2 text-right">환산 박스</th>
+        </tr></thead><tbody>`;
+    for (let v = 1; v <= 5; v++) {
+      if (selectedVehicleTab !== 'all' && selectedVehicleTab !== v) continue;
+      const vOrders = parsedOrders.filter(o => o.vehicle === v).sort((a,b) => a.stopOrder - b.stopOrder);
+      for (const o of vOrders) {
+        for (const item of o.items) {
+          if (deltaOnly && !item.isMorning) continue;
+          html += `<tr class="border-b hover:bg-slate-50">
+            <td class="p-2 font-bold text-indigo-700">${v}호차</td>
+            <td class="p-2 font-bold">${o.client.name}</td>
+            <td class="p-2">${item.isMorning ? '<span class="bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded font-bold">2차(아침)</span>' : '<span class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">1차(전날)</span>'}</td>
+            <td class="p-2 font-medium ${item.isPass ? 'line-through text-slate-400' : ''}">${item.text}</td>
+            <td class="p-2">${item.tags.map(t => `<span class="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded mr-1 text-[11px] font-semibold">${t}</span>`).join('')}</td>
+            <td class="p-2 text-right font-bold">${item.boxEq}박</td>
+          </tr>`;
+        }
+      }
+    }
+    html += `</tbody></table></div></div>`;
+    container.innerHTML = html;
+    return;
+  }
+
+  // 호차별 카드 렌더링 (배송 방문순 vs 역순 상차 지시서)
+  let cardsHtml = '';
+  for (let v = 1; v <= 5; v++) {
+    if (selectedVehicleTab !== 'all' && selectedVehicleTab !== v) continue;
+    const cfg = VEHICLE_CONFIG[v];
+    let vOrders = parsedOrders.filter(o => o.vehicle === v).sort((a, b) => a.stopOrder - b.stopOrder);
+    if (deltaOnly) vOrders = vOrders.filter(o => o.hasMorningAdd);
+    if (vOrders.length === 0) continue;
+
+    // ETA 및 주행거리 계산 (항상 정방향 기준 계산 후 LIFO 모드면 역순 표시)
+    const fullRouteOrders = parsedOrders.filter(o => o.vehicle === v).sort((a, b) => a.stopOrder - b.stopOrder);
+    let curTime = customDepartureTimes[v];
+    let curLat = DEPOT.lat, curLon = DEPOT.lon;
+    let totalKm = 0;
+
+    for (const stop of fullRouteOrders) {
+      const dKm = calcDistKm(curLat, curLon, stop.client.lat, stop.client.lon);
+      const driveMin = estimateDriveMin(dKm);
+      stop.driveMin = driveMin;
+      stop.distKm = dKm;
+      stop.etaArr = addMinutesToTimeStr(curTime, driveMin);
+      stop.etaDep = addMinutesToTimeStr(stop.etaArr, dwellMin);
+      curTime = stop.etaDep;
+      curLat = stop.client.lat;
+      curLon = stop.client.lon;
+      totalKm += dKm;
+    }
+    const returnKm = calcDistKm(curLat, curLon, DEPOT.lat, DEPOT.lon);
+    const returnMin = estimateDriveMin(returnKm);
+    const returnEta = addMinutesToTimeStr(curTime, returnMin);
+    totalKm += returnKm;
+
+    const vTotalBoxes = fullRouteOrders.reduce((s, o) => s + o.totalBoxes, 0);
+    const capPct = Math.min(100, Math.round((vTotalBoxes / cfg.maxBoxes) * 100));
+    const isOverCap = vTotalBoxes > cfg.maxBoxes;
+
+    // LIFO(역순 상차) 모드일 경우 배열 뒤집기
+    const displayOrders = currentViewMode === 'lifo' ? [...vOrders].reverse() : vOrders;
+
+    cardsHtml += `
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <!-- 호차 헤더 -->
+      <div class="bg-slate-800 text-white p-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <span class="bg-indigo-500 text-white font-extrabold px-2.5 py-1 rounded text-sm">${cfg.name}</span>
+          <span class="text-xs text-slate-300 font-medium">총 ${fullRouteOrders.length}곳 | 약 ${totalKm.toFixed(1)}km</span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 text-xs">
+          <div class="flex items-center gap-1.5 bg-slate-700 px-2.5 py-1 rounded">
+            <span class="text-amber-300 font-bold">🚀 미트포앤 출발:</span>
+            <input type="time" value="${customDepartureTimes[v]}" onchange="updateDepartureTime(${v}, this.value)" class="bg-slate-900 text-white font-bold px-1.5 py-0.5 rounded border border-slate-500" />
+            <span class="text-emerald-300 font-bold ml-1">➔ 복귀예정 ${returnEta}</span>
+          </div>
+          <button onclick="copyVehicleSchedule(${v})" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1 rounded transition no-print">
+            📋 기사님 카톡 공유 복사
+          </button>
+        </div>
+      </div>
+
+      <!-- 적재량 게이지 바 & 상차 모드 안내 -->
+      <div class="bg-slate-50 px-4 py-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex items-center gap-2 flex-1 min-w-[240px]">
+          <span class="font-bold text-slate-700">적재 물량: ${vTotalBoxes.toFixed(1)} / ${cfg.maxBoxes}박스</span>
+          <div class="w-36 bg-slate-200 h-2.5 rounded-full overflow-hidden">
+            <div class="${isOverCap ? 'bg-rose-600' : 'bg-indigo-600'} h-full" style="width:${capPct}%"></div>
+          </div>
+          ${isOverCap ? '<span class="text-rose-600 font-bold">⚠️ 적재 상한 초과 주의! 일부 거래처를 다른 호차로 이동하세요.</span>' : '<span class="text-emerald-600 font-semibold">✔ 적재 적정</span>'}
+        </div>
+        <div class="font-bold ${currentViewMode === 'lifo' ? 'text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded' : 'text-slate-600'}">
+          ${currentViewMode === 'lifo' ? '📦 [역순 상차 모드] 위에서부터 순서대로 탑차 가장 안쪽(깊숙한 곳)부터 실으세요!' : '🚚 [배송 방문순 모드] 미트포앤 출발 후 실제 방문 순서입니다.'}
+        </div>
+      </div>
+
+      <!-- 경유지 리스트 -->
+      <div class="divide-y divide-slate-200">
+        ${displayOrders.map((o, idx) => {
+          const lifoStep = idx + 1;
+          const googleMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.client.addr)}`;
+          return `
+          <div class="p-3.5 hover:bg-slate-50/80 transition grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+            <!-- 순서 & 거래처 정보 -->
+            <div class="md:col-span-5 flex items-start gap-2.5">
+              <div class="flex flex-col items-center">
+                <span class="${currentViewMode === 'lifo' ? 'bg-purple-700' : 'bg-slate-900'} text-white font-extrabold px-2.5 py-1 rounded-lg text-xs whitespace-nowrap">
+                  ${currentViewMode === 'lifo' ? `상차 ${lifoStep}순위 (${o.stopOrder}번하차)` : `방문 ${o.stopOrder}번`}
+                </span>
+                <span class="text-[11px] font-bold text-indigo-600 mt-1">${o.totalBoxes}박</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="font-extrabold text-sm text-slate-900">${o.client.name}</span>
+                  <span class="text-xs bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-semibold">카톡: ${o.nickUsed}</span>
+                  ${o.hasMorningAdd ? '<span class="text-[11px] bg-rose-100 text-rose-700 border border-rose-300 px-1.5 py-0.5 rounded font-bold">⚡아침추가/변경</span>' : ''}
+                  ${o.isUrgent ? '<span class="text-[11px] bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">🚨급급우선</span>' : ''}
+                </div>
+                <div class="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+                  <span>📍 ${o.client.addr}</span>
+                  <a href="${googleMapUrl}" target="_blank" class="text-blue-600 hover:underline font-semibold whitespace-nowrap no-print">[지도]</a>
+                </div>
+                <div class="text-xs font-bold text-slate-700 mt-1.5 bg-amber-50 border border-amber-200 inline-block px-2 py-0.5 rounded">
+                  ⏰ 도착 ${o.etaArr} ~ 출발 ${o.etaDep} <span class="font-normal text-slate-500">(이동 ${o.driveMin}분 / ${o.distKm.toFixed(1)}km, 정차 ${dwellMin}분)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 발주 품목 상세 (1차 확정 vs 2차 아침 추가분 구분 표시) -->
+            <div class="md:col-span-5 bg-slate-50 rounded-lg p-2.5 border border-slate-200 text-xs">
+              <ul class="space-y-1">
+                ${o.items.map(it => `
+                  <li class="flex items-start justify-between gap-2 ${it.isPass ? 'line-through text-slate-400' : ''}">
+                    <div>
+                      ${it.isMorning ? '<span class="text-[10px] bg-rose-600 text-white px-1 py-0.2 rounded font-bold mr-1">+추가</span>' : '<span class="text-[10px] bg-slate-200 text-slate-700 px-1 py-0.2 rounded font-semibold mr-1">1차</span>'}
+                      <span class="font-medium text-slate-800">${it.text}</span>
+                      ${it.tags.map(t => `<span class="text-[10px] bg-amber-100 text-amber-900 px-1 rounded ml-1 font-semibold">${t}</span>`).join('')}
+                    </div>
+                    <span class="font-bold text-slate-600 whitespace-nowrap">${it.boxEq}박</span>
+                  </li>
+                `).join('')}
+              </ul>
+              ${o.weightLogs.length > 0 ? `<div class="mt-2 pt-1.5 border-t border-slate-200 text-[11px] text-emerald-700 font-medium">✔ 현장계근: ${o.weightLogs.join(' / ')}</div>` : ''}
+            </div>
+
+            <!-- 호차 수동 변경 드롭다운 -->
+            <div class="md:col-span-2 flex flex-col items-end justify-between gap-1 text-xs no-print">
+              <label class="text-[11px] text-slate-400">차량(권역) 변경</label>
+              <select onchange="changeStoreVehicle('${o.client.name}', this.value)" class="border border-slate-300 rounded px-2 py-1 text-xs font-bold bg-white text-slate-700">
+                ${[1,2,3,4,5].map(num => `<option value="${num}" ${o.vehicle === num ? 'selected' : ''}>${num}호차로 배정</option>`).join('')}
+              </select>
+              <span class="text-[10px] text-slate-400 mt-1">발주: ${o.timestamps.join(', ')}</span>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  container.innerHTML = cardsHtml;
+}
+
+// 기사님 단톡방 공유용 텍스트 복사
+function copyVehicleSchedule(v) {
+  const cfg = VEHICLE_CONFIG[v];
+  const vOrders = parsedOrders.filter(o => o.vehicle === v).sort((a, b) => a.stopOrder - b.stopOrder);
+  if (vOrders.length === 0) return;
+
+  const vTotalBoxes = vOrders.reduce((s, o) => s + o.totalBoxes, 0);
+  let txt = `📢 [${cfg.name}] 금일 납품 및 상차 지시서\n`;
+  txt += `- 출발시각: ${customDepartureTimes[v]} (미트포앤 출발)\n`;
+  txt += `- 총 방문지: ${vOrders.length}곳 (총 약 ${vTotalBoxes.toFixed(1)}박스)\n\n`;
+  txt += `📦 [상차 순서 (안쪽 ➔ 문쪽 역순)]\n`;
+  [...vOrders].reverse().forEach((o, i) => {
+    txt += `${i+1}순위(안쪽): ${o.client.name} (${o.totalBoxes}박)\n`;
+  });
+  txt += `\n🚚 [방문 일정 및 품목]\n`;
+  vOrders.forEach(o => {
+    txt += `${o.stopOrder}. ${o.client.name} (도착 ${o.etaArr}~${o.etaDep})\n`;
+    txt += `   주소: ${o.client.addr}\n`;
+    txt += `   품목: ${o.items.filter(i=>!i.isPass).map(i=>i.text).join(' / ')}\n`;
+  });
+
+  navigator.clipboard.writeText(txt).then(() => {
+    alert(`${v}호차 배송 일정표와 역순 상차 리스트가 클립보드에 복사되었습니다! 카카오톡 채팅창에 붙여넣기(Ctrl+V) 하세요.`);
+  });
+}
+
+function clearInput() {
+  document.getElementById('kakaoInput').value = '';
+}
+
+// ============================================================================
+// 6. 10월 20일 실제 카카오톡 발주 데이터 원클릭 테스트 로더
+// ============================================================================
+function loadSampleOct20() {
+  document.getElementById('targetDate').value = '2026-10-20';
+  document.getElementById('dateFilterMode').value = 'auto';
+  document.getElementById('kakaoInput').value = `2026년 10월 19일 오후 2:00, 한재호 대표 : 갈비면옥
+뼈삼겹 2판 작업은 다시 한번더 여쭤보고 말씀드릴께요
+2026년 10월 19일 오후 2:00, 한재호 대표 : 한양봉천 
+특미삼3빡스
+스켄전지3빡스
+돈피1봉지
+주세요
+2026년 10월 19일 오후 4:02, 한재호 대표 : 금천꿀돼지꿀한우 
+내일
+미전지 2박스 포크
+삼겹 1박스 포크
+목살 1박스 포크
+2026년 10월 19일 오후 4:50, 한재호 대표 : 성대g마트
+미박삼겹살 4 박스 대산작은거
+삼겹살 4 박스 대산작은거
+갈비 6 박스(행사-300할인)
+2026년 10월 19일 오후 5:15, 이명석 이사 : 여기식당
+냉장 삼겹1팩
+냉동 삼겹 1팩 0.5센치
+삼겹 1팩 1센치
+2026년 10월 19일 오후 6:09, 한재호 대표 : 한결축산(은계)
+삼겹 2박스 대산 17키로대
+2026년 10월 19일 오후 6:10, 한재호 대표 : 오소돈
+암오삼겹1팩
+갈매기살2팩
+2026년 10월 19일 오후 6:10, 한재호 대표 : 한돈미트
+삼겹2.
+미삼2.
+목살3 
+갈비2.
+미전지5.
+등갈비1.
+등심1.
+항정1.
+가브리1.
+미후지1 
+2026년 10월 19일 오후 6:22, 한재호 대표 : 삼부자돈판골 
+특삼겹살 4박스
+특목살 2덩이
+가브리 7키로(소분해서)
+냉동삼겹살 1박스 두메코
+수입차돌박이 1박스
+2026년 10월 19일 오후 6:23, 한재호 대표 : 막뚱이정육점
+미전지1 큰박스로
+등갈비1 대산
+항정2봉 
+2026년 10월 19일 오후 6:26, 한재호 대표 : 원대성정육점 
+목살1 대산
+미삼1 대산
+미후지1
+돼지갈비1
+미전지1 대산
+수입설도1
+냉장수입삼겹1
+2026년 10월 19일 오후 6:30, 한재호 대표 : 덕이네쌈밥 
+수입 대패삼겹1판 테니쉬
+2026년 10월 19일 오후 6:31, 한재호 대표 : 전라도연탄구이 
+토레인삼겹 2박스
+2026년 10월 19일 오후 6:37, 한재호 대표 : 김치왕뚜껑삼겹살1호점 
+지방덜한특삼겹 2판
+지방덜한특미삼 1판
+2026년 10월 19일 오후 6:55, 한재호 대표 : 상미마트
+암미삼 1 포크 신짜
+등심 1 포크신짜
+등갈비 1 포크신짜
+2026년 10월 19일 오후 7:27, 한재호 대표 : 소문난정육점 
+삼겹3
+미삼1
+특목3
+앞사태1봉
+갈매기1봉 
+냉동등심2
+2026년 10월 19일 오후 7:27, 한재호 대표 : 고기바보장안 
+암삼겹 3 대산
+미전지 1 대산
+앞미사태 1팩
+갈비4팩
+2026년 10월 19일 오후 7:28, 한재호 대표 : 한마음마트 
+등뼈 1
+설도 2
+미전지 2
+2026년 10월 19일 오후 8:21, 한재호 대표 : 린이네축산 본점
+냉장 대산등뼈 2박스
+냉동 AMH우목심 2박스
+2026년 10월 19일 오후 8:32, 한재호 대표 : 신풍푸줏간 신길
+삼겹 3 대산
+미전지2 대산 큰거로
+특목2
+안심3팩
+등갈비2팩
+등뼈1
+앞미사태1팩
+2026년 10월 19일 오후 9:00, 한재호 대표 : 본오농민마트 
+목살5박스 포크 전단행사 300할인 
+등갈비3박스전단행사 300할인
+등뼈5박스전단행사 200할인
+암삼겹2박스 포크
+2026년 10월 19일 오후 9:32, 한재호 대표 : 참예소
+앞다리사태1박스
+돼지등뼈1박스
+2026년 10월 19일 오후 10:26, 한재호 대표 : 별빛정육점 
+냉동 미전지 1박스 
+등심 2마리분
+2026년 10월 19일 오후 10:27, 한재호 대표 : 신박축산
+포크오겹1
+포크목살1
+등심1마리반
+사태1팩
+앞사태1팩
+등뼈키로수큰거1
+미니족8벌
+안심작은거1팩 
+오돌뼈1
+모돈삼겹1
+2026년 10월 19일 오후 11:06, 김석민 : 한상궁 
+목전지제육 1팩 
+2026년 10월 19일 오후 11:19, 한재호 대표 : 풍년돼지양념구이 
+돈왕구이 (고) 1박스
+2026년 10월 19일 오후 11:52, 진 : 우리축산정육점 10/20(화) 발주건입니다.
+돈미전지(대산, 중량 큰걸로) 1 Box
+돈등뼈 1Box
+2026년 10월 20일 오전 7:40, 양승준 과장님 : 삼대축산
+암삼 1
+암미삼 1 
+2026년 10월 20일 오전 7:40, 양승준 과장님 : 광명꿀
+암삼 1
+등갈비 1
+생후지 3mm 1
+2026년 10월 20일 오전 7:58, 한재호 대표 : 태광
+목살2
+항정3(대산꺼로1~2박스사이)
+냉동갈비2
+2026년 10월 20일 오전 7:58, 한재호 대표 : 대부g마트
+목살10
+미전지7
+오겹살4
+안심1
+등심1
+모돈3
+2026년 10월 20일 오전 8:01, 한재호 대표 : 푸른목장 삼평점 
+안심ㅡ 2
+등갈비ㅡ 2
+등뼈ㅡ 1
+미전지ㅡ 3 포크
+목살ㅡ 3 포크
+A삼겹 ㅡ4 포크
+2026년 10월 20일 오전 8:20, 한재호 대표 : 스타마트
+전지3 
+등뼈2 
+2026년 10월 20일 오전 8:36, 한재호 대표 : 농민마트와동 
+수삼2 두메코
+모돈1 
+목살3 
+미후지3 
+암오겹1 
+암삼1 
+냉동갈비1 
+등심2팩
+2026년 10월 20일 오전 8:36, 한재호 대표 : 다연
+안심 2팩
+등뼈 1박스
+2026년 10월 20일 오전 9:12, 한재호 대표 : 오늘은고기다 
+항정4키로`;
+  parseAndAnalyze();
+}
+
+// 초기 실행 시 10월 20일 샘플 자동 로드
+window.addEventListener('DOMContentLoaded', () => {
+  loadSampleOct20();
+});
+</script>
+</body>
+</html>
