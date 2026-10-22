@@ -2,9 +2,8 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <!-- 모바일 확대 방지 및 꽉 찬 앱 화면 느낌 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 모바일 발주 집계</title>
+  <title>미트포앤 API AI 발주(모바일 전용)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -23,14 +22,14 @@
     <span id="toastMsg">✅ 분석 완료!</span>
   </div>
 
-  <!-- 💡 [모바일 플로팅 헤더] 스크롤해도 항상 위에 고정 -->
+  <!-- 모바일 플로팅 헤더 -->
   <header class="fixed top-0 w-full z-50 bg-slate-900 text-white shadow-md">
     <div class="px-3 py-2 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded text-[10px]">미트포앤</span>
         <h1 class="text-sm font-bold truncate">모바일 발주 집계</h1>
       </div>
-      <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded">
+      <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded border border-slate-700">
         <span id="dbStatusBadge" class="text-rose-400 font-bold">CSV 미등록</span>
       </div>
     </div>
@@ -38,40 +37,40 @@
     <!-- 4대 요약 KPI (항상 보임) -->
     <div class="bg-slate-800 border-t border-slate-700 grid grid-cols-4 text-center divide-x divide-slate-700">
       <div class="py-1.5">
-        <div class="text-[9px] text-slate-400">납품처</div>
+        <div class="text-[9px] text-slate-400 mb-0.5">납품처</div>
         <div class="text-sm font-bold text-white leading-tight"><span id="kpiStores">0</span><span class="text-[9px] font-normal ml-0.5">곳</span></div>
       </div>
       <div class="py-1.5">
-        <div class="text-[9px] text-slate-400">총 박스</div>
+        <div class="text-[9px] text-slate-400 mb-0.5">총 박스</div>
         <div class="text-sm font-bold text-indigo-400 leading-tight"><span id="kpiTotalBoxes">0.0</span><span class="text-[9px] font-normal ml-0.5">박</span></div>
       </div>
       <div class="py-1.5">
-        <div class="text-[9px] text-slate-400">품목(종)</div>
-        <div class="text-sm font-bold text-emerald-400 leading-tight"><span id="kpiCategories">0</span><span class="text-[9px] font-normal ml-0.5">종</span></div>
+        <div class="text-[9px] text-slate-400 mb-0.5">추가/정정</div>
+        <div class="text-sm font-bold text-rose-400 leading-tight"><span id="kpiDelta">0</span><span class="text-[9px] font-normal ml-0.5">건</span></div>
       </div>
       <div class="py-1.5">
-        <div class="text-[9px] text-slate-400">특수(팩/kg)</div>
-        <div class="text-sm font-bold text-rose-400 leading-tight"><span id="kpiSpecials">0</span><span class="text-[9px] font-normal ml-0.5">건</span></div>
+        <div class="text-[9px] text-slate-400 mb-0.5">특수(팩/kg)</div>
+        <div class="text-sm font-bold text-amber-400 leading-tight"><span id="kpiSpecials">0</span><span class="text-[9px] font-normal ml-0.5">건</span></div>
       </div>
     </div>
   </header>
 
-  <!-- 여백 보상 (헤더 높이만큼) -->
+  <!-- 여백 보상 -->
   <div class="h-[90px]"></div>
 
   <main class="p-3 flex flex-col gap-3">
 
-    <!-- 1. 파일 및 텍스트 입력부 (아코디언 방식으로 공간 절약) -->
+    <!-- 1. 설정 및 입력 섹션 -->
     <details class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" open id="inputDetails">
       <summary class="p-3 bg-slate-50 flex justify-between items-center font-bold text-sm text-slate-700 cursor-pointer">
         <div class="flex items-center gap-2">
-          <span>⚙️ 데이터 입력 설정</span>
+          <span>⚙️ 데이터 입력 및 AI 설정</span>
         </div>
         <span class="arrow text-slate-400 text-xs transition-transform duration-200">▼</span>
       </summary>
       
       <div class="p-3 flex flex-col gap-3 text-xs">
-
+        
         <!-- API 키 입력 -->
         <div class="bg-indigo-50 p-2.5 rounded-lg border border-indigo-100 flex flex-col gap-1">
           <label class="font-bold text-indigo-800 flex justify-between">
@@ -89,15 +88,15 @@
         </label>
 
         <!-- 출고일 선택 -->
-        <div class="bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
-          <label class="font-bold text-indigo-800 block mb-1">📅 출고(배송) 기준일 선택</label>
-          <input type="date" id="targetDate" class="w-full bg-white border border-indigo-200 rounded px-2 py-1.5 font-bold text-slate-800" />
-          <div class="text-[10px] text-indigo-600 mt-1.5 leading-tight">
-            ※ 선택일 기준 <b>[전날 오전 10시 ~ 당일 오후 2시]</b> 사이 카톡만 추출. <br>단, <b>'오늘/내일'</b> 단어가 있으면 예외 규칙이 적용됩니다.
+        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+          <label class="font-bold text-slate-700 block mb-1">📅 출고(배송) 기준일 선택</label>
+          <input type="date" id="targetDate" class="w-full bg-white border border-slate-300 rounded px-2 py-1.5 font-bold text-slate-800" />
+          <div class="text-[10px] text-slate-500 mt-1.5 leading-tight">
+            ※ <b>[전날 오전 10시 ~ 당일 오후 2시]</b> 사이 카톡만 추출. 단, 본문에 <b>오늘/내일</b> 단어가 있으면 예외 자동 적용.
           </div>
         </div>
 
-        <!-- 카톡 TXT 파일 직접 업로드 (모바일 1순위) -->
+        <!-- 카톡 TXT 파일 직접 업로드 -->
         <label class="w-full bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 p-2.5 rounded-lg text-center font-bold flex flex-col items-center justify-center transition active:scale-[0.98] cursor-pointer">
           <span class="text-base mb-0.5">📄</span>
           <span>2. 카카오톡 내보내기(.txt) 파일 업로드</span>
@@ -110,11 +109,11 @@
             <label class="font-bold text-slate-700 block">💬 또는 대화 내용 복사해서 붙여넣기</label>
             <button onclick="document.getElementById('kakaoInput').value=''" class="text-[10px] text-rose-500 font-bold bg-rose-50 px-2 py-1 rounded">지우기</button>
           </div>
-          <textarea id="kakaoInput" class="w-full h-20 border border-slate-300 rounded-lg p-2 font-mono text-[11px] leading-tight bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none" placeholder="파일 업로드 대신 텍스트를 바로 붙여넣어도 됩니다."></textarea>
+          <textarea id="kakaoInput" class="w-full h-24 border border-slate-300 rounded-lg p-2 font-mono text-[11px] leading-tight bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none" placeholder="파일 업로드 대신 텍스트를 바로 붙여넣어도 됩니다."></textarea>
         </div>
 
         <!-- 실행 버튼 -->
-        <button id="btnRunAnalyze" onclick="runAiAnalysis()" class="w-full bg-indigo-600 text-white font-extrabold text-sm py-3 rounded-xl shadow-md active:scale-[0.98] transition flex items-center justify-center gap-1.5">
+        <button id="btnRunAnalyze" onclick="runAiAnalysis()" class="w-full bg-indigo-600 text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md active:scale-[0.98] transition flex items-center justify-center gap-1.5">
           <span id="btnRunText">🚀 AI 추출 및 집계 실행</span>
         </button>
       </div>
@@ -146,12 +145,12 @@ let currentTab = 'destinations';
 
 const MEAT_CATEGORIES = ['삼겹', '오겹', '특목살', '목살', 'B목살', '미전지', '전지', '미후지', '냉장3mm후지', '후지', '등뼈', '등심', '안심', '갈비', '등갈비', '항정', '가브리', '갈매기', '사태', '우삼겹', '차돌', '돈피', '장족', '모돈', '민찌', '살치', '홍두깨', '늑간'];
 
-// 출고 기준일 오늘 날짜 세팅
+// 오늘 날짜 셋팅
 const today = new Date();
 const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 document.getElementById('targetDate').value = todayStr;
 
-// API 키 브라우저 자동 저장/불러오기
+// API 키 브라우저 자동 저장
 window.addEventListener('DOMContentLoaded', () => {
   const savedKey = localStorage.getItem('geminiApiKey');
   if (savedKey) document.getElementById('geminiApiKey').value = savedKey;
@@ -160,7 +159,7 @@ document.getElementById('geminiApiKey').addEventListener('change', function() {
   localStorage.setItem('geminiApiKey', this.value.trim());
 });
 
-// UI 피드백 토스트 알림
+// UI 피드백 토스트
 function showToast(msg, isError = false) {
   const banner = document.getElementById('toastBanner');
   document.getElementById('toastMsg').innerText = msg;
@@ -169,7 +168,8 @@ function showToast(msg, isError = false) {
   setTimeout(() => banner.classList.add('hidden'), 3000);
 }
 
-// 거리 계산 (Haversine km)
+// 거리 계산 (Haversine)
+const DEPOT = { lat: 37.305, lon: 126.855 };
 function calcDistKm(lat1, lon1, lat2, lon2) {
   const R = 6371.0;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -178,6 +178,7 @@ function calcDistKm(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.35;
 }
 
+// 대체 위경도
 function getApproxGeo(addr) {
   if (addr.includes('대부')) return { region: '안산 대부', lat: 37.24, lon: 126.58 };
   if (addr.includes('단원구') || addr.includes('정왕') || addr.includes('배곧')) return { region: '안산/시흥 서부', lat: 37.33, lon: 126.75 };
@@ -190,7 +191,7 @@ function getApproxGeo(addr) {
 }
 
 // ==========================================================
-// 2. CSV 및 TXT 파일 업로드 처리
+// 2. CSV 파일 업로드
 // ==========================================================
 document.getElementById('csvFileInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
@@ -222,7 +223,6 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
   reader.readAsText(file, 'utf-8');
 });
 
-// 카톡 TXT 파일 업로드시 바로 텍스트창에 채우고 실행
 document.getElementById('txtFileInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -237,7 +237,7 @@ document.getElementById('txtFileInput').addEventListener('change', function(e) {
 
 
 // ==========================================================
-// 3. AI 연동 및 데이터 분석 (Gemini API)
+// 3. AI 연동 및 데이터 분석 (최신 모델: gemini-3.5-flash)
 // ==========================================================
 async function runAiAnalysis() {
   const apiKey = document.getElementById('geminiApiKey').value.trim();
@@ -256,12 +256,11 @@ async function runAiAnalysis() {
     return;
   }
 
-  // 로딩 상태 변경
   const btn = document.getElementById('btnRunAnalyze');
   const btnText = document.getElementById('btnRunText');
   btn.disabled = true;
   btn.classList.add('opacity-75');
-  btnText.innerText = "⏳ AI가 발주를 분리 중입니다... (약 5~8초)";
+  btnText.innerText = "⏳ AI가 발주를 분리 중입니다... (약 3~5초)";
 
   try {
     const targetDateStr = document.getElementById('targetDate').value;
@@ -272,14 +271,23 @@ async function runAiAnalysis() {
     const lines = rawText.split(/\r?\n/);
     const blocks = [];
     let curBlock = null;
+    let currentExtractDate = tDt; 
 
+    // 모바일, PC 모두 호환되는 정규식
     const reMobileDot = /^\s*[·\.\-]?\s*(\d{1,2})[\/\.](\d{1,2})\.?\s+(오전|오후)\s+(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
     const reExport = /^(\d{4})[년\.\-\/]\s*(\d{1,2})[월\.\-\/]\s*(\d{1,2})[일\.]?\s*(오전|오후)?\s*(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
-    const rePc = /^\[([^\]]+)\]\s*\[(오전|오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
+    const rePc = /^\[([^\]]+)\]\s*\[(오전\vert{}오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
+    const reDateDiv = /^-*\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
 
     for (const rawLine of lines) {
       const line = rawLine.trim();
-      if (!line || line.includes('저장한 날짜') || /^-*\s*\d{4}년/.test(line)) continue;
+      if (!line || line.includes('저장한 날짜') || line.includes('카카오톡 대화')) continue;
+
+      const mDateDiv = line.match(reDateDiv);
+      if (mDateDiv) {
+        currentExtractDate = new Date(parseInt(mDateDiv[1]), parseInt(mDateDiv[2]) - 1, parseInt(mDateDiv[3]));
+        continue;
+      }
 
       const mDot = line.match(reMobileDot);
       const mExp = line.match(reExport);
@@ -305,8 +313,7 @@ async function runAiAnalysis() {
         let ampm = mPc[2] || '', hr = parseInt(mPc[3]), mn = parseInt(mPc[4]);
         if (ampm === '오후' && hr !== 12) hr += 12;
         if (ampm === '오전' && hr === 12) hr = 0;
-        dt = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), hr, mn);
-        if (hr >= 14) dt = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, hr, mn);
+        dt = new Date(currentExtractDate.getFullYear(), currentExtractDate.getMonth(), currentExtractDate.getDate(), hr, mn);
         curBlock = { dt, lines: mPc[5].trim() ? [mPc[5].trim()] : [] };
       }
 
@@ -319,7 +326,7 @@ async function runAiAnalysis() {
     }
     if (curBlock && curBlock.lines.length > 0) blocks.push(curBlock);
 
-    // 스마트 타임 필터 컷팅 (전날 10시 ~ 오늘 오후 2시)
+    // 지정일 Time Window 필터링 + 오늘/내일 키워드 검사
     let filteredText = "";
     for (const b of blocks) {
       const fullBody = b.lines.join(' ');
@@ -339,49 +346,50 @@ async function runAiAnalysis() {
 
       if (isValid) {
         const cleanBody = b.lines.map(l => l.replace(/^전달:\s*/, '').trim()).join('\n');
-        filteredText += `[메시지 시간: ${b.dt.toLocaleString()}]\n${cleanBody}\n\n`;
+        filteredText += `[시간: ${b.dt.toLocaleString()}]\n${cleanBody}\n\n`;
       }
     }
 
     if (!filteredText.trim()) {
-      alert("⚠️ 지정일 시간대(전날 10시~오늘 오후 2시)에 해당하는 발주 메시지가 없습니다.");
+      alert("⚠️ 지정일 시간대(전날 오전 10시~당일 오후 2시)에 유효한 발주가 없습니다.");
       btn.disabled = false; btn.classList.remove('opacity-75');
       btnText.innerText = "🚀 AI 추출 및 집계 실행";
       return;
     }
 
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // 🔥 404 에러 원인이었던 구형 모델명 제거 후 최신 모델 연결 🔥
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
 
     const prompt = `
 너는 육가공 도매업체 '미트포앤'의 카톡 발주 데이터를 정리하는 AI야.
-아래 제공된 카카오톡 대화 내용에서 '실제 발주(주문)' 내역만 추출해서 JSON 배열로 반환해.
+아래 카카오톡 대화 내용에서 '실제 발주(주문)' 내역만 추출해서 순수 JSON 배열로 반환해.
 
 [절대 주의사항 - 계근 기록 및 요약본 제외]
-1. 현장 직원이 고기 무게를 잰 '계근 기록' (예: "암삼 21대 16.9 16.9", "19대 6.10", "삼겹19대11.42")은 절대 발주가 아니니 무조건 제외해! 숫자에 소수점(16.9)이 있거나 단위가 '대', '포', '개'이면 100% 현장 계근 기록임.
+1. 현장 직원이 고기 무게를 잰 '계근 기록' (예: "암삼 21대 16.9 16.9", "19대 6.10")은 절대 발주가 아니니 무조건 버려! 숫자에 소수점(16.9)이 있거나 단위가 '대', '포', '개'이면 100% 버릴 것.
 2. 메시지 첫 줄이 "발주체크"로 시작하는 전체 요약본은 이중 집계되므로 무조건 버려.
 
 [수량 및 단위 추출 규칙]
 - 단위는 '박스', '팩', '봉', 'kg', '마리', '판' 등으로 정확히 구분해.
-- 만약 고기 품목명 뒤에 숫자만 달랑 적혀있다면 (예: "삼겹 2", "목살 3"), 현장 관행상 '박스'로 간주해.
+- 만약 품목명 뒤에 숫자만 달랑 적혀있다면 (예: "삼겹 2"), 현장 관행상 '박스'로 간주해.
 - "패스", "취소" 단어가 포함된 품목은 발주에서 제외해.
 
 [출력 형식]
-반드시 아래 형태의 JSON 배열 구조로만 대답해. 마크다운(\`\`\`json 등)은 빼고 순수 JSON 텍스트만 출력해.
+반드시 배열 구조로만 대답해. 마크다운은 생략해.
 [
   {
-    "client_name": "상호명(카톡에 적힌 원문 그대로, 예: 성대g마트)",
+    "client_name": "상호명(카톡에 적힌 원문 그대로)",
     "original_text": "발주 원문 1줄 (예: 삼겹 2박스 대산)",
-    "category": "대표 품목 분류 (예: 삼겹, 목살, 미전지, 등뼈 등)",
+    "category": "대표 품목 (예: 삼겹, 목살, 미전지, 등뼈 등)",
     "qty": 2.0,
     "unit": "박스",
     "is_special_unit": false,
     "is_delta": false
   }
 ]
-- is_special_unit: 단위가 '박스'가 아니면 true.
-- is_delta: 메시지에 '추가'나 '정정'이 포함되어 있으면 true.
+* is_special_unit: 단위가 '박스'가 아니면 true.
+* is_delta: 원문에 '추가'나 '정정'이 포함되어 있으면 true.
 
-[카카오톡 대화 내용 (사전 필터링됨)]
+[대화 내용]
 ${filteredText}
     `;
 
@@ -390,19 +398,21 @@ ${filteredText}
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1 } 
+        generationConfig: { 
+            temperature: 0.1,
+            responseMimeType: "application/json" // 확실한 JSON 응답 보장
+        } 
       })
     });
 
     if (!response.ok) {
-      if (response.status === 400) throw new Error("API 키가 올바르지 않거나 권한이 없습니다.");
+      if (response.status === 400) throw new Error("API 키가 올바르지 않습니다.");
+      if (response.status === 404) throw new Error("API 모델 연결 실패 (404).");
       throw new Error(`API 호출 실패: ${response.status} 에러`);
     }
 
     const data = await response.json();
-    let jsonStr = data.candidates[0].content.parts[0].text;
-    
-    jsonStr = jsonStr.replace(/```json/gi, '').replace(/```/gi, '').trim();
+    const jsonStr = data.candidates[0].content.parts[0].text;
     const aiOrders = JSON.parse(jsonStr);
 
     const orderMap = new Map();
@@ -454,7 +464,7 @@ ${filteredText}
       showToast(`✨ AI 분석 완료! ${parsedOrders.length}곳 추출 성공`);
       document.getElementById('inputDetails').open = false; 
     } else {
-      showToast(`⚠️ 분석 결과가 없습니다.`, true);
+      showToast(`⚠️ AI 분석 결과 유효한 발주가 없습니다.`, true);
     }
 
     let specialUnitsCount = 0;
@@ -484,7 +494,7 @@ ${filteredText}
 
   } catch (err) {
     console.error(err);
-    alert("오류 발생: " + err.message + "\n(JSON 파싱 오류이거나 API 키가 잘못되었을 수 있습니다.)");
+    alert("오류 발생: " + err.message + "\n(입력한 API 키가 정확한지 확인해주세요.)");
   } finally {
     btn.disabled = false;
     btn.classList.remove('opacity-75');
@@ -493,7 +503,7 @@ ${filteredText}
 }
 
 // ==========================================================
-// 4. 모바일 스와이프 탭별 렌더링 화면
+// 4. 모바일 스와이프 탭별 렌더링
 // ==========================================================
 function setTab(tabId) {
   currentTab = tabId;
@@ -589,7 +599,7 @@ function setTab(tabId) {
                   <tr class="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                     <td class="py-2 px-2 font-bold text-slate-700 w-[35%] truncate leading-tight">${x.client}</td>
                     <td class="py-2 px-1 text-slate-600 leading-tight">${x.item.originalText}</td>
-                    <td class="py-2 px-2 text-right font-extrabold whitespace-nowrap ${x.item.isSpecialUnit ? 'text-rose-600' : 'text-slate-800'}">${x.item.qty}<span class="text-[9px] font-normal ml-0.5">${x.item.unit}</span></td>
+                    <td class="py-2 px-2 text-right font-extrabold whitespace-nowrap ${x.item.isSpecialUnit ? 'text-rose-600' : 'text-slate-800'}">${x.item.qty}<span class="text-[9px] font-normal">${x.item.unit}</span></td>
                   </tr>
                 `).join('')}
               </tbody>
