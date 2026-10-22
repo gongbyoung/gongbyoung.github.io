@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 모바일 발주 집계 v2.003</title>
+  <title>미트포앤 모바일 발주 집계 v2.004</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -25,7 +25,7 @@
     <div class="px-3 py-2 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded text-[10px]">미트포앤</span>
-        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.003)</h1>
+        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.004)</h1>
       </div>
       <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded border border-slate-700">
         <span id="dbStatusBadge" class="text-rose-400 font-bold">CSV 미등록</span>
@@ -102,7 +102,7 @@
         </div>
 
         <button id="btnRunAnalyze" onclick="runAiAnalysis()" class="w-full bg-indigo-600 text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md active:scale-[0.98] transition flex items-center justify-center gap-1.5">
-          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.003)</span>
+          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.004)</span>
         </button>
       </div>
     </details>
@@ -234,33 +234,18 @@ async function runAiAnalysis() {
   btnText.innerText = "⏳ 1단계: 사용 가능한 AI 모델 검색 중...";
 
   try {
-    // ========================================================
-    // 🔥 대표님 API 계정에 맞는 차세대 모델 자동 스캔 및 선택 (완벽 해결) 🔥
-    // ========================================================
     const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
     const listRes = await fetch(listUrl);
     if (!listRes.ok) throw new Error("API 키 확인 또는 권한 오류입니다.");
     
     const listData = await listRes.json();
     
-    // 대표님의 키가 실제로 쓸 수 있는 모델 리스트 뽑기
     const availableModels = listData.models
         .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
         .map(m => m.name.replace('models/', ''));
     
-    console.log("🔥 내 API 키로 사용 가능한 모델들:", availableModels);
-
     let targetModel = "";
-    
-    // 1. 대표님 캡처본에 있던 최신 3.5 및 2.5 계열 모델을 최우선으로 찾습니다.
-    const priorityModels = [
-      "gemini-3.5-flash", 
-      "gemini-2.5-flash", 
-      "gemini-flash-latest",
-      "gemini-3.5-pro",
-      "gemini-2.5-pro",
-      "gemini-1.5-flash"
-    ];
+    const priorityModels = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-flash-latest", "gemini-3.5-pro", "gemini-2.5-pro", "gemini-1.5-flash"];
     
     for (const pm of priorityModels) {
       if (availableModels.includes(pm)) {
@@ -269,23 +254,11 @@ async function runAiAnalysis() {
       }
     }
     
-    // 2. 혹시 못 찾았다면, 리스트에 있는 모델 중 'flash' 글자가 들어간 가장 안전한 놈을 고릅니다.
-    if (!targetModel) {
-      targetModel = availableModels.find(m => m.includes("flash") && !m.includes("preview"));
-    }
+    if (!targetModel) targetModel = availableModels.find(m => m.includes("flash") && !m.includes("preview"));
+    if (!targetModel && availableModels.length > 0) targetModel = availableModels[0];
+    if (!targetModel) throw new Error("API 키 권한 오류: 텍스트 생성 모델이 목록에 없습니다.");
     
-    // 3. 그래도 없으면 사용 가능한 아무 모델이나 첫 번째 것을 고릅니다. (404 원천 차단)
-    if (!targetModel && availableModels.length > 0) {
-      targetModel = availableModels[0];
-    }
-    
-    if (!targetModel) {
-      throw new Error("API 키 권한 오류: 텍스트 생성 모델이 목록에 없습니다.");
-    }
-    
-    console.log("✅ 최종 확정된 자동 선택 모델:", targetModel);
     btnText.innerText = `⏳ 2단계: AI 발주 분리 중... (${targetModel})`;
-    // ========================================================
 
     const targetDateStr = document.getElementById('targetDate').value;
     const tDt = new Date(targetDateStr + "T00:00:00");
@@ -302,7 +275,7 @@ async function runAiAnalysis() {
 
     const reMobileDot = /^\s*[·\.\-]?\s*(\d{1,2})[\/\.](\d{1,2})\.?\s+(오전|오후)\s+(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
     const reExport = /^(\d{4})[년\.\-\/]\s*(\d{1,2})[월\.\-\/]\s*(\d{1,2})[일\.]?\s*(오전|오후)?\s*(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
-    const rePc = /^\[([^\]]+)\]\s*\[(오전\vert{}오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
+    const rePc = /^\[([^\]]+)\]\s*\[(오전|오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
     const reDateDiv = /^-*\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
 
     for (const rawLine of lines) {
@@ -385,11 +358,10 @@ async function runAiAnalysis() {
     if (!filteredText.trim()) {
       alert("⚠️ 지정일 시간대(전날 오전 10시~당일 오후 2시)에 해당하는 발주 메시지가 없습니다.");
       btn.disabled = false; btn.classList.remove('opacity-75');
-      btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.003)";
+      btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.004)";
       return;
     }
 
-    // 찾아낸 가장 최신/안정적인 모델(targetModel)로 요청
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
 
     const prompt = `
@@ -430,7 +402,12 @@ ${filteredText}
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1 } 
+        // 🔥 최대 출력 토큰 증가 및 강제 JSON 모드 켜기 (v2.004 핵심 방어벽) 🔥
+        generationConfig: { 
+            temperature: 0.1,
+            maxOutputTokens: 8192, 
+            responseMimeType: "application/json" 
+        } 
       })
     });
 
@@ -442,9 +419,32 @@ ${filteredText}
     const data = await response.json();
     let jsonStr = data.candidates[0].content.parts[0].text;
     
-    // 차세대 모델들이 혹시라도 마크다운(```json)을 붙여서 보내도 파싱 에러 안 나게 안전 처리
-    jsonStr = jsonStr.replace(/```json/g, '').replace(/```/g, '').trim();
-    const aiOrders = JSON.parse(jsonStr);
+    // 🔥 JSON 파싱 안전 처리 (데이터 짤림 방지용 응급 처치)
+    let aiOrders = [];
+    try {
+        aiOrders = JSON.parse(jsonStr);
+    } catch (parseError) {
+        console.warn("JSON 기본 파싱 실패, 자동 복구 시도 중...", parseError);
+        
+        // 1. 제어 문자(줄바꿈 등) 강제 공백 처리
+        jsonStr = jsonStr.replace(/[\n\r\t]/g, ' '); 
+        
+        // 2. 답변이 끊겨서 괄호가 안 닫혔다면 강제로 닫기
+        if (!jsonStr.trim().endsWith(']')) {
+            const lastBrace = jsonStr.lastIndexOf('}');
+            if (lastBrace !== -1) {
+                jsonStr = jsonStr.substring(0, lastBrace + 1) + ']';
+            } else {
+                jsonStr += '}]';
+            }
+        }
+        
+        try {
+            aiOrders = JSON.parse(jsonStr);
+        } catch (e2) {
+            throw new Error("AI가 정리한 데이터가 너무 길어서 끝부분이 잘렸거나 포맷이 깨졌습니다.\n[해결방법] 조회할 카톡 텍스트의 기간을 조금만 줄여서 다시 시도해주세요.\n\n" + e2.message);
+        }
+    }
 
     const orderMap = new Map();
     
@@ -529,7 +529,7 @@ ${filteredText}
   } finally {
     btn.disabled = false;
     btn.classList.remove('opacity-75');
-    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.003)";
+    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.004)";
   }
 }
 
