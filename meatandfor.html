@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 스마트 발주 집계 (모바일 전용)</title>
+  <title>미트포앤 모바일 발주 집계 v2.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -17,24 +17,22 @@
 </head>
 <body class="text-slate-800">
 
-  <!-- 상단 알림 토스트 (모바일 피드백용) -->
   <div id="toastBanner" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden bg-indigo-600 text-white px-4 py-2.5 rounded-full shadow-xl font-bold text-xs flex items-center gap-2 transition-all">
     <span id="toastMsg">✅ 분석 완료!</span>
   </div>
 
-  <!-- 모바일 플로팅 헤더 -->
   <header class="fixed top-0 w-full z-50 bg-slate-900 text-white shadow-md">
     <div class="px-3 py-2 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded text-[10px]">미트포앤</span>
-        <h1 class="text-sm font-bold truncate">모바일 발주 집계</h1>
+        <!-- 버전 표시로 강력 새로고침 성공 여부 확인 -->
+        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.0)</h1>
       </div>
       <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded border border-slate-700">
         <span id="dbStatusBadge" class="text-rose-400 font-bold">CSV 미등록</span>
       </div>
     </div>
     
-    <!-- 4대 요약 KPI (항상 보임) -->
     <div class="bg-slate-800 border-t border-slate-700 grid grid-cols-4 text-center divide-x divide-slate-700">
       <div class="py-1.5">
         <div class="text-[9px] text-slate-400 mb-0.5">납품처</div>
@@ -55,12 +53,10 @@
     </div>
   </header>
 
-  <!-- 여백 보상 -->
   <div class="h-[90px]"></div>
 
   <main class="p-3 flex flex-col gap-3">
 
-    <!-- 1. 설정 및 입력 섹션 -->
     <details class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" open id="inputDetails">
       <summary class="p-3 bg-slate-50 flex justify-between items-center font-bold text-sm text-slate-700 cursor-pointer">
         <div class="flex items-center gap-2">
@@ -71,23 +67,19 @@
       
       <div class="p-3 flex flex-col gap-3 text-xs">
         
-        <!-- API 키 입력 -->
         <div class="bg-indigo-50 p-2.5 rounded-lg border border-indigo-100 flex flex-col gap-1">
           <label class="font-bold text-indigo-800 flex justify-between">
             <span>🔑 Google Gemini API Key</span>
-            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[10px] text-indigo-500 underline font-normal">키 발급/확인</a>
           </label>
           <input type="password" id="geminiApiKey" placeholder="AI Studio에서 발급받은 API 키 입력" class="w-full bg-white border border-indigo-200 rounded px-2 py-1.5 font-mono text-slate-800 focus:ring-1 focus:ring-indigo-500" />
         </div>
 
-        <!-- 주소록 업로드 -->
-        <label class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 p-2.5 rounded-lg text-center font-bold flex flex-col items-center justify-center transition active:scale-[0.98]">
+        <label class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 p-2.5 rounded-lg text-center font-bold flex flex-col items-center justify-center transition active:scale-[0.98] cursor-pointer">
           <span class="text-base mb-0.5">📂</span>
           <span>1. 거래처 주소록(CSV) 먼저 업로드하기</span>
           <input type="file" id="csvFileInput" accept=".csv" class="hidden" />
         </label>
 
-        <!-- 출고일 선택 -->
         <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
           <label class="font-bold text-slate-700 block mb-1">📅 출고(배송) 기준일 선택</label>
           <input type="date" id="targetDate" class="w-full bg-white border border-slate-300 rounded px-2 py-1.5 font-bold text-slate-800" />
@@ -96,14 +88,12 @@
           </div>
         </div>
 
-        <!-- 카톡 TXT 파일 직접 업로드 -->
         <label class="w-full bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 p-2.5 rounded-lg text-center font-bold flex flex-col items-center justify-center transition active:scale-[0.98] cursor-pointer">
           <span class="text-base mb-0.5">📄</span>
           <span>2. 카카오톡 내보내기(.txt) 파일 업로드</span>
           <input type="file" id="txtFileInput" accept=".txt,text/plain" class="hidden" />
         </label>
 
-        <!-- 텍스트 직접 입력창 (보조용) -->
         <div>
           <div class="flex justify-between items-end mb-1">
             <label class="font-bold text-slate-700 block">💬 또는 대화 내용 복사해서 붙여넣기</label>
@@ -112,21 +102,18 @@
           <textarea id="kakaoInput" class="w-full h-24 border border-slate-300 rounded-lg p-2 font-mono text-[11px] leading-tight bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none" placeholder="파일 업로드 대신 텍스트를 바로 붙여넣어도 됩니다."></textarea>
         </div>
 
-        <!-- 실행 버튼 -->
         <button id="btnRunAnalyze" onclick="runAiAnalysis()" class="w-full bg-indigo-600 text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md active:scale-[0.98] transition flex items-center justify-center gap-1.5">
-          <span id="btnRunText">🚀 AI 추출 및 집계 실행</span>
+          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.0)</span>
         </button>
       </div>
     </details>
 
-    <!-- 2. 모바일 스와이프 탭 -->
     <div class="flex gap-1.5 overflow-x-auto hide-scrollbar text-xs font-bold whitespace-nowrap mt-1">
       <button onclick="setTab('destinations')" id="tab_destinations" class="flex-1 min-w-[100px] py-2.5 px-2 rounded-lg bg-indigo-500 text-white shadow transition-all">📍 1. 배송지</button>
       <button onclick="setTab('items')" id="tab_items" class="flex-1 min-w-[110px] py-2.5 px-2 rounded-lg bg-slate-200 text-slate-600 transition-all">🥩 2. 전체품목</button>
       <button onclick="setTab('specials')" id="tab_specials" class="flex-1 min-w-[110px] py-2.5 px-2 rounded-lg bg-slate-200 text-slate-600 transition-all">🔪 3. 팩/Kg 소분</button>
     </div>
 
-    <!-- 3. 결과 출력 컨테이너 -->
     <div id="outputContainer" class="bg-white rounded-xl shadow-sm border border-slate-200 min-h-[300px] overflow-hidden">
       <div class="p-8 text-center text-slate-400 font-medium text-xs leading-relaxed">
         위쪽 박스에서 파일을 업로드하거나<br>텍스트를 넣고 <b class="text-indigo-500">[실행]</b>을 누르세요.
@@ -136,21 +123,16 @@
   </main>
 
 <script>
-// ==========================================================
-// 1. 전역 상태 및 날짜 세팅
-// ==========================================================
 let CLIENT_DB = [];
 let parsedOrders = [];
 let currentTab = 'destinations';
 
 const MEAT_CATEGORIES = ['삼겹', '오겹', '특목살', '목살', 'B목살', '미전지', '전지', '미후지', '냉장3mm후지', '후지', '등뼈', '등심', '안심', '갈비', '등갈비', '항정', '가브리', '갈매기', '사태', '우삼겹', '차돌', '돈피', '장족', '모돈', '민찌', '살치', '홍두깨', '늑간'];
 
-// 오늘 날짜 셋팅
 const today = new Date();
 const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 document.getElementById('targetDate').value = todayStr;
 
-// API 키 브라우저 자동 저장
 window.addEventListener('DOMContentLoaded', () => {
   const savedKey = localStorage.getItem('geminiApiKey');
   if (savedKey) document.getElementById('geminiApiKey').value = savedKey;
@@ -159,7 +141,6 @@ document.getElementById('geminiApiKey').addEventListener('change', function() {
   localStorage.setItem('geminiApiKey', this.value.trim());
 });
 
-// UI 피드백 토스트
 function showToast(msg, isError = false) {
   const banner = document.getElementById('toastBanner');
   document.getElementById('toastMsg').innerText = msg;
@@ -168,7 +149,6 @@ function showToast(msg, isError = false) {
   setTimeout(() => banner.classList.add('hidden'), 3000);
 }
 
-// 거리 계산 (Haversine)
 const DEPOT = { lat: 37.305, lon: 126.855 };
 function calcDistKm(lat1, lon1, lat2, lon2) {
   const R = 6371.0;
@@ -178,7 +158,6 @@ function calcDistKm(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.35;
 }
 
-// 대체 위경도
 function getApproxGeo(addr) {
   if (addr.includes('대부')) return { region: '안산 대부', lat: 37.24, lon: 126.58 };
   if (addr.includes('단원구') || addr.includes('정왕') || addr.includes('배곧')) return { region: '안산/시흥 서부', lat: 37.33, lon: 126.75 };
@@ -190,9 +169,6 @@ function getApproxGeo(addr) {
   return { region: '기타/지방', lat: 37.38, lon: 126.80 };
 }
 
-// ==========================================================
-// 2. CSV 파일 업로드
-// ==========================================================
 document.getElementById('csvFileInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -235,9 +211,6 @@ document.getElementById('txtFileInput').addEventListener('change', function(e) {
   reader.readAsText(file, 'utf-8');
 });
 
-// ==========================================================
-// 3. AI 연동 및 데이터 분석 (과부하 방지 + gemini-1.5-flash)
-// ==========================================================
 async function runAiAnalysis() {
   const apiKey = document.getElementById('geminiApiKey').value.trim();
   if (!apiKey) {
@@ -266,8 +239,6 @@ async function runAiAnalysis() {
     const tDt = new Date(targetDateStr + "T00:00:00");
     const winStart = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, 10, 0); 
     const winEnd = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), 14, 0); 
-    
-    // 🎯 2일 전 데이터는 분석 전 삭제 (503 에러 원천 방지)
     const limitDate = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 2, 0, 0);
 
     let lines = rawText.split(/\r?\n/);
@@ -279,7 +250,7 @@ async function runAiAnalysis() {
 
     const reMobileDot = /^\s*[·\.\-]?\s*(\d{1,2})[\/\.](\d{1,2})\.?\s+(오전|오후)\s+(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
     const reExport = /^(\d{4})[년\.\-\/]\s*(\d{1,2})[월\.\-\/]\s*(\d{1,2})[일\.]?\s*(오전|오후)?\s*(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
-    const rePc = /^\[([^\]]+)\]\s*\[(오전\vert{}오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
+    const rePc = /^\[([^\]]+)\]\s*\[(오전|오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
     const reDateDiv = /^-*\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
 
     for (const rawLine of lines) {
@@ -306,7 +277,6 @@ async function runAiAnalysis() {
         dt = new Date(tDt.getFullYear(), mo - 1, dy, hr, mn);
         if (dt > tDt && mo === 1 && tDt.getMonth() === 11) dt.setFullYear(tDt.getFullYear() + 1);
         else if (dt < tDt && mo === 12 && tDt.getMonth() === 0) dt.setFullYear(tDt.getFullYear() - 1);
-
         curBlock = { dt, lines: mDot[7].trim() ? [mDot[7].trim()] : [] };
       } else if (mExp) {
         let yr = parseInt(mExp[1]), mo = parseInt(mExp[2]), dy = parseInt(mExp[3]), ampm = mExp[4] || '';
@@ -325,7 +295,6 @@ async function runAiAnalysis() {
       }
 
       if (dt) {
-        // 🎯 2일 전 과거 데이터 버림 (과부하 방지)
         if (dt < limitDate) {
           curBlock = null;
           continue;
@@ -368,12 +337,12 @@ async function runAiAnalysis() {
       return;
     }
 
-    // 🔥 올바른 AI 주소(gemini-1.5-flash)로 변경 완료 🔥
+    // 🔥 정답 주소: gemini-1.5-flash 탑재 완료 🔥
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const prompt = `
 너는 육가공 도매업체 '미트포앤'의 카톡 발주 데이터를 정리하는 AI야.
-아래 카카오톡 대화 내용에서 '실제 발주(주문)' 내역만 추출해서 순수 JSON 배열로 반환해.
+아래 제공된 카카오톡 대화 내용에서 '실제 발주(주문)' 내역만 추출해서 순수 JSON 배열로 반환해.
 
 [절대 주의사항 - 계근 기록 및 요약본 제외]
 1. 현장 직원이 고기 무게를 잰 '계근 기록' (예: "암삼 21대 16.9 16.9", "19대 6.10")은 절대 발주가 아니니 무조건 버려! 숫자에 소수점(16.9)이 있거나 단위가 '대', '포', '개'이면 100% 버릴 것.
@@ -417,9 +386,8 @@ ${filteredText}
     });
 
     if (!response.ok) {
-      if (response.status === 400) throw new Error("API 키가 올바르지 않습니다.");
+      if (response.status === 400) throw new Error("API 키가 올바르지 않습니다. (키를 다시 확인해주세요)");
       if (response.status === 404) throw new Error("API 모델 연결 실패 (404).");
-      // 503 에러 발생 시 사용자 친화적 메시지 출력
       if (response.status === 503) throw new Error("구글 AI 서버가 일시적으로 붐빕니다. (503 과부하)\n5초 후 다시 [실행] 버튼을 눌러주세요.");
       throw new Error(`API 호출 실패: ${response.status} 에러`);
     }
