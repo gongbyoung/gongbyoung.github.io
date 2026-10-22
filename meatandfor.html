@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 모바일 발주 집계</title>
+  <title>미트포앤 발주 집계</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -240,11 +240,10 @@ async function runAiAnalysis() {
     const winStart = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, 10, 0); 
     const winEnd = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), 14, 0); 
     
-    // 🎯 [과부하 방지 코드 추가] 지정일 기준 2일 전 데이터는 분석에서 아예 삭제
+    // 과부하 방지: 지정일 2일 전 데이터는 분석 전 삭제
     const limitDate = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 2, 0, 0);
 
     let lines = rawText.split(/\r?\n/);
-    // 모바일 멈춤 방지를 위해 최근 3000줄(약 일주일치)만 우선 남깁니다.
     if (lines.length > 3000) lines = lines.slice(-3000);
 
     const blocks = [];
@@ -253,7 +252,7 @@ async function runAiAnalysis() {
 
     const reMobileDot = /^\s*[·\.\-]?\s*(\d{1,2})[\/\.](\d{1,2})\.?\s+(오전|오후)\s+(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
     const reExport = /^(\d{4})[년\.\-\/]\s*(\d{1,2})[월\.\-\/]\s*(\d{1,2})[일\.]?\s*(오전|오후)?\s*(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
-    const rePc = /^\[([^\]]+)\]\s*\[(오전|오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
+    const rePc = /^\[([^\]]+)\]\s*\[(오전\vert{}오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
     const reDateDiv = /^-*\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
 
     for (const rawLine of lines) {
@@ -278,7 +277,6 @@ async function runAiAnalysis() {
         if (ampm === '오후' && hr !== 12) hr += 12;
         if (ampm === '오전' && hr === 12) hr = 0;
         dt = new Date(tDt.getFullYear(), mo - 1, dy, hr, mn);
-        // 날짜 보정 로직
         if (dt > tDt && mo === 1 && tDt.getMonth() === 11) dt.setFullYear(tDt.getFullYear() + 1);
         else if (dt < tDt && mo === 12 && tDt.getMonth() === 0) dt.setFullYear(tDt.getFullYear() - 1);
 
@@ -300,7 +298,6 @@ async function runAiAnalysis() {
       }
 
       if (dt) {
-        // 🎯 2일 전보다 오래된 데이터면 아예 블록에 저장하지 않고 버림 (가장 중요한 속도 개선 포인트)
         if (dt < limitDate) {
           curBlock = null;
           continue;
@@ -343,11 +340,12 @@ async function runAiAnalysis() {
       return;
     }
 
+    // 💡 404 에러를 유발했던 3.5 모델을 정상 작동하는 1.5로 완벽 복구
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const prompt = `
 너는 육가공 도매업체 '미트포앤'의 카톡 발주 데이터를 정리하는 AI야.
-아래 카카오톡 대화 내용에서 '실제 발주(주문)' 내역만 추출해서 순수 JSON 배열로 반환해.
+아래 제공된 카카오톡 대화 내용에서 '실제 발주(주문)' 내역만 추출해서 순수 JSON 배열로 반환해.
 
 [절대 주의사항 - 계근 기록 및 요약본 제외]
 1. 현장 직원이 고기 무게를 잰 '계근 기록' (예: "암삼 21대 16.9 16.9", "19대 6.10")은 절대 발주가 아니니 무조건 버려! 숫자에 소수점(16.9)이 있거나 단위가 '대', '포', '개'이면 100% 버릴 것.
@@ -393,6 +391,8 @@ ${filteredText}
     if (!response.ok) {
       if (response.status === 400) throw new Error("API 키가 올바르지 않습니다. (키를 다시 확인해주세요)");
       if (response.status === 404) throw new Error("API 모델 연결 실패 (404).");
+      // 503 에러 발생 시 사용자 친화적인 메시지로 변환
+      if (response.status === 503) throw new Error("구글 AI 서버가 일시적으로 붐빕니다. (503 에러)\n5초 후 다시 실행 버튼을 눌러주세요.");
       throw new Error(`API 호출 실패: ${response.status} 에러`);
     }
 
@@ -455,10 +455,12 @@ ${filteredText}
     let specialUnitsCount = 0;
     let deltaCount = 0;
     let totalBoxes = 0;
+    const catSet = new Set();
     
     parsedOrders.forEach(o => {
       if (o.isDelta) deltaCount++;
       o.items.forEach(it => {
+        catSet.add(it.category);
         if (it.unit.includes('박스')) totalBoxes += it.qty;
         else if (it.isSpecialUnit) {
           specialUnitsCount++;
@@ -470,13 +472,14 @@ ${filteredText}
     document.getElementById('kpiStores').innerText = parsedOrders.length;
     document.getElementById('kpiTotalBoxes').innerText = Math.round(totalBoxes*10)/10;
     document.getElementById('kpiDelta').innerText = deltaCount;
+    document.getElementById('kpiCategories').innerText = catSet.size;
     document.getElementById('kpiSpecials').innerText = specialUnitsCount;
 
     setTab('destinations');
 
   } catch (err) {
     console.error(err);
-    alert("오류 발생: " + err.message);
+    alert(err.message);
   } finally {
     btn.disabled = false;
     btn.classList.remove('opacity-75');
