@@ -2,9 +2,8 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <!-- 모바일 확대 방지 및 꽉 찬 앱 화면 느낌 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 모바일 발주 집계</title>
+  <title>미트포앤 스마트 발주 집계 (모바일)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -18,63 +17,63 @@
 </head>
 <body class="text-slate-800">
 
-  <!-- 상단 알림 토스트 (모바일 피드백용) -->
+  <!-- 상단 알림 토스트 -->
   <div id="toastBanner" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden bg-indigo-600 text-white px-4 py-2.5 rounded-full shadow-xl font-bold text-xs flex items-center gap-2 transition-all">
     <span id="toastMsg">✅ 분석 완료!</span>
   </div>
 
-  <!-- 💡 [모바일 플로팅 헤더] 스크롤해도 항상 위에 고정 -->
+  <!-- 모바일 플로팅 헤더 -->
   <header class="fixed top-0 w-full z-50 bg-slate-900 text-white shadow-md">
     <div class="px-3 py-2 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded text-[10px]">미트포앤</span>
         <h1 class="text-sm font-bold truncate">모바일 발주 집계</h1>
       </div>
-      <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded">
+      <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded border border-slate-700">
         <span id="dbStatusBadge" class="text-rose-400 font-bold">CSV 미등록</span>
       </div>
     </div>
     
-    <!-- 4대 요약 KPI (항상 보임) -->
+    <!-- 4대 요약 KPI -->
     <div class="bg-slate-800 border-t border-slate-700 grid grid-cols-4 text-center divide-x divide-slate-700">
       <div class="py-1.5">
-        <div class="text-[9px] text-slate-400">납품처</div>
+        <div class="text-[9px] text-slate-400 mb-0.5">납품처</div>
         <div class="text-sm font-bold text-white leading-tight"><span id="kpiStores">0</span><span class="text-[9px] font-normal ml-0.5">곳</span></div>
       </div>
       <div class="py-1.5">
-        <div class="text-[9px] text-slate-400">총 박스</div>
+        <div class="text-[9px] text-slate-400 mb-0.5">총 박스</div>
         <div class="text-sm font-bold text-indigo-400 leading-tight"><span id="kpiTotalBoxes">0.0</span><span class="text-[9px] font-normal ml-0.5">박</span></div>
       </div>
       <div class="py-1.5">
-        <div class="text-[9px] text-slate-400">품목(종)</div>
-        <div class="text-sm font-bold text-emerald-400 leading-tight"><span id="kpiCategories">0</span><span class="text-[9px] font-normal ml-0.5">종</span></div>
+        <div class="text-[9px] text-slate-400 mb-0.5">추가/정정</div>
+        <div class="text-sm font-bold text-rose-400 leading-tight"><span id="kpiDelta">0</span><span class="text-[9px] font-normal ml-0.5">건</span></div>
       </div>
       <div class="py-1.5">
-        <div class="text-[9px] text-slate-400">특수(팩/kg)</div>
-        <div class="text-sm font-bold text-rose-400 leading-tight"><span id="kpiSpecials">0</span><span class="text-[9px] font-normal ml-0.5">건</span></div>
+        <div class="text-[9px] text-slate-400 mb-0.5">특수(팩/kg)</div>
+        <div class="text-sm font-bold text-amber-400 leading-tight"><span id="kpiSpecials">0</span><span class="text-[9px] font-normal ml-0.5">건</span></div>
       </div>
     </div>
   </header>
 
-  <!-- 여백 보상 (헤더 높이만큼) -->
+  <!-- 여백 보상 -->
   <div class="h-[90px]"></div>
 
   <main class="p-3 flex flex-col gap-3">
 
-    <!-- 1. 파일 및 텍스트 입력부 (아코디언 방식으로 공간 절약) -->
+    <!-- 1. 파일 및 텍스트 입력부 -->
     <details class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" open id="inputDetails">
       <summary class="p-3 bg-slate-50 flex justify-between items-center font-bold text-sm text-slate-700 cursor-pointer">
         <div class="flex items-center gap-2">
-          <span>⚙️ 데이터 입력 설정</span>
+          <span>⚙️ 데이터 입력 설정 (열기/접기)</span>
         </div>
         <span class="arrow text-slate-400 text-xs transition-transform duration-200">▼</span>
       </summary>
       
       <div class="p-3 flex flex-col gap-3 text-xs">
         <!-- 주소록 업로드 -->
-        <label class="w-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 p-2.5 rounded-lg text-center font-bold flex flex-col items-center justify-center transition active:scale-[0.98]">
+        <label class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 p-2.5 rounded-lg text-center font-bold flex flex-col items-center justify-center transition active:scale-[0.98]">
           <span class="text-base mb-0.5">📂</span>
-          <span>1. 주소록(CSV) 먼저 업로드하기</span>
+          <span>1. 거래처 주소록(CSV) 먼저 업로드하기</span>
           <input type="file" id="csvFileInput" accept=".csv" class="hidden" />
         </label>
 
@@ -83,11 +82,11 @@
           <label class="font-bold text-indigo-800 block mb-1">📅 출고(배송) 기준일 선택</label>
           <input type="date" id="targetDate" class="w-full bg-white border border-indigo-200 rounded px-2 py-1.5 font-bold text-slate-800" />
           <div class="text-[10px] text-indigo-600 mt-1.5 leading-tight">
-            ※ 선택일 기준 <b>[전날 오전 10시 ~ 당일 오후 2시]</b> 사이 카톡만 추출. <br>단, <b>'오늘/내일'</b> 단어가 있으면 예외 규칙이 적용됩니다.
+            ※ 선택일 기준 <b>[전날 오전 10시 ~ 당일 오후 2시]</b> 사이 카톡만 추출. <br>단, <b>'오늘/내일'</b> 단어가 있으면 예외 규칙이 자동 적용됩니다.
           </div>
         </div>
 
-        <!-- 카톡 TXT 파일 직접 업로드 (모바일 1순위) -->
+        <!-- 카톡 TXT 파일 직접 업로드 -->
         <label class="w-full bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 p-2.5 rounded-lg text-center font-bold flex flex-col items-center justify-center transition active:scale-[0.98]">
           <span class="text-base mb-0.5">📄</span>
           <span>2. 카카오톡 내보내기(.txt) 파일 업로드</span>
@@ -136,12 +135,10 @@ let currentTab = 'destinations';
 
 const MEAT_CATEGORIES = ['삼겹', '오겹', '특목살', '목살', 'B목살', '미전지', '전지', '미후지', '냉장3mm후지', '후지', '등뼈', '등심', '안심', '갈비', '등갈비', '항정', '가브리', '갈매기', '사태', '우삼겹', '차돌', '돈피', '장족', '모돈', '민찌', '살치', '홍두깨', '늑간'];
 
-// 출고 기준일 오늘 날짜 세팅
 const today = new Date();
 const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-document.getElementById('targetDate').value = '2026-10-22'; // 테스트 기본값. 실사용 시 todayStr로 변경 권장
+document.getElementById('targetDate').value = todayStr; // 오늘 날짜 기본 세팅
 
-// UI 피드백 토스트 알림
 function showToast(msg, isError = false) {
   const banner = document.getElementById('toastBanner');
   document.getElementById('toastMsg').innerText = msg;
@@ -150,10 +147,29 @@ function showToast(msg, isError = false) {
   setTimeout(() => banner.classList.add('hidden'), 3000);
 }
 
+function calcDistKm(lat1, lon1, lat2, lon2) {
+  const R = 6371.0;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.35;
+}
+
+function getApproxGeo(addr) {
+  if (addr.includes('대부')) return { region: '대부도', lat: 37.24, lon: 126.58 };
+  if (addr.includes('단원구') || addr.includes('정왕') || addr.includes('배곧')) return { region: '안산/시흥 서부', lat: 37.33, lon: 126.75 };
+  if (addr.includes('상록구') || addr.includes('매송')) return { region: '안산/화성 내륙', lat: 37.30, lon: 126.85 };
+  if (addr.includes('시흥')) return { region: '시흥 내륙', lat: 37.39, lon: 126.80 };
+  if (addr.includes('서울')) return { region: '서울권', lat: 37.5, lon: 126.9 };
+  if (addr.includes('인천')) return { region: '인천권', lat: 37.45, lon: 126.70 };
+  if (addr.includes('부천') || addr.includes('광명')) return { region: '부천/광명', lat: 37.49, lon: 126.82 };
+  if (addr.includes('수원') || addr.includes('동탄') || addr.includes('오산') || addr.includes('용인')) return { region: '경기 동남부', lat: 37.26, lon: 127.05 };
+  return { region: '기타/지방', lat: 37.38, lon: 126.80 };
+}
+
 // ==========================================================
-// 2. 파일 업로드 및 데이터 읽기
+// 2. CSV 파일 업로드
 // ==========================================================
-// CSV 주소록 업로드
 document.getElementById('csvFileInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -173,7 +189,8 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
         if (customAlias) aliases.push(customAlias);
         if (baseClean && baseClean !== name && baseClean.length > 1) aliases.push(baseClean);
         
-        CLIENT_DB.push({ name, addr, aliases });
+        const geo = getApproxGeo(addr);
+        CLIENT_DB.push({ name, addr, aliases, region: geo.region, lat: geo.lat, lon: geo.lon });
       }
     }
     document.getElementById('dbStatusBadge').innerText = `${CLIENT_DB.length}곳 등록완료`;
@@ -183,7 +200,7 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
   reader.readAsText(file, 'utf-8');
 });
 
-// 카톡 TXT 파일 업로드시 바로 텍스트에라어에 채우고 실행
+// 카톡 TXT 파일 업로드시 바로 텍스트창에 채우고 실행
 document.getElementById('txtFileInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -197,7 +214,7 @@ document.getElementById('txtFileInput').addEventListener('change', function(e) {
 });
 
 // ==========================================================
-// 3. 발주 파서 및 10시~14시 시간 윈도우 알고리즘
+// 3. 발주 품목 및 단위 파서 (정규식 에러 완전 해결)
 // ==========================================================
 function determineCategory(text) {
   for (const cat of MEAT_CATEGORIES) {
@@ -213,14 +230,15 @@ function parseUnitAndQty(text) {
   let unit = '기타/세트';
   let qty = 0;
   
-  const mBox = text.match(/(\d+(?:\.\d+)?)\s*(?:박스|빡스|박|box|b\b)/i);
-  const mPack = text.match(/(\d+(?:\.\d+)?)\s*(?:판|팩|펙|봉|봉지|덩이|덩어리|진공|벌|구이)/);
-  const mKg = text.match(/(\d+(?:\.\d+)?)\s*(?:키로|kg|k\b)/i);
-  const mMari = text.match(/(\d+)\s*마리/);
+  // 🔥 정규식 그룹화하여 추출 과정에서 발생하는 null 에러 원천 차단
+  const mBox = text.match(/(\d+(?:\.\d+)?)\s*(박스|빡스|박|box|b\b)/i);
+  const mPack = text.match(/(\d+(?:\.\d+)?)\s*(판|팩|펙|봉|봉지|덩이|덩어리|진공|벌|구이)/);
+  const mKg = text.match(/(\d+(?:\.\d+)?)\s*(키로|kg|k\b)/i);
+  const mMari = text.match(/(\d+)\s*(마리)/);
   const mBare = text.match(/[가-힣a-zA-Z]+\s*[ㅡ\-:\.]?\s*(\d+)(?:\.|\s|$|[가-힣])/);
 
   if (mBox) { qty = parseFloat(mBox[1]); unit = '박스'; }
-  else if (mPack) { qty = parseFloat(mPack[1]); unit = text.match(/(판|팩|펙|봉|봉지|덩이|진공|벌)/)[0]; }
+  else if (mPack) { qty = parseFloat(mPack[1]); unit = mPack[2]; } // null 에러가 났던 지점 완벽 수정
   else if (mKg) { qty = parseFloat(mKg[1]); unit = 'Kg'; }
   else if (mMari) { qty = parseInt(mMari[1]); unit = '마리'; }
   else if (mBare && parseInt(mBare[1]) < 100) { qty = parseFloat(mBare[1]); unit = '박스(추정)'; }
@@ -230,6 +248,9 @@ function parseUnitAndQty(text) {
   return { qty, unit };
 }
 
+// ==========================================================
+// 4. 모바일 + PC 통합 날짜/시간 파서 & 필터링 알고리즘
+// ==========================================================
 function parseAndAnalyze() {
   if (CLIENT_DB.length === 0) {
     showToast("⚠️ 거래처 주소록(CSV)을 먼저 업로드해 주세요.", true);
@@ -251,83 +272,89 @@ function parseAndAnalyze() {
   const lines = rawText.split(/\r?\n/);
   const blocks = [];
   let curBlock = null;
+  let currentExtractDate = tDt; // PC 카톡 날짜 구분선 추적용 변수
 
-  // 카톡 말머리 정규식 (모바일 폰 내보내기/복사 포맷)
+  // 정규식: 모바일 폰, PC 카톡 내보내기, PC 복사 3종 완벽 지원
   const reMobileDot = /^\s*[·\.\-]?\s*(\d{1,2})[\/\.](\d{1,2})\.?\s+(오전|오후)\s+(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
   const reExport = /^(\d{4})[년\.\-\/]\s*(\d{1,2})[월\.\-\/]\s*(\d{1,2})[일\.]?\s*(오전|오후)?\s*(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
   const rePc = /^\[([^\]]+)\]\s*\[(오전\vert{}오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
+  const reDateDiv = /^-*\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/; // PC 카톡 텍스트의 날짜 구분선
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
-    if (!line || line.includes('저장한 날짜') || /^-*\s*\d{4}년/.test(line)) continue;
+    if (!line || line.includes('저장한 날짜') || line.includes('카카오톡 대화')) continue;
+
+    // 날짜 구분선 추적 (PC 카톡 복사용)
+    const mDateDiv = line.match(reDateDiv);
+    if (mDateDiv) {
+      currentExtractDate = new Date(parseInt(mDateDiv[1]), parseInt(mDateDiv[2]) - 1, parseInt(mDateDiv[3]));
+      continue;
+    }
 
     const mDot = line.match(reMobileDot);
     const mExp = line.match(reExport);
     const mPc = line.match(rePc);
 
-    let dt = null;
+    let dt = null, sender = "", content = "";
 
     if (mDot) {
       let mo = parseInt(mDot[1]), dy = parseInt(mDot[2]), ampm = mDot[3];
       let hr = parseInt(mDot[4]), mn = parseInt(mDot[5]);
       if (ampm === '오후' && hr !== 12) hr += 12;
       if (ampm === '오전' && hr === 12) hr = 0;
-      let yr = tDt.getFullYear();
-      dt = new Date(yr, mo - 1, dy, hr, mn);
-      curBlock = { dt, lines: mDot[7].trim() ? [mDot[7].trim()] : [] };
+      dt = new Date(tDt.getFullYear(), mo - 1, dy, hr, mn);
+      sender = mDot[6].trim();
+      content = mDot[7].trim();
     } else if (mExp) {
       let yr = parseInt(mExp[1]), mo = parseInt(mExp[2]), dy = parseInt(mExp[3]), ampm = mExp[4] || '';
       let hr = parseInt(mExp[5]), mn = parseInt(mExp[6]);
       if (ampm === '오후' && hr !== 12) hr += 12;
       if (ampm === '오전' && hr === 12) hr = 0;
       dt = new Date(yr, mo - 1, dy, hr, mn);
-      curBlock = { dt, lines: mExp[8].trim() ? [mExp[8].trim()] : [] };
+      sender = mExp[7].trim();
+      content = mExp[8].trim();
     } else if (mPc) {
       let ampm = mPc[2] || '', hr = parseInt(mPc[3]), mn = parseInt(mPc[4]);
       if (ampm === '오후' && hr !== 12) hr += 12;
       if (ampm === '오전' && hr === 12) hr = 0;
-      dt = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), hr, mn);
-      // PC 텍스트의 시간만 있으면 14시 기준으로 전날/당일 판별
-      if (hr >= 14) dt = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, hr, mn);
-      curBlock = { dt, lines: mPc[5].trim() ? [mPc[5].trim()] : [] };
+      // 추적된 날짜(currentExtractDate)를 기반으로 시간 설정
+      dt = new Date(currentExtractDate.getFullYear(), currentExtractDate.getMonth(), currentExtractDate.getDate(), hr, mn);
+      sender = mPc[1].trim();
+      content = mPc[5].trim();
     }
 
     if (dt) {
-      if (curBlock && curBlock.lines.length > 0) blocks.push(curBlock);
+      if (curBlock) blocks.push(curBlock);
+      curBlock = { dt, sender, lines: content ? [content] : [] };
     } else {
-      if (!curBlock) curBlock = { dt: tDt, lines: [] };
+      if (!curBlock) curBlock = { dt: tDt, sender: "수동", lines: [] };
       curBlock.lines.push(line);
     }
   }
-  if (curBlock && curBlock.lines.length > 0) blocks.push(curBlock);
+  if (curBlock) blocks.push(curBlock);
 
-  // Time Window 필터링 + "오늘/내일/금요일/모레" 키워드 덮어쓰기 알고리즘
+  // Time Window 필터링 + 오늘/내일 키워드 덮어쓰기 알고리즘
   const validBlocks = [];
   for (const b of blocks) {
     const fullBody = b.lines.join(' ');
     
-    // 키워드 검사 (오늘, 내일, 요일 등)
     const hasToday = fullBody.includes('오늘') || fullBody.includes('금일');
     const hasTomorrow = fullBody.includes('내일') || fullBody.includes('모레') || fullBody.includes('금요일');
     const isPrevDayMsg = b.dt < new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), 0, 0);
 
     let isValid = false;
     
-    // 타임 윈도우(전날 10:00 ~ 당일 14:00) 안에 들어왔는가?
+    // 1차 필터 (전날 오전 10시 ~ 당일 오후 2시)
     if (b.dt >= winStart && b.dt <= winEnd) {
         isValid = true;
     }
 
-    // 예외처리 덮어쓰기
+    // 2차 필터 (예외처리 덮어쓰기)
     if (isPrevDayMsg) {
-        // 전날 작성된 글에 '오늘'이 있으면 ➔ 이미 출고된 것이므로 버림
         if (hasToday) isValid = false;
-        // 전날 작성된 글에 '내일'이 있으면 ➔ 당일 출고분 맞으므로 무조건 포함
         if (hasTomorrow) isValid = true;
     } else {
-        // 당일 아침에 작성된 글에 '내일/모레'가 있으면 ➔ 내일 나갈 것이므로 버림
         if (hasTomorrow) isValid = false;
-        // 당일 아침에 작성된 글에 '오늘'이 있으면 ➔ 무조건 포함
         if (hasToday) isValid = true;
     }
 
@@ -373,7 +400,7 @@ function parseAndAnalyze() {
     if (foundClient) {
       currentClient = foundClient;
       if (!orderMap.has(currentClient.name)) {
-        orderMap.set(currentClient.name, { client: currentClient, items: [], isDelta: false });
+        orderMap.set(currentClient.name, { client: currentClient, distKm: calcDistKm(37.305, 126.855, currentClient.lat, currentClient.lon), items: [], isDelta: false });
       }
     }
 
@@ -391,7 +418,8 @@ function parseAndAnalyze() {
               category: determineCategory(l),
               qty: parsed.qty,
               unit: parsed.unit,
-              isSpecialUnit: !['박스', '박스(추정)'].includes(parsed.unit)
+              isSpecialUnit: !['박스', '박스(추정)'].includes(parsed.unit),
+              isDeltaItem: isDeltaMsg
             });
           }
         }
@@ -405,11 +433,11 @@ function parseAndAnalyze() {
     showToast(`✅ ${parsedOrders.length}곳 분석 완료!`);
     document.getElementById('inputDetails').open = false; // 성공시 입력창 닫기
   } else {
-    showToast(`⚠️ 해당 일자(${targetDateStr})에 일치하는 발주가 없습니다.`, true);
+    showToast(`⚠️ 해당 일자(${targetDateStr})에 유효한 발주가 없습니다.`, true);
     return;
   }
 
-  // 상단 플로팅 헤더 및 KPI 업데이트
+  // KPI 업데이트
   let specialUnitsCount = 0;
   let deltaCount = 0;
   let totalBoxes = 0;
@@ -437,7 +465,7 @@ function parseAndAnalyze() {
 }
 
 // ==========================================================
-// 4. 모바일 스와이프 탭별 렌더링 화면
+// 5. 모바일 스와이프 탭별 렌더링 화면
 // ==========================================================
 function setTab(tabId) {
   currentTab = tabId;
@@ -453,9 +481,9 @@ function setTab(tabId) {
 
   const container = document.getElementById('outputContainer');
 
-  // 1) 배송지 목록 탭 (가나다순 렌더링)
+  // 1) 배송지 목록 탭 (가까운 거리순)
   if (tabId === 'destinations') {
-    const sorted = [...parsedOrders].sort((a, b) => a.client.name.localeCompare(b.client.name));
+    const sorted = [...parsedOrders].sort((a, b) => a.distKm - b.distKm);
     let html = `<div class="p-2">`;
     sorted.forEach((o, i) => {
       let bSum = o.items.filter(it => it.unit.includes('박스')).reduce((s,it) => s+it.qty, 0);
@@ -463,13 +491,14 @@ function setTab(tabId) {
       html += `
         <details class="bg-slate-50 border border-slate-200 rounded-xl mb-2.5 overflow-hidden group">
           <summary class="p-3 bg-white flex justify-between items-center active:bg-slate-50 border-b border-transparent group-open:border-slate-200 cursor-pointer">
-            <div class="flex items-center gap-2 truncate">
+            <div class="flex items-center gap-2.5 truncate">
               <span class="bg-indigo-100 text-indigo-700 font-extrabold w-6 h-6 flex items-center justify-center rounded-full text-[10px] flex-shrink-0">${i+1}</span>
               <div class="truncate">
                 <div class="font-extrabold text-slate-900 text-sm flex items-center gap-1.5 truncate">
                   <span class="truncate">${o.client.name}</span>
                   ${o.isDelta ? '<span class="bg-rose-100 text-rose-600 px-1 py-0.5 rounded text-[8px] flex-shrink-0">추가/수정</span>' : ''}
                 </div>
+                <div class="text-[10px] text-slate-500 mt-0.5 truncate">${o.client.region} <span class="text-slate-300">|</span> 약 ${o.distKm.toFixed(1)}km</div>
               </div>
             </div>
             <div class="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
@@ -511,20 +540,20 @@ function setTab(tabId) {
       return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
     });
 
-    let html = `<div class="p-3 flex flex-col gap-2">`;
+    let html = `<div class="p-2 flex flex-col gap-2">`;
     sortedCats.forEach(cat => {
       const items = catMap[cat];
       const tBox = items.filter(x => x.item.unit.includes('박스')).reduce((s, x) => s + x.item.qty, 0);
       const tSpc = items.filter(x => x.item.isSpecialUnit).length;
       html += `
         <details class="bg-white border border-slate-300 rounded-xl shadow-sm group">
-          <summary class="p-3 bg-slate-100 hover:bg-slate-200 flex justify-between items-center border-b border-transparent group-open:border-slate-300 cursor-pointer">
+          <summary class="p-3 bg-slate-50 hover:bg-slate-100 flex justify-between items-center border-b border-transparent group-open:border-slate-300 cursor-pointer">
             <div class="font-extrabold text-slate-800 text-sm flex items-center gap-2">
               ${cat}
               ${tBox > 0 ? `<span class="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-bold">${tBox}박</span>` : ''}
               ${tSpc > 0 ? `<span class="bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded text-[10px] font-bold">특수 ${tSpc}</span>` : ''}
             </div>
-            <div class="text-slate-400 text-[10px] font-bold arrow">▼</div>
+            <div class="text-slate-400 text-[10px] font-bold arrow">▼ 열기</div>
           </summary>
           <div class="p-1">
             <table class="w-full text-[11px] text-left">
@@ -533,7 +562,7 @@ function setTab(tabId) {
                   <tr class="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                     <td class="py-2 px-2 font-bold text-slate-700 w-[35%] truncate leading-tight">${x.client}</td>
                     <td class="py-2 px-1 text-slate-600 leading-tight">${x.item.originalText}</td>
-                    <td class="py-2 px-2 text-right font-extrabold whitespace-nowrap ${x.item.isSpecialUnit ? 'text-rose-600' : 'text-slate-800'}">${x.item.qty}<span class="text-[9px] font-normal">${x.item.unit}</span></td>
+                    <td class="py-2 px-2 text-right font-extrabold whitespace-nowrap ${x.item.isSpecialUnit ? 'text-rose-600' : 'text-slate-800'}">${x.item.qty}<span class="text-[9px] font-normal ml-0.5">${x.item.unit}</span></td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -556,21 +585,21 @@ function setTab(tabId) {
     });
 
     let html = `
-    <div class="p-3">
-      <div class="bg-rose-50 border border-rose-200 rounded-xl overflow-hidden">
+    <div class="p-2">
+      <div class="bg-rose-50 border border-rose-200 rounded-xl overflow-hidden shadow-sm">
         <table class="w-full text-[11px] text-left">
           <thead class="bg-rose-100 text-rose-900 border-b border-rose-200">
             <tr>
               <th class="p-2 w-[40%] font-extrabold">거래처명</th>
-              <th class="p-2 font-extrabold">작업 지시 원문</th>
-              <th class="p-2 w-[20%] text-right font-extrabold">수량</th>
+              <th class="p-2 font-extrabold">품목/작업 지시 원문</th>
+              <th class="p-2 w-[18%] text-right font-extrabold">수량</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-rose-100 bg-white">
             ${specialItems.length === 0 ? '<tr><td colspan="3" class="p-6 text-center text-slate-400">특수 단위 발주가 없습니다.</td></tr>' : ''}
             ${specialItems.map(x => `
               <tr class="active:bg-rose-50">
-                <td class="p-2 font-bold text-slate-800 truncate">${x.client}</td>
+                <td class="p-2 font-bold text-slate-800 leading-tight">${x.client}</td>
                 <td class="p-2 text-slate-600 leading-tight">${x.item.originalText}</td>
                 <td class="p-2 text-right font-extrabold text-rose-600 whitespace-nowrap text-xs">${x.item.qty}<span class="text-[9px] font-normal ml-0.5">${x.item.unit}</span></td>
               </tr>
