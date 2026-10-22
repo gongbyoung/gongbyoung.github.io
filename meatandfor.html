@@ -2,1463 +2,460 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 일일 상차 시스템</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>미트포앤 발주 집계 시스템</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-    body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; background-color: #f1f5f9; }
+    body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; background-color: #f8fafc; }
     .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-    .custom-scroll::-webkit-scrollbar-track { background: #f8fafc; border-radius: 3px; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
-    @media print {
-      .no-print { display: none !important; }
-      .print-full { width: 100% !important; max-width: 100% !important; }
-    }
+    details > summary { list-style: none; cursor: pointer; }
+    details > summary::-webkit-details-marker { display: none; }
   </style>
 </head>
 <body class="text-slate-800 pb-12">
 
-  <!-- 상단 알림 토스트 (모바일 피드백용) -->
-  <div id="toastBanner" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden bg-indigo-600 text-white px-4 py-2.5 rounded-full shadow-xl font-bold text-xs md:text-sm flex items-center gap-2 transition-all">
-    <span id="toastMsg">✅ 분석 완료!</span>
-  </div>
-
   <!-- 상단 헤더 -->
-  <header class="bg-slate-900 text-white shadow-md no-print">
-    <div class="max-w-[1600px] mx-auto px-3 py-2.5 flex flex-wrap items-center justify-between gap-2">
-      <div class="flex items-center gap-2">
-        <span class="bg-amber-500 text-slate-950 font-extrabold px-2 py-0.5 rounded text-xs">MEAT FOR &</span>
-        <h1 class="text-sm md:text-lg font-bold tracking-tight">미트포앤 동적 5대 배차 시스템</h1>
+  <header class="bg-slate-900 text-white shadow-md">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <span class="bg-amber-500 text-slate-950 font-extrabold px-2.5 py-1 rounded text-sm">MEAT FOR &</span>
+        <h1 class="text-base md:text-lg font-bold">미트포앤 발주 품목 및 배송지 집계 시스템</h1>
       </div>
-      <div class="flex flex-wrap items-center gap-1.5 text-xs">
-        <label class="bg-slate-800 hover:bg-slate-700 border border-slate-600 px-2.5 py-1.5 rounded cursor-pointer transition flex items-center gap-1">
-          <span>📂 주소록CSV</span>
+      <div class="flex items-center gap-2 text-xs">
+        <label class="bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded cursor-pointer font-bold transition flex items-center gap-1.5 shadow-sm">
+          <span>📂 1. 주소록(CSV) 먼저 업로드</span>
           <input type="file" id="csvFileInput" accept=".csv" class="hidden" />
         </label>
-        <button type="button" id="btnLoadSample" class="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 px-2.5 py-1.5 rounded font-semibold transition">
-          🧪 샘플불러오기
-        </button>
-        <button type="button" onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1.5 rounded font-semibold transition hidden sm:inline-block">
-          🖨️ 인쇄
-        </button>
+        <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded font-semibold transition">🖨️ 인쇄</button>
       </div>
     </div>
   </header>
 
-  <!-- 메인 레이아웃 -->
-  <main class="max-w-[1600px] mx-auto p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+  <main class="max-w-6xl mx-auto p-4 flex flex-col gap-4">
 
-    <!-- 좌측 패널: 컴팩트 카톡 입력 박스 -->
-    <section class="lg:col-span-3 bg-white rounded-xl shadow-sm border border-slate-200 p-3.5 flex flex-col gap-2.5 no-print">
-      <div class="flex items-center justify-between border-b pb-2">
-        <h2 class="font-bold text-sm">💬 1단계: 카톡 발주 입력</h2>
-        <span id="dbCountBadge" class="text-[11px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded font-bold">거래처 198곳 내장</span>
+    <!-- 입력 섹션 (슬라이드 대신 깔끔한 고정 높이 텍스트박스) -->
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="font-bold text-sm text-slate-700">💬 2. 카카오톡 발주 텍스트 복사/붙여넣기</h2>
+        <span id="dbStatusBadge" class="text-xs bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded font-bold">⚠️ 주소록 CSV 미등록</span>
       </div>
-
-      <!-- 옵션 설정 -->
-      <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 grid grid-cols-2 gap-2 text-xs">
-        <div>
-          <label class="font-semibold text-slate-600 block mb-0.5">📅 출고 기준일</label>
-          <input type="date" id="targetDate" value="2026-10-22" class="w-full border border-slate-300 rounded px-1.5 py-1 font-semibold text-slate-800" />
-        </div>
-        <div>
-          <label class="font-semibold text-slate-600 block mb-0.5">⚖️ 적재 상한(박스)</label>
-          <input type="number" id="maxBoxLimit" value="58" min="25" max="120" class="w-full border border-slate-300 rounded px-1.5 py-1 font-bold text-slate-800" />
-        </div>
-      </div>
-
-      <!-- 멀티 업로드 버튼 (.txt + 캡처 이미지) -->
-      <div class="grid grid-cols-2 gap-2">
-        <label class="border-2 border-dashed border-amber-400 bg-amber-50/50 active:bg-amber-100 rounded-lg p-2 text-center cursor-pointer transition flex flex-col items-center justify-center">
-          <span class="text-base">📄</span>
-          <span class="text-[11px] font-bold text-amber-900">카톡 .txt 파일</span>
-          <input type="file" id="txtFileInput" accept=".txt,text/plain" class="hidden" />
-        </label>
-        <label class="border-2 border-dashed border-blue-400 bg-blue-50/50 active:bg-blue-100 rounded-lg p-2 text-center cursor-pointer transition flex flex-col items-center justify-center">
-          <span class="text-base">📸</span>
-          <span class="text-[11px] font-bold text-blue-900">캡처 이미지 업로드</span>
-          <input type="file" id="imgFileInput" accept="image/*" multiple class="hidden" />
-        </label>
-      </div>
-
-      <!-- OCR 진행 상태 -->
-      <div id="ocrStatusBox" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-900">
-        <div class="flex justify-between font-bold mb-1">
-          <span id="ocrStatusText">📸 이미지 글자 추출 중...</span>
-          <span id="ocrProgressPct">0%</span>
-        </div>
-        <div class="w-full bg-blue-200 h-1.5 rounded-full overflow-hidden">
-          <div id="ocrProgressBar" class="bg-blue-600 h-full transition-all duration-200" style="width: 0%"></div>
-        </div>
-      </div>
-
-      <!-- 컴팩트 슬라이드 스크롤 텍스트 입력창 -->
-      <div class="flex flex-col bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-        <div class="flex justify-between items-center mb-1">
-          <label class="text-[11px] font-bold text-slate-700">✍️ 카톡 대화 텍스트 (모바일·PC 모두 호환)</label>
-          <div class="flex items-center gap-2">
-            <button type="button" id="btnCollapseInput" class="text-[11px] text-indigo-600 font-semibold">접기 ▲</button>
-            <button type="button" id="btnClearInput" class="text-[11px] text-rose-600 font-semibold">비우기</button>
-          </div>
-        </div>
-
-        <div id="inputBoxWrapper" class="flex flex-col gap-1.5">
-          <div class="flex items-center gap-2 text-[11px] text-slate-500">
-            <span>입력창 높이:</span>
-            <input type="range" id="textareaHeightSlider" min="80" max="360" value="130" class="flex-1 accent-indigo-600 cursor-pointer h-1.5" />
-            <span id="heightPxLabel" class="w-9 text-right font-mono">130px</span>
-          </div>
-
-          <textarea id="kakaoInput" style="height: 130px;" placeholder="여기에 카카오톡 발주 내용을 붙여넣고 아래 파란색 [실행] 버튼을 누르세요." class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono leading-snug bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none custom-scroll overflow-y-scroll"></textarea>
-        </div>
-      </div>
-
-      <!-- 모바일에서도 터치 즉시 반응하는 실행 버튼 -->
-      <button type="button" id="btnRunAnalyze" class="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-extrabold py-3 rounded-xl shadow-md transition flex items-center justify-center gap-1.5 text-sm cursor-pointer select-none">
-        <span id="btnRunText">🚀 발주 자동 분류 & 5대 동적 배차 실행</span>
+      <textarea id="kakaoInput" class="w-full h-32 border border-slate-300 rounded-lg p-2.5 text-xs font-mono leading-snug bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none custom-scroll resize-y" placeholder="주소록 CSV 파일을 먼저 업로드한 뒤, 카톡 발주 내용을 이곳에 붙여넣어 주세요."></textarea>
+      
+      <button onclick="parseAndAnalyze()" class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-sm transition flex items-center justify-center gap-2 text-sm">
+        <span>🚀 발주 내역 자동 집계 실행</span>
       </button>
     </section>
 
-    <!-- 우측 패널: 상단 4개 KPI 카드 + 탭 기반 표(Table) 출력 화면 -->
-    <section id="outputSection" class="lg:col-span-9 flex flex-col gap-3.5 print-full">
-
-      <!-- 상단 4개 KPI 카드 -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 md:gap-3">
-        <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200">
-          <div class="text-xs text-slate-500 font-medium">당일 매칭 납품처</div>
-          <div class="text-2xl font-extrabold text-slate-900 mt-0.5"><span id="kpiTotalStores">0</span><span class="text-sm font-normal text-slate-500 ml-1">곳</span></div>
-          <div id="kpiWaveSplit" class="text-[11px] text-slate-500 mt-1">198개 전체 거래처 DB 자동대조</div>
-        </div>
-        <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200">
-          <div class="text-xs text-slate-500 font-medium">총 환산 물량 (박스)</div>
-          <div class="text-2xl font-extrabold text-indigo-600 mt-0.5"><span id="kpiTotalBoxes">0.0</span><span class="text-sm font-normal text-slate-500 ml-1">박스</span></div>
-          <div id="kpiBoxSplit" class="text-[11px] text-slate-500 mt-1">차량 5대 평균 0.0박스</div>
-        </div>
-        <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200">
-          <div class="text-xs text-slate-500 font-medium">⚡ 추가·정정(Delta)</div>
-          <div class="text-2xl font-extrabold text-rose-600 mt-0.5"><span id="kpiMorningAdds">0</span><span class="text-sm font-normal text-slate-500 ml-1">곳</span></div>
-          <div class="text-[11px] text-rose-600 font-medium mt-1">●추가 / 정정 / 오전 발주 포함</div>
-        </div>
-        <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200">
-          <div class="text-xs text-slate-500 font-medium">출발 준비 상태</div>
-          <div id="kpiDepartureStatus" class="text-sm md:text-base font-extrabold text-emerald-600 mt-1">✅ 5대 동적 권역 배차 완료</div>
-          <div class="text-[11px] text-slate-500 mt-1">방문지당 하차시간 설정 연동</div>
-        </div>
+    <!-- 결과 요약 지표 -->
+    <div class="grid grid-cols-3 gap-3">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 text-center">
+        <div class="text-xs text-slate-500 font-medium">당일 배송지 수</div>
+        <div class="text-2xl font-extrabold text-slate-900 mt-1"><span id="kpiStores">0</span><span class="text-sm font-normal text-slate-500 ml-1">곳</span></div>
       </div>
-
-      <!-- 메인 뷰 탭 바 (표 전용 탭 4종) & 필터 옵션 -->
-      <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-2 no-print">
-        <div class="flex flex-wrap items-center gap-1.5">
-          <button type="button" onclick="setMainTab('schedule')" id="tabBtn_schedule" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition">
-            🚚 1. 호차별 배차·상차 일정표
-          </button>
-          <button type="button" onclick="setMainTab('destinations')" id="tabBtn_destinations" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
-            📍 2. 전체 배송처 목록
-          </button>
-          <button type="button" onclick="setMainTab('orders')" id="tabBtn_orders" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
-            🥩 3. 전체 발주목록
-          </button>
-          <button type="button" onclick="setMainTab('masterdb')" id="tabBtn_masterdb" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
-            📚 4. 전체 거래처 DB (198곳)
-          </button>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-2 text-xs">
-          <label class="flex items-center gap-1 font-bold text-purple-700 cursor-pointer bg-purple-50 border border-purple-200 px-2 py-1 rounded-lg">
-            <input type="checkbox" id="chkLifoOrder" onchange="renderAll()" class="rounded text-purple-600" />
-            <span>📦 역순 상차순(안쪽➔문쪽)</span>
-          </label>
-          <label class="flex items-center gap-1 font-bold text-rose-600 cursor-pointer bg-rose-50 border border-rose-200 px-2 py-1 rounded-lg">
-            <input type="checkbox" id="chkDeltaOnly" onchange="renderAll()" class="rounded text-rose-600" />
-            <span>⚡ 추가/변경분만</span>
-          </label>
-          <label class="flex items-center gap-1 font-medium text-slate-600 cursor-pointer">
-            <input type="checkbox" id="chkIncludeRetail" onchange="parseAndAnalyze(false)" class="rounded text-indigo-600" />
-            <span>제소매 포함</span>
-          </label>
-          <div class="flex items-center gap-1">
-            <span class="font-semibold text-slate-600">정차:</span>
-            <input type="number" id="dwellMinutes" value="10" min="3" max="60" onchange="renderAll()" class="w-11 border border-slate-300 rounded px-1 py-0.5 text-center font-bold" />
-            <span class="text-slate-500">분</span>
-          </div>
-        </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 text-center">
+        <div class="text-xs text-slate-500 font-medium">전체 품목 종류 (카테고리)</div>
+        <div class="text-2xl font-extrabold text-indigo-600 mt-1"><span id="kpiCategories">0</span><span class="text-sm font-normal text-slate-500 ml-1">종</span></div>
       </div>
-
-      <!-- 차량 선택 필터 버튼 바 -->
-      <div class="flex flex-wrap items-center justify-between gap-2 no-print">
-        <div class="flex flex-wrap gap-1.5" id="vehicleTabs"></div>
-        <div class="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs w-full sm:w-auto">
-          <span>🔍</span>
-          <input type="text" id="tableSearchInput" oninput="renderAll()" placeholder="거래처명, 지역, 품목 검색..." class="focus:outline-none w-full sm:w-44 text-slate-800" />
-        </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 text-center">
+        <div class="text-xs text-slate-500 font-medium">팩/Kg 등 특수단위</div>
+        <div class="text-2xl font-extrabold text-rose-600 mt-1"><span id="kpiSpecialUnits">0</span><span class="text-sm font-normal text-slate-500 ml-1">건</span></div>
       </div>
+    </div>
 
-      <!-- 메인 표(Table) 결과 출력 컨테이너 -->
-      <div id="resultContainer" class="flex flex-col gap-4"></div>
+    <!-- 결과 탭 메뉴 -->
+    <div class="bg-slate-800 p-2 rounded-xl flex gap-1 overflow-x-auto text-sm no-print">
+      <button onclick="setTab('destinations')" id="tab_destinations" class="flex-1 py-2 px-4 rounded-lg font-bold transition bg-indigo-500 text-white shadow">📍 1. 배송지 목록 (거리순)</button>
+      <button onclick="setTab('items')" id="tab_items" class="flex-1 py-2 px-4 rounded-lg font-bold transition text-slate-300 hover:bg-slate-700 hover:text-white">🥩 2. 전체 발주 항목표 (품목별)</button>
+      <button onclick="setTab('specials')" id="tab_specials" class="flex-1 py-2 px-4 rounded-lg font-bold transition text-slate-300 hover:bg-slate-700 hover:text-white">🔪 3. 팩/Kg 특수단위 작업목록</button>
+    </div>
 
-    </section>
+    <!-- 결과 출력 화면 컨테이너 -->
+    <div id="outputContainer" class="bg-white rounded-xl shadow-sm border border-slate-200 min-h-[400px]">
+      <div class="p-10 text-center text-slate-400 font-medium">
+        카톡 텍스트를 입력하고 실행 버튼을 눌러주세요.
+      </div>
+    </div>
+
   </main>
 
 <script>
-// ============================================================================
-// 1. 최근거래처 198곳 전체 마스터 데이터
-// ============================================================================
-const DEPOT = { name: "미트포앤(안산 본사/창고)", lat: 37.305, lon: 126.855 };
-
-const RAW_CSV_CLIENTS = [
-  ["(주)굿모닝유통지마트","충북 음성군 맹동면 두성리 1486",["충북g마트","충북지마트","굿모닝유통"]],
-  ["(주)다온마트(10/1부터)","경기도 안산시 상록구 시낭로 25 (월피동)",["다온마트","다온"]],
-  ["(주)대산에프앤비(육가공)","대전시 유성구 교촌대정로 198(대정로)",["대산에프앤비"]],
-  ["(주)도니아","충북 음성군 음성읍 음성로367번길 24,씨동",["도니아"]],
-  ["(주)신선에프엔비","경기도 화성시 봉담읍 최루백로 198(분천리96-13)",["신선에프엔비"]],
-  ["(주)신선채","충북 음성군 삼성면 대청로 155,가동 1,2층",["신선채"]],
-  ["(주)아이유팜","경기 광명시 일직로 72, 에이동12층 에이-1215호(일직동)",["아이유팜"]],
-  ["(주)올바른한우","서울 강북구 도봉로67길 18(엠마트)",["올바른한우"]],
-  ["(주)우경인터내셔널","경기도 수원시 영통구 신원로 192",["우경인터내셔널"]],
-  ["(주)원신산업-보미마트","경기도 고양시 덕양구 백양로 107-1,1층(화정동)",["원신산업","원신","보미마트"]],
-  ["(주)조이건설","경기도 군포시 송부로96번길 12 A동 1304호",["조이건설"]],
-  ["(주)좋은축산유통","경기도 시흥시 군자로 387번길 21-1(거모동)",["좋은축산유통","좋은축산"]],
-  ["(주)지노미트","경기도 광명시 가락골길23(노은사동)",["지노미트"]],
-  ["(주)진흥미트유통","경기도 안산시 상록구 수암4길 17,1층102호(수암동)",["진흥미트유통","진흥미트"]],
-  ["(주)참좋은미트","경기도 성남시 수정구 성남대로 1270,2층(태평동)",["참좋은미트"]],
-  ["(주)초이스에프엔비","경기도 시흥시 금화로 550번길 36-2",["초이스에프엔비"]],
-  ["(주)캐틀팜","경기도 수원시 권선구 호매실로90번길39,6층(호매실동,성지빌딩)",["캐틀팜"]],
-  ["(주)코리아푸드","경기도 용인시 기흥구 공세로 126-1(공세동)",["코리아푸드"]],
-  ["(주)큐엔씨육가공","경기도 안산시 단원구 초지2로 59-18(초지동)",["큐엔씨육가공","큐엔씨"]],
-  ["(주)태광푸드","경기도 화성시 매송면 송라길39번길23,1동(송라리) 607-3",["태광","태광푸드"]],
-  ["(주)태호미트","경기도 포천시 내촌면 내진로 258번길75",["태호미트"]],
-  ["(주)판교1등축산(구-푸른 대장동","경기도 성남시 분당구 판교대장로6길 10, 108호(대장동)",["판교1등축산","판교1등","1등축산"]],
-  ["(주)푸드백서 농업회사법인","대전광역시 중구 산서로62번길 10, 2층(사정동)",["푸드백서"]],
-  ["(주)하나에프에스","경기도 군포시 당정로27번길 42,1층",["하나에프에스"]],
-  ["(주)하나프라임","경기도 용인시 수지구 신수로 767, A동 1605호(동천동, 분당수지 U-TOWER)",["하나프라임"]],
-  ["(주)한마음마트(일동)=>정육으로","경기도 안산시 상록구 일동로20 (일동120-3)",["한마음마트","한마음"]],
-  ["(주)황금비앤피","경기도 안산시 상록구 청곡길36(부곡동)",["황금비앤피"]],
-  ["갈비면옥(갈비나라2호점)","경기도 안산시 단원구 선삼로22,1층(선부동)",["갈비면옥"]],
-  ["거시기 함흥냉면","경기도 군포시 삼성로20번길 16-12, 1층(부곡동)",["거시기함흥냉면","거시기"]],
-  ["고기공장바름(주)","경기도 안산시 상록구 세류로2안길 2,1층(본오동)",["고기공장바름"]],
-  ["고기바보푸주간(부곡)","경기도 군포시 송부로291번길 16,1층 103호(부곡동)",["고기바보부곡","고기바보 부곡","부곡점"]],
-  ["고기바보푸주간(송정점)","경기도 군포시 송부로34번길 35, 103호(도마교동,센프럴프라자)",["고바송정","고기바보송정","송정점"]],
-  ["고기바보푸줏간(장안점)","경기도 의왕시 장안중앙로7, 101.102호(삼동)",["고기바보장안","장안점"]],
-  ["골목대장삼겹살","경기도 시흥시 시흥대로 1073번길 29,1층(신천동)",["골목대장"]],
-  ["곱창연가","경기도 시흥시 하상로4번길 7(하상동,1층)",["곱창연가"]],
-  ["구들짱황소곱창삼겹살(인계동)","경기도 수원시 팔달구 권광로 180번길 53-26,1층(인계동)",["구들장","구들짱"]],
-  ["구워랑","경기도 화성시 꽃내음2길 12-2 118,119호(새솔동)",["구워랑"]],
-  ["국민생고기(장곡동)","경기도 시흥시 장곡로37번길 5-3,101호(장곡동)",["국민생고기 장곡","국민생고기"]],
-  ["기둥병원","경기도 안산시 상록구 상록수로34(본오동,3층)",["기둥병원"]],
-  ["길산업","경기도 안산시 상록구 삼리1길 30,1층101호",["길산업"]],
-  ["김치왕뚜껑삼겹살","경기도 부천시 역곡로 37(역곡동)",["김치왕뚜껑삼겹살1호점","김치1"]],
-  ["김치왕뚜껑삼겹살(2호점)","서울특별시 구로구 고척로 127,1층(개봉동)",["김치왕뚜껑삼겹살 2호점","김치왕뚜껑삼겹살2호점","김치2"]],
-  ["김치왕뚜껑삼겹살(3호점부천)","경기 부천시 부일로 446번길 10-1,1층(심곡동)",["김치왕뚜껑삼겹살3호점","김치왕뚜껑삼겹살 3호점","김치3"]],
-  ["김치찌개전문점(사동)","경기도 안산시 상록구 석호로 178,1층 101호(사동)",["김치찌개집","김치찌개전문점"]],
-  ["까만돼지","경기도 시흥시 군자로534번안길 7, 나동 지1층 B101호(거모동)",["까만돼지"]],
-  ["꿀돼지꿀한우(가리봉)","서울 금천구 가산로 106,상가동 1층104호(가산동,주상복합두산아파트)",["가리봉꿀돼지꿀한우","가리봉꿀"]],
-  ["꿀돼지꿀한우(금천)","서울 금천구 금하로697 101호(시흥동)",["금천꿀돼지꿀한우","금천꿀"]],
-  ["꿀돼지꿀한우정육점(광명)","경기도 광명시 광명로 848번길 32-2,1층 103호(광명동,펠리스필)",["광명꿀","광꿀","광명꿀돼지"]],
-  ["노무법인 이엘(EL)","경기도 안산시 상록구 광덕1로385,204호(이동,엔타운)",["노무법인이엘"]],
-  ["농민마트 고잔점","경기도 안산시 단원구 광덕4로88, 106호 외55개(고잔동)",["농민마트고잔","농민고잔","고잔"]],
-  ["농법(주)대산축산유통","경기도 안산시 상록구 조구나리길 20(이동,1층)",["대산축산유통"]],
-  ["농업법인(유)둔포축산","충청남도 아산시 둔포면 아산밸리북로11",["둔포축산"]],
-  ["농업회사법인(주)거산미트","인천시 미추홀구 독배로 446번길 15(숭의동)",["거산미트"]],
-  ["농우축산","서울 용산구 효창원로 40길-3, 1층(용문동)",["농우축산"]],
-  ["누리소(비품)","경기도 안산시 상록구 조구나리1길49(이동,1층상가)",["누리소"]],
-  ["다연홈마트","경기도 시흥시 하중로128(하중동)",["다연","다연홈마트"]],
-  ["다온마트(월피동)","경기도 안산시 상록구 시낭로25(월피동)",["다온월피"]],
-  ["다온축산(주안)","인천광역시 미추홀구 미추홀대로 510, 117호(주안동,한덕주상복합아파트)",["다온축산"]],
-  ["대박마포숯불갈비","경기도 광명시 광명로 848번길 5(광명동,1층)",["대박마포"]],
-  ["대박축산(금천)하늘소","서울 금천구 시흥대로62길 53(시흥동)",["대박축산금천","시흥대박축산","시흥동 대박축산"]],
-  ["대반전","서울특별시 양천구 오목로 148, 1층(신정동)",["대반전"]],
-  ["대부지마트(주)","경기도 안산시 단원구 대부황금로 1295(대부북동)",["대부g마트","대부지마트","대부도"]],
-  ["대진오토포밍","경기도 시흥시 마유로42번길 111,시화공단 3바 403-1호(정왕동)",["대진오토포밍"]],
-  ["더갈비(거모)","경기도 시흥시 도일로 111-1, 1층(거모동)",["더갈비"]],
-  ["더보플러스(거래명세서)","서울 마포구 마포대교 195 T202동 101호",["더보플러스"]],
-  ["덕이네쌈밥","경기도 시흥시 군자로477번길5,1층 일부호(거모동)",["덕이네쌈밥","덕이네"]],
-  ["도담(은행)","경기도 시흥시 대은로 16-14,1층(은행동)",["도담(은행동)","도담"]],
-  ["동탄식자재마트","경기도 오산시 외삼미로 162-54(외삼미동)",["동탄식자재마트","동탄식자재"]],
-  ["두근반세근반","경기도 시흥시 정왕동1624-7번지 106호",["두근반세근반"]],
-  ["두루치기김치찌개전문점","경기도 시흥시 정왕대로 64, 118호(정왕동)",["두루치기김치찌개"]],
-  ["린이네축산(본점-영통)","경기도 수원시 영통구 봉영로1770번길 21,상가동 지층 1호(영통동)",["린이네축산 본점","린이네본점","린본점"]],
-  ["린이네축산동탄점(구미래)","경기도 화성시 동탄중심상가1길 28,1층 미래마켓내정육코너(반송동)",["린이네축산 동탄","린이네동탄"]],
-  ["막뚱이정육점","인천시 부평구 마장로220번길 13, 106동(상가동)113호(산곡동)",["막뚱이정육점","막뚱이"]],
-  ["맛닭꼬치","경기도 시흥시 호현로22번길 18,1층(신천동)",["맛닭꼬치","신천동 맛닭꼬치"]],
-  ["맛있는한우(부천상동)","경기도 부천시 원미구 도약로13,1층102호",["맛있는한우"]],
-  ["매일정육점(신규)","경기도 의정부시 추동로9,1층 103호 (신곡동,휴먼시티)",["매일정육점"]],
-  ["바다포차(신규)","경기도 시흥시 함송로 38, 상가동 107호(정왕동,모아아파트)",["바다포차"]],
-  ["바른정육점(사동)","경기도 안산시 상록구 해양5로11, 1층 142호 일부(사동)",["바른정육점"]],
-  ["바를정육류연구소","경기도 하남시 미사강변한강로 409번 18, 3층",["바를정육류연구소"]],
-  ["백년손두부(백암)","경기도 용인시 처인구 백암면 삼백로 599-1,1층 101호",["백년손두부"]],
-  ["백봉(선부동)","경기도 안산시 단원구 선부광장1로 82,115호(선부동, 서림프라자)",["백봉"]],
-  ["복덩이정육점1호점","서울 은평구 연서로 252,1층(불광동)",["복덩이정육점1호점","복덩이1"]],
-  ["복덩이정육점2호점","서울 은평구 은평로 95 1층 102호",["복덩이정육점2호점","복덩이2"]],
-  ["봉군미트","경기도 화성시 남양읍 시청로160번길 52,1층105호",["봉군미트"]],
-  ["삼겹연구소","경기도 안산시 상록구 본오로79,1층 (본오동)",["삼겹연구소"]],
-  ["삼대축산정육점양평점","서울 영등포구 영등포로33,1층 104호(양평동2가,목동비즈타워)",["삼대축산","삼대"]],
-  ["삼부자돌판골","경기도 안산시 단원구 선부광장1로 30,203,204호(선부동,단원프라자)",["삼부자돈판골","삼부자돌판골","삼부자"]],
-  ["삼사오","경기 안산시 상록구 이동 공원로 53(이동,1층)",["삼사오"]],
-  ["상미왕할인마트(식자재)","경기도 군포시 금산로 9,지층 101-1호,101-2호(금정동)",["상미마트","상미마트 (군포)","상미마트 금정"]],
-  ["샛터돌왕구이","경기 안산시 단원구 신길로 20 (신길동,101호)",["샛터"]],
-  ["서창별빛정육점","인천시 남동구 서창남로 45,1층 105호(서창동,로데오프라자)",["별빛정육점","서창별빛"]],
-  ["성대지마트(주)","서울 동작구 상도로 102(상도동)",["성대g마트","성대G마트","성대지마트","성대"]],
-  ["섹시포크거성(주)","경기도 화성서 남양읍 남양서로69",["섹시포크거성"]],
-  ["셀프정육점(포동)","경기도 시흥시 신현로38번길26,1층 103호(포동)",["셀프정육점"]],
-  ["셰프앤백정(배곧)","경기도 시흥시 서울대학로278번길 19-13,108동 비-19호",["셰프앤백정"]],
-  ["소매(명장한우)","경기도 안산시 단원구 안산천남로211 보네르빌리지 110동 1702호",["제소매","명장한우"]],
-  ["소매(정영호변호사)","서울시 서초구 신반포로 20 반포래미안트리니원 104동 2505호",["정영호변호사"]],
-  ["소문난정육점","서울특별시 금천구 시흥대로 143, 1층108호(시흥동, 신라상가)",["소문난정육점","소문난"]],
-  ["소하축산(광명)","경기도 광명시 소하로82,108호(소하동,한빛프라자)",["소하축산광명","소하축산"]],
-  ["송명숯불갈비","경기도 안산시 상록구 안산천동로 252,1층(월피동)",["송명숯불갈비"]],
-  ["슈퍼킹(사동)","경기도 안산시 상록구 감골1로 33,728동 지하층 1호(사동)",["슈퍼킹"]],
-  ["신박축산","인천시 부평구 십정동 486-15 1층일부(3호)",["신박축산"]],
-  ["신풍푸줏간(신길점)","서울시 영등포구 신풍로 77.상가동 b105호(신길동, 래미안에스티움)",["신풍푸줏간 신길","신풍푸줏간","신풍신길","신풍"]],
-  ["쌈앤쌈(사동)","경기도 안산시 상록구 성안2길5,2층(사동)",["사동쌈엔쌈","쌈엔쌈","쌈앤쌈"]],
-  ["아이비유통","경기도 성남시 중원구 황송로 77, 비01~04호(금광동)",["아이비유통","아이비"]],
-  ["안심한우(광명)","경기도 광명시 오리로 964번길7(광명동)",["안심한우"]],
-  ["에스농축수산마트(율전)","경기도 수원시 장안구 덕영대로425번길 58-2(율전동)",["에스농축산마트 율전","율전동에스할인마트","율전"]],
-  ["에스에이치미트(음성)","충북 음성군 음성읍 시장로50번길5",["에스에이치마트 음성","에스에이치마트","음성엘마트","음성"]],
-  ["에이스미트(주안)","인천시 미추홀구 주안로56번길3,에이스미트내정육코너(주안동)",["에이스미트 주안","에이스미트주안","에이스 주안"]],
-  ["에이스축산(상일동)신규","서울특별시 강동구 상일로74,상가2동 1층104호(상일동)",["에이스축산"]],
-  ["여기식당","경기도 시흥시 하중로 130-1, 1층(하중동)",["여기식당"]],
-  ["연성담소골감자탕","경기도 시흥시 하상로4번길 17.1층(하상동)",["연성담소골감자탕"]],
-  ["영남식당(정왕)","경기도 시흥시 서촌상가2길30-1,104호,105호(정왕동)",["영남식당"]],
-  ["예서감자탕","경기도 안산시 상록구 매화로2길 21, 1층 일부호(이동)",["예서감자탕"]],
-  ["오늘은고기다(일동)","경기도 안산시 상록구 도매시장로93,1층 102호(일동)",["오늘은고기다"]],
-  ["오늘은냉삼(구-이구집)","경기도 시흥시 진말로 17,1층(장곡동)",["오늘은냉삼","오늘냉삼"]],
-  ["오복정육(옥련점)베스트식자재정","인천광역시 연수구 한나루로79번길 53,1층(옥련동)",["오복정육","미트포앤<옥련>"]],
-  ["오빠막창","경기도 시흥시 한우물로7 1층 102호(거모동)",["오빠막창"]],
-  ["오소돈","경기도 안산시 상록구 댕이길 80,1층(사동)",["오소돈"]],
-  ["옥이네양평해장국(신길동)","경기도 안산시 단원구 신길로 9-3, 109호(신길동)",["신길양평해장국","옥이네양평해장국"]],
-  ["옥이네주물럭","경기도 시흥시 함송로13번길 6-7, 101,102호(정왕동)",["옥이네주물럭","옥이네"]],
-  ["올인베이커리하중점(다영이네)","경기도 시흥시 하중로 205, 102호(하중동)",["올인베이커리","다영이네"]],
-  ["우도락(스타마트)","경기도 안산시 상록구 화랑로513,지층38호(성포동,스타프라자)",["스타마트","우도락"]],
-  ["우리축산정육점(수암동)","경기도 안산시 상록구 원당골길11,104호(수암동,이림지오팰리스)",["우리축산정육점","우리수암","우리축산"]],
-  ["우신유통(주)-농민와동","경기도 안산시 단원구 와동공원로 162,1층 일부(와동)",["농민마트와동","와동"]],
-  ["울트라분식","경기도 시흥시 상직길3-1,101(하상동)",["울트라","울트라분식"]],
-  ["원대성정육점","경기도 부천시 오정구 성오로124번길47(원종동,49호)",["원대성정육점","원대성"]],
-  ["원산면옥","경기도 안산시 상록구 본오로70, 1층(본오동)",["원산면옥","원산"]],
-  ["월드마트(성남)","경기도 성남시 수정구 수정남로 10,113호(수진동,제일프라자)",["월드마트"]],
-  ["유포리바베큐장","경기도 화성시 비봉면 유포길10-29",["유포리바베큐장","유포리"]],
-  ["으뜸장어(본오)","경기도 안산시 상록구 오목로60, 1층(본오동)",["으뜸장어"]],
-  ["이나미트(주)","경기도 양주시 옥정동로7다길 74,6층 6997호(옥정동)",["이나미트"]],
-  ["이모네민물매운탕","경기도 시흥시 신천3길27-7,101호(신천동)",["이모네민물메운탕","이모네민물매운탕"]],
-  ["인화숯불갈비","경기도 시흥시 하상로8번길 1,1층일부호(하상동)",["인화숯불갈비"]],
-  ["일등축산(안산일동)","경기도 안산시 상록구 구룡로 22, 1층 101호(일동)",["일등축산"]],
-  ["일신할인마트(정육점)","인천광역시 부평구 경인로 1104번길 13-14 1층(일신동,대한빌딩)",["일신할인마트"]],
-  ["임가네갈비","경기도 시흥시 정왕대로28번길3,상가동105호(정왕동)",["임가네갈비"]],
-  ["장터국밥","경기도 시흥시 정왕동1738-1번지 103호",["장터국밥"]],
-  ["장터식자재마트","경기도 구리시 동구릉로 64, 101동 지층비115호(인창동)",["장터식자재마트"]],
-  ["재수보는통돼지","경기도 오산시 경기대로 636번길 126-2, 지하1층(외삼미동)",["재수보는통돼지"]],
-  ["전라도연탄구이","경기도 시흥시 서촌상가2길 29,1층 110호(정왕동 명동프라자)",["전라도연탄구이"]],
-  ["전설갈비은행점","경기도 시흥시 대은로 16-4,1층(은행동)",["전설은행","전설갈비"]],
-  ["정성가득집밥","경기도 안산시 상록구 네고지길 2,1층 일부호(사동)",["정성가득집밥","집밥"]],
-  ["정성마트정육코너(아차산)","서울특별시 광진구 천호대로661,지하1층(구의동,정성빌딩)",["정성마트","아차산점"]],
-  ["정은한우(두산홈마트)","경기 시흥시 소래산길 67, 1층 두산홈마트 내(대야동)",["정은한우","두산홈마트"]],
-  ["제3글라스(주)","경기도 화성시 남양읍 신남리 1018-12",["제3글라스"]],
-  ["제3스틸","경기도 안산시 상록구 사동 1489-7",["제3스틸"]],
-  ["주곰감자탕(폐업)","경기도 안산시 단원구 광덕3로 145-7 ,106호,107호(고잔동)",["주곰감자탕"]],
-  ["주식회사 농민(본오)","경기도 안산시 상록구 선암로 44,1층2층(본오동)",["본오농민마트","본오농민"]],
-  ["주식회사 더상상","경기도 용인시 수지구 현암로148,202호 분할내부 205(죽전동)",["더상상"]],
-  ["주식회사 두둑","경기도 시흥시 동서로 1198번길 33(목감동)",["두둑 양념육","두둑"]],
-  ["주식회사 람다푸드","인천광역시 남동구 논고개로 123번길 35, 901호 일부3호(논현동)",["람다푸드"]],
-  ["주식회사 삼정푸드","전북 정읍시 정신로 22-12,2층 (하북동)",["삼정푸드"]],
-  ["주식회사 씨와이푸드","경기 시흥시 광석동 101-1",["씨와이푸드"]],
-  ["주식회사 정육점","경기도 용인시 기흥구 평촌1로2번길 10,103호(동백동)",["주식회사정육점"]],
-  ["주식회사 축산법인팜","경기도 안산시 단원구 해안로91(목내동)",["축산법인팜"]],
-  ["주식회사에스할인마트(지점)평택","경기도 평택시 모산영신2길34,1동1층101호 스타주차타워(동삭동)",["에스할인마트 (평택)","에스할인마트 평택","S평택"]],
-  ["주식회사토레인","경기도 남양주시 진건읍 고재로 177,1층",["토레인"]],
-  ["진안축산","경기도 화성시 병점중앙로195, 진안식자재마트 내정육코너(진안동)",["진안축산","진안"]],
-  ["찌그러진주전자","경기도 시흥시 봉우재로57(정왕동)",["찌그러진","찌그러진주전자"]],
-  ["찐하오마라탕 그랑시티시그니처","경기도 안산시 상록구 해양3로 15, 1층 118호(사동)",["찐하오마라탕","찐하오"]],
-  ["차이나감자탕","경기도 수원시 장안구 수성로370번길32,1층 일부호(영화동)",["차이나감자탕"]],
-  ["착한정육점(산현동)","경기도 시흥시 목감둘레로 80,120동 110호(산현동)",["착한정육점 (산현)","착한정육점 산현","착한산현"]],
-  ["참새방앗간","서울 금천구 범안로 1138, 108호(가산동,고려테크온)",["참새방앗간","참새"]],
-  ["참예소(포동)","경기도 시흥시 신현로 38번길 23-1. 13동 101호(포동)",["참예소"]],
-  ["창신동매운족발앤얼음막걸리","경기도시흥시 승지로60번길 101,102호(능곡동,다우빌딩)",["창신동매운족발"]],
-  ["천하제일정육점(배곧동)","경기도 시흥시 서울대학로278번길 19-13,108동 제비-103호(배곧동)",["천하제일정육점","천하제일","천하"]],
-  ["청정맛집(하중동)","경기도 시흥시 연성로29번길12(하중동)",["청정맛집"]],
-  ["총각네정육점(소사본동)","경기도 부천시 은성로76번길56, 1층 일부호(소사본동)",["총각네정육점"]],
-  ["케이마트 정육코너(청주)","충북 청주시 서원구 매봉로 134(모충동)",["케이마트"]],
-  ["큰언니포차(또바기)","경기도 안산시 단원구 와동공원로161 1층",["큰언니포차","또바기"]],
-  ["키큰정육점","경기도 안산시 단원구 북촌길 18, 1층 101호(선부동)",["키큰정육점"]],
-  ["태랑미트","충남 천안시 동남구 목천읍 종합휴양지로60",["태랑미트"]],
-  ["태양축산(능곡동)","경기도 시흥시 승지로60번길 25, 107호(능곡동,송죽센타프라자)",["태양축산"]],
-  ["패밀리포차","경기도 시흥시 하상로13,1층 일부호(하상동)",["패밀리포차"]],
-  ["푸른목장(삼평동)","경기도 성남시 분당구 판교로 376,1층 105호(삼평동,마크시티 퍼플)",["푸른목장 삼평점","푸른 삼평"]],
-  ["푸른목장(판교)","경기도 성남시 분당구 운중로 242, 1층 110호(판교동,리버스토리)",["푸른목장 판교점","푸른목장판교","푸른 판교"]],
-  ["푸줏단(동춘)","인천광역시 연수구 봉재산로48, 1층101호(동춘동)",["동춘동푸줏단","푸줏단"]],
-  ["풍년돼지양념구이(상미네곱창집)","경기도 안산시 단원구 화랑로 160, 상가동 125,126호(초지동)",["풍년돼지양념구이","풍년"]],
-  ["프리미엄정육점(구리)","경기도 구리시 체육관로 73 지하층(제이식자재마트)",["프리미엄정육점","프리미"]],
-  ["하늘소(광명점)","경기도 광명시 오리로964번길 23-1(광명동)",["하늘소광명"]],
-  ["하늘소(역곡점)","경기도 부천시 역곡로26번길 25,1층 101호(역곡동,대화빌딩)",["하늘소역곡"]],
-  ["하늘소(화곡점)","서울 강서구 강서로18길 8-10,103호.104호(화곡동)",["하늘소 화곡","하늘소화곡"]],
-  ["한결축산","경기도 시흥시 은계남로 12,상가동 1층147호(은행동)",["한결축산(은계)","한결축산"]],
-  ["한돈미트(N마트)기흥","경기도 용인시 기흥구 공세로 236(공세동)",["한돈미트"]],
-  ["한마음정육(일동)","경기도 안산시 상록구 일동로 20(일동)",["한마음정육"]],
-  ["한상궁한식주점","경기도 안산시 상록구 초당로20, 1층(사동)",["한상궁"]],
-  ["한수조경건설","서울 중구 만리재로37길 42, 2층 203호(중림동,미디어센터)",["한수조경건설"]],
-  ["한양축산도매센타(봉천동)","서울 관악구 봉천동 66-163",["한양봉천","봉천"]],
-  ["한우세상(부천상동)","경기도 부천시 원미구 송내대로 239, 1F10호(상동)",["한우세상"]],
-  ["행복한 숯불돌쇠구이","경기도 군포시 공단로 356-54(산본동)",["행복한숯불돌쇠구이","돌쇠구이"]],
-  ["현대축산(금천)","서울특별시 금천구 금하로23길4,1층1호(시흥동,신영빌딩)",["현대축산"]],
-  ["형제정육점(평촌)","경기도 안양시 동안구 흥안대로456번길42,지상1층일부호(평촌동)",["형제정육점1호점","형제정육점"]],
-  ["홍성축산","경기도 시흥시 호현로9번길6, 108호(신천동,아도니스의꿈)",["홍성축산"]],
-  ["횡성생고기","경기도 안산시 단원구 신길로 13-16, 1층(원곡동)",["횡성본점","횡성"]],
-  ["횡성생고기(인천점)","인천 동구 송화로20번길 11 (화평동,1층)",["횡성생고기 인천점","횡성 인천"]],
-  ["효자축산(일산)","경기도 고양시 일산서구 중앙로 1406,110호(주엽동,한솔코아)",["효자축산"]],
-  ["SK축산물도소매","인천시 남동구 논고개로118,104(논현동,양진타워)",["sk축산","SK축산"]]
-];
-
-function getGeoInfoFromAddr(name, addr) {
-  if (/^서울|서울특별시|서울시/.test(addr)) {
-    if (addr.includes('가산')) return { region: "서울 금천(가산)", lat: 37.474, lon: 126.888 };
-    if (addr.includes('시흥동') || addr.includes('금천')) return { region: "서울 금천(시흥)", lat: 37.452, lon: 126.905 };
-    if (addr.includes('개봉') || addr.includes('구로')) return { region: "서울 구로(개봉)", lat: 37.498, lon: 126.848 };
-    if (addr.includes('양천') || addr.includes('신정')) return { region: "서울 양천(신정)", lat: 37.524, lon: 126.852 };
-    if (addr.includes('강서') || addr.includes('화곡')) return { region: "서울 강서(화곡)", lat: 37.535, lon: 126.846 };
-    if (addr.includes('양평동')) return { region: "서울 영등포(양평)", lat: 37.523, lon: 126.889 };
-    if (addr.includes('신길') || addr.includes('영등포')) return { region: "서울 영등포(신길)", lat: 37.501, lon: 126.912 };
-    if (addr.includes('동작') || addr.includes('상도')) return { region: "서울 동작(상도)", lat: 37.502, lon: 126.939 };
-    if (addr.includes('관악') || addr.includes('봉천')) return { region: "서울 관악(봉천)", lat: 37.485, lon: 126.953 };
-    if (addr.includes('서초') || addr.includes('반포')) return { region: "서울 서초", lat: 37.504, lon: 127.001 };
-    if (addr.includes('광진') || addr.includes('구의') || name.includes('아차산')) return { region: "서울 광진(아차산)", lat: 37.552, lon: 127.089 };
-    if (addr.includes('강동') || addr.includes('상일')) return { region: "서울 강동", lat: 37.550, lon: 127.168 };
-    if (addr.includes('은평') || addr.includes('불광')) return { region: "서울 은평", lat: 37.610, lon: 126.928 };
-    if (addr.includes('강북')) return { region: "서울 강북", lat: 37.638, lon: 127.025 };
-    return { region: "서울 도심", lat: 37.545, lon: 126.955 };
-  }
-  if (addr.includes('대부') || name.includes('대부')) return { region: "안산 대부도", lat: 37.243, lon: 126.582 };
-  if (addr.includes('매송')) return { region: "화성 매송", lat: 37.269, lon: 126.892 };
-  if (addr.includes('비봉')) return { region: "화성 비봉", lat: 37.235, lon: 126.872 };
-  if (addr.includes('봉담')) return { region: "화성 봉담", lat: 37.215, lon: 126.945 };
-  if (addr.includes('남양읍')) return { region: "화성 남양", lat: 37.208, lon: 126.815 };
-  if (addr.includes('새솔동')) return { region: "화성 새솔", lat: 37.282, lon: 126.818 };
-  if (addr.includes('병점') || addr.includes('진안동')) return { region: "화성 병점", lat: 37.212, lon: 127.041 };
-  if (addr.includes('동탄') || addr.includes('반송동')) return { region: "화성 동탄", lat: 37.204, lon: 127.072 };
-  if (addr.includes('오산') || addr.includes('외삼미')) return { region: "오산 외삼미", lat: 37.202, lon: 127.062 };
-
-  if (addr.includes('안산시 상록구') || addr.includes('안산시상록구')) {
-    if (addr.includes('수암')) return { region: "안산 수암동", lat: 37.365, lon: 126.879 };
-    if (addr.includes('부곡')) return { region: "안산 부곡동", lat: 37.335, lon: 126.862 };
-    if (addr.includes('월피')) return { region: "안산 월피동", lat: 37.332, lon: 126.854 };
-    if (addr.includes('성포')) return { region: "안산 성포동", lat: 37.325, lon: 126.846 };
-    if (addr.includes('일동')) return { region: "안산 일동", lat: 37.312, lon: 126.864 };
-    if (addr.includes('이동')) return { region: "안산 이동", lat: 37.307, lon: 126.856 };
-    if (addr.includes('본오')) return { region: "안산 본오동", lat: 37.291, lon: 126.868 };
-    if (addr.includes('사동')) return { region: "안산 사동", lat: 37.292, lon: 126.844 };
-    return { region: "안산 상록구", lat: 37.305, lon: 126.855 };
-  }
-  if (addr.includes('안산시 단원구') || addr.includes('안산시단원구')) {
-    if (addr.includes('와동')) return { region: "안산 와동", lat: 37.345, lon: 126.824 };
-    if (addr.includes('선부')) return { region: "안산 선부동", lat: 37.336, lon: 126.810 };
-    if (addr.includes('고잔')) return { region: "안산 고잔동", lat: 37.316, lon: 126.828 };
-    if (addr.includes('초지')) return { region: "안산 초지동", lat: 37.311, lon: 126.803 };
-    if (addr.includes('원곡') || addr.includes('신길')) return { region: "안산 신길/원곡", lat: 37.334, lon: 126.790 };
-    return { region: "안산 단원구", lat: 37.325, lon: 126.815 };
-  }
-  if (addr.includes('시흥')) {
-    if (addr.includes('배곧')) return { region: "시흥 배곧", lat: 37.368, lon: 126.728 };
-    if (addr.includes('정왕')) return { region: "시흥 정왕동", lat: 37.349, lon: 126.740 };
-    if (addr.includes('거모')) return { region: "시흥 거모동", lat: 37.345, lon: 126.782 };
-    if (addr.includes('목감') || addr.includes('산현')) return { region: "시흥 목감/산현", lat: 37.378, lon: 126.854 };
-    if (addr.includes('포동') || addr.includes('장곡')) return { region: "시흥 포동/장곡", lat: 37.386, lon: 126.782 };
-    if (addr.includes('하중') || addr.includes('하상') || addr.includes('능곡')) return { region: "시흥 하중/하상", lat: 37.396, lon: 126.809 };
-    if (addr.includes('은행') || addr.includes('은계') || addr.includes('신천') || addr.includes('대야')) return { region: "시흥 신천/은계", lat: 37.442, lon: 126.790 };
-    return { region: "시흥시", lat: 37.380, lon: 126.800 };
-  }
-  if (addr.includes('인천')) {
-    if (addr.includes('서창')) return { region: "인천 서창동", lat: 37.424, lon: 126.749 };
-    if (addr.includes('논현')) return { region: "인천 논현동", lat: 37.402, lon: 126.724 };
-    if (addr.includes('동춘') || addr.includes('옥련')) return { region: "인천 연수구", lat: 37.416, lon: 126.662 };
-    if (addr.includes('주안') || addr.includes('미추홀') || addr.includes('숭의') || addr.includes('동구')) return { region: "인천 미추홀/동구", lat: 37.465, lon: 126.670 };
-    if (addr.includes('십정')) return { region: "인천 부평(십정)", lat: 37.476, lon: 126.697 };
-    if (addr.includes('일신')) return { region: "인천 부평(일신)", lat: 37.485, lon: 126.742 };
-    return { region: "인천 부평구", lat: 37.502, lon: 126.709 };
-  }
-  if (addr.includes('부천')) {
-    if (addr.includes('역곡') || addr.includes('소사')) return { region: "부천 역곡/소사", lat: 37.486, lon: 126.811 };
-    if (addr.includes('심곡')) return { region: "부천 심곡동", lat: 37.485, lon: 126.782 };
-    if (addr.includes('상동') || addr.includes('원미')) return { region: "부천 상동", lat: 37.504, lon: 126.754 };
-    return { region: "부천 원종동", lat: 37.525, lon: 126.808 };
-  }
-  if (addr.includes('광명')) return { region: "경기 광명", lat: 37.468, lon: 126.862 };
-  if (addr.includes('고양') || addr.includes('일산')) return { region: "고양 화정/일산", lat: 37.640, lon: 126.820 };
-  if (addr.includes('구리') || addr.includes('남양주') || addr.includes('하남')) return { region: "구리/남양주/하남", lat: 37.595, lon: 127.145 };
-  if (addr.includes('의정부') || addr.includes('양주') || addr.includes('포천')) return { region: "경기 북부", lat: 37.760, lon: 127.080 };
-  if (addr.includes('군포') || addr.includes('의왕') || addr.includes('안양')) return { region: "군포/의왕/안양", lat: 37.345, lon: 126.945 };
-  if (addr.includes('수원')) {
-    if (addr.includes('율전') || addr.includes('장안')) return { region: "수원 율전/장안", lat: 37.296, lon: 126.985 };
-    if (addr.includes('인계') || addr.includes('팔달') || addr.includes('권선')) return { region: "수원 인계/권선", lat: 37.263, lon: 127.015 };
-    return { region: "수원 영통구", lat: 37.265, lon: 127.081 };
-  }
-  if (addr.includes('성남')) return { region: "성남 분당/판교", lat: 37.398, lon: 127.105 };
-  if (addr.includes('용인')) return { region: "용인 기흥/수지", lat: 37.255, lon: 127.115 };
-  if (addr.includes('평택') || addr.includes('천안') || addr.includes('아산')) return { region: "평택/충남권", lat: 37.015, lon: 127.095 };
-  if (addr.includes('음성') || addr.includes('청주') || addr.includes('대전') || addr.includes('정읍')) return { region: "충청/지방권", lat: 36.925, lon: 127.620 };
-  return { region: "기타 권역", lat: 37.305, lon: 126.855 };
-}
-
-let CLIENT_DB = RAW_CSV_CLIENTS.map(([name, addr, customAliases]) => {
-  const geo = getGeoInfoFromAddr(name, addr);
-  const baseClean = name.replace(/\([^\)]*\)/g, '').replace(/(주식회사|농업회사법인|농법|유한회사)/g, '').trim();
-  const aliases = [...customAliases];
-  if (baseClean.length >= 2 && !aliases.includes(baseClean) && baseClean !== name) aliases.push(baseClean);
-  return { name, aliases, addr, region: geo.region, lat: geo.lat, lon: geo.lon };
-});
-
+// ==========================================================
+// 1. 상태 및 기본 설정
+// ==========================================================
+const DEPOT = { lat: 37.305, lon: 126.855 }; // 미트포앤(안산)
+let CLIENT_DB = [];
 let parsedOrders = [];
-let dynamicVehicleTitles = { 1: "1호차", 2: "2호차", 3: "3호차", 4: "4호차", 5: "5호차" };
-let currentMainTab = 'schedule';
-let selectedVehicleTab = 'all';
-let customDepartureTimes = { 1: "10:45", 2: "10:30", 3: "10:15", 4: "10:15", 5: "10:35" };
-let isInputCollapsed = false;
+let currentTab = 'destinations';
 
-function showToast(msg, isError = false) {
-  const banner = document.getElementById('toastBanner');
-  const txt = document.getElementById('toastMsg');
-  txt.innerText = msg;
-  banner.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full shadow-xl font-bold text-xs md:text-sm flex items-center gap-2 transition-all ${isError ? 'bg-rose-600 text-white' : 'bg-indigo-600 text-white'}`;
-  banner.classList.remove('hidden');
-  setTimeout(() => banner.classList.add('hidden'), 3000);
-}
+const MEAT_CATEGORIES = ['삼겹', '오겹', '특목살', '목살', 'B목살', '미전지', '전지', '미후지', '냉장3mm후지', '후지', '등뼈', '등심', '안심', '갈비', '등갈비', '항정', '가브리', '갈매기', '사태', '우삼겹', '차돌', '돈피', '장족', '모돈', '민찌', '살치', '홍두깨', '늑간'];
 
-// ============================================================================
-// 2. 만능 파서 (모바일 카톡, PC 카톡, 날짜 없는 줄 단위 모두 인식)
-// ============================================================================
-function matchSingleLineClient(rawLine) {
-  const cleanLine = rawLine.replace(/[●■☆★\[\]\(\)\.\,]/g, ' ').replace(/(추가|더추가|이거로정정요|정정|오늘|내일|오후에|급급|발주입니다|입니다)/g, '').trim();
-  const cleanNoSpace = cleanLine.replace(/\s+/g, '');
-  if (!cleanNoSpace || cleanNoSpace.length < 2) return null;
-
-  // 품목 키워드가 숫자와 함께 있으면 거래처 줄이 아니라 품목 줄로 판별
-  if (/(삼겹|목살|미전지|등뼈|항정|가브리|갈매기|갈비|등심|안심|사태|후지|차돌|우삼겹|설도|돈피|장족|오겹|모돈)\s*\d/.test(cleanLine)) {
-    return null;
-  }
-
-  let bestClient = null;
-  let bestLen = 0;
-  for (const c of CLIENT_DB) {
-    const allKeys = [c.name, ...c.aliases];
-    for (const k of allKeys) {
-      const kNoSpace = k.replace(/\s+/g, '');
-      if (kNoSpace.length >= 2 && cleanNoSpace.includes(kNoSpace)) {
-        if (kNoSpace.length > bestLen) {
-          bestLen = kNoSpace.length;
-          bestClient = c;
-        }
-      }
-    }
-  }
-  return bestClient ? { client: bestClient, rawNick: cleanLine } : null;
-}
-
-function parseOrderItemsFromLines(lines, isDelta, msgTime) {
-  const items = [];
-  let boxSum = 0;
-  const skipWords = ['안녕하십니까', '안녕하세요', '부탁드립니다', '부탁드려요', '부탁해요', '감사합니다', '이상입니다', '보내주세요', '주세여', '주세요', '발주입니다', '발주드리려고', '문자드립니다', '발주요', '주문합니다', '이렇게', '아차산입니다', '율전동에스할인마트입니다', '동탄점', '우편함에', '심곡동394-18', '삼호점', '끝까지', '예전', '지방 적당히만', '지방 어느정도', '대산꺼로만', '큰냉장고'];
-
-  for (const raw of lines) {
-    const l = raw.trim();
-    if (!l) continue;
-    if (['냉장', '냉동', '내일', '오늘', '여기까지', '사진', '네'].includes(l)) continue;
-    if (l.includes('심곡동394-18')) continue;
-    if (skipWords.some(w => l.includes(w)) && !/\d/.test(l)) continue;
-
-    const isPass = l.includes('패스') || l.includes('취소');
-    const mBox = l.match(/(\d+(?:\.\d+)?)\s*(?:박스|빡스|박|box|Box|b\b)/);
-    const mHalf = l.match(/반\s*박스/);
-    const mPack = l.match(/(\d+(?:\.\d+)?)\s*(?:판|팩|펙|봉|봉지|덩이|덩어리|진공|벌)/);
-    const mHanpan = l.match(/한\s*판/);
-    const mMari = l.match(/(\d+)\s*마리/);
-    const mKg = l.match(/(\d+(?:\.\d+)?)\s*(?:키로|kg|k\b)/i);
-    const mBare = l.match(/[가-힣a-zA-Z]+\s*[ㅡ\-:\.]?\s*(\d+)(?:\.|\s|$|[가-힣])/);
-
-    let beq = 0;
-    if (isPass) beq = 0;
-    else if (mBox) beq = parseFloat(mBox[1]);
-    else if (mHalf) beq = 0.5;
-    else if (mPack) beq = Math.round(parseFloat(mPack[1]) * 0.35 * 10) / 10;
-    else if (mHanpan) beq = 0.4;
-    else if (mMari) beq = Math.round((parseFloat(mMari[1]) / 15.0) * 10) / 10;
-    else if (mKg) beq = Math.round((parseFloat(mKg[1]) / 15.0) * 10) / 10;
-    else if (mBare && parseInt(mBare[1]) <= 40) beq = parseFloat(mBare[1]);
-    else if (/\d/.test(l)) beq = 0.5;
-    else continue;
-
-    const tags = [];
-    if (/냉동|테니쉬|두메코|올리멜|우삼겹|차돌/.test(l)) tags.push('❄️냉동/수입');
-    if (/mm|센치|슬라이스|제육|대패|소분|습지|작업|3등분|까서/.test(l)) tags.push('🔪세절/작업');
-    if (/행사|할인|써비스|서비스|반품/.test(l)) tags.push('⚠️특이사항');
-
-    items.push({ text: l, boxEq: Math.round(beq * 10) / 10, isDelta, isPass, tags, timeStr: msgTime });
-    boxSum += beq;
-  }
-  return { items, totalBoxEq: Math.round(boxSum * 10) / 10 };
-}
-
-function parseAndAnalyze(scrollToOutput = true) {
-  try {
-    const rawText = document.getElementById('kakaoInput').value.replace(/[\u00A0\u200B-\u200D\uFEFF]/g, ' ').trim();
-    if (!rawText) {
-      showToast('⚠️ 카톡 발주 텍스트를 먼저 붙여넣어 주세요!', true);
-      return;
-    }
-
-    const btnRunText = document.getElementById('btnRunText');
-    btnRunText.innerText = '⏳ 분석 및 배차 계산 중...';
-
-    const includeRetail = document.getElementById('chkIncludeRetail').checked;
-    const lines = rawText.split(/\r?\n/);
-
-    // 1) 모바일/PC 내보내기: 2026년 10월 19일 오후 2:00, 이름 : 내용 OR 2026. 10. 19. 오후 2:00, 이름 : 내용
-    const reExport = /^(\d{4})[년\.\-\/]\s*(\d{1,2})[월\.\-\/]\s*(\d{1,2})[일\.]?\s*(오전|오후)?\s*(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
-    // 2) PC 카톡 복붙: [이름] [오후 2:32] 내용
-    const rePc = /^\[([^\]]+)\]\s*\[(오전|오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
-
-    const blocks = [];
-    let curBlock = null;
-    let hasExplicitHeader = false;
-
-    for (const rawLine of lines) {
-      const line = rawLine.trim();
-      if (!line) continue;
-      if (line.includes('저장한 날짜 :') || line.includes('초대했습니다') || line.includes('메시지가 삭제되었습니다')) continue;
-      if (/^-*\s*\d{4}년\s*\d{1,2}월\s*\d{1,2}일/.test(line)) continue;
-
-      const m1 = line.match(reExport);
-      const m2 = line.match(rePc);
-
-      if (m1) {
-        hasExplicitHeader = true;
-        if (curBlock) blocks.push(curBlock);
-        const ampm = m1[4] || '';
-        let hr = parseInt(m1[5]);
-        const mn = parseInt(m1[6]);
-        if (ampm === '오후' && hr !== 12) hr += 12;
-        if (ampm === '오전' && hr === 12) hr = 0;
-        curBlock = {
-          timeStr: `${String(hr).padStart(2,'0')}:${String(mn).padStart(2,'0')}`,
-          hr,
-          sender: m1[7].trim(),
-          lines: m1[8].trim() ? [m1[8].trim()] : []
-        };
-      } else if (m2) {
-        hasExplicitHeader = true;
-        if (curBlock) blocks.push(curBlock);
-        const ampm = m2[2] || '';
-        let hr = parseInt(m2[3]);
-        const mn = parseInt(m2[4]);
-        if (ampm === '오후' && hr !== 12) hr += 12;
-        if (ampm === '오전' && hr === 12) hr = 0;
-        curBlock = {
-          timeStr: `${String(hr).padStart(2,'0')}:${String(mn).padStart(2,'0')}`,
-          hr,
-          sender: m2[1].trim(),
-          lines: m2[5].trim() ? [m2[5].trim()] : []
-        };
-      } else {
-        // 만약 타임스탬프 헤더가 전혀 없는 모바일 일반 텍스트라면, 새로운 거래처 이름이 등장할 때마다 블록 분리!
-        if (!hasExplicitHeader) {
-          const possibleClient = matchSingleLineClient(line);
-          if (possibleClient && curBlock && curBlock.lines.length >= 2) {
-            blocks.push(curBlock);
-            curBlock = { timeStr: "상시", hr: 18, sender: "모바일복사", lines: [line] };
-            continue;
-          }
-        }
-        if (!curBlock) {
-          curBlock = { timeStr: "상시", hr: 18, sender: "직접입력", lines: [line] };
-        } else {
-          curBlock.lines.push(line);
-        }
-      }
-    }
-    if (curBlock) blocks.push(curBlock);
-
-    const orderMap = new Map();
-
-    for (const b of blocks) {
-      if (b.lines.length === 0) continue;
-      const body = b.lines.join('\n').trim();
-      if (['여기까지', '사진', '네'].includes(body) || body.startsWith('발주체크')) continue;
-
-      const isWeightLog = /\d+\.\d+\s+\d+\.\d+/.test(body) || /\d{4}\s+\d{4}/.test(body);
-
-      let found = null;
-      for (let i = 0; i < Math.min(3, b.lines.length); i++) {
-        const m = matchSingleLineClient(b.lines[i]);
-        if (m) {
-          found = { ...m, lineIdx: i };
-          break;
-        }
-      }
-      if (!found) continue;
-
-      const matchedClient = found.client;
-      if (!includeRetail && matchedClient.name.startsWith('소매(')) continue;
-
-      if (isWeightLog) {
-        if (orderMap.has(matchedClient.name)) {
-          orderMap.get(matchedClient.name).weightLogs.push(`[${b.timeStr}] ${b.lines.slice(found.lineIdx + 1).join(' ')}`);
-        }
-        continue;
-      }
-
-      const isDelta = (b.hr >= 6 && b.hr <= 11) || body.includes('추가') || body.includes('정정');
-      const isUrgent = body.includes('급급') || body.includes('오전중');
-
-      const itemLines = b.lines.slice(found.lineIdx + 1);
-      const parsed = parseOrderItemsFromLines(itemLines, isDelta, b.timeStr);
-      if (parsed.items.length === 0) continue;
-
-      if (!orderMap.has(matchedClient.name)) {
-        orderMap.set(matchedClient.name, {
-          client: matchedClient,
-          nickUsed: found.rawNick,
-          vehicle: 1,
-          items: [],
-          totalBoxes: 0,
-          hasDelta: isDelta,
-          isUrgent,
-          timestamps: [b.timeStr],
-          weightLogs: []
-        });
-      }
-
-      const entry = orderMap.get(matchedClient.name);
-      entry.items.push(...parsed.items);
-      entry.totalBoxes = Math.round((entry.totalBoxes + parsed.totalBoxEq) * 10) / 10;
-      if (isDelta) entry.hasDelta = true;
-      if (isUrgent) entry.isUrgent = true;
-      if (!entry.timestamps.includes(b.timeStr)) entry.timestamps.push(b.timeStr);
-    }
-
-    parsedOrders = Array.from(orderMap.values());
-    runFastDynamic5Clustering();
-    renderAll();
-
-    if (parsedOrders.length > 0) {
-      const totB = parsedOrders.reduce((s, o) => s + o.totalBoxes, 0).toFixed(1);
-      btnRunText.innerText = `✅ ${parsedOrders.length}곳 (${totB}박) 배차 완료! (다시 실행)`;
-      showToast(`✅ 총 ${parsedOrders.length}곳 거래처 (${totB}박스) 5대 동적 배차 완료!`);
-      if (scrollToOutput && window.innerWidth < 1024) {
-        document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    } else {
-      btnRunText.innerText = `🚀 발주 자동 분류 & 5대 동적 배차 실행`;
-      showToast('⚠️ 일치하는 거래처 발주를 찾지 못했습니다. 입력 내용을 확인해 주세요.', true);
-    }
-  } catch (err) {
-    console.error(err);
-    showToast('⚠️ 오류 발생: ' + err.message, true);
-  }
-}
-
-// ============================================================================
-// 3. 초고속(0.01초) 일일 동적 5대 권역 클러스터링 엔진 (모바일 프리징 방지)
-// ============================================================================
+// Haversine 거리 계산 (km)
 function calcDistKm(lat1, lon1, lat2, lon2) {
   const R = 6371.0;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.35;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.35; // 실제 주행 보정치 1.35
 }
 
-function estimateDriveMin(distKm) {
-  if (distKm < 1.2) return Math.max(3, Math.round(distKm / 25 * 60));
-  if (distKm < 12.0) return Math.max(5, Math.round(distKm / 30 * 60));
-  return Math.max(12, Math.round(distKm / 45 * 60));
+// 간단한 지역 추출기 (CSV에서 위경도가 없을 경우를 대비한 대체 좌표)
+function getApproxGeo(addr) {
+  if (addr.includes('서울')) return { region: '서울권', lat: 37.5, lon: 126.9 };
+  if (addr.includes('대부')) return { region: '대부도', lat: 37.24, lon: 126.58 };
+  if (addr.includes('단원구') || addr.includes('시화') || addr.includes('정왕')) return { region: '안산/시흥 서남부', lat: 37.33, lon: 126.75 };
+  if (addr.includes('상록구') || addr.includes('매송')) return { region: '안산/화성 인접', lat: 37.30, lon: 126.85 };
+  if (addr.includes('시흥')) return { region: '시흥 내륙', lat: 37.39, lon: 126.80 };
+  if (addr.includes('인천')) return { region: '인천권', lat: 37.45, lon: 126.70 };
+  if (addr.includes('부천') || addr.includes('광명')) return { region: '부천/광명', lat: 37.49, lon: 126.82 };
+  if (addr.includes('수원') || addr.includes('동탄') || addr.includes('용인')) return { region: '경기 동남부', lat: 37.26, lon: 127.05 };
+  return { region: '기타/지방', lat: 37.10, lon: 127.00 };
 }
 
-function runFastDynamic5Clustering() {
-  if (parsedOrders.length === 0) return;
-  const maxBoxLimit = parseFloat(document.getElementById('maxBoxLimit').value) || 58.0;
-
-  const pts = parsedOrders.map((o, idx) => {
-    const y = (o.client.lat - DEPOT.lat) * 111.0;
-    const x = (o.client.lon - DEPOT.lon) * 88.8;
-    const dist = Math.hypot(x, y);
-    const deg = Math.atan2(y, x) * 180 / Math.PI;
-    const sweep = (deg + 110.0 + 360.0) % 360.0;
-    return { idx, order: o, x, y, dist, sweep, boxes: Math.max(0.5, o.totalBoxes) };
-  });
-
-  // 1호차: 안산 본사 반경 6.5km 이내 근거리 우선 배정 (최대 8곳, 적재상한 85% 이하)
-  const localCore = pts.filter(p => p.dist <= 6.5).sort((a, b) => a.dist - b.dist);
-  const outerRing = pts.filter(p => p.dist > 6.5);
-
-  const v1 = [];
-  let v1Boxes = 0;
-  for (const p of localCore) {
-    if (v1.length < 8 && v1Boxes + p.boxes <= maxBoxLimit * 0.85) {
-      v1.push(p);
-      v1Boxes += p.boxes;
-    } else {
-      outerRing.push(p);
+// ==========================================================
+// 2. CSV 파일 업로드 및 DB 구축
+// ==========================================================
+document.getElementById('csvFileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    CLIENT_DB = [];
+    const lines = evt.target.result.split(/\r?\n/);
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',');
+      if (cols.length >= 2 && cols[0].trim()) {
+        const name = cols[0].trim();
+        const addr = cols[1].trim();
+        const customAlias = cols[2] ? cols[2].trim() : '';
+        const baseClean = name.replace(/\([^\)]*\)/g, '').replace(/(주식회사|농업회사법인|\(주\))/g, '').trim();
+        
+        let aliases = [];
+        if (customAlias) aliases.push(customAlias);
+        if (baseClean && baseClean !== name && baseClean.length > 1) aliases.push(baseClean);
+        
+        const geo = getApproxGeo(addr);
+        CLIENT_DB.push({ name, addr, aliases, region: geo.region, lat: geo.lat, lon: geo.lon });
+      }
     }
+    const badge = document.getElementById('dbStatusBadge');
+    badge.innerText = `✅ 주소록 ${CLIENT_DB.length}곳 로드 완료`;
+    badge.className = "text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-bold";
+    alert(`성공적으로 ${CLIENT_DB.length}개의 거래처 주소록을 로드했습니다. 이제 카톡 텍스트를 분석할 수 있습니다.`);
+  };
+  reader.readAsText(file, 'utf-8');
+});
+
+// ==========================================================
+// 3. 발주 품목 및 단위 파서
+// ==========================================================
+function determineCategory(text) {
+  for (const cat of MEAT_CATEGORIES) {
+    if (text.includes(cat)) return cat;
+  }
+  return "기타 품목";
+}
+
+function parseUnitAndQty(text) {
+  const isPass = text.includes('패스') || text.includes('취소');
+  if (isPass) return { qty: 0, unit: '취소', raw: '0' };
+
+  let unit = '기타/세트';
+  let qty = 0;
+  
+  // 박스
+  const mBox = text.match(/(\d+(?:\.\d+)?)\s*(?:박스|빡스|박|box|b\b)/i);
+  // 특수단위
+  const mPack = text.match(/(\d+(?:\.\d+)?)\s*(?:판|팩|펙|봉|봉지|덩이|덩어리|진공|벌|구이)/);
+  const mKg = text.match(/(\d+(?:\.\d+)?)\s*(?:키로|kg|k\b)/i);
+  const mMari = text.match(/(\d+)\s*마리/);
+  // 단순 숫자
+  const mBare = text.match(/[가-힣a-zA-Z]+\s*[ㅡ\-:\.]?\s*(\d+)(?:\.|\s|$|[가-힣])/);
+
+  if (mBox) { qty = parseFloat(mBox[1]); unit = '박스'; }
+  else if (mPack) { qty = parseFloat(mPack[1]); unit = text.match(/(판|팩|펙|봉|덩이|진공|벌)/)[0]; }
+  else if (mKg) { qty = parseFloat(mKg[1]); unit = 'Kg'; }
+  else if (mMari) { qty = parseInt(mMari[1]); unit = '마리'; }
+  else if (mBare && parseInt(mBare[1]) < 100) { qty = parseFloat(mBare[1]); unit = '박스(추정)'; }
+  else { qty = 1; unit = '단위미상'; }
+
+  return { qty, unit, raw: `${qty}${unit}` };
+}
+
+// ==========================================================
+// 4. 카카오톡 분석 엔진
+// ==========================================================
+function parseAndAnalyze() {
+  if (CLIENT_DB.length === 0) {
+    alert("⚠️ 거래처 주소록(CSV) 파일을 먼저 업로드해주세요.");
+    return;
   }
 
-  // 나머지 외곽 거래처를 방위각(Sweep: 동남부->서울->부천/고양->인천/시흥서부) 순으로 정렬 후 물량+지점 가중치로 4등분
-  outerRing.sort((a, b) => a.sweep - b.sweep);
-  const clusters = [v1, [], [], [], []];
+  const rawText = document.getElementById('kakaoInput').value.trim();
+  if (!rawText) {
+    alert('카톡 대화 텍스트를 붙여넣어 주세요.');
+    return;
+  }
 
-  if (outerRing.length > 0) {
-    const weights = outerRing.map(p => p.boxes + 4.5 + p.dist * 0.12);
-    const totalW = weights.reduce((a, b) => a + b, 0);
-    const targetW = totalW / 4.0;
+  const lines = rawText.split(/\r?\n/);
+  const orderMap = new Map(); // key: client name
+  
+  let currentClient = null;
 
-    let curV = 1;
-    let accW = 0;
-    for (let i = 0; i < outerRing.length; i++) {
-      clusters[curV].push(outerRing[i]);
-      accW += weights[i];
-      if (accW >= targetW && curV < 4) {
-        curV++;
-        accW = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i].trim();
+    if (!rawLine || ['여기까지', '사진', '네', '내일', '오늘'].includes(rawLine) || rawLine.startsWith('발주체크')) continue;
+
+    // 카톡 헤더 제거: "[이름] [오후 2:32] 대상" 또는 "2026년 10월... 이름 : 대상"
+    let cleanLine = rawLine.replace(/^\[[^\]]+\]\s*\[[^\]]+\]\s*/, '');
+    cleanLine = cleanLine.replace(/^\d{4}[년\.\-].+?,\s*[^:]+\s*:\s*/, '');
+    cleanLine = cleanLine.replace(/[●■☆★\[\]\(\)\.\,]/g, ' ').replace(/(추가|정정|급급)/g, '').trim();
+    const cleanNoSpace = cleanLine.replace(/\s+/g, '');
+
+    if (!cleanNoSpace) continue;
+
+    // 거래처 이름 매칭 로직 (품목 단어가 없으면서 이름과 일치하는지 확인)
+    const isItemLine = /(삼겹|목살|전지|후지|등뼈|항정|가브리|갈매기|갈비|등심|안심|사태|차돌|우삼겹|돈피|모돈|박스|팩|키로|kg)\s*\d/i.test(cleanLine);
+    
+    let matchedDB = null;
+    if (!isItemLine) {
+      let bestLen = 0;
+      for (const c of CLIENT_DB) {
+        for (const k of [c.name, ...c.aliases]) {
+          const kNo = k.replace(/\s+/g, '');
+          if (kNo.length >= 2 && cleanNoSpace.includes(kNo)) {
+            if (kNo.length > bestLen) {
+              bestLen = kNo.length;
+              matchedDB = c;
+            }
+          }
+        }
+      }
+    }
+
+    if (matchedDB) {
+      currentClient = matchedDB;
+      if (!orderMap.has(currentClient.name)) {
+        orderMap.set(currentClient.name, {
+          client: currentClient,
+          distKm: calcDistKm(DEPOT.lat, DEPOT.lon, currentClient.lat, currentClient.lon),
+          items: []
+        });
+      }
+    } else if (currentClient) {
+      // 품목 줄 처리
+      if (!/(부탁드립니다|감사합니다|이상입니다|안녕하세요)/.test(cleanLine) || /\d/.test(cleanLine)) {
+        const parsed = parseUnitAndQty(rawLine);
+        if (parsed.unit !== '취소' && parsed.qty > 0) {
+          orderMap.get(currentClient.name).items.push({
+            originalText: rawLine.replace(/^[●■-]\s*/, '').trim(),
+            category: determineCategory(rawLine),
+            qty: parsed.qty,
+            unit: parsed.unit,
+            isSpecialUnit: !['박스', '박스(추정)'].includes(parsed.unit)
+          });
+        }
       }
     }
   }
 
-  clusters.forEach((cList, idx) => {
-    const vNum = idx + 1;
-    cList.forEach(p => { p.order.vehicle = vNum; });
-    const uniqRegs = [...new Set(cList.map(p => p.order.client.region.split('(')[0].trim()))];
-    const regTitle = uniqRegs.slice(0, 3).join('·') + (uniqRegs.length > 3 ? ' 외' : '');
-    dynamicVehicleTitles[vNum] = `${vNum}호차 [${regTitle || '대기'}]`;
-  });
-
-  optimizeRoutesWithinVehicles();
-}
-
-function optimizeRoutesWithinVehicles() {
-  const dwellMin = parseInt(document.getElementById('dwellMinutes').value) || 10;
-  for (let v = 1; v <= 5; v++) {
-    const group = parsedOrders.filter(o => o.vehicle === v);
-    const unv = [...group];
-    let curLat = DEPOT.lat, curLon = DEPOT.lon;
-    let curTime = customDepartureTimes[v];
-    let step = 1;
-    while (unv.length > 0) {
-      unv.sort((a, b) => {
-        if (a.isUrgent !== b.isUrgent) return a.isUrgent ? -1 : 1;
-        const aDaebu = a.client.region.includes('대부') ? 1 : 0;
-        const bDaebu = b.client.region.includes('대부') ? 1 : 0;
-        if (aDaebu !== bDaebu) return aDaebu - bDaebu;
-        return calcDistKm(curLat, curLon, a.client.lat, a.client.lon) - calcDistKm(curLat, curLon, b.client.lat, b.client.lon);
-      });
-      const nxt = unv.shift();
-      const dKm = calcDistKm(curLat, curLon, nxt.client.lat, nxt.client.lon);
-      const driveMin = estimateDriveMin(dKm);
-      nxt.stopOrder = step++;
-      nxt.distKm = dKm;
-      nxt.driveMin = driveMin;
-      nxt.etaArr = addMinutesToTimeStr(curTime, driveMin);
-      nxt.etaDep = addMinutesToTimeStr(nxt.etaArr, dwellMin);
-      curTime = nxt.etaDep;
-      curLat = nxt.client.lat;
-      curLon = nxt.client.lon;
-    }
-  }
-}
-
-function addMinutesToTimeStr(timeStr, addMins) {
-  const [hh, mm] = timeStr.split(':').map(Number);
-  const total = hh * 60 + mm + addMins;
-  const nh = Math.floor(total / 60) % 24;
-  const nm = total % 60;
-  return `${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
-}
-
-// ============================================================================
-// 4. 탭 전환 및 표(Table) 통합 렌더링
-// ============================================================================
-function setMainTab(tab) {
-  currentMainTab = tab;
-  ['schedule', 'destinations', 'orders', 'masterdb'].forEach(t => {
-    const btn = document.getElementById('tabBtn_' + t);
-    btn.className = t === tab
-      ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition shadow-sm"
-      : "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition";
-  });
-  renderAll();
-}
-
-function selectVehicleTab(v) {
-  selectedVehicleTab = v;
-  renderAll();
-}
-
-function changeStoreVehicle(clientName, newVehicle) {
-  const target = parsedOrders.find(o => o.client.name === clientName);
-  if (target) {
-    target.vehicle = parseInt(newVehicle);
-    optimizeRoutesWithinVehicles();
-    renderAll();
-    showToast(`✅ ${clientName} ➔ ${newVehicle}호차로 이동 완료!`);
-  }
-}
-
-function updateDepartureTime(v, newTime) {
-  customDepartureTimes[v] = newTime;
-  optimizeRoutesWithinVehicles();
-  renderAll();
-}
-
-function renderAll() {
-  optimizeRoutesWithinVehicles();
-  const deltaOnly = document.getElementById('chkDeltaOnly').checked;
-  const isLifo = document.getElementById('chkLifoOrder').checked;
-  const maxBoxLimit = parseFloat(document.getElementById('maxBoxLimit').value) || 58.0;
-  const searchKw = (document.getElementById('tableSearchInput').value || '').trim().toLowerCase();
-
-  const totalStores = parsedOrders.length;
-  const totalBoxes = parsedOrders.reduce((s, o) => s + o.totalBoxes, 0);
-  const deltaStores = parsedOrders.filter(o => o.hasDelta).length;
-
-  document.getElementById('kpiTotalStores').innerText = totalStores;
-  document.getElementById('kpiTotalBoxes').innerText = totalBoxes.toFixed(1);
-  document.getElementById('kpiBoxSplit').innerText = `차량 5대 평균 ${(totalBoxes / 5).toFixed(1)}박스`;
-  document.getElementById('kpiMorningAdds').innerText = deltaStores;
-
-  const statusEl = document.getElementById('kpiDepartureStatus');
-  if (totalStores === 0) {
-    statusEl.innerText = "데이터 입력 대기";
-    statusEl.className = "text-sm md:text-base font-extrabold text-slate-400 mt-1";
-  } else {
-    statusEl.innerText = "✅ 5대 동적 권역 배차 완료";
-    statusEl.className = "text-sm md:text-base font-extrabold text-emerald-600 mt-1";
-  }
-
-  const tabsEl = document.getElementById('vehicleTabs');
-  let tabsHtml = `<button type="button" onclick="selectVehicleTab('all')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${selectedVehicleTab === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200'}">전체 차량 (${totalStores}곳 / ${totalBoxes.toFixed(1)}박)</button>`;
-  for (let v = 1; v <= 5; v++) {
-    const vOrders = parsedOrders.filter(o => o.vehicle === v);
-    const vBoxes = vOrders.reduce((s, o) => s + o.totalBoxes, 0);
-    const active = selectedVehicleTab === v;
-    const isOver = vBoxes > maxBoxLimit;
-    tabsHtml += `<button type="button" onclick="selectVehicleTab(${v})" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${active ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200'}">
-      ${dynamicVehicleTitles[v]} (${vOrders.length}곳/<span class="${isOver && !active ? 'text-rose-600 font-extrabold' : ''}">${vBoxes.toFixed(1)}박</span>)
-    </button>`;
-  }
-  tabsEl.innerHTML = tabsHtml;
-
-  const container = document.getElementById('resultContainer');
-
-  // [탭 4] 전체 거래처 마스터 DB (198곳)
-  if (currentMainTab === 'masterdb') {
-    const filteredDb = CLIENT_DB.filter(c => {
-      if (!searchKw) return true;
-      return c.name.toLowerCase().includes(searchKw) || c.addr.toLowerCase().includes(searchKw) || c.region.toLowerCase().includes(searchKw) || c.aliases.some(a => a.toLowerCase().includes(searchKw));
+  parsedOrders = Array.from(orderMap.values()).filter(o => o.items.length > 0);
+  
+  // KPI 업데이트
+  let allItemsCount = 0;
+  let specialUnitsCount = 0;
+  const catSet = new Set();
+  
+  parsedOrders.forEach(o => {
+    o.items.forEach(it => {
+      allItemsCount++;
+      catSet.add(it.category);
+      if (it.isSpecialUnit) specialUnitsCount++;
     });
-    container.innerHTML = `<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="bg-slate-800 text-white px-4 py-3 flex justify-between items-center">
-        <h3 class="font-bold text-xs md:text-sm">📚 전체 거래처 마스터 DB 목록 (${filteredDb.length} / ${CLIENT_DB.length}곳)</h3>
-      </div>
-      <div class="overflow-x-auto max-h-[600px] custom-scroll">
-        <table class="w-full text-xs text-left border-collapse">
-          <thead class="bg-slate-100 text-slate-700 sticky top-0 border-b">
-            <tr>
-              <th class="p-2 text-center">번호</th>
-              <th class="p-2">정식 거래처명</th>
-              <th class="p-2">카톡 별명</th>
-              <th class="p-2">권역</th>
-              <th class="p-2">도로명 / 지번 주소</th>
-              <th class="p-2 text-center">금일 발주</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-200">
-            ${filteredDb.map((c, i) => {
-              const activeOrder = parsedOrders.find(o => o.client.name === c.name);
-              const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.addr)}`;
-              return `<tr class="hover:bg-slate-50 ${activeOrder ? 'bg-indigo-50/40' : ''}">
-                <td class="p-2 text-center text-slate-400 font-mono">${i + 1}</td>
-                <td class="p-2 font-bold text-slate-900">${c.name}</td>
-                <td class="p-2 text-slate-600">${c.aliases.join(', ')}</td>
-                <td class="p-2 whitespace-nowrap"><span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-semibold">${c.region}</span></td>
-                <td class="p-2 text-slate-600">${c.addr} <a href="${mapUrl}" target="_blank" class="text-blue-600 underline font-semibold ml-1 no-print">[지도]</a></td>
-                <td class="p-2 text-center whitespace-nowrap">${activeOrder ? `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">✅ ${activeOrder.vehicle}호차 (${activeOrder.totalBoxes}박)</span>` : '-'}</td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>`;
-    return;
-  }
+  });
 
-  if (totalStores === 0) {
-    container.innerHTML = `<div class="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-400">
-      <div class="text-3xl mb-2">📋</div>
-      <div class="font-bold text-slate-600 text-sm">일치하는 발주 내역이 없습니다.</div>
-      <div class="text-xs mt-1">카톡 텍스트를 붙여넣고 파란색 [실행] 버튼을 눌러주세요.</div>
-    </div>`;
-    return;
-  }
+  document.getElementById('kpiStores').innerText = parsedOrders.length;
+  document.getElementById('kpiCategories').innerText = catSet.size;
+  document.getElementById('kpiSpecialUnits').innerText = specialUnitsCount;
 
-  // [탭 2] 전체 배송처 목록 표
-  if (currentMainTab === 'destinations') {
-    let list = [...parsedOrders].sort((a, b) => (a.vehicle - b.vehicle) || (isLifo ? b.stopOrder - a.stopOrder : a.stopOrder - b.stopOrder));
-    if (selectedVehicleTab !== 'all') list = list.filter(o => o.vehicle === selectedVehicleTab);
-    if (deltaOnly) list = list.filter(o => o.hasDelta);
-    if (searchKw) {
-      list = list.filter(o => o.client.name.toLowerCase().includes(searchKw) || o.nickUsed.toLowerCase().includes(searchKw) || o.client.region.toLowerCase().includes(searchKw) || o.client.addr.toLowerCase().includes(searchKw));
+  setTab('destinations');
+}
+
+// ==========================================================
+// 5. 결과 화면 (탭별 렌더링)
+// ==========================================================
+function setTab(tabId) {
+  currentTab = tabId;
+  const tabs = ['destinations', 'items', 'specials'];
+  tabs.forEach(t => {
+    const btn = document.getElementById('tab_' + t);
+    if (t === tabId) {
+      btn.className = "flex-1 py-2 px-4 rounded-lg font-bold transition bg-indigo-500 text-white shadow";
+    } else {
+      btn.className = "flex-1 py-2 px-4 rounded-lg font-bold transition text-slate-300 hover:bg-slate-700 hover:text-white";
     }
+  });
 
-    container.innerHTML = `<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="bg-slate-800 text-white px-4 py-3 flex flex-wrap justify-between items-center gap-2">
-        <h3 class="font-bold text-xs md:text-sm">📍 당일 전체 배송처 목록 표 (총 ${list.length}곳 / ${list.reduce((s,o)=>s+o.totalBoxes,0).toFixed(1)}박스)</h3>
-        <span class="text-xs text-amber-300 font-semibold">${isLifo ? '📦 역순 상차순(안쪽➔문쪽)' : '🚚 배송 방문순(1번➔끝번)'}</span>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-xs text-left border-collapse">
-          <thead class="bg-slate-100 text-slate-700 border-b">
-            <tr>
-              <th class="p-2 text-center">호차</th>
-              <th class="p-2 text-center">${isLifo ? '상차(하차)' : '방문순'}</th>
-              <th class="p-2">거래처명 (카톡별명)</th>
-              <th class="p-2">권역</th>
-              <th class="p-2">주소</th>
-              <th class="p-2 text-center">도착~출발</th>
-              <th class="p-2 text-right">총 물량</th>
-              <th class="p-2 text-center no-print">호차 변경</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-200">
-            ${list.map(o => {
-              const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.client.addr)}`;
-              return `<tr class="hover:bg-slate-50">
-                <td class="p-2 text-center font-extrabold text-indigo-700 whitespace-nowrap">${o.vehicle}호차</td>
-                <td class="p-2 text-center font-bold whitespace-nowrap">
-                  <span class="${isLifo ? 'bg-purple-700' : 'bg-slate-900'} text-white px-2 py-0.5 rounded">${o.stopOrder}번</span>
-                </td>
-                <td class="p-2">
-                  <div class="font-bold text-slate-900">${o.client.name}</div>
-                  <div class="text-[11px] text-slate-500">카톡: ${o.nickUsed}</div>
-                </td>
-                <td class="p-2 whitespace-nowrap"><span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">${o.client.region}</span></td>
-                <td class="p-2 text-slate-600">${o.client.addr} <a href="${mapUrl}" target="_blank" class="text-blue-600 underline font-semibold ml-1 no-print">[지도]</a></td>
-                <td class="p-2 text-center whitespace-nowrap font-bold text-slate-800">${o.etaArr}~${o.etaDep}</td>
-                <td class="p-2 text-right font-extrabold text-indigo-700 whitespace-nowrap">${o.totalBoxes.toFixed(1)}박</td>
-                <td class="p-2 text-center no-print">
-                  <select onchange="changeStoreVehicle('${o.client.name}', this.value)" class="border border-slate-300 rounded px-1.5 py-1 text-xs font-bold bg-white">
-                    ${[1,2,3,4,5].map(num => `<option value="${num}" ${o.vehicle === num ? 'selected' : ''}>${num}호차</option>`).join('')}
-                  </select>
-                </td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>`;
+  const container = document.getElementById('outputContainer');
+  if (parsedOrders.length === 0) {
+    container.innerHTML = `<div class="p-10 text-center text-slate-400 font-medium">분석된 데이터가 없습니다.</div>`;
     return;
   }
 
-  // [탭 3] 전체 발주목록 표
-  if (currentMainTab === 'orders') {
-    const rows = [];
-    const sortedOrders = [...parsedOrders].sort((a, b) => (a.vehicle - b.vehicle) || (isLifo ? b.stopOrder - a.stopOrder : a.stopOrder - b.stopOrder));
-    for (const o of sortedOrders) {
-      if (selectedVehicleTab !== 'all' && o.vehicle !== selectedVehicleTab) continue;
-      for (const it of o.items) {
-        if (deltaOnly && !it.isDelta) continue;
-        if (searchKw && !o.client.name.toLowerCase().includes(searchKw) && !it.text.toLowerCase().includes(searchKw) && !o.client.region.toLowerCase().includes(searchKw)) continue;
-        rows.push({ order: o, item: it });
-      }
-    }
-    const sumBox = rows.reduce((s, r) => s + r.item.boxEq, 0);
-    container.innerHTML = `<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="bg-slate-800 text-white px-4 py-3 flex flex-wrap justify-between items-center gap-2">
-        <h3 class="font-bold text-xs md:text-sm">🥩 당일 전체 발주품목 목록 표 (총 ${rows.length}건 / 합계 ${sumBox.toFixed(1)}박스)</h3>
+  // 1) 배송지 목록 탭
+  if (tabId === 'destinations') {
+    // 거리순 정렬
+    const sorted = [...parsedOrders].sort((a, b) => a.distKm - b.distKm);
+    
+    let html = `
+    <div class="p-4">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="font-bold text-slate-800 text-sm">📍 배송지 목록 (미트포앤 기준 거리순 정렬)</h3>
+        <span class="text-xs text-slate-500">배송지를 클릭하면 상세 품목이 열립니다.</span>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-xs text-left border-collapse">
-          <thead class="bg-slate-100 text-slate-700 border-b">
+      <div class="flex flex-col gap-2">
+    `;
+
+    sorted.forEach((o, i) => {
+      html += `
+        <details class="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden group">
+          <summary class="p-3 bg-white flex justify-between items-center hover:bg-slate-50 transition border-b border-transparent group-open:border-slate-200">
+            <div class="flex items-center gap-3">
+              <span class="bg-indigo-100 text-indigo-700 font-bold px-2 py-1 rounded text-xs">${i+1}</span>
+              <div>
+                <div class="font-extrabold text-slate-900">${o.client.name}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">${o.client.region} · ${o.client.addr}</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 text-right">
+              <div class="text-xs font-bold text-slate-600">${o.distKm.toFixed(1)} km</div>
+              <div class="bg-slate-800 text-white text-[10px] px-2 py-1 rounded">▼ 상세 보기</div>
+            </div>
+          </summary>
+          <div class="p-3 bg-slate-50 text-xs">
+            <table class="w-full text-left">
+              <tbody>
+                ${o.items.map(it => `
+                  <tr class="border-b border-slate-200/60 last:border-0">
+                    <td class="py-1.5 text-slate-700">${it.originalText}</td>
+                    <td class="py-1.5 text-right font-bold ${it.isSpecialUnit ? 'text-rose-600' : 'text-indigo-600'}">${it.qty} <span class="text-[10px] font-normal">${it.unit}</span></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      `;
+    });
+    html += `</div></div>`;
+    container.innerHTML = html;
+  }
+
+  // 2) 전체 발주 항목표 (품목별)
+  else if (tabId === 'items') {
+    // 카테고리별로 묶기
+    const catMap = {};
+    parsedOrders.forEach(o => {
+      o.items.forEach(it => {
+        if (!catMap[it.category]) catMap[it.category] = [];
+        catMap[it.category].push({ client: o.client.name, item: it });
+      });
+    });
+
+    // 정렬 (삼겹살 등 주요 품목이 위로 오게)
+    const sortedCats = Object.keys(catMap).sort((a, b) => {
+      const idxA = MEAT_CATEGORIES.indexOf(a);
+      const idxB = MEAT_CATEGORIES.indexOf(b);
+      return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+    });
+
+    let html = `
+    <div class="p-4">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="font-bold text-slate-800 text-sm">🥩 전체 발주 항목표 (카테고리 묶음)</h3>
+        <span class="text-xs text-slate-500">품목명을 클릭하면 주문한 상호가 나옵니다.</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    `;
+
+    sortedCats.forEach(cat => {
+      const items = catMap[cat];
+      const totalBox = items.filter(x => x.item.unit.includes('박스')).reduce((s, x) => s + x.item.qty, 0);
+      const totalSpecial = items.filter(x => x.item.isSpecialUnit).length;
+      
+      let badgeHtml = '';
+      if (totalBox > 0) badgeHtml += `<span class="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded text-[10px] ml-2">${totalBox}박스</span>`;
+      if (totalSpecial > 0) badgeHtml += `<span class="bg-rose-100 text-rose-800 px-1.5 py-0.5 rounded text-[10px] ml-1">특수단위 ${totalSpecial}건</span>`;
+
+      html += `
+        <details class="bg-white border border-slate-300 rounded-lg shadow-sm group">
+          <summary class="p-3 bg-slate-100 hover:bg-slate-200 flex justify-between items-center border-b border-transparent group-open:border-slate-300 transition">
+            <div class="font-extrabold text-slate-800 text-sm">${cat} ${badgeHtml}</div>
+            <div class="text-slate-500 text-[10px] font-bold">▼</div>
+          </summary>
+          <div class="p-2">
+            <table class="w-full text-[11px] text-left">
+              <tbody>
+                ${items.map(x => `
+                  <tr class="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                    <td class="py-1.5 px-2 font-bold text-slate-700 w-1/3 truncate">${x.client}</td>
+                    <td class="py-1.5 px-2 text-slate-600">${x.item.originalText}</td>
+                    <td class="py-1.5 px-2 text-right font-extrabold ${x.item.isSpecialUnit ? 'text-rose-600' : 'text-slate-800'}">${x.item.qty}${x.item.unit}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      `;
+    });
+    html += `</div></div>`;
+    container.innerHTML = html;
+  }
+
+  // 3) 팩/Kg 특수단위 작업목록
+  else if (tabId === 'specials') {
+    const specialItems = [];
+    parsedOrders.forEach(o => {
+      o.items.filter(it => it.isSpecialUnit).forEach(it => {
+        specialItems.push({ client: o.client.name, item: it });
+      });
+    });
+
+    let html = `
+    <div class="p-4">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="font-bold text-slate-800 text-sm">🔪 팩 / Kg / 개 특수단위 작업 목록</h3>
+        <span class="text-xs text-rose-600 font-bold">소분 및 개별 작업이 필요한 항목만 모았습니다.</span>
+      </div>
+      <div class="overflow-x-auto border border-slate-200 rounded-lg">
+        <table class="w-full text-xs text-left">
+          <thead class="bg-rose-50 text-rose-900 border-b border-rose-200">
             <tr>
-              <th class="p-2 text-center">호차(순번)</th>
-              <th class="p-2">거래처명</th>
-              <th class="p-2">권역</th>
-              <th class="p-2 text-center">구분</th>
-              <th class="p-2">발주 품목 원문</th>
-              <th class="p-2">작업 태그</th>
-              <th class="p-2 text-right">환산 물량</th>
+              <th class="p-2.5 w-10 text-center">번호</th>
+              <th class="p-2.5 w-48">거래처명</th>
+              <th class="p-2.5">발주 원문 (작업 내용)</th>
+              <th class="p-2.5 w-24 text-right">수량 / 단위</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-200">
-            ${rows.map(({ order: o, item: it }) => `
-              <tr class="hover:bg-slate-50 ${it.isPass ? 'line-through text-slate-400' : ''}">
-                <td class="p-2 text-center font-bold text-indigo-700 whitespace-nowrap">${o.vehicle}호차(${o.stopOrder}번)</td>
-                <td class="p-2 font-bold text-slate-900 whitespace-nowrap">${o.client.name}</td>
-                <td class="p-2 text-slate-500 whitespace-nowrap">${o.client.region}</td>
-                <td class="p-2 text-center whitespace-nowrap">
-                  ${it.isDelta ? '<span class="bg-rose-600 text-white px-1.5 py-0.5 rounded font-bold text-[10px]">⚡추가</span>' : '<span class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-[10px]">발주</span>'}
-                </td>
-                <td class="p-2 font-medium text-slate-800">${it.text}</td>
-                <td class="p-2 whitespace-nowrap">${it.tags.map(t => `<span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded mr-1 text-[10px] font-semibold">${t}</span>`).join('')}</td>
-                <td class="p-2 text-right font-extrabold text-slate-800 whitespace-nowrap">${it.boxEq}박</td>
+          <tbody class="divide-y divide-slate-200 bg-white">
+            ${specialItems.length === 0 ? '<tr><td colspan="4" class="p-4 text-center text-slate-400">특수 단위 발주가 없습니다.</td></tr>' : ''}
+            ${specialItems.map((x, i) => `
+              <tr class="hover:bg-rose-50/50">
+                <td class="p-2.5 text-center text-slate-400 font-mono">${i+1}</td>
+                <td class="p-2.5 font-bold text-slate-800">${x.client}</td>
+                <td class="p-2.5 text-slate-600 font-medium">${x.item.originalText}</td>
+                <td class="p-2.5 text-right font-extrabold text-rose-600 text-sm">${x.item.qty} <span class="text-[10px] font-medium text-rose-500">${x.item.unit}</span></td>
               </tr>
             `).join('')}
           </tbody>
         </table>
       </div>
     </div>`;
-    return;
-  }
-
-  // [탭 1] 호차별 배차·상차 일정표 (표 형태)
-  let tablesHtml = '';
-  for (let v = 1; v <= 5; v++) {
-    if (selectedVehicleTab !== 'all' && selectedVehicleTab !== v) continue;
-    const fullRouteOrders = parsedOrders.filter(o => o.vehicle === v).sort((a, b) => a.stopOrder - b.stopOrder);
-    let vOrders = [...fullRouteOrders];
-    if (deltaOnly) vOrders = vOrders.filter(o => o.hasDelta);
-    if (searchKw) {
-      vOrders = vOrders.filter(o => o.client.name.toLowerCase().includes(searchKw) || o.nickUsed.toLowerCase().includes(searchKw) || o.client.region.toLowerCase().includes(searchKw) || o.items.some(i => i.text.toLowerCase().includes(searchKw)));
-    }
-    if (vOrders.length === 0) continue;
-
-    let totalKm = fullRouteOrders.reduce((s, o) => s + (o.distKm || 0), 0);
-    const lastStop = fullRouteOrders[fullRouteOrders.length - 1];
-    const retKm = lastStop ? calcDistKm(lastStop.client.lat, lastStop.client.lon, DEPOT.lat, DEPOT.lon) : 0;
-    const retMin = estimateDriveMin(retKm);
-    const returnEta = lastStop ? addMinutesToTimeStr(lastStop.etaDep, retMin) : customDepartureTimes[v];
-    totalKm += retKm;
-
-    const vTotalBoxes = fullRouteOrders.reduce((s, o) => s + o.totalBoxes, 0);
-    const capPct = Math.min(100, Math.round((vTotalBoxes / maxBoxLimit) * 100));
-    const isOverCap = vTotalBoxes > maxBoxLimit;
-    const displayOrders = isLifo ? [...vOrders].reverse() : vOrders;
-
-    tablesHtml += `
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="bg-slate-800 text-white px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-2">
-          <span class="bg-indigo-500 text-white font-extrabold px-2 py-0.5 rounded text-xs md:text-sm">${dynamicVehicleTitles[v]}</span>
-          <span class="text-xs text-slate-300 font-medium">총 ${fullRouteOrders.length}곳 | 약 ${totalKm.toFixed(1)}km</span>
-        </div>
-        <div class="flex flex-wrap items-center gap-2 text-xs">
-          <div class="flex items-center gap-1 bg-slate-700 px-2 py-1 rounded">
-            <span class="text-amber-300 font-bold">🚀 출발:</span>
-            <input type="time" value="${customDepartureTimes[v]}" onchange="updateDepartureTime(${v}, this.value)" class="bg-slate-900 text-white font-bold px-1 py-0.5 rounded border border-slate-500" />
-            <span class="text-emerald-300 font-bold ml-1">➔ 복귀 ${returnEta}</span>
-          </div>
-          <button type="button" onclick="copyVehicleSchedule(${v})" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1 rounded transition no-print">
-            📋 카톡 공유 복사
-          </button>
-        </div>
-      </div>
-
-      <div class="bg-slate-50 px-3.5 py-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-        <div class="flex items-center gap-2">
-          <span class="font-bold text-slate-700">적재 물량: ${vTotalBoxes.toFixed(1)} / ${maxBoxLimit}박스</span>
-          <div class="w-28 bg-slate-200 h-2 rounded-full overflow-hidden">
-            <div class="${isOverCap ? 'bg-rose-600' : 'bg-indigo-600'} h-full" style="width:${capPct}%"></div>
-          </div>
-          ${isOverCap ? '<span class="text-rose-600 font-bold">⚠️ 상한 초과!</span>' : '<span class="text-emerald-600 font-semibold">✔ 적정</span>'}
-        </div>
-        <div class="font-bold ${isLifo ? 'text-purple-700' : 'text-slate-600'}">
-          ${isLifo ? '📦 [역순 상차 표] 1순위부터 탑차 안쪽에 실으세요!' : '🚚 [배송 방문순 표] 출발 후 실제 방문 순서입니다.'}
-        </div>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full text-xs text-left border-collapse">
-          <thead class="bg-slate-100 text-slate-700 border-b">
-            <tr>
-              <th class="p-2 w-20 text-center">${isLifo ? '상차순' : '방문순'}</th>
-              <th class="p-2 w-44">거래처명 / 권역</th>
-              <th class="p-2 w-56">주소 / 도착예정</th>
-              <th class="p-2">발주 품목 내역</th>
-              <th class="p-2 w-16 text-right">물량</th>
-              <th class="p-2 w-24 text-center no-print">호차이동</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-200">
-            ${displayOrders.map((o, idx) => {
-              const lifoRank = idx + 1;
-              const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.client.addr)}`;
-              return `<tr class="hover:bg-slate-50/90 align-top">
-                <td class="p-2 text-center">
-                  <span class="${isLifo ? 'bg-purple-700' : 'bg-slate-900'} text-white font-extrabold px-2 py-0.5 rounded inline-block whitespace-nowrap">
-                    ${isLifo ? `상차${lifoRank}` : `${o.stopOrder}번`}
-                  </span>
-                  ${isLifo ? `<div class="text-[10px] text-purple-700 font-bold mt-0.5">(${o.stopOrder}번하차)</div>` : ''}
-                </td>
-                <td class="p-2">
-                  <div class="font-extrabold text-slate-900">${o.client.name}</div>
-                  <div class="flex flex-wrap items-center gap-1 mt-0.5">
-                    <span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded font-bold text-[10px]">${o.client.region}</span>
-                    ${o.hasDelta ? '<span class="bg-rose-100 text-rose-700 px-1 rounded font-bold text-[10px]">⚡추가</span>' : ''}
-                  </div>
-                </td>
-                <td class="p-2">
-                  <div class="text-slate-600 leading-snug">${o.client.addr} <a href="${mapUrl}" target="_blank" class="text-blue-600 underline font-semibold no-print">[지도]</a></div>
-                  <div class="mt-1 inline-block bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold text-slate-800 text-[11px]">
-                    ⏰ ${o.etaArr}~${o.etaDep} (${o.driveMin}분/${o.distKm.toFixed(1)}km)
-                  </div>
-                </td>
-                <td class="p-2">
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-0.5">
-                    ${o.items.map(it => `
-                      <div class="flex items-center justify-between border-b border-slate-100 py-0.5 ${it.isPass ? 'line-through text-slate-400' : ''}">
-                        <span class="font-medium text-slate-800">${it.text}</span>
-                        <span class="font-bold text-slate-500 text-[11px] ml-1 whitespace-nowrap">${it.boxEq}박</span>
-                      </div>
-                    `).join('')}
-                  </div>
-                </td>
-                <td class="p-2 text-right font-extrabold text-indigo-700 whitespace-nowrap">${o.totalBoxes.toFixed(1)}박</td>
-                <td class="p-2 text-center no-print">
-                  <select onchange="changeStoreVehicle('${o.client.name}', this.value)" class="border border-slate-300 rounded px-1.5 py-1 text-xs font-bold bg-white">
-                    ${[1,2,3,4,5].map(num => `<option value="${num}" ${o.vehicle === num ? 'selected' : ''}>${num}호차</option>`).join('')}
-                  </select>
-                </td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>`;
-  }
-  container.innerHTML = tablesHtml;
-}
-
-function copyVehicleSchedule(v) {
-  const vOrders = parsedOrders.filter(o => o.vehicle === v).sort((a, b) => a.stopOrder - b.stopOrder);
-  if (vOrders.length === 0) return;
-  const vTotalBoxes = vOrders.reduce((s, o) => s + o.totalBoxes, 0);
-  let txt = `📢 [${dynamicVehicleTitles[v]}] 금일 납품 및 상차 지시서\n`;
-  txt += `- 미트포앤 출발: ${customDepartureTimes[v]}\n`;
-  txt += `- 총 방문지: ${vOrders.length}곳 (약 ${vTotalBoxes.toFixed(1)}박스)\n\n`;
-  txt += `📦 [역순 상차 순서 (안쪽 ➔ 문쪽)]\n`;
-  [...vOrders].reverse().forEach((o, i) => {
-    txt += `${i+1}순위(안쪽): ${o.client.name} (${o.totalBoxes}박)\n`;
-  });
-  txt += `\n🚚 [방문 일정 및 품목]\n`;
-  vOrders.forEach(o => {
-    txt += `${o.stopOrder}. ${o.client.name} (도착 ${o.etaArr}~${o.etaDep})\n`;
-    txt += `   주소: ${o.client.addr}\n`;
-    txt += `   품목: ${o.items.filter(i=>!i.isPass).map(i=>i.text).join(' / ')}\n`;
-  });
-
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(txt).then(() => showToast(`✅ ${v}호차 일정표가 복사되었습니다!`));
-  } else {
-    const ta = document.createElement('textarea');
-    ta.value = txt;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    showToast(`✅ ${v}호차 일정표가 복사되었습니다!`);
+    container.innerHTML = html;
   }
 }
-
-function loadSampleOct21(scrollToOutput = false) {
-  document.getElementById('kakaoInput').value = `[한재호(주)미트포앤] [오후 2:32] 태광
-내일
-빵삼겹 3박스
-[한재호(주)미트포앤] [오후 4:03] 정성마트
-아차산입니다
-삼겹 2박스 대산
-목살 3박스 대산
-미후지 1박스
-미전지 5박스 대산
-등심 2박스
-등갈비 2박스
-B목살 2박스
-사태 1박스
-냉장등뼈 1박스
-모돈삼겹 1박스
-수입냉장살치 1박스
-[한재호(주)미트포앤] [오후 4:03] 천하제일정육점 
-등뼈 2
-등심 1
-안심 반박스..
-등갈비 1박스
-암퇘지 삼겹 2 포크
-미전지 2 포크
-목살 1 포크
-돼지갈비 냉동 1박스
-[한재호(주)미트포앤] [오후 4:04] 성대g마트
-미박삼겹살 4 박스 대산작은거
-냉장3mm후지 3 박스
-등심 3 박스
-안심 1 박스
-앞미사태 2 박스
-가브리살 5kg
-항정살 10kg
-냉동갈비 6 박스
-[한재호(주)미트포앤] [오후 4:14] 신천동 맛닭꼬치입니다.
-냉동삼겹살 0.5mm로 부탁드립니다.
-[한재호(주)미트포앤] [오후 5:55] 슈퍼킹
-미후지 3박스
-[한재호(주)미트포앤] [오후 5:57] 내일
-풍년돼지양념구이 
-돈왕구이(고)6박스
-[한재호(주)미트포앤] [오후 6:04] 큐엔씨육가공 
-내일 장족 150마리분
-[한재호(주)미트포앤] [오후 6:07] 동탄식자재마트 
-항정1 
-사태2 
-미전지5 포크
-등뼈3 
-갈비2 
-냉동전지 2박스
-냉동3mm후지 2박스
-[한재호(주)미트포앤] [오후 6:14] 한양봉천
-특미삼3빡스
-특목2빡스 포크17일
-스켄전지3빡스 신짜로
-돈피1봉지
-[한재호(주)미트포앤] [오후 6:25] 천하제일정육점 ●추가
-냉동3mm후지 1박스 추가 부탁드려요!
-[한재호(주)미트포앤] [오후 6:25] 김치왕뚜껑삼겹살1호점 
-지방덜한특삼겹 2판
-지방덜한특미삼 1판
-[한재호(주)미트포앤] [오후 6:26] 한마음마트 
-가브리 1
-목전지 3
-설도 2
-등뼈 2
-[한재호(주)미트포앤] [오후 6:58] 원대성정육점 
-앞미사태1 
-냉동등잡1
-안심1
-등뼈1
-미후지1
-[한재호(주)미트포앤] [오후 6:59] 전라도연탄구이 
-토레인삼겹 2박스
-[한재호(주)미트포앤] [오후 6:59] 일신할인마트 
-목살1. 포크
-암삼겹1. 포크
-미전지1. 포크
-등뼈1. 
-냉동돼지갈비1.
-[한재호(주)미트포앤] [오후 7:07] 다온마트
-돼지갈비 2
-등심 2
-모돈 3
-[한재호(주)미트포앤] [오후 7:08] 본오농민마트 
-미전지 6박스 포크
-사태 1박스
-등심 1박스
-등뼈 2박스
-미후지 1박스
-[한재호(주)미트포앤] [오후 7:09] 에스농축산마트 율전
-프라임꽃등심 1덩어리 
-등갈비 1박스
-갈비 1박스
-수입 살치살 2진공
-[한재호(주)미트포앤] [오후 7:09] 사동쌈엔쌈 
-목전지제육1박스
-생삼겹1팩
-[한재호(주)미트포앤] [오후 7:41] 청정맛집 
-목전지제육2팩
-미전지찌게용1팩
-[한재호(주)미트포앤] [오후 7:42] 가리봉꿀돼지꿀한우 
-미전지4 포크
-등갈비1
-[한재호(주)미트포앤] [오후 8:07] 백봉●이거로정정요
-특삼겹 한판
-특목살 1팩
-항정 1팩
-[한재호(주)미트포앤] [오후 8:07] 삼사오
-삼겹1b
-미삼1p
-갈매기3k
-[김석민] [오후 8:07] 찌그러진 
-미전지 1박스 
-미전지제육 1팩 
-[한재호(주)미트포앤] [오후 8:12] sk축산
-암삼겹1 대산
-등심13키로 
-[한재호(주)미트포앤] [오후 8:39] 스타마트
-오겹2 
-등갈비2 
-국내산냉동삼겹1 
-B목살 3
-[한재호(주)미트포앤] [오후 8:40] 금천꿀돼지꿀한우 
-장족 3벌 
-미전지 2박스 포크
-목살1 포크
-삼겹1 포크큰거
-등뼈1
-A지방1 정담한돈 20키로 온거로
-돈피 1봉지
-[한재호(주)미트포앤] [오후 8:42] 원신산업 
-목전지 7박스
-티스볼라전각 3박스
-우삼겹 1박스
-등뼈 2박스
-등갈비 1박스
-[한재호(주)미트포앤] [오후 8:42] 별빛정육점 
-삼겹 1박스 포크
-미삼겹 1박스 포크
-안심 1팩
-[한재호(주)미트포앤] [오후 9:37] 김치왕뚜껑삼겹살 2호점
-지방있는거로삼겹 3판
-지방있는거로미삼 1판
-[한재호(주)미트포앤] [오후 9:40] 구들장
-삼겹 2판
-목전지 찌개용 10키로
-[한재호(주)미트포앤] [오후 9:46] 내일
-참새방앗간 
-한우홍두깨1덩이
-갈매기 5키로 (소분해서)
-늑간 1박스 36,500원
-[한재호(주)미트포앤] [오후 10:02] 거시기함흥냉면 
-갈비6키로 
-올리멜목살2 
-삼겹1판 
-늑간2팩 36,500원
-[한재호(주)미트포앤] [오후 10:13] 신박축산
-포크삼겹3
-포크미삼1
-포크미전지3
-수입갈비살1팩 35,800
-사태1팩
-가브리1팩이요
-[한재호(주)미트포앤] [오후 10:34] ■김치왕뚜껑삼겹살3호점
-대산 특삼겹 2판
-대산 특미삼 1판●3등분 나눠서 포장 해달래요
-[한재호(주)미트포앤] [오후 10:48] 린이네축산 동탄
-저렴수입삼겹4박스 테니쉬
-우삼겹 1박스 
-삼겹 1박스 대산
-미전지2박스 대산`;
-  parseAndAnalyze(scrollToOutput);
-}
-
-// ============================================================================
-// 5. 이벤트 리스너 바인딩 (모바일 터치 & 클릭 100% 보장)
-// ============================================================================
-window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('btnRunAnalyze').addEventListener('click', () => parseAndAnalyze(true));
-  document.getElementById('btnLoadSample').addEventListener('click', () => loadSampleOct21(true));
-  document.getElementById('btnClearInput').addEventListener('click', () => {
-    document.getElementById('kakaoInput').value = '';
-    document.getElementById('btnRunText').innerText = '🚀 발주 자동 분류 & 5대 동적 배차 실행';
-    showToast('입력창을 비웠습니다.');
-  });
-  document.getElementById('btnCollapseInput').addEventListener('click', () => {
-    const wrap = document.getElementById('inputBoxWrapper');
-    const btn = document.getElementById('btnCollapseInput');
-    isInputCollapsed = !isInputCollapsed;
-    wrap.classList.toggle('hidden', isInputCollapsed);
-    btn.innerText = isInputCollapsed ? '펼치기 ▼' : '접기 ▲';
-  });
-  document.getElementById('textareaHeightSlider').addEventListener('input', function() {
-    document.getElementById('kakaoInput').style.height = this.value + 'px';
-    document.getElementById('heightPxLabel').innerText = this.value + 'px';
-  });
-  document.getElementById('maxBoxLimit').addEventListener('change', () => {
-    runFastDynamic5Clustering();
-    renderAll();
-  });
-
-  // 초기 샘플 로드
-  loadSampleOct21(false);
-});
 </script>
 </body>
 </html>
