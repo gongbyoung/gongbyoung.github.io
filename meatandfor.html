@@ -2,9 +2,9 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <!-- 모바일 확대 방지 및 앱 화면처럼 꽉 차게 -->
+  <!-- 모바일 확대 방지 및 꽉 찬 앱 화면 느낌 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 스마트 발주 집계 (모바일)</title>
+  <title>미트포앤 모바일 발주 집계</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -17,6 +17,11 @@
   </style>
 </head>
 <body class="text-slate-800">
+
+  <!-- 상단 알림 토스트 (모바일 피드백용) -->
+  <div id="toastBanner" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden bg-indigo-600 text-white px-4 py-2.5 rounded-full shadow-xl font-bold text-xs flex items-center gap-2 transition-all">
+    <span id="toastMsg">✅ 분석 완료!</span>
+  </div>
 
   <!-- 💡 [모바일 플로팅 헤더] 스크롤해도 항상 위에 고정 -->
   <header class="fixed top-0 w-full z-50 bg-slate-900 text-white shadow-md">
@@ -41,12 +46,12 @@
         <div class="text-sm font-bold text-indigo-400 leading-tight"><span id="kpiTotalBoxes">0.0</span><span class="text-[9px] font-normal ml-0.5">박</span></div>
       </div>
       <div class="py-1.5">
-        <div class="text-[9px] text-slate-400">추가/정정</div>
-        <div class="text-sm font-bold text-rose-400 leading-tight"><span id="kpiDelta">0</span><span class="text-[9px] font-normal ml-0.5">건</span></div>
+        <div class="text-[9px] text-slate-400">품목(종)</div>
+        <div class="text-sm font-bold text-emerald-400 leading-tight"><span id="kpiCategories">0</span><span class="text-[9px] font-normal ml-0.5">종</span></div>
       </div>
       <div class="py-1.5">
         <div class="text-[9px] text-slate-400">특수(팩/kg)</div>
-        <div class="text-sm font-bold text-amber-400 leading-tight"><span id="kpiSpecials">0</span><span class="text-[9px] font-normal ml-0.5">건</span></div>
+        <div class="text-sm font-bold text-rose-400 leading-tight"><span id="kpiSpecials">0</span><span class="text-[9px] font-normal ml-0.5">건</span></div>
       </div>
     </div>
   </header>
@@ -60,7 +65,7 @@
     <details class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" open id="inputDetails">
       <summary class="p-3 bg-slate-50 flex justify-between items-center font-bold text-sm text-slate-700 cursor-pointer">
         <div class="flex items-center gap-2">
-          <span>⚙️ 발주 입력 설정</span>
+          <span>⚙️ 데이터 입력 설정</span>
         </div>
         <span class="arrow text-slate-400 text-xs transition-transform duration-200">▼</span>
       </summary>
@@ -69,31 +74,38 @@
         <!-- 주소록 업로드 -->
         <label class="w-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 p-2.5 rounded-lg text-center font-bold flex flex-col items-center justify-center transition active:scale-[0.98]">
           <span class="text-base mb-0.5">📂</span>
-          <span>1. 거래처 주소록(CSV) 업로드</span>
+          <span>1. 주소록(CSV) 먼저 업로드하기</span>
           <input type="file" id="csvFileInput" accept=".csv" class="hidden" />
         </label>
 
         <!-- 출고일 선택 -->
         <div class="bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
-          <label class="font-bold text-indigo-800 block mb-1">📅 출고(배송) 기준일</label>
+          <label class="font-bold text-indigo-800 block mb-1">📅 출고(배송) 기준일 선택</label>
           <input type="date" id="targetDate" class="w-full bg-white border border-indigo-200 rounded px-2 py-1.5 font-bold text-slate-800" />
           <div class="text-[10px] text-indigo-600 mt-1.5 leading-tight">
-            ※ 선택일 기준 <b>[전날 오전 10시 ~ 당일 오후 2시]</b> 사이의 카톡만 자동 추출합니다. (본문에 오늘/내일 단어가 있으면 예외 자동처리)
+            ※ 선택일 기준 <b>[전날 오전 10시 ~ 당일 오후 2시]</b> 사이 카톡만 추출. <br>단, <b>'오늘/내일'</b> 단어가 있으면 예외 규칙이 적용됩니다.
           </div>
         </div>
 
-        <!-- 텍스트 입력창 -->
+        <!-- 카톡 TXT 파일 직접 업로드 (모바일 1순위) -->
+        <label class="w-full bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 p-2.5 rounded-lg text-center font-bold flex flex-col items-center justify-center transition active:scale-[0.98]">
+          <span class="text-base mb-0.5">📄</span>
+          <span>2. 카카오톡 내보내기(.txt) 파일 업로드</span>
+          <input type="file" id="txtFileInput" accept=".txt,text/plain" class="hidden" />
+        </label>
+
+        <!-- 텍스트 직접 입력창 (보조용) -->
         <div>
           <div class="flex justify-between items-end mb-1">
-            <label class="font-bold text-slate-700 block">💬 2. 카카오톡 대화 붙여넣기</label>
+            <label class="font-bold text-slate-700 block">💬 또는 대화 내용 붙여넣기</label>
             <button onclick="document.getElementById('kakaoInput').value=''" class="text-[10px] text-rose-500 font-bold bg-rose-50 px-2 py-1 rounded">지우기</button>
           </div>
-          <textarea id="kakaoInput" class="w-full h-24 border border-slate-300 rounded-lg p-2 font-mono text-[11px] leading-tight bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none" placeholder="카톡 대화를 꾹 눌러 복사한 뒤 여기에 붙여넣으세요. 전체를 붙여넣어도 지정된 시간만 잘라냅니다."></textarea>
+          <textarea id="kakaoInput" class="w-full h-16 border border-slate-300 rounded-lg p-2 font-mono text-[11px] leading-tight bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none" placeholder="파일 업로드 대신 텍스트를 바로 붙여넣어도 됩니다."></textarea>
         </div>
 
         <!-- 실행 버튼 -->
         <button onclick="parseAndAnalyze()" class="w-full bg-indigo-600 text-white font-extrabold text-sm py-3 rounded-xl shadow-md active:scale-[0.98] transition flex items-center justify-center gap-1.5">
-          <span>🚀 배차 및 집계 실행</span>
+          <span>🚀 추출 및 집계 실행</span>
         </button>
       </div>
     </details>
@@ -108,7 +120,7 @@
     <!-- 3. 결과 출력 컨테이너 -->
     <div id="outputContainer" class="bg-white rounded-xl shadow-sm border border-slate-200 min-h-[300px] overflow-hidden">
       <div class="p-8 text-center text-slate-400 font-medium text-xs leading-relaxed">
-        위쪽 박스에 카톡 텍스트를 넣고<br><b class="text-indigo-500">[실행]</b>을 누르세요.
+        위쪽 박스에서 파일을 업로드하거나<br>텍스트를 넣고 <b class="text-indigo-500">[실행]</b>을 누르세요.
       </div>
     </div>
 
@@ -116,42 +128,32 @@
 
 <script>
 // ==========================================================
-// 1. 전역 상태 변수
+// 1. 전역 상태 및 날짜 세팅
 // ==========================================================
-const DEPOT = { lat: 37.305, lon: 126.855 }; // 미트포앤
 let CLIENT_DB = [];
 let parsedOrders = [];
 let currentTab = 'destinations';
 
 const MEAT_CATEGORIES = ['삼겹', '오겹', '특목살', '목살', 'B목살', '미전지', '전지', '미후지', '냉장3mm후지', '후지', '등뼈', '등심', '안심', '갈비', '등갈비', '항정', '가브리', '갈매기', '사태', '우삼겹', '차돌', '돈피', '장족', '모돈', '민찌', '살치', '홍두깨', '늑간'];
 
-// 오늘 날짜 기본 세팅
+// 출고 기준일 오늘 날짜 세팅
 const today = new Date();
 const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-document.getElementById('targetDate').value = '2026-10-22'; // 테스트용 기본값, 실사용시 todayStr 권장
+document.getElementById('targetDate').value = '2026-10-22'; // 테스트 기본값. 실사용 시 todayStr로 변경 권장
 
-function calcDistKm(lat1, lon1, lat2, lon2) {
-  const R = 6371.0;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.35;
-}
-
-function getApproxGeo(addr) {
-  if (addr.includes('대부')) return { region: '안산 대부', lat: 37.24, lon: 126.58 };
-  if (addr.includes('단원구') || addr.includes('시화') || addr.includes('정왕')) return { region: '안산/시흥 서부', lat: 37.33, lon: 126.75 };
-  if (addr.includes('상록구') || addr.includes('매송')) return { region: '안산/화성 내륙', lat: 37.30, lon: 126.85 };
-  if (addr.includes('서울')) return { region: '서울권', lat: 37.5, lon: 126.9 };
-  if (addr.includes('인천')) return { region: '인천권', lat: 37.45, lon: 126.70 };
-  if (addr.includes('부천') || addr.includes('광명')) return { region: '부천/광명', lat: 37.49, lon: 126.82 };
-  if (addr.includes('수원') || addr.includes('동탄') || addr.includes('용인')) return { region: '경기 동남부', lat: 37.26, lon: 127.05 };
-  return { region: '기타/지방', lat: 37.38, lon: 126.80 };
+// UI 피드백 토스트 알림
+function showToast(msg, isError = false) {
+  const banner = document.getElementById('toastBanner');
+  document.getElementById('toastMsg').innerText = msg;
+  banner.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full shadow-xl font-bold text-xs flex items-center gap-2 transition-all ${isError ? 'bg-rose-600 text-white' : 'bg-indigo-600 text-white'}`;
+  banner.classList.remove('hidden');
+  setTimeout(() => banner.classList.add('hidden'), 3000);
 }
 
 // ==========================================================
-// 2. CSV 파일 업로드
+// 2. 파일 업로드 및 데이터 읽기
 // ==========================================================
+// CSV 주소록 업로드
 document.getElementById('csvFileInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -171,19 +173,31 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
         if (customAlias) aliases.push(customAlias);
         if (baseClean && baseClean !== name && baseClean.length > 1) aliases.push(baseClean);
         
-        const geo = getApproxGeo(addr);
-        CLIENT_DB.push({ name, addr, aliases, region: geo.region, lat: geo.lat, lon: geo.lon });
+        CLIENT_DB.push({ name, addr, aliases });
       }
     }
-    document.getElementById('dbStatusBadge').innerText = `${CLIENT_DB.length}곳 등록`;
+    document.getElementById('dbStatusBadge').innerText = `${CLIENT_DB.length}곳 등록완료`;
     document.getElementById('dbStatusBadge').className = "text-emerald-400 font-bold";
-    alert(`주소록 ${CLIENT_DB.length}곳 로드 완료`);
+    showToast(`✅ 주소록 ${CLIENT_DB.length}곳 로드 완료`);
+  };
+  reader.readAsText(file, 'utf-8');
+});
+
+// 카톡 TXT 파일 업로드시 바로 텍스트에라어에 채우고 실행
+document.getElementById('txtFileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    document.getElementById('kakaoInput').value = evt.target.result;
+    showToast(`📄 카카오톡 파일 로딩 완료! 자동 집계를 시작합니다.`);
+    parseAndAnalyze();
   };
   reader.readAsText(file, 'utf-8');
 });
 
 // ==========================================================
-// 3. 발주 품목 및 단위 파서
+// 3. 발주 파서 및 10시~14시 시간 윈도우 알고리즘
 // ==========================================================
 function determineCategory(text) {
   for (const cat of MEAT_CATEGORIES) {
@@ -216,36 +230,29 @@ function parseUnitAndQty(text) {
   return { qty, unit };
 }
 
-// ==========================================================
-// 4. 모바일 + PC 통합 날짜/시간 파서 & 필터링 알고리즘
-// ==========================================================
 function parseAndAnalyze() {
   if (CLIENT_DB.length === 0) {
-    alert("⚠️ 거래처 주소록(CSV)을 먼저 업로드해 주세요.");
+    showToast("⚠️ 거래처 주소록(CSV)을 먼저 업로드해 주세요.", true);
     return;
   }
 
   const rawText = document.getElementById('kakaoInput').value.trim();
   if (!rawText) {
-    alert("카톡 텍스트를 입력해 주세요.");
+    showToast("⚠️ 카톡 텍스트나 파일을 입력해 주세요.", true);
     return;
   }
 
   // 출고 기준일 세팅 (Time Window: 전날 10:00 AM ~ 당일 14:00 PM)
   const targetDateStr = document.getElementById('targetDate').value;
   const tDt = new Date(targetDateStr + "T00:00:00");
-  const winStart = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, 10, 0); // 전날 10:00
-  const winEnd = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), 14, 0); // 당일 14:00
-
-  // 당일 날짜 문자열(MM/DD 포맷 추출용)
-  const tDtMM = tDt.getMonth() + 1;
-  const tDtDD = tDt.getDate();
+  const winStart = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, 10, 0); // 전날 오전 10:00
+  const winEnd = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), 14, 0); // 당일 오후 2:00
 
   const lines = rawText.split(/\r?\n/);
   const blocks = [];
   let curBlock = null;
 
-  // 카톡 말머리 정규식
+  // 카톡 말머리 정규식 (모바일 폰 내보내기/복사 포맷)
   const reMobileDot = /^\s*[·\.\-]?\s*(\d{1,2})[\/\.](\d{1,2})\.?\s+(오전|오후)\s+(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
   const reExport = /^(\d{4})[년\.\-\/]\s*(\d{1,2})[월\.\-\/]\s*(\d{1,2})[일\.]?\s*(오전|오후)?\s*(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
   const rePc = /^\[([^\]]+)\]\s*\[(오전\vert{}오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
@@ -259,8 +266,6 @@ function parseAndAnalyze() {
     const mPc = line.match(rePc);
 
     let dt = null;
-    let sender = "";
-    let content = "";
 
     if (mDot) {
       let mo = parseInt(mDot[1]), dy = parseInt(mDot[2]), ampm = mDot[3];
@@ -268,67 +273,61 @@ function parseAndAnalyze() {
       if (ampm === '오후' && hr !== 12) hr += 12;
       if (ampm === '오전' && hr === 12) hr = 0;
       let yr = tDt.getFullYear();
-      if (mo === 12 && tDtMM === 1) yr--; // 연도 넘어갈 때 방어코드
       dt = new Date(yr, mo - 1, dy, hr, mn);
-      sender = mDot[6].trim();
-      content = mDot[7].trim();
+      curBlock = { dt, lines: mDot[7].trim() ? [mDot[7].trim()] : [] };
     } else if (mExp) {
       let yr = parseInt(mExp[1]), mo = parseInt(mExp[2]), dy = parseInt(mExp[3]), ampm = mExp[4] || '';
       let hr = parseInt(mExp[5]), mn = parseInt(mExp[6]);
       if (ampm === '오후' && hr !== 12) hr += 12;
       if (ampm === '오전' && hr === 12) hr = 0;
       dt = new Date(yr, mo - 1, dy, hr, mn);
-      sender = mExp[7].trim();
-      content = mExp[8].trim();
+      curBlock = { dt, lines: mExp[8].trim() ? [mExp[8].trim()] : [] };
     } else if (mPc) {
       let ampm = mPc[2] || '', hr = parseInt(mPc[3]), mn = parseInt(mPc[4]);
       if (ampm === '오후' && hr !== 12) hr += 12;
       if (ampm === '오전' && hr === 12) hr = 0;
-      // PC 텍스트는 날짜가 없으므로 일단 12시간 룰로 전날/당일 역추산
       dt = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), hr, mn);
-      // 만약 14:00 이후 메시지면 전날 오후로 간주
+      // PC 텍스트의 시간만 있으면 14시 기준으로 전날/당일 판별
       if (hr >= 14) dt = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, hr, mn);
-      sender = mPc[1].trim();
-      content = mPc[5].trim();
+      curBlock = { dt, lines: mPc[5].trim() ? [mPc[5].trim()] : [] };
     }
 
     if (dt) {
-      if (curBlock) blocks.push(curBlock);
-      curBlock = { dt, sender, lines: content ? [content] : [] };
+      if (curBlock && curBlock.lines.length > 0) blocks.push(curBlock);
     } else {
-      if (!curBlock) curBlock = { dt: tDt, sender: "수동", lines: [] };
+      if (!curBlock) curBlock = { dt: tDt, lines: [] };
       curBlock.lines.push(line);
     }
   }
-  if (curBlock) blocks.push(curBlock);
+  if (curBlock && curBlock.lines.length > 0) blocks.push(curBlock);
 
-  // Time Window 필터링 + 오늘/내일 키워드 Override 적용
+  // Time Window 필터링 + "오늘/내일/금요일/모레" 키워드 덮어쓰기 알고리즘
   const validBlocks = [];
   for (const b of blocks) {
     const fullBody = b.lines.join(' ');
     
-    // 키워드 검사
-    const hasToday = fullBody.includes('오늘');
-    const hasTomorrow = fullBody.includes('내일');
-    const isPrevDayMsg = b.dt < new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), 0, 0); // 전날 메시지인가?
+    // 키워드 검사 (오늘, 내일, 요일 등)
+    const hasToday = fullBody.includes('오늘') || fullBody.includes('금일');
+    const hasTomorrow = fullBody.includes('내일') || fullBody.includes('모레') || fullBody.includes('금요일');
+    const isPrevDayMsg = b.dt < new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), 0, 0);
 
     let isValid = false;
     
-    // 타임 윈도우 안에 있는지 확인 (전날 10:00 ~ 당일 14:00)
+    // 타임 윈도우(전날 10:00 ~ 당일 14:00) 안에 들어왔는가?
     if (b.dt >= winStart && b.dt <= winEnd) {
         isValid = true;
     }
 
-    // Override 룰 적용
+    // 예외처리 덮어쓰기
     if (isPrevDayMsg) {
-        // 전날 메시지인데 '오늘' 이라고 하면 -> 전날 당일 출고분 이므로 배제
+        // 전날 작성된 글에 '오늘'이 있으면 ➔ 이미 출고된 것이므로 버림
         if (hasToday) isValid = false;
-        // 전날 메시지인데 '내일' 이라고 하면 -> 지정일(당일) 출고분 이므로 포함
+        // 전날 작성된 글에 '내일'이 있으면 ➔ 당일 출고분 맞으므로 무조건 포함
         if (hasTomorrow) isValid = true;
     } else {
-        // 당일 메시지인데 '내일' 이라고 하면 -> 다음날 출고분 이므로 배제
+        // 당일 아침에 작성된 글에 '내일/모레'가 있으면 ➔ 내일 나갈 것이므로 버림
         if (hasTomorrow) isValid = false;
-        // 당일 메시지인데 '오늘' 이라고 하면 -> 지정일 출고분 이므로 포함
+        // 당일 아침에 작성된 글에 '오늘'이 있으면 ➔ 무조건 포함
         if (hasToday) isValid = true;
     }
 
@@ -343,19 +342,18 @@ function parseAndAnalyze() {
     const body = b.lines.join('\n');
     if (['여기까지', '사진', '네'].includes(body) || body.startsWith('발주체크')) continue;
 
-    // 전달 시스템 메시지 제거
     for (let i=0; i<b.lines.length; i++) {
       b.lines[i] = b.lines[i].replace(/^전달:\s*/, '').trim();
     }
 
-    // 업체명 찾기
     let foundClient = null;
     for (let i = 0; i < Math.min(3, b.lines.length); i++) {
       const cLine = b.lines[i].replace(/[●■☆★\[\]\(\)\.\,]/g, ' ').replace(/(추가|정정|내일|오늘|급급)/g, '').trim();
       const cNoSpace = cLine.replace(/\s+/g, '');
       if (!cNoSpace || cNoSpace.length < 2) continue;
       
-      if (/(삼겹|목살|전지|후지|등뼈|항정|가브리|갈비|등심|안심|사태|우삼겹|돈피|장족|모돈)\s*\d/.test(cLine)) continue;
+      // 품목만 있는 줄은 업체명 검색 안함
+      if (/(삼겹|목살|미전지|등뼈|항정|가브리|갈매기|갈비|등심|안심|사태|후지|차돌|우삼겹|돈피|장족|모돈)\s*\d/.test(cLine)) continue;
 
       let bestLen = 0;
       for (const c of CLIENT_DB) {
@@ -375,21 +373,17 @@ function parseAndAnalyze() {
     if (foundClient) {
       currentClient = foundClient;
       if (!orderMap.has(currentClient.name)) {
-        orderMap.set(currentClient.name, { 
-            client: currentClient, 
-            distKm: calcDistKm(DEPOT.lat, DEPOT.lon, currentClient.lat, currentClient.lon), 
-            items: [],
-            isDelta: false
-        });
+        orderMap.set(currentClient.name, { client: currentClient, items: [], isDelta: false });
       }
     }
 
     if (currentClient) {
-      const isDeltaMsg = b.dt.getHours() >= 6 && b.dt.getHours() <= 13 || body.includes('추가') || body.includes('정정');
+      // 델타(추가/정정) 판별: 아침 6시~오후 2시 사이 메시지이거나 키워드 존재 시
+      const isDeltaMsg = (b.dt.getHours() >= 6 && b.dt.getHours() <= 14) || body.includes('추가') || body.includes('정정');
       if (isDeltaMsg) orderMap.get(currentClient.name).isDelta = true;
 
       for (const l of b.lines) {
-        if (!/(부탁드립니다|감사합니다|이상입니다|안녕하세요|문자드립니다|이렇게|주세요|발주요|주문합니다|내일|오늘)/.test(l) || /\d/.test(l)) {
+        if (!/(부탁드립니다|감사합니다|이상입니다|안녕하세요|문자드립니다|이렇게|주세요|발주요|주문합니다|내일|오늘|금요일)/.test(l) || /\d/.test(l)) {
           const parsed = parseUnitAndQty(l);
           if (parsed && parsed.unit !== '취소' && parsed.qty > 0) {
             orderMap.get(currentClient.name).items.push({
@@ -397,8 +391,7 @@ function parseAndAnalyze() {
               category: determineCategory(l),
               qty: parsed.qty,
               unit: parsed.unit,
-              isSpecialUnit: !['박스', '박스(추정)'].includes(parsed.unit),
-              isDeltaItem: isDeltaMsg
+              isSpecialUnit: !['박스', '박스(추정)'].includes(parsed.unit)
             });
           }
         }
@@ -409,15 +402,14 @@ function parseAndAnalyze() {
   parsedOrders = Array.from(orderMap.values()).filter(o => o.items.length > 0);
   
   if (parsedOrders.length > 0) {
-    // 입력창 접기
-    document.getElementById('inputDetails').open = false;
+    showToast(`✅ ${parsedOrders.length}곳 분석 완료!`);
+    document.getElementById('inputDetails').open = false; // 성공시 입력창 닫기
   } else {
-    alert("⚠️ 추출된 발주 내역이 없습니다. (날짜 필터 및 오늘/내일 키워드로 제외되었을 수 있습니다.)");
+    showToast(`⚠️ 해당 일자(${targetDateStr})에 일치하는 발주가 없습니다.`, true);
     return;
   }
 
-  // KPI 업데이트
-  let allItemsCount = 0;
+  // 상단 플로팅 헤더 및 KPI 업데이트
   let specialUnitsCount = 0;
   let deltaCount = 0;
   let totalBoxes = 0;
@@ -426,12 +418,11 @@ function parseAndAnalyze() {
   parsedOrders.forEach(o => {
     if (o.isDelta) deltaCount++;
     o.items.forEach(it => {
-      allItemsCount++;
       catSet.add(it.category);
       if (it.unit.includes('박스')) totalBoxes += it.qty;
       else if (it.isSpecialUnit) {
         specialUnitsCount++;
-        totalBoxes += (it.qty * 0.35); // 임의 환산
+        totalBoxes += (it.qty * 0.35); // 팩/판 임의 환산
       }
     });
   });
@@ -439,13 +430,14 @@ function parseAndAnalyze() {
   document.getElementById('kpiStores').innerText = parsedOrders.length;
   document.getElementById('kpiTotalBoxes').innerText = Math.round(totalBoxes*10)/10;
   document.getElementById('kpiDelta').innerText = deltaCount;
+  document.getElementById('kpiCategories').innerText = catSet.size;
   document.getElementById('kpiSpecials').innerText = specialUnitsCount;
 
   setTab('destinations');
 }
 
 // ==========================================================
-// 5. 모바일 탭별 렌더링 화면
+// 4. 모바일 스와이프 탭별 렌더링 화면
 // ==========================================================
 function setTab(tabId) {
   currentTab = tabId;
@@ -461,24 +453,23 @@ function setTab(tabId) {
 
   const container = document.getElementById('outputContainer');
 
-  // 1) 배송지 목록 탭
+  // 1) 배송지 목록 탭 (가나다순 렌더링)
   if (tabId === 'destinations') {
-    const sorted = [...parsedOrders].sort((a, b) => a.distKm - b.distKm);
-    let html = `<div class="p-3">`;
+    const sorted = [...parsedOrders].sort((a, b) => a.client.name.localeCompare(b.client.name));
+    let html = `<div class="p-2">`;
     sorted.forEach((o, i) => {
       let bSum = o.items.filter(it => it.unit.includes('박스')).reduce((s,it) => s+it.qty, 0);
       let sSum = o.items.filter(it => it.isSpecialUnit).length;
       html += `
         <details class="bg-slate-50 border border-slate-200 rounded-xl mb-2.5 overflow-hidden group">
-          <summary class="p-3 bg-white flex justify-between items-center active:bg-slate-50 border-b border-transparent group-open:border-slate-200">
-            <div class="flex items-center gap-3 truncate">
+          <summary class="p-3 bg-white flex justify-between items-center active:bg-slate-50 border-b border-transparent group-open:border-slate-200 cursor-pointer">
+            <div class="flex items-center gap-2 truncate">
               <span class="bg-indigo-100 text-indigo-700 font-extrabold w-6 h-6 flex items-center justify-center rounded-full text-[10px] flex-shrink-0">${i+1}</span>
               <div class="truncate">
                 <div class="font-extrabold text-slate-900 text-sm flex items-center gap-1.5 truncate">
                   <span class="truncate">${o.client.name}</span>
                   ${o.isDelta ? '<span class="bg-rose-100 text-rose-600 px-1 py-0.5 rounded text-[8px] flex-shrink-0">추가/수정</span>' : ''}
                 </div>
-                <div class="text-[10px] text-slate-500 mt-0.5 truncate">${o.client.region} <span class="text-slate-300">|</span> ${o.distKm.toFixed(1)}km</div>
               </div>
             </div>
             <div class="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
@@ -527,7 +518,7 @@ function setTab(tabId) {
       const tSpc = items.filter(x => x.item.isSpecialUnit).length;
       html += `
         <details class="bg-white border border-slate-300 rounded-xl shadow-sm group">
-          <summary class="p-3 bg-slate-100 hover:bg-slate-200 flex justify-between items-center border-b border-transparent group-open:border-slate-300">
+          <summary class="p-3 bg-slate-100 hover:bg-slate-200 flex justify-between items-center border-b border-transparent group-open:border-slate-300 cursor-pointer">
             <div class="font-extrabold text-slate-800 text-sm flex items-center gap-2">
               ${cat}
               ${tBox > 0 ? `<span class="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-bold">${tBox}박</span>` : ''}
