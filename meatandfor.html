@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 모바일 발주 집계 v2.006</title>
+  <title>미트포앤 모바일 발주 집계 v2.008</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -25,7 +25,7 @@
     <div class="px-3 py-2 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded text-[10px]">미트포앤</span>
-        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.006)</h1>
+        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.008)</h1>
       </div>
       <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded border border-slate-700">
         <span id="dbStatusBadge" class="text-rose-400 font-bold">CSV 미등록</span>
@@ -83,7 +83,7 @@
           <label class="font-bold text-slate-700 block mb-1">📅 출고(배송) 기준일 선택</label>
           <input type="date" id="targetDate" class="w-full bg-white border border-slate-300 rounded px-2 py-1.5 font-bold text-slate-800" />
           <div class="text-[10px] text-slate-500 mt-1.5 leading-tight">
-            ※ <b>[전날 오전 10시 ~ 당일 오후 2시]</b> 사이 카톡만 추출. 단, 본문에 <b>오늘/내일</b> 단어가 있으면 예외 자동 적용.
+            ※ <b>[전날 아침 8시 ~ 당일 오후 2시]</b> 사이 카톡만 고속 추출합니다.
           </div>
         </div>
 
@@ -102,7 +102,7 @@
         </div>
 
         <button id="btnRunAnalyze" onclick="runAiAnalysis()" class="w-full bg-indigo-600 text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md active:scale-[0.98] transition flex items-center justify-center gap-1.5">
-          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.006)</span>
+          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.008)</span>
         </button>
       </div>
     </details>
@@ -192,7 +192,7 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
       }
     }
     document.getElementById('dbStatusBadge').innerText = `${CLIENT_DB.length}곳 등록완료`;
-    document.getElementById('dbStatusBadge', 'text-emerald-400 font-bold');
+    document.getElementById('dbStatusBadge').className = "text-emerald-400 font-bold";
     showToast(`✅ 주소록 ${CLIENT_DB.length}곳 로드 완료`);
   };
   reader.readAsText(file, 'utf-8');
@@ -210,13 +210,12 @@ document.getElementById('txtFileInput').addEventListener('change', function(e) {
   reader.readAsText(file, 'utf-8');
 });
 
-// 🔥 503 에러 자동 재시도 래퍼 함수 (최대 3회 재시도)
 async function fetchWithRetry(url, options, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const response = await fetch(url, options);
     if (response.status === 503 && attempt < maxRetries) {
-      console.warn(`⚠️ 구글 서버 503 과부하 발생. ${attempt}번째 재시도 대기 중...`);
-      await new Promise(r => setTimeout(r, 4000 * attempt)); // 4초, 8초 대기 후 재시도
+      console.warn(`⚠️ 구글 서버 503 과부하. ${attempt}번째 재시도 대기 중...`);
+      await new Promise(r => setTimeout(r, 4000 * attempt));
       continue;
     }
     return response;
@@ -271,13 +270,14 @@ async function runAiAnalysis() {
     if (!targetModel && availableModels.length > 0) targetModel = availableModels[0];
     if (!targetModel) throw new Error("API 키 권한 오류: 텍스트 생성 모델이 목록에 없습니다.");
     
-    btnText.innerText = `⏳ 2단계: AI 분석 중... (과부하 시 자동 재시도)`;
+    btnText.innerText = `⏳ 2단계: AI 분석 중... (전날 아침 8시~당일 오후 2시)`;
 
     const targetDateStr = document.getElementById('targetDate').value;
     const tDt = new Date(targetDateStr + "T00:00:00");
-    const winStart = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, 10, 0); 
+    
+    // 🔥 대표님 요청 반영: 전날 아침 8시(08:00) ~ 당일 오후 2시(14:00) 🔥
+    const winStart = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, 8, 0); 
     const winEnd = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), 14, 0); 
-    const limitDate = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 2, 0, 0);
 
     let lines = rawText.split(/\r?\n/);
     if (lines.length > 3000) lines = lines.slice(-3000);
@@ -333,7 +333,8 @@ async function runAiAnalysis() {
       }
 
       if (dt) {
-        if (dt < limitDate) {
+        // 전날 아침 8시 이전 데이터는 사전 차단하여 속도 극대화
+        if (dt < winStart) {
           curBlock = null;
           continue;
         }
@@ -343,35 +344,20 @@ async function runAiAnalysis() {
         curBlock.lines.push(line);
       }
     }
-    if (curBlock && curBlock.lines.length > 0 && curBlock.dt >= limitDate) blocks.push(curBlock);
+    if (curBlock && curBlock.lines.length > 0 && curBlock.dt >= winStart) blocks.push(curBlock);
 
     let filteredText = "";
     for (const b of blocks) {
-      const fullBody = b.lines.join(' ');
-      const hasToday = fullBody.includes('오늘') || fullBody.includes('금일');
-      const hasTomorrow = fullBody.includes('내일') || fullBody.includes('모레') || fullBody.includes('금요일');
-      const isPrevDayMsg = b.dt < new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), 0, 0);
-
-      let isValid = false;
-      if (b.dt >= winStart && b.dt <= winEnd) isValid = true;
-      if (isPrevDayMsg) {
-          if (hasToday) isValid = false;
-          if (hasTomorrow) isValid = true;
-      } else {
-          if (hasTomorrow) isValid = false;
-          if (hasToday) isValid = true;
-      }
-
-      if (isValid) {
+      if (b.dt >= winStart && b.dt <= winEnd) {
         const cleanBody = b.lines.map(l => l.replace(/^전달:\s*/, '').trim()).join('\n');
-        filteredText += `[메시지 시간: ${b.dt.toLocaleString()}]\n${cleanBody}\n\n`;
+        filteredText += `[시간: ${b.dt.toLocaleString()}]\n${cleanBody}\n\n`;
       }
     }
 
     if (!filteredText.trim()) {
-      alert("⚠️ 지정일 시간대(전날 오전 10시~당일 오후 2시)에 해당하는 발주 메시지가 없습니다.");
+      alert("⚠️ [전날 아침 8시 ~ 당일 오후 2시] 사이에 해당하는 발주 메시지가 없습니다.");
       btn.disabled = false; btn.classList.remove('opacity-75');
-      btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.006)";
+      btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.008)";
       return;
     }
 
@@ -410,7 +396,6 @@ async function runAiAnalysis() {
 ${filteredText}
     `;
     
-    // 🔥 503 자동 재시도 래퍼 적용 🔥
     const response = await fetchWithRetry(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -533,7 +518,7 @@ ${filteredText}
   } finally {
     btn.disabled = false;
     btn.classList.remove('opacity-75');
-    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.006)";
+    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.008)";
   }
 }
 
@@ -607,7 +592,7 @@ function setTab(tabId) {
     });
 
     const sortedCats = Object.keys(catMap).sort((a, b) => {
-      const cats = ['삼겹', '오겹', '목살', '특목살', '미전지', '전지', '미후지', '냉장3mm후지', '후지', '등뼈', '갈비', '등심', '항정', '가브리', '기타 품목'];
+      const cats = ['삼겹', '오겹', '목살', '특목살', '미전지', '전지', '미후지', '냉장3mm후지', '후지', '등뼈', '갈비', '등심', '항정', '가브리', '갈매기', '사태', '우삼겹', '차돌', '돈피', '장족', '모돈', '민찌', '살치', '홍두깨', '늑간'];
       const idxA = cats.indexOf(a); const idxB = cats.indexOf(b);
       return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
     });
