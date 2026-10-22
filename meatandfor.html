@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 모바일 발주 집계 v2.000</title>
+  <title>미트포앤 모바일 발주 집계 v2.001</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -25,8 +25,7 @@
     <div class="px-3 py-2 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded text-[10px]">미트포앤</span>
-        <!-- 버전 표시로 강력 새로고침 성공 여부 확인 -->
-        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.0)</h1>
+        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.001)</h1>
       </div>
       <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded border border-slate-700">
         <span id="dbStatusBadge" class="text-rose-400 font-bold">CSV 미등록</span>
@@ -103,7 +102,7 @@
         </div>
 
         <button id="btnRunAnalyze" onclick="runAiAnalysis()" class="w-full bg-indigo-600 text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md active:scale-[0.98] transition flex items-center justify-center gap-1.5">
-          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.0)</span>
+          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.001)</span>
         </button>
       </div>
     </details>
@@ -337,7 +336,7 @@ async function runAiAnalysis() {
       return;
     }
 
-    // 🔥 정답 주소: gemini-1.5-flash 탑재 완료 🔥
+    // API 호출 설정
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const prompt = `
@@ -373,6 +372,10 @@ async function runAiAnalysis() {
 ${filteredText}
     `;
 
+    // ===== 🚨 로그 추적 기능 추가 =====
+    console.log("=== API 요청 시작 ===");
+    console.log("요청 URL (키 숨김):", apiUrl.replace(apiKey, "HIDDEN_API_KEY"));
+    
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -385,12 +388,15 @@ ${filteredText}
       })
     });
 
+    console.log("응답 상태 코드:", response.status);
+
+    // 에러 발생 시 원문 로그를 추출하여 화면에 띄움
     if (!response.ok) {
-      if (response.status === 400) throw new Error("API 키가 올바르지 않습니다. (키를 다시 확인해주세요)");
-      if (response.status === 404) throw new Error("API 모델 연결 실패 (404).");
-      if (response.status === 503) throw new Error("구글 AI 서버가 일시적으로 붐빕니다. (503 과부하)\n5초 후 다시 [실행] 버튼을 눌러주세요.");
-      throw new Error(`API 호출 실패: ${response.status} 에러`);
+      const errorRawText = await response.text();
+      console.error("🔥 구글 API 에러 상세 원문:\n", errorRawText);
+      throw new Error(`[구글 서버 에러 - 상태코드 ${response.status}]\n${errorRawText}`);
     }
+    // ===================================
 
     const data = await response.json();
     const jsonStr = data.candidates[0].content.parts[0].text;
@@ -475,11 +481,12 @@ ${filteredText}
 
   } catch (err) {
     console.error(err);
-    alert(err.message);
+    // 변경점: 단순 404가 아니라 서버에서 온 영어 원문을 그대로 경고창에 띄웁니다.
+    alert("오류 원인 상세:\n\n" + err.message);
   } finally {
     btn.disabled = false;
     btn.classList.remove('opacity-75');
-    btnText.innerText = "🚀 AI 추출 및 집계 실행";
+    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.001)";
   }
 }
 
