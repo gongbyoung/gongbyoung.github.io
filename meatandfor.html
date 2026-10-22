@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 모바일 발주 집계 v2.005</title>
+  <title>미트포앤 모바일 발주 집계 v2.006</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -25,7 +25,7 @@
     <div class="px-3 py-2 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded text-[10px]">미트포앤</span>
-        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.005)</h1>
+        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.006)</h1>
       </div>
       <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded border border-slate-700">
         <span id="dbStatusBadge" class="text-rose-400 font-bold">CSV 미등록</span>
@@ -102,7 +102,7 @@
         </div>
 
         <button id="btnRunAnalyze" onclick="runAiAnalysis()" class="w-full bg-indigo-600 text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md active:scale-[0.98] transition flex items-center justify-center gap-1.5">
-          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.005)</span>
+          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.006)</span>
         </button>
       </div>
     </details>
@@ -192,7 +192,7 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
       }
     }
     document.getElementById('dbStatusBadge').innerText = `${CLIENT_DB.length}곳 등록완료`;
-    document.getElementById('dbStatusBadge').className = "text-emerald-400 font-bold";
+    document.getElementById('dbStatusBadge', 'text-emerald-400 font-bold');
     showToast(`✅ 주소록 ${CLIENT_DB.length}곳 로드 완료`);
   };
   reader.readAsText(file, 'utf-8');
@@ -209,6 +209,19 @@ document.getElementById('txtFileInput').addEventListener('change', function(e) {
   };
   reader.readAsText(file, 'utf-8');
 });
+
+// 🔥 503 에러 자동 재시도 래퍼 함수 (최대 3회 재시도)
+async function fetchWithRetry(url, options, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const response = await fetch(url, options);
+    if (response.status === 503 && attempt < maxRetries) {
+      console.warn(`⚠️ 구글 서버 503 과부하 발생. ${attempt}번째 재시도 대기 중...`);
+      await new Promise(r => setTimeout(r, 4000 * attempt)); // 4초, 8초 대기 후 재시도
+      continue;
+    }
+    return response;
+  }
+}
 
 async function runAiAnalysis() {
   const apiKey = document.getElementById('geminiApiKey').value.trim();
@@ -258,7 +271,7 @@ async function runAiAnalysis() {
     if (!targetModel && availableModels.length > 0) targetModel = availableModels[0];
     if (!targetModel) throw new Error("API 키 권한 오류: 텍스트 생성 모델이 목록에 없습니다.");
     
-    btnText.innerText = `⏳ 2단계: AI 분석 중... (최대 30~50초 소요)`;
+    btnText.innerText = `⏳ 2단계: AI 분석 중... (과부하 시 자동 재시도)`;
 
     const targetDateStr = document.getElementById('targetDate').value;
     const tDt = new Date(targetDateStr + "T00:00:00");
@@ -358,7 +371,7 @@ async function runAiAnalysis() {
     if (!filteredText.trim()) {
       alert("⚠️ 지정일 시간대(전날 오전 10시~당일 오후 2시)에 해당하는 발주 메시지가 없습니다.");
       btn.disabled = false; btn.classList.remove('opacity-75');
-      btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.005)";
+      btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.006)";
       return;
     }
 
@@ -397,7 +410,8 @@ async function runAiAnalysis() {
 ${filteredText}
     `;
     
-    const response = await fetch(apiUrl, {
+    // 🔥 503 자동 재시도 래퍼 적용 🔥
+    const response = await fetchWithRetry(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -410,9 +424,9 @@ ${filteredText}
       })
     });
 
-    if (!response.ok) {
-      const errorRawText = await response.text();
-      throw new Error(`[구글 서버 에러 - 상태코드 ${response.status}]\n${errorRawText}`);
+    if (!response || !response.ok) {
+      const errText = response ? await response.text() : "네트워크 응답 없음";
+      throw new Error(`[구글 서버 과부하 지속]\n서버가 혼잡하여 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.\n\n${errText}`);
     }
 
     const data = await response.json();
@@ -494,12 +508,10 @@ ${filteredText}
     let specialUnitsCount = 0;
     let deltaCount = 0;
     let totalBoxes = 0;
-    const catSet = new Set();
     
     parsedOrders.forEach(o => {
       if (o.isDelta) deltaCount++;
       o.items.forEach(it => {
-        catSet.add(it.category);
         if (it.unit.includes('박스')) totalBoxes += it.qty;
         else if (it.isSpecialUnit) {
           specialUnitsCount++;
@@ -508,7 +520,6 @@ ${filteredText}
       });
     });
 
-    // 🔥 여기서 발생했던 kpiCategories 에러 줄을 완벽하게 삭제했습니다 🔥
     document.getElementById('kpiStores').innerText = parsedOrders.length;
     document.getElementById('kpiTotalBoxes').innerText = Math.round(totalBoxes*10)/10;
     document.getElementById('kpiDelta').innerText = deltaCount;
@@ -522,7 +533,7 @@ ${filteredText}
   } finally {
     btn.disabled = false;
     btn.classList.remove('opacity-75');
-    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.005)";
+    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.006)";
   }
 }
 
@@ -596,7 +607,7 @@ function setTab(tabId) {
     });
 
     const sortedCats = Object.keys(catMap).sort((a, b) => {
-      const cats = ['삼겹', '오겹', '목살', '특목살', '미전지', '전지', '미후지', '등뼈', '갈비', '등심', '항정', '가브리', '기타 품목'];
+      const cats = ['삼겹', '오겹', '목살', '특목살', '미전지', '전지', '미후지', '냉장3mm후지', '후지', '등뼈', '갈비', '등심', '항정', '가브리', '기타 품목'];
       const idxA = cats.indexOf(a); const idxB = cats.indexOf(b);
       return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
     });
