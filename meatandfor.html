@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 모바일 발주 집계 v2.004</title>
+  <title>미트포앤 모바일 발주 집계 v2.005</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -25,7 +25,7 @@
     <div class="px-3 py-2 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded text-[10px]">미트포앤</span>
-        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.004)</h1>
+        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.005)</h1>
       </div>
       <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded border border-slate-700">
         <span id="dbStatusBadge" class="text-rose-400 font-bold">CSV 미등록</span>
@@ -102,7 +102,7 @@
         </div>
 
         <button id="btnRunAnalyze" onclick="runAiAnalysis()" class="w-full bg-indigo-600 text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md active:scale-[0.98] transition flex items-center justify-center gap-1.5">
-          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.004)</span>
+          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.005)</span>
         </button>
       </div>
     </details>
@@ -231,7 +231,7 @@ async function runAiAnalysis() {
   const btnText = document.getElementById('btnRunText');
   btn.disabled = true;
   btn.classList.add('opacity-75');
-  btnText.innerText = "⏳ 1단계: 사용 가능한 AI 모델 검색 중...";
+  btnText.innerText = "⏳ 1단계: AI 모델 탐지 중...";
 
   try {
     const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
@@ -258,7 +258,7 @@ async function runAiAnalysis() {
     if (!targetModel && availableModels.length > 0) targetModel = availableModels[0];
     if (!targetModel) throw new Error("API 키 권한 오류: 텍스트 생성 모델이 목록에 없습니다.");
     
-    btnText.innerText = `⏳ 2단계: AI 발주 분리 중... (${targetModel})`;
+    btnText.innerText = `⏳ 2단계: AI 분석 중... (최대 30~50초 소요)`;
 
     const targetDateStr = document.getElementById('targetDate').value;
     const tDt = new Date(targetDateStr + "T00:00:00");
@@ -358,7 +358,7 @@ async function runAiAnalysis() {
     if (!filteredText.trim()) {
       alert("⚠️ 지정일 시간대(전날 오전 10시~당일 오후 2시)에 해당하는 발주 메시지가 없습니다.");
       btn.disabled = false; btn.classList.remove('opacity-75');
-      btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.004)";
+      btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.005)";
       return;
     }
 
@@ -402,7 +402,6 @@ ${filteredText}
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        // 🔥 최대 출력 토큰 증가 및 강제 JSON 모드 켜기 (v2.004 핵심 방어벽) 🔥
         generationConfig: { 
             temperature: 0.1,
             maxOutputTokens: 8192, 
@@ -419,17 +418,12 @@ ${filteredText}
     const data = await response.json();
     let jsonStr = data.candidates[0].content.parts[0].text;
     
-    // 🔥 JSON 파싱 안전 처리 (데이터 짤림 방지용 응급 처치)
     let aiOrders = [];
     try {
         aiOrders = JSON.parse(jsonStr);
     } catch (parseError) {
         console.warn("JSON 기본 파싱 실패, 자동 복구 시도 중...", parseError);
-        
-        // 1. 제어 문자(줄바꿈 등) 강제 공백 처리
         jsonStr = jsonStr.replace(/[\n\r\t]/g, ' '); 
-        
-        // 2. 답변이 끊겨서 괄호가 안 닫혔다면 강제로 닫기
         if (!jsonStr.trim().endsWith(']')) {
             const lastBrace = jsonStr.lastIndexOf('}');
             if (lastBrace !== -1) {
@@ -438,7 +432,6 @@ ${filteredText}
                 jsonStr += '}]';
             }
         }
-        
         try {
             aiOrders = JSON.parse(jsonStr);
         } catch (e2) {
@@ -515,10 +508,10 @@ ${filteredText}
       });
     });
 
+    // 🔥 여기서 발생했던 kpiCategories 에러 줄을 완벽하게 삭제했습니다 🔥
     document.getElementById('kpiStores').innerText = parsedOrders.length;
     document.getElementById('kpiTotalBoxes').innerText = Math.round(totalBoxes*10)/10;
     document.getElementById('kpiDelta').innerText = deltaCount;
-    document.getElementById('kpiCategories').innerText = catSet.size;
     document.getElementById('kpiSpecials').innerText = specialUnitsCount;
 
     setTab('destinations');
@@ -529,7 +522,7 @@ ${filteredText}
   } finally {
     btn.disabled = false;
     btn.classList.remove('opacity-75');
-    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.004)";
+    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.005)";
   }
 }
 
