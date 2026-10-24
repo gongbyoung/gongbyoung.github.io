@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 모바일 발주 집계 v2.011</title>
+  <title>미트포앤 모바일 발주 집계 v2.014</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -25,7 +25,7 @@
     <div class="px-3 py-2 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded text-[10px]">미트포앤</span>
-        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.011)</h1>
+        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.014)</h1>
       </div>
       <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded border border-slate-700">
         <span id="dbStatusBadge" class="text-rose-400 font-bold">CSV 미등록</span>
@@ -83,7 +83,7 @@
           <label class="font-bold text-slate-700 block mb-1">📅 출고(배송) 기준일 선택</label>
           <input type="date" id="targetDate" class="w-full bg-white border border-slate-300 rounded px-2 py-1.5 font-bold text-slate-800" />
           <div class="text-[10px] text-slate-500 mt-1.5 leading-tight">
-            ※ <b>[전날 아침 8시 ~ 당일 오후 2시]</b> 대화만 남기고 사전 커팅되어 503 에러가 원천 차단됩니다.
+            ※ 파일을 올리면 <b>[전날 아침 8시 ~ 당일 오후 2시]</b> 대화만 자동 추출됩니다.
           </div>
         </div>
 
@@ -95,14 +95,14 @@
 
         <div>
           <div class="flex justify-between items-end mb-1">
-            <label class="font-bold text-slate-700 block">💬 또는 대화 내용 복사해서 붙여넣기</label>
+            <label class="font-bold text-slate-700 block">💬 추출된 알맹이 대화 내용 (수동 수정 가능)</label>
             <button onclick="document.getElementById('kakaoInput').value=''" class="text-[10px] text-rose-500 font-bold bg-rose-50 px-2 py-1 rounded">지우기</button>
           </div>
-          <textarea id="kakaoInput" class="w-full h-24 border border-slate-300 rounded-lg p-2 font-mono text-[11px] leading-tight bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none" placeholder="파일 업로드 또는 붙여넣기 시 해당 시간대만 자동 압축됩니다."></textarea>
+          <textarea id="kakaoInput" class="w-full h-32 border border-slate-300 rounded-lg p-2 font-mono text-[11px] leading-tight bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-y" placeholder="파일을 올리면 여기에 해당 시간대 대화만 압축되어 들어갑니다."></textarea>
         </div>
 
         <button id="btnRunAnalyze" onclick="runAiAnalysis()" class="w-full bg-indigo-600 text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md active:scale-[0.98] transition flex items-center justify-center gap-1.5">
-          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.011)</span>
+          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.014)</span>
         </button>
       </div>
     </details>
@@ -168,7 +168,6 @@ function getApproxGeo(addr) {
   return { region: '기타/지방', lat: 37.38, lon: 126.80 };
 }
 
-// 📂 파일 업로드 시 즉시 지정 시간대만 남기고 텍스트창에 압축 반영
 document.getElementById('csvFileInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -199,22 +198,24 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
   reader.readAsText(file, 'utf-8');
 });
 
-// 🔥 카톡 텍스트 로딩 즉시 사전 커팅(Pre-processing) 수행 함수 🔥
-function preprocessKakaoText(rawText) {
+// 텍스트 사전 추출 함수 (로그 추가)
+function extractTargetTimeMessages(rawText) {
+  console.log("▶ [LOG 1] 텍스트 사전 추출 시작 (전날 8시 ~ 당일 14시)");
   const targetDateStr = document.getElementById('targetDate').value;
   const tDt = new Date(targetDateStr + "T00:00:00");
-  const winStart = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, 8, 0); // 전날 아침 8시
-  const winEnd = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), 14, 0);   // 당일 오후 2시
+  const winStart = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, 8, 0);
+  const winEnd = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), 14, 0);
 
   let lines = rawText.split(/\r?\n/);
-  const blocks = [];
-  let curBlock = null;
-  let currentExtractDate = tDt; 
+  let resultText = "";
+  let currentExtractDate = tDt;
 
   const reMobileDot = /^\s*[·\.\-]?\s*(\d{1,2})[\/\.](\d{1,2})\.?\s+(오전|오후)\s+(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
   const reExport = /^(\d{4})[년\.\-\/]\s*(\d{1,2})[월\.\-\/]\s*(\d{1,2})[일\.]?\s*(오전|오후)?\s*(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
   const rePc = /^\[([^\]]+)\]\s*\[(오전|오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
   const reDateDiv = /^-*\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
+
+  let matchedAny = false;
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
@@ -231,7 +232,6 @@ function preprocessKakaoText(rawText) {
     const mPc = line.match(rePc);
 
     let dt = null;
-
     if (mDot) {
       let mo = parseInt(mDot[1]), dy = parseInt(mDot[2]), ampm = mDot[3];
       let hr = parseInt(mDot[4]), mn = parseInt(mDot[5]);
@@ -240,50 +240,33 @@ function preprocessKakaoText(rawText) {
       dt = new Date(tDt.getFullYear(), mo - 1, dy, hr, mn);
       if (dt > tDt && mo === 1 && tDt.getMonth() === 11) dt.setFullYear(tDt.getFullYear() + 1);
       else if (dt < tDt && mo === 12 && tDt.getMonth() === 0) dt.setFullYear(tDt.getFullYear() - 1);
-      curBlock = { dt, lines: mDot[7].trim() ? [mDot[7].trim()] : [] };
     } else if (mExp) {
       let yr = parseInt(mExp[1]), mo = parseInt(mExp[2]), dy = parseInt(mExp[3]), ampm = mExp[4] || '';
       let hr = parseInt(mExp[5]), mn = parseInt(mExp[6]);
       if (ampm === '오후' && hr !== 12) hr += 12;
       if (ampm === '오전' && hr === 12) hr = 0;
       dt = new Date(yr, mo - 1, dy, hr, mn);
-      curBlock = { dt, lines: mExp[8].trim() ? [mExp[8].trim()] : [] };
     } else if (mPc) {
       let ampm = mPc[2] || '', hr = parseInt(mPc[3]), mn = parseInt(mPc[4]);
       if (ampm === '오후' && hr !== 12) hr += 12;
       if (ampm === '오전' && hr === 12) hr = 0;
       dt = new Date(currentExtractDate.getFullYear(), currentExtractDate.getMonth(), currentExtractDate.getDate(), hr, mn);
       if (hr >= 14) dt = new Date(currentExtractDate.getFullYear(), currentExtractDate.getMonth(), currentExtractDate.getDate() - 1, hr, mn);
-      curBlock = { dt, lines: mPc[5].trim() ? [mPc[5].trim()] : [] };
     }
 
-    if (dt) {
-      if (dt < winStart) {
-        curBlock = null;
-        continue;
-      }
-      if (curBlock && curBlock.lines.length > 0) blocks.push(curBlock);
-    } else {
-      if (!curBlock) curBlock = { dt: tDt, lines: [] };
-      curBlock.lines.push(line);
-    }
-  }
-  if (curBlock && curBlock.lines.length > 0 && curBlock.dt >= winStart) blocks.push(curBlock);
-
-  let filteredText = "";
-  for (const b of blocks) {
-    if (b.dt >= winStart && b.dt <= winEnd) {
-      const cleanBody = b.lines.map(l => l.replace(/^전달:\s*/, '').trim()).join('\n');
-      filteredText += `[시간: ${b.dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}] ${cleanBody}\n`;
+    if (dt && dt >= winStart && dt <= winEnd) {
+      matchedAny = true;
+      resultText += line + "\n";
     }
   }
 
-  // 만약 시간 파싱 매칭이 안 되었을 경우 최근 500줄만 안전하게 반환
-  if (!filteredText.trim()) {
-    filteredText = lines.slice(-500).join('\n');
+  if (!matchedAny || !resultText.trim()) {
+    console.warn("⚠️ [LOG 1-WARN] 시간 매칭된 메시지가 없어 최근 400줄을 안전 추출합니다.");
+    resultText = lines.slice(-400).join('\n');
   }
 
-  return filteredText;
+  console.log("✅ [LOG 1-END] 추출된 텍스트 글자 수:", resultText.length);
+  return resultText;
 }
 
 document.getElementById('txtFileInput').addEventListener('change', function(e) {
@@ -291,18 +274,19 @@ document.getElementById('txtFileInput').addEventListener('change', function(e) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = function(evt) {
-    const compressed = preprocessKakaoText(evt.target.result);
-    document.getElementById('kakaoInput').value = compressed;
-    showToast(`📄 파일 로딩 및 시간대 사전 압축 완료!`);
+    const extracted = extractTargetTimeMessages(evt.target.result);
+    document.getElementById('kakaoInput').value = extracted;
+    showToast(`📄 파일 로딩 및 해당 시간대 추출 완료!`);
   };
   reader.readAsText(file, 'utf-8');
 });
 
 async function fetchWithRetry(url, options, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`📡 [LOG-FETCH] API 요청 시도 (${attempt}/${maxRetries})...`);
     const response = await fetch(url, options);
     if (response.status === 503 && attempt < maxRetries) {
-      console.warn(`⚠️ 구글 서버 503 과부하. ${attempt}번째 재시도 대기 중...`);
+      console.warn(`⚠️ [LOG-503] 구글 서버 과부하 발생. ${attempt * 3}초 후 재시도...`);
       await new Promise(r => setTimeout(r, 3000 * attempt));
       continue;
     }
@@ -310,7 +294,11 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
   }
 }
 
+// 단계별 상세 로그가 찍히는 메인 분석 함수
 async function runAiAnalysis() {
+  console.clear();
+  console.log("🚀 [LOG START] AI 분석 프로세스 시작");
+
   const apiKey = document.getElementById('geminiApiKey').value.trim();
   if (!apiKey) {
     alert("⚠️ Google Gemini API 키를 먼저 입력해주세요.");
@@ -321,23 +309,22 @@ async function runAiAnalysis() {
     return;
   }
 
-  let rawText = document.getElementById('kakaoInput').value.trim();
-  if (!rawText) {
-    alert("카톡 텍스트나 파일을 입력해 주세요.");
+  let cleanText = document.getElementById('kakaoInput').value.trim();
+  if (!cleanText) {
+    alert("분석할 대화 내용이 없습니다. 파일을 업로드하거나 텍스트를 입력해 주세요.");
     return;
   }
-
-  // 실행 시점에 텍스트가 아직 압축되지 않았다면 즉시 사전 압축 수행
-  rawText = preprocessKakaoText(rawText);
-  document.getElementById('kakaoInput').value = rawText;
 
   const btn = document.getElementById('btnRunAnalyze');
   const btnText = document.getElementById('btnRunText');
   btn.disabled = true;
   btn.classList.add('opacity-75');
-  btnText.innerText = "⏳ 1단계: AI 모델 탐지 중...";
 
   try {
+    // [단계 1] 모델 탐지
+    btnText.innerText = "⏳ [1/4단계] 사용 가능한 AI 모델 검색 중...";
+    console.log("🔍 [LOG 2] 모델 리스트 조회 중...");
+    
     const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
     const listRes = await fetch(listUrl);
     if (!listRes.ok) throw new Error("API 키 확인 또는 권한 오류입니다.");
@@ -347,6 +334,8 @@ async function runAiAnalysis() {
         .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
         .map(m => m.name.replace('models/', ''));
     
+    console.log("📋 [LOG 2-SUCC] 사용 가능한 모델 목록:", availableModels);
+
     let targetModel = "";
     const priorityModels = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-flash-latest", "gemini-3.5-pro", "gemini-2.5-pro", "gemini-1.5-flash"];
     
@@ -361,14 +350,17 @@ async function runAiAnalysis() {
     if (!targetModel && availableModels.length > 0) targetModel = availableModels[0];
     if (!targetModel) throw new Error("API 키 권한 오류: 텍스트 생성 모델이 목록에 없습니다.");
     
-    btnText.innerText = `⏳ 2단계: 압축된 발주 데이터 고속 분석 중...`;
+    console.log("🎯 [LOG 2-FINAL] 최종 선택된 모델:", targetModel);
+
+    // [단계 2] 프롬프트 준비
+    btnText.innerText = "⏳ [2/4단계] 발주 분석 프롬프트 구성 중...";
+    console.log("📝 [LOG 3] 프롬프트 생성 완료 (입력 텍스트 길이:", cleanText.length, "자)");
 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
 
-    // 🔥 한재호 대표 패턴 및 거래처 이름 시작 규칙 반영한 최적화 프롬프트 🔥
     const prompt = `
 너는 육가공 도매업체 '미트포앤'의 카톡 발주 데이터를 정리하는 AI야.
-아래 압축된 카카오톡 대화 내용에서 '실제 발주(주문)' 내역만 빠짐없이 추출해서 순수 JSON 배열로 반환해.
+아래 입력된 카카오톡 대화 내용에서 '실제 발주(주문)' 내역만 빠짐없이 추출해서 순수 JSON 배열로 반환해.
 
 [발주 패턴 특징]
 - 메시지는 주로 '한재호' 대표가 올리며, 발주 내용은 **대부분 거래처(상호명) 이름으로 시작**합니다.
@@ -395,13 +387,15 @@ async function runAiAnalysis() {
     "is_delta": false
   }
 ]
-* is_special_unit: 단위가 '박스'가 아니면 true.
-* is_delta: 원문에 '추가'나 '정정'이 포함되어 있으면 true.
 
-[카카오톡 압축 대화 내용]
-${rawText}
+[카카오톡 대화 내용]
+${cleanText}
     `;
     
+    // [단계 3] 구글 서버 전송 및 통신
+    btnText.innerText = "⏳ [3/4단계] 구글 AI 서버 전송 및 분석 중...";
+    console.log("🌐 [LOG 4] 구글 API 요청 전송 시작...");
+
     const response = await fetchWithRetry(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -417,17 +411,25 @@ ${rawText}
 
     if (!response || !response.ok) {
       const errText = response ? await response.text() : "네트워크 응답 없음";
+      console.error("❌ [LOG 4-ERR] 구글 서버 응답 실패:", errText);
       throw new Error(`[구글 서버 에러]\n서버가 혼잡합니다. 잠시 후 다시 시도해주세요.\n\n${errText}`);
     }
 
+    console.log("✨ [LOG 4-SUCC] 구글 서버 응답 성공!");
+
+    // [단계 4] JSON 데이터 파싱 및 매핑
+    btnText.innerText = "⏳ [4/4단계] 데이터 파싱 및 거래처 매칭 중...";
+    console.log("📦 [LOG 5] JSON 응답 파싱 시작...");
+
     const data = await response.json();
     let jsonStr = data.candidates[0].content.parts[0].text;
+    console.log("📄 [LOG 5-RAW] AI 응답 원문:\n", jsonStr);
     
     let aiOrders = [];
     try {
         aiOrders = JSON.parse(jsonStr);
     } catch (parseError) {
-        console.warn("JSON 기본 파싱 실패, 자동 복구 시도 중...", parseError);
+        console.warn("⚠️ [LOG 5-WARN] JSON 기본 파싱 실패, 자동 복구 시도...", parseError);
         jsonStr = jsonStr.replace(/[\n\r\t]/g, ' '); 
         if (!jsonStr.trim().endsWith(']')) {
             const lastBrace = jsonStr.lastIndexOf('}');
@@ -437,15 +439,12 @@ ${rawText}
                 jsonStr += '}]';
             }
         }
-        try {
-            aiOrders = JSON.parse(jsonStr);
-        } catch (e2) {
-            throw new Error("AI가 정리한 데이터 포맷이 깨졌습니다.\n\n" + e2.message);
-        }
+        aiOrders = JSON.parse(jsonStr);
     }
 
+    console.log("✅ [LOG 5-SUCC] 추출된 발주 건수:", aiOrders.length);
+
     const orderMap = new Map();
-    
     for (const item of aiOrders) {
       let matchedClient = null;
       let bestLen = 0;
@@ -488,6 +487,7 @@ ${rawText}
     }
 
     parsedOrders = Array.from(orderMap.values());
+    console.log("🎉 [LOG FINAL] 최종 매칭된 납품처 수:", parsedOrders.length);
     
     if (parsedOrders.length > 0) {
       showToast(`✨ AI 분석 완료! ${parsedOrders.length}곳 추출 성공`);
@@ -519,12 +519,12 @@ ${rawText}
     setTab('destinations');
 
   } catch (err) {
-    console.error(err);
+    console.error("🔥 [FATAL ERROR]", err);
     alert("오류 원인 상세:\n\n" + err.message);
   } finally {
     btn.disabled = false;
     btn.classList.remove('opacity-75');
-    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.011)";
+    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.014)";
   }
 }
 
@@ -606,7 +606,7 @@ function setTab(tabId) {
     let html = `<div class="p-2 flex flex-col gap-2">`;
     sortedCats.forEach(cat => {
       const items = catMap[cat];
-      const tBox = items.filter(x => x.item.unit.includes('박스')).reduce((s, x) => s + x.item.qty, 0);
+      const tBox = items.filter(x => x.item.unit.includes('박ส')).reduce((s, x) => s + x.item.qty, 0);
       const tSpc = items.filter(x => x.item.isSpecialUnit).length;
       html += `
         <details class="bg-white border border-slate-300 rounded-xl shadow-sm group">
