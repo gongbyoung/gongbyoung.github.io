@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 모바일 발주 집계 v2.010</title>
+  <title>미트포앤 모바일 발주 집계 v2.011</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -25,7 +25,7 @@
     <div class="px-3 py-2 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded text-[10px]">미트포앤</span>
-        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.010)</h1>
+        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.011)</h1>
       </div>
       <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded border border-slate-700">
         <span id="dbStatusBadge" class="text-rose-400 font-bold">CSV 미등록</span>
@@ -83,7 +83,7 @@
           <label class="font-bold text-slate-700 block mb-1">📅 출고(배송) 기준일 선택</label>
           <input type="date" id="targetDate" class="w-full bg-white border border-slate-300 rounded px-2 py-1.5 font-bold text-slate-800" />
           <div class="text-[10px] text-slate-500 mt-1.5 leading-tight">
-            ※ <b>[전날 아침 8시 ~ 당일 오후 2시]</b> 데이터만 사전 필터링하여 과부하를 원천 차단합니다.
+            ※ <b>[전날 아침 8시 ~ 당일 오후 2시]</b> 대화만 남기고 사전 커팅되어 503 에러가 원천 차단됩니다.
           </div>
         </div>
 
@@ -98,11 +98,11 @@
             <label class="font-bold text-slate-700 block">💬 또는 대화 내용 복사해서 붙여넣기</label>
             <button onclick="document.getElementById('kakaoInput').value=''" class="text-[10px] text-rose-500 font-bold bg-rose-50 px-2 py-1 rounded">지우기</button>
           </div>
-          <textarea id="kakaoInput" class="w-full h-24 border border-slate-300 rounded-lg p-2 font-mono text-[11px] leading-tight bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none" placeholder="파일 업로드 대신 텍스트를 바로 붙여넣어도 됩니다."></textarea>
+          <textarea id="kakaoInput" class="w-full h-24 border border-slate-300 rounded-lg p-2 font-mono text-[11px] leading-tight bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none" placeholder="파일 업로드 또는 붙여넣기 시 해당 시간대만 자동 압축됩니다."></textarea>
         </div>
 
         <button id="btnRunAnalyze" onclick="runAiAnalysis()" class="w-full bg-indigo-600 text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md active:scale-[0.98] transition flex items-center justify-center gap-1.5">
-          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.010)</span>
+          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.011)</span>
         </button>
       </div>
     </details>
@@ -168,6 +168,7 @@ function getApproxGeo(addr) {
   return { region: '기타/지방', lat: 37.38, lon: 126.80 };
 }
 
+// 📂 파일 업로드 시 즉시 지정 시간대만 남기고 텍스트창에 압축 반영
 document.getElementById('csvFileInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -198,14 +199,101 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
   reader.readAsText(file, 'utf-8');
 });
 
+// 🔥 카톡 텍스트 로딩 즉시 사전 커팅(Pre-processing) 수행 함수 🔥
+function preprocessKakaoText(rawText) {
+  const targetDateStr = document.getElementById('targetDate').value;
+  const tDt = new Date(targetDateStr + "T00:00:00");
+  const winStart = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, 8, 0); // 전날 아침 8시
+  const winEnd = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), 14, 0);   // 당일 오후 2시
+
+  let lines = rawText.split(/\r?\n/);
+  const blocks = [];
+  let curBlock = null;
+  let currentExtractDate = tDt; 
+
+  const reMobileDot = /^\s*[·\.\-]?\s*(\d{1,2})[\/\.](\d{1,2})\.?\s+(오전|오후)\s+(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
+  const reExport = /^(\d{4})[년\.\-\/]\s*(\d{1,2})[월\.\-\/]\s*(\d{1,2})[일\.]?\s*(오전|오후)?\s*(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
+  const rePc = /^\[([^\]]+)\]\s*\[(오전|오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
+  const reDateDiv = /^-*\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.includes('저장한 날짜') || line.includes('카카오톡 대화')) continue;
+
+    const mDateDiv = line.match(reDateDiv);
+    if (mDateDiv) {
+      currentExtractDate = new Date(parseInt(mDateDiv[1]), parseInt(mDateDiv[2]) - 1, parseInt(mDateDiv[3]));
+      continue;
+    }
+
+    const mDot = line.match(reMobileDot);
+    const mExp = line.match(reExport);
+    const mPc = line.match(rePc);
+
+    let dt = null;
+
+    if (mDot) {
+      let mo = parseInt(mDot[1]), dy = parseInt(mDot[2]), ampm = mDot[3];
+      let hr = parseInt(mDot[4]), mn = parseInt(mDot[5]);
+      if (ampm === '오후' && hr !== 12) hr += 12;
+      if (ampm === '오전' && hr === 12) hr = 0;
+      dt = new Date(tDt.getFullYear(), mo - 1, dy, hr, mn);
+      if (dt > tDt && mo === 1 && tDt.getMonth() === 11) dt.setFullYear(tDt.getFullYear() + 1);
+      else if (dt < tDt && mo === 12 && tDt.getMonth() === 0) dt.setFullYear(tDt.getFullYear() - 1);
+      curBlock = { dt, lines: mDot[7].trim() ? [mDot[7].trim()] : [] };
+    } else if (mExp) {
+      let yr = parseInt(mExp[1]), mo = parseInt(mExp[2]), dy = parseInt(mExp[3]), ampm = mExp[4] || '';
+      let hr = parseInt(mExp[5]), mn = parseInt(mExp[6]);
+      if (ampm === '오후' && hr !== 12) hr += 12;
+      if (ampm === '오전' && hr === 12) hr = 0;
+      dt = new Date(yr, mo - 1, dy, hr, mn);
+      curBlock = { dt, lines: mExp[8].trim() ? [mExp[8].trim()] : [] };
+    } else if (mPc) {
+      let ampm = mPc[2] || '', hr = parseInt(mPc[3]), mn = parseInt(mPc[4]);
+      if (ampm === '오후' && hr !== 12) hr += 12;
+      if (ampm === '오전' && hr === 12) hr = 0;
+      dt = new Date(currentExtractDate.getFullYear(), currentExtractDate.getMonth(), currentExtractDate.getDate(), hr, mn);
+      if (hr >= 14) dt = new Date(currentExtractDate.getFullYear(), currentExtractDate.getMonth(), currentExtractDate.getDate() - 1, hr, mn);
+      curBlock = { dt, lines: mPc[5].trim() ? [mPc[5].trim()] : [] };
+    }
+
+    if (dt) {
+      if (dt < winStart) {
+        curBlock = null;
+        continue;
+      }
+      if (curBlock && curBlock.lines.length > 0) blocks.push(curBlock);
+    } else {
+      if (!curBlock) curBlock = { dt: tDt, lines: [] };
+      curBlock.lines.push(line);
+    }
+  }
+  if (curBlock && curBlock.lines.length > 0 && curBlock.dt >= winStart) blocks.push(curBlock);
+
+  let filteredText = "";
+  for (const b of blocks) {
+    if (b.dt >= winStart && b.dt <= winEnd) {
+      const cleanBody = b.lines.map(l => l.replace(/^전달:\s*/, '').trim()).join('\n');
+      filteredText += `[시간: ${b.dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}] ${cleanBody}\n`;
+    }
+  }
+
+  // 만약 시간 파싱 매칭이 안 되었을 경우 최근 500줄만 안전하게 반환
+  if (!filteredText.trim()) {
+    filteredText = lines.slice(-500).join('\n');
+  }
+
+  return filteredText;
+}
+
 document.getElementById('txtFileInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = function(evt) {
-    document.getElementById('kakaoInput').value = evt.target.result;
-    showToast(`📄 파일 로딩 완료! 분석을 시작합니다.`);
-    runAiAnalysis();
+    const compressed = preprocessKakaoText(evt.target.result);
+    document.getElementById('kakaoInput').value = compressed;
+    showToast(`📄 파일 로딩 및 시간대 사전 압축 완료!`);
   };
   reader.readAsText(file, 'utf-8');
 });
@@ -233,11 +321,15 @@ async function runAiAnalysis() {
     return;
   }
 
-  const rawText = document.getElementById('kakaoInput').value.trim();
+  let rawText = document.getElementById('kakaoInput').value.trim();
   if (!rawText) {
     alert("카톡 텍스트나 파일을 입력해 주세요.");
     return;
   }
+
+  // 실행 시점에 텍스트가 아직 압축되지 않았다면 즉시 사전 압축 수행
+  rawText = preprocessKakaoText(rawText);
+  document.getElementById('kakaoInput').value = rawText;
 
   const btn = document.getElementById('btnRunAnalyze');
   const btnText = document.getElementById('btnRunText');
@@ -251,7 +343,6 @@ async function runAiAnalysis() {
     if (!listRes.ok) throw new Error("API 키 확인 또는 권한 오류입니다.");
     
     const listData = await listRes.json();
-    
     const availableModels = listData.models
         .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
         .map(m => m.name.replace('models/', ''));
@@ -270,103 +361,17 @@ async function runAiAnalysis() {
     if (!targetModel && availableModels.length > 0) targetModel = availableModels[0];
     if (!targetModel) throw new Error("API 키 권한 오류: 텍스트 생성 모델이 목록에 없습니다.");
     
-    btnText.innerText = `⏳ 2단계: 전날 8시~당일 14시 대화 추출 중...`;
-
-    const targetDateStr = document.getElementById('targetDate').value; // 예: 2026-10-22
-    const tDt = new Date(targetDateStr + "T00:00:00");
-    
-    // 🔥 [과부하 방지 핵심] 전날 아침 8시 ~ 당일 오후 2시 대화만 1차로 잘라냄 🔥
-    const winStart = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, 8, 0); 
-    const winEnd = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), 14, 0); 
-
-    let lines = rawText.split(/\r?\n/);
-    const blocks = [];
-    let curBlock = null;
-    let currentExtractDate = tDt; 
-
-    const reMobileDot = /^\s*[·\.\-]?\s*(\d{1,2})[\/\.](\d{1,2})\.?\s+(오전|오후)\s+(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
-    const reExport = /^(\d{4})[년\.\-\/]\s*(\d{1,2})[월\.\-\/]\s*(\d{1,2})[일\.]?\s*(오전|오후)?\s*(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
-    const rePc = /^\[([^\]]+)\]\s*\[(오전|오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
-    const reDateDiv = /^-*\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
-
-    for (const rawLine of lines) {
-      const line = rawLine.trim();
-      if (!line || line.includes('저장한 날짜') || line.includes('카카오톡 대화')) continue;
-
-      const mDateDiv = line.match(reDateDiv);
-      if (mDateDiv) {
-        currentExtractDate = new Date(parseInt(mDateDiv[1]), parseInt(mDateDiv[2]) - 1, parseInt(mDateDiv[3]));
-        continue;
-      }
-
-      const mDot = line.match(reMobileDot);
-      const mExp = line.match(reExport);
-      const mPc = line.match(rePc);
-
-      let dt = null;
-
-      if (mDot) {
-        let mo = parseInt(mDot[1]), dy = parseInt(mDot[2]), ampm = mDot[3];
-        let hr = parseInt(mDot[4]), mn = parseInt(mDot[5]);
-        if (ampm === '오후' && hr !== 12) hr += 12;
-        if (ampm === '오전' && hr === 12) hr = 0;
-        dt = new Date(tDt.getFullYear(), mo - 1, dy, hr, mn);
-        if (dt > tDt && mo === 1 && tDt.getMonth() === 11) dt.setFullYear(tDt.getFullYear() + 1);
-        else if (dt < tDt && mo === 12 && tDt.getMonth() === 0) dt.setFullYear(tDt.getFullYear() - 1);
-        curBlock = { dt, lines: mDot[7].trim() ? [mDot[7].trim()] : [] };
-      } else if (mExp) {
-        let yr = parseInt(mExp[1]), mo = parseInt(mExp[2]), dy = parseInt(mExp[3]), ampm = mExp[4] || '';
-        let hr = parseInt(mExp[5]), mn = parseInt(mExp[6]);
-        if (ampm === '오후' && hr !== 12) hr += 12;
-        if (ampm === '오전' && hr === 12) hr = 0;
-        dt = new Date(yr, mo - 1, dy, hr, mn);
-        curBlock = { dt, lines: mExp[8].trim() ? [mExp[8].trim()] : [] };
-      } else if (mPc) {
-        let ampm = mPc[2] || '', hr = parseInt(mPc[3]), mn = parseInt(mPc[4]);
-        if (ampm === '오후' && hr !== 12) hr += 12;
-        if (ampm === '오전' && hr === 12) hr = 0;
-        dt = new Date(currentExtractDate.getFullYear(), currentExtractDate.getMonth(), currentExtractDate.getDate(), hr, mn);
-        if (hr >= 14) dt = new Date(currentExtractDate.getFullYear(), currentExtractDate.getMonth(), currentExtractDate.getDate() - 1, hr, mn);
-        curBlock = { dt, lines: mPc[5].trim() ? [mPc[5].trim()] : [] };
-      }
-
-      if (dt) {
-        if (dt < winStart) {
-          curBlock = null;
-          continue;
-        }
-        if (curBlock && curBlock.lines.length > 0) blocks.push(curBlock);
-      } else {
-        if (!curBlock) curBlock = { dt: tDt, lines: [] };
-        curBlock.lines.push(line);
-      }
-    }
-    if (curBlock && curBlock.lines.length > 0 && curBlock.dt >= winStart) blocks.push(curBlock);
-
-    let filteredText = "";
-    for (const b of blocks) {
-      if (b.dt >= winStart && b.dt <= winEnd) {
-        const cleanBody = b.lines.map(l => l.replace(/^전달:\s*/, '').trim()).join('\n');
-        filteredText += `[시간: ${b.dt.toLocaleString()}]\n${cleanBody}\n\n`;
-      }
-    }
-
-    // 만약 시간 파싱에 실패해서 텍스트가 안 걸러졌다면 원본의 최근 1500줄만 안전하게 사용
-    if (!filteredText.trim()) {
-      filteredText = rawText.split(/\r?\n/).slice(-1500).join('\n');
-    }
-
-    btnText.innerText = `⏳ 3단계: AI가 발주 내역을 분석 중...`;
+    btnText.innerText = `⏳ 2단계: 압축된 발주 데이터 고속 분석 중...`;
 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
 
-    // 🔥 한재호 대표가 올리며 거래처 이름으로 시작하는 패턴을 완벽 학습시킨 프롬프트 🔥
+    // 🔥 한재호 대표 패턴 및 거래처 이름 시작 규칙 반영한 최적화 프롬프트 🔥
     const prompt = `
-너는 육가공 도매업체 '미트포앤'의 카톡 발주 데이터를 정리하는 최고급 AI야.
-아래 카카오톡 대화 내용에서 '실제 발주(주문)' 내역만 빠짐없이 추출해서 순수 JSON 배열로 반환해.
+너는 육가공 도매업체 '미트포앤'의 카톡 발주 데이터를 정리하는 AI야.
+아래 압축된 카카오톡 대화 내용에서 '실제 발주(주문)' 내역만 빠짐없이 추출해서 순수 JSON 배열로 반환해.
 
 [발주 패턴 특징]
-- 카톡 메시지는 주로 '한재호' 대표가 올리거나 전달하며, 발주 내용은 **대부분 거래처(상호명) 이름으로 시작**합니다. (예: "대산 삼겹 2", "우리축산 목살 3박스" 등)
+- 메시지는 주로 '한재호' 대표가 올리며, 발주 내용은 **대부분 거래처(상호명) 이름으로 시작**합니다.
 
 [절대 주의사항 - 계근 기록 및 요약본 제외]
 1. 현장 직원이 고기 무게를 잰 '계근 기록' (예: "암삼 21대 16.9 16.9", "19대 6.10")은 절대 발주가 아니니 무조건 버려! 숫자에 소수점(16.9)이 있거나 단위가 '대', '포', '개'이면 100% 버릴 것.
@@ -381,7 +386,7 @@ async function runAiAnalysis() {
 반드시 순수 JSON 배열 구조로만 대답해. 마크다운이나 다른 설명은 절대 금지.
 [
   {
-    "client_name": "상호명(메시지 앞부분에 적힌 거래처 이름 정확히 추출)",
+    "client_name": "상호명(거래처 이름 정확히 추출)",
     "original_text": "발주 원문 1줄",
     "category": "대표 품목 (예: 삼겹, 목살, 미전지, 등뼈 등)",
     "qty": 2.0,
@@ -393,8 +398,8 @@ async function runAiAnalysis() {
 * is_special_unit: 단위가 '박스'가 아니면 true.
 * is_delta: 원문에 '추가'나 '정정'이 포함되어 있으면 true.
 
-[카카오톡 대화 내용]
-${filteredText}
+[카카오톡 압축 대화 내용]
+${rawText}
     `;
     
     const response = await fetchWithRetry(apiUrl, {
@@ -435,7 +440,7 @@ ${filteredText}
         try {
             aiOrders = JSON.parse(jsonStr);
         } catch (e2) {
-            throw new Error("AI가 정리한 데이터가 너무 길어서 포맷이 깨졌습니다.\n\n" + e2.message);
+            throw new Error("AI가 정리한 데이터 포맷이 깨졌습니다.\n\n" + e2.message);
         }
     }
 
@@ -519,7 +524,7 @@ ${filteredText}
   } finally {
     btn.disabled = false;
     btn.classList.remove('opacity-75');
-    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.010)";
+    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.011)";
   }
 }
 
