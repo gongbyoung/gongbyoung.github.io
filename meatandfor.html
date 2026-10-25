@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 모바일 발주 집계 v2.015</title>
+  <title>미트포앤 모바일 발주 집계 v2.016</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -25,10 +25,9 @@
     <div class="px-3 py-2 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded text-[10px]">미트포앤</span>
-        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.015)</h1>
+        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.016)</h1>
       </div>
       <div class="flex items-center gap-2">
-        <!-- 🔥 설정창 다시 열기 버튼 추가 🔥 -->
         <button onclick="openInputSection()" class="text-[10px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded shadow transition">⚙️ 설정/재입력</button>
         <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded border border-slate-700">
           <span id="dbStatusBadge" class="text-rose-400 font-bold">CSV 미등록</span>
@@ -106,7 +105,7 @@
         </div>
 
         <button id="btnRunAnalyze" onclick="runAiAnalysis()" class="w-full bg-indigo-600 text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md active:scale-[0.98] transition flex items-center justify-center gap-1.5">
-          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.015)</span>
+          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.016)</span>
         </button>
       </div>
     </details>
@@ -144,12 +143,11 @@ document.getElementById('geminiApiKey').addEventListener('change', function() {
   localStorage.setItem('geminiApiKey', this.value.trim());
 });
 
-// 🔥 설정 및 입력창을 다시 열어주는 함수 🔥
 function openInputSection() {
   const details = document.getElementById('inputDetails');
   details.open = true;
   details.scrollIntoView({ behavior: 'smooth' });
-  showToast("⚙️ 설정창이 열렸습니다. 날짜나 텍스트를 변경 후 다시 실행하세요.");
+  showToast("⚙️ 설정창이 열렸습니다. 날짜나 텍스트 변경 후 다시 실행하세요.");
 }
 
 function showToast(msg, isError = false) {
@@ -344,19 +342,21 @@ async function runAiAnalysis() {
     }
     
     if (!targetModel) targetModel = availableModels.find(m => m.includes("flash") && !m.includes("preview"));
-    if (!targetModel && availableModels.length > 0) targetModel = availableModels[0];
+    if (!targetModel && availableModels.length > 0) targetModel = availableModels.[0] || availableModels[0];
     if (!targetModel) throw new Error("API 키 권한 오류: 텍스트 생성 모델이 목록에 없습니다.");
     
     btnText.innerText = `⏳ 2단계: 정제된 발주 데이터 분석 중...`;
 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
 
+    // 🔥 오타나 특수 문자(or, 괄호 등)가 섞여 있어도 AI가 튕기지 않고 유연하게 정제하도록 지시 강화 🔥
     const prompt = `
 너는 육가공 도매업체 '미트포앤'의 카톡 발주 데이터를 정리하는 AI야.
 아래 입력된 카카오톡 대화 내용에서 '실제 발주(주문)' 내역만 빠짐없이 추출해서 순수 JSON 배열로 반환해.
 
-[발주 패턴 특징]
+[발주 패턴 및 오타 처리 특징]
 - 메시지는 주로 '한재호' 대표가 올리며, 발주 내용은 **대부분 거래처(상호명) 이름으로 시작**합니다.
+- 현장 카톡 특성상 오타, 줄임말, 괄호 표현(예: "육(or 목전지제)")이 섞여 있을 수 있습니다. 의미를 유추하여 정상적인 품목명과 수량으로 보정해 주세요. 만약 알아볼 수 없는 낙서나 단순 잡담이면 무시하세요.
 
 [절대 주의사항 - 계근 기록 및 요약본 제외]
 1. 현장 직원이 고기 무게를 잰 '계근 기록' (예: "암삼 21대 16.9 16.9", "19대 6.10")은 절대 발주가 아니니 무조건 버려! 숫자에 소수점(16.9)이 있거나 단위가 '대', '포', '개'이면 100% 버릴 것.
@@ -368,7 +368,7 @@ async function runAiAnalysis() {
 - "패스", "취소" 단어가 포함된 품목은 발주에서 제외해.
 
 [출력 형식]
-반드시 순수 JSON 배열 구조로만 대답해. 마크다운이나 다른 설명은 절대 금지.
+반드시 순수 JSON 배열 구조로만 대답해. 마크다운(\`\`\`json 등)이나 설명문은 절대 붙이지 마세요.
 [
   {
     "client_name": "상호명(거래처 이름 정확히 추출)",
@@ -406,25 +406,33 @@ ${cleanText}
     const data = await response.json();
     let jsonStr = data.candidates[0].content.parts[0].text;
     
+    // 🔥 JSON 파싱 방어막 대폭 강화 (마크다운 백틱 및 깨진 따옴표 자동 정돈) 🔥
+    jsonStr = jsonStr.replace(/```json/g, '').replace(/```/g, '').trim();
+
     let aiOrders = [];
     try {
         aiOrders = JSON.parse(jsonStr);
     } catch (parseError) {
-        jsonStr = jsonStr.replace(/[\n\r\t]/g, ' '); 
-        if (!jsonStr.trim().endsWith(']')) {
-            const lastBrace = jsonStr.lastIndexOf('}');
-            if (lastBrace !== -1) {
-                jsonStr = jsonStr.substring(0, lastBrace + 1) + ']';
+        console.warn("JSON 기본 파싱 실패, 정밀 복구 시도...", parseError);
+        // 쌍따옴표나 제어문자 충돌 해결 시도
+        try {
+            const sanitized = jsonStr.replace(/[\n\r\t]/g, ' ');
+            const lastBrace = sanitized.lastIndexOf('}');
+            if (lastBrace !== -1 && !sanitized.trim().endsWith(']')) {
+                jsonStr = sanitized.substring(0, lastBrace + 1) + ']';
             } else {
-                jsonStr += '}]';
+                jsonStr = sanitized;
             }
+            aiOrders = JSON.parse(jsonStr);
+        } catch (e2) {
+            throw new Error("AI가 반환한 데이터 포맷이 오타나 특수문자로 인해 깨졌습니다.\n입력창의 텍스트 중 문제가 되는 특수문자나 깨진 줄을 살짝 수정 후 다시 실행해 주세요.\n\n상세 에러: " + parseError.message);
         }
-        aiOrders = JSON.parse(jsonStr);
     }
 
     const orderMap = new Map();
     
     for (const item of aiOrders) {
+      if (!item.client_name) continue;
       let matchedClient = null;
       let bestLen = 0;
       const cNoSpace = item.client_name.replace(/[●■☆★\[\]\(\)\.\,]/g, ' ').replace(/\s+/g, '');
@@ -456,12 +464,12 @@ ${cleanText}
       if (item.is_delta) entry.isDelta = true;
       
       entry.items.push({
-        originalText: item.original_text,
-        category: item.category,
-        qty: parseFloat(item.qty),
-        unit: item.unit,
-        isSpecialUnit: item.is_special_unit,
-        isDeltaItem: item.is_delta
+        originalText: item.original_text || '',
+        category: item.category || '기타',
+        qty: parseFloat(item.qty) || 1.0,
+        unit: item.unit || '박스',
+        isSpecialUnit: !!item.is_special_unit,
+        isDeltaItem: !!item.is_delta
       });
     }
 
@@ -502,7 +510,7 @@ ${cleanText}
   } finally {
     btn.disabled = false;
     btn.classList.remove('opacity-75');
-    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.015)";
+    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.016)";
   }
 }
 
