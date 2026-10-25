@@ -250,6 +250,39 @@ pre {
   .card { break-inside: avoid; box-shadow: none; }
   body { background: #fff; }
 }
+
+.ship-filter {
+  display: flex; gap: .4rem; margin-bottom: .75rem; flex-wrap: wrap;
+}
+.ship-btn {
+  flex: 1; min-width: 90px; padding: .55rem .4rem;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: #fff; font-size: .8rem; font-weight: 600; color: var(--muted);
+  cursor: pointer; min-height: 40px;
+}
+.ship-btn.on {
+  background: var(--primary); color: #fff; border-color: var(--primary);
+}
+.badge.ship-today { background: #e8f5e9; color: #2e7d32; }
+.badge.ship-next { background: #fff3e0; color: #e65100; }
+.summary-box {
+  background: #fff; border: 1px solid var(--border); border-radius: 14px;
+  padding: 1rem; font-size: .9rem; line-height: 1.65;
+  white-space: pre-wrap; word-break: break-word;
+  font-family: inherit; min-height: 120px;
+}
+.summary-actions {
+  display: flex; gap: .5rem; margin-top: .75rem;
+}
+.summary-actions button {
+  flex: 1; padding: .75rem; border: none; border-radius: 12px;
+  background: var(--primary); color: #fff; font-weight: 700; font-size: .9rem;
+  cursor: pointer; min-height: 44px;
+}
+.summary-actions button.secondary {
+  background: #fff; color: var(--primary); border: 1px solid var(--primary);
+}
+
 </style>
 </head>
 <body>
@@ -283,6 +316,7 @@ pre {
     <div class="tab active" data-tab="byClient" onclick="switchTab('byClient')">거래처별</div>
     <div class="tab" data-tab="byMeat" onclick="switchTab('byMeat')">고기별</div>
     <div class="tab" data-tab="loose" onclick="switchTab('loose')">낱개</div>
+    <div class="tab" data-tab="summary" onclick="switchTab('summary')">문자</div>
     <div class="tab" data-tab="raw" onclick="switchTab('raw')">원본</div>
   </div>
   </div>
@@ -316,44 +350,100 @@ function tryLogin() {
 }
 document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
 
+let shipFilter = 'all'; // all | today | next
+
 function loadChatFile(e) {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
-    chatText = ev.target.result;
+    chatText = ev.target.result || '';
+    // BOM 제거
+    if (chatText.charCodeAt(0) === 0xFEFF) chatText = chatText.slice(1);
     availableDates = extractDates(chatText);
     const sel = document.getElementById('dateSelect');
-    sel.innerHTML = '<option value="">날짜 선택</option>';
+    sel.innerHTML = '<option value="">배송/작업일 선택</option>';
     availableDates.forEach(d => {
       const opt = document.createElement('option');
-      opt.value = d;
-      opt.textContent = d.replace(/^2026년\s*/, '');
+      opt.value = d.key;
+      opt.textContent = d.label;
       sel.appendChild(opt);
     });
-    sel.disabled = false;
-    document.getElementById('uploadHint').textContent = `파일 로드 완료 · 날짜 ${availableDates.length}개 발견. 날짜를 선택하세요.`;
+    sel.disabled = availableDates.length === 0;
+    if (availableDates.length === 0) {
+      document.getElementById('uploadHint').textContent =
+        '날짜를 찾지 못했습니다. 카카오톡 "대화 내용 내보내기" TXT 파일인지 확인해 주세요. (예: --------------- 2026년 10월 22일 목요일 ---------------)';
+      document.getElementById('uploadHint').style.display = 'block';
+    } else {
+      document.getElementById('uploadHint').textContent =
+        `파일 로드 완료 · 날짜 ${availableDates.length}개. 배송/작업일을 선택하세요.\n일반: 전날 12:00 ~ 당일 14:00  /  월요일: 금요일 13:00 ~ 월요일 12:00`;
+      document.getElementById('uploadHint').style.display = 'block';
+    }
     currentDate = '';
     currentOrders = [];
     render();
+  };
+  reader.onerror = () => {
+    document.getElementById('uploadHint').textContent = '파일을 읽지 못했습니다. 다시 시도해 주세요.';
   };
   reader.readAsText(file, 'UTF-8');
 }
 
 function extractDates(text) {
-  const re = /---------------\s*(2026년\s*\d+월\s*\d+일\s*[가-힣]+)\s*---------------/g;
+  // 다양한 구분선·연도 지원
+  const re = /-{3,}\s*((?:20\d{2})년\s*\d{1,2}월\s*\d{1,2}일(?:\s*[가-힣]+)?)\s*-{3,}/g;
   const dates = [];
+  const seen = new Set();
   let m;
-  while ((m = re.exec(text)) !== null) dates.push(m[1].replace(/\s+/g, ' ').trim());
+  while ((m = re.exec(text)) !== null) {
+    const raw = m[1].replace(/\s+/g, ' ').trim();
+    const key = raw;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const parsed = parseKoreanDate(raw);
+    dates.push({
+      key,
+      label: raw.replace(/^(20\d{2})년\s*/, ''),
+      y: parsed?.y, mo: parsed?.mo, d: parsed?.d,
+      dow: parsed?.dow
+    });
+  }
   return dates;
+}
+
+function parseKoreanDate(str) {
+  const m = str.match(/(20\d{2})년\s*(\d{1,2})월\s*(\d{1,2})일(?:\s*([가-힣]+))?/);
+  if (!m) return null;
+  return { y: +m[1], mo: +m[2], d: +m[3], dow: m[4] || '' };
+}
+
+function toDateObj(y, mo, d) {
+  return new Date(y, mo - 1, d);
+}
+
+function formatKey(dt) {
+  const days = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+  return `${dt.getFullYear()}년 ${dt.getMonth()+1}월 ${dt.getDate()}일 ${days[dt.getDay()]}`;
+}
+
+function parseMsgTime(timeStr) {
+  // 오전 7:09 / 오후 2:00 / 오후 12:30
+  const m = (timeStr || '').match(/(오전|오후)\s*(\d{1,2}):(\d{2})/);
+  if (!m) return { h: 0, mi: 0 };
+  let h = parseInt(m[2], 10);
+  const mi = parseInt(m[3], 10);
+  if (m[1] === '오후' && h < 12) h += 12;
+  if (m[1] === '오전' && h === 12) h = 0;
+  return { h, mi };
 }
 
 function onDateChange() {
   currentDate = document.getElementById('dateSelect').value;
   if (!currentDate) { currentOrders = []; render(); return; }
-  currentOrders = parseOrdersForDate(chatText, currentDate);
+  currentOrders = parseOrdersForDeliveryDate(chatText, currentDate);
   document.getElementById('uploadHint').style.display = 'none';
   document.getElementById('stats').style.display = 'flex';
+  shipFilter = 'all';
   render();
 }
 
@@ -365,34 +455,112 @@ function switchTab(tab) {
   render();
 }
 
-// ---------- Parsing ----------
-function parseOrdersForDate(text, dateStr) {
-  const dateRe = new RegExp('---------------\\s*' + dateStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*---------------');
-  const parts = text.split(dateRe);
-  if (parts.length < 2) return [];
-  let day = parts[1];
-  // cut at next date
-  const nextDate = day.search(/---------------\s*2026년/);
-  if (nextDate > -1) day = day.slice(0, nextDate);
+// ---------- Parsing (시간창 기준) ----------
+// 일반: 전날 12:00 ~ 당일 14:00
+// 월요일: 금요일 13:00 ~ 월요일 12:00
+// 대화 내용의 오늘/내일 키워드로 당일·다음날 출고 구분
 
-  const msgRe = /\[([^\]]+)\]\s*\[([^\]]+)\]\s*([\s\S]*?)(?=\n\[|\n---------------|$)/g;
-  const msgs = [];
+function getAllDatedMessages(text) {
+  const dateRe = /-{3,}\s*((?:20\d{2})년\s*\d{1,2}월\s*\d{1,2}일(?:\s*[가-힣]+)?)\s*-{3,}/g;
+  const headers = [];
   let m;
-  while ((m = msgRe.exec(day)) !== null) {
-    msgs.push({ sender: m[1], time: m[2], text: m[3].trim() });
+  while ((m = dateRe.exec(text)) !== null) {
+    const raw = m[1].replace(/\s+/g, ' ').trim();
+    const p = parseKoreanDate(raw);
+    if (!p) continue;
+    headers.push({ index: m.index, end: m.index + m[0].length, raw, ...p });
   }
+  const msgs = [];
+  const msgRe = /\[([^\]]+)\]\s*\[([^\]]+)\]\s*([\s\S]*?)(?=\n\[|\n-{3,}|$)/g;
+  for (let i = 0; i < headers.length; i++) {
+    const start = headers[i].end;
+    const end = i + 1 < headers.length ? headers[i + 1].index : text.length;
+    const chunk = text.slice(start, end);
+    let mm;
+    msgRe.lastIndex = 0;
+    while ((mm = msgRe.exec(chunk)) !== null) {
+      const { h, mi } = parseMsgTime(mm[2]);
+      const dt = new Date(headers[i].y, headers[i].mo - 1, headers[i].d, h, mi, 0);
+      msgs.push({
+        sender: mm[1],
+        time: mm[2],
+        text: mm[3].trim(),
+        dt,
+        dayKey: headers[i].raw
+      });
+    }
+  }
+  return msgs;
+}
+
+function getWindowRange(deliveryKey) {
+  const p = parseKoreanDate(deliveryKey);
+  if (!p) return null;
+  const delivery = toDateObj(p.y, p.mo, p.d);
+  const dow = delivery.getDay(); // 0 Sun ... 1 Mon ... 5 Fri
+  let start, end;
+  if (dow === 1) {
+    // 월요일: 금요일 13:00 ~ 월요일 12:00
+    start = new Date(delivery);
+    start.setDate(start.getDate() - 3); // Friday
+    start.setHours(13, 0, 0, 0);
+    end = new Date(delivery);
+    end.setHours(12, 0, 0, 0);
+  } else {
+    // 전날 12:00 ~ 당일 14:00
+    start = new Date(delivery);
+    start.setDate(start.getDate() - 1);
+    start.setHours(12, 0, 0, 0);
+    end = new Date(delivery);
+    end.setHours(14, 0, 0, 0);
+  }
+  return { start, end, delivery, isMonday: dow === 1 };
+}
+
+function detectShipSide(rawText, msgDt, deliveryDt) {
+  const t = rawText || '';
+  // 명시적 다음날
+  if (/다음날|명일/.test(t)) return 'next';
+  if (/내일/.test(t)) {
+    // 메시지가 배송일 당일(또는 이후)에 쓰였고 "내일"이면 → 다음날 출고
+    // 메시지가 전날에 쓰였고 "내일"이면 → 배송일(당일) 출고
+    const msgDay = new Date(msgDt.getFullYear(), msgDt.getMonth(), msgDt.getDate());
+    const delDay = new Date(deliveryDt.getFullYear(), deliveryDt.getMonth(), deliveryDt.getDate());
+    if (msgDay.getTime() >= delDay.getTime()) return 'next';
+    return 'today';
+  }
+  if (/오늘|금일/.test(t)) {
+    const msgDay = new Date(msgDt.getFullYear(), msgDt.getMonth(), msgDt.getDate());
+    const delDay = new Date(deliveryDt.getFullYear(), deliveryDt.getMonth(), deliveryDt.getDate());
+    if (msgDay.getTime() === delDay.getTime()) return 'today';
+    // 전날에 "오늘" → 전날 출고라 이 배송일 범위에선 제외 성격이나, 일단 today로
+    return 'today';
+  }
+  // 기본: 이 시간창에서 모은 발주는 선택 배송일(당일) 기준
+  return 'today';
+}
+
+function parseOrdersForDeliveryDate(text, deliveryKey) {
+  const range = getWindowRange(deliveryKey);
+  if (!range) return [];
+  const allMsgs = getAllDatedMessages(text);
+  const msgs = allMsgs.filter(m => m.dt >= range.start && m.dt <= range.end);
 
   const orders = [];
   let cur = null;
 
   function flush() {
     if (cur && (cur.items.length || cur.rawLines.length)) {
+      const raw = cur.rawLines.join('\n');
+      const ship = detectShipSide(raw, cur.msgDt || range.start, range.delivery);
       orders.push({
         client: cur.client,
         address: cur.address,
         items: cur.items,
-        raw: cur.rawLines.join('\n'),
-        time: cur.time
+        raw,
+        time: cur.time,
+        ship, // 'today' | 'next'
+        msgDt: cur.msgDt
       });
     }
     cur = null;
@@ -426,14 +594,16 @@ function parseOrdersForDate(text, dateStr) {
         address: matched.address,
         items: [],
         rawLines: lines,
-        time: msg.time
+        time: msg.time,
+        msgDt: msg.dt
       };
-      // parse remaining lines as items
       for (let i = 1; i < lines.length; i++) {
         if (/여기까지|발주체크/.test(lines[i])) continue;
         const parsed = parseItemLine(lines[i]);
         if (parsed) cur.items.push(parsed);
-        else if (lines[i].length > 1) cur.items.push({ name: lines[i], qty: '', unit: '', note: '', extra: '' });
+        else if (lines[i].length > 1 && !isPoliteOnly(lines[i])) {
+          cur.items.push({ name: lines[i], qty: '', unit: '', note: '', extra: '' });
+        }
       }
     } else if (cur) {
       for (const line of lines) {
@@ -441,12 +611,13 @@ function parseOrdersForDate(text, dateStr) {
         cur.rawLines.push(line);
         const parsed = parseItemLine(line);
         if (parsed) cur.items.push(parsed);
-        else if (line.length > 1) cur.items.push({ name: line, qty: '', unit: '', note: '', extra: '' });
+        else if (line.length > 1 && !isPoliteOnly(line)) {
+          cur.items.push({ name: line, qty: '', unit: '', note: '', extra: '' });
+        }
       }
     } else {
-      // treat first as client even if has qty? rare
       const matched = matchClient(first.replace(/\d+.*/, '').trim() || first);
-      cur = { client: matched.name, address: matched.address, items: [], rawLines: lines, time: msg.time };
+      cur = { client: matched.name, address: matched.address, items: [], rawLines: lines, time: msg.time, msgDt: msg.dt };
       for (const line of lines) {
         const parsed = parseItemLine(line);
         if (parsed) cur.items.push(parsed);
@@ -455,6 +626,12 @@ function parseOrdersForDate(text, dateStr) {
   }
   flush();
   return orders;
+}
+
+function filteredOrders() {
+  if (shipFilter === 'today') return currentOrders.filter(o => o.ship !== 'next');
+  if (shipFilter === 'next') return currentOrders.filter(o => o.ship === 'next');
+  return currentOrders;
 }
 
 function matchClient(text) {
@@ -577,28 +754,46 @@ function render() {
   const statsEl = document.getElementById('stats');
   if (!currentDate || !currentOrders.length) {
     statsEl.style.display = 'none';
-    el.innerHTML = currentDate ? '<div class="empty">이 날짜의 발주가 없습니다</div>' : '<div class="empty">채팅 파일을 불러오고 날짜를 선택하세요</div>';
+    el.innerHTML = currentDate
+      ? '<div class="empty">선택 구간에 발주가 없습니다<br><small>일반: 전날 12시~당일 14시 / 월요일: 금 13시~월 12시</small></div>'
+      : '<div class="empty">채팅 파일을 불러오고<br>배송/작업일을 선택하세요</div>';
     return;
   }
 
-  // stats
-  const clientsSet = new Set(currentOrders.map(o => o.client));
+  const orders = filteredOrders();
+  const todayCnt = currentOrders.filter(o => o.ship !== 'next').length;
+  const nextCnt = currentOrders.filter(o => o.ship === 'next').length;
+
+  const clientsSet = new Set(orders.map(o => o.client));
   let boxCnt = 0, looseCnt = 0;
-  currentOrders.forEach(o => o.items.forEach(it => {
+  orders.forEach(o => o.items.forEach(it => {
     if (isLoose(it)) looseCnt += parseFloat(it.qty) || 1;
     else if (it.qty) boxCnt += parseFloat(it.qty) || 1;
   }));
   statsEl.style.display = 'flex';
   statsEl.innerHTML = `
-    <div class="stat"><div class="num">${currentOrders.length}</div><div class="label">발주 건수</div></div>
+    <div class="stat"><div class="num">${orders.length}</div><div class="label">발주 건수</div></div>
     <div class="stat"><div class="num">${clientsSet.size}</div><div class="label">거래처</div></div>
     <div class="stat"><div class="num">${Math.round(boxCnt)}</div><div class="label">박스 합계</div></div>
     <div class="stat"><div class="num">${Math.round(looseCnt)}</div><div class="label">낱개 합계</div></div>`;
 
-  if (currentTab === 'byClient') renderByClient(el);
-  else if (currentTab === 'byMeat') renderByMeat(el);
-  else if (currentTab === 'loose') renderLoose(el);
-  else if (currentTab === 'raw') renderRaw(el);
+  // 출고 구분 필터
+  let filterBar = `<div class="ship-filter">
+    <button class="ship-btn ${shipFilter==='all'?'on':''}" onclick="setShipFilter('all')">전체 ${currentOrders.length}</button>
+    <button class="ship-btn ${shipFilter==='today'?'on':''}" onclick="setShipFilter('today')">당일 출고 ${todayCnt}</button>
+    <button class="ship-btn ${shipFilter==='next'?'on':''}" onclick="setShipFilter('next')">다음날 출고 ${nextCnt}</button>
+  </div>`;
+
+  if (currentTab === 'byClient') renderByClient(el, orders, filterBar);
+  else if (currentTab === 'byMeat') { el.innerHTML = filterBar; renderByMeat(el, orders); }
+  else if (currentTab === 'loose') { el.innerHTML = filterBar; renderLoose(el, orders); }
+  else if (currentTab === 'summary') { el.innerHTML = filterBar; renderSummary(el, orders); }
+  else if (currentTab === 'raw') { el.innerHTML = filterBar; renderRaw(el, orders); }
+}
+
+function setShipFilter(f) {
+  shipFilter = f;
+  render();
 }
 
 // 낱개 = Pack / Kg / Bag
@@ -615,23 +810,24 @@ function isBox(it) {
   return !isLoose(it) && (!!it.qty || /box|박스|대|포/i.test(it.unit + ' ' + it.note));
 }
 
-function renderByClient(el) {
-  // group by client
+function renderByClient(el, orders, filterBar) {
   const map = {};
-  currentOrders.forEach(o => {
-    if (!map[o.client]) map[o.client] = { address: o.address, items: [], times: [] };
+  orders.forEach(o => {
+    if (!map[o.client]) map[o.client] = { address: o.address, items: [], ships: new Set(), times: [] };
     map[o.client].items.push(...o.items);
+    map[o.client].ships.add(o.ship === 'next' ? '다음날' : '당일');
     map[o.client].times.push(o.time);
     if (!map[o.client].address && o.address) map[o.client].address = o.address;
   });
   const names = Object.keys(map).sort();
 
-  let html = `<input class="search-box" placeholder="거래처 검색..." oninput="filterCards(this.value)">`;
+  let html = (filterBar || '') + `<input class="search-box" placeholder="거래처 검색..." oninput="filterCards(this.value)">`;
   html += '<div id="cards">';
   names.forEach(name => {
     const g = map[name];
+    const shipLabel = [...g.ships].join('·');
     html += `<div class="card client-card" data-name="${esc(name)}">
-      <h3>${esc(name)} <span class="badge">${g.items.length}품목</span></h3>
+      <h3>${esc(name)} <span class="badge">${g.items.length}품목</span> <span class="badge ship-${shipLabel.includes('다음')?'next':'today'}">${esc(shipLabel)}</span></h3>
       ${g.address ? `<div class="addr">${esc(g.address)}</div>` : ''}
       <div class="matrix-wrap"><table>
         <thead><tr><th>고기명</th><th>갯수</th><th>단위</th><th>비고</th><th>추가비고</th></tr></thead>
@@ -658,16 +854,15 @@ function filterCards(q) {
   });
 }
 
-function renderByMeat(el) {
-  // collect meats that have box counts
+function renderByMeat(el, orders) {
   const meatSet = new Set();
   const clientSet = new Set();
-  const matrix = {}; // client -> meat -> qty
+  const matrix = {};
 
-  currentOrders.forEach(o => {
+  orders.forEach(o => {
     clientSet.add(o.client);
     o.items.forEach(it => {
-      if (isLoose(it)) return; // 박스만
+      if (isLoose(it)) return;
       const meat = normalizeMeat(it.name);
       if (!meat) return;
       meatSet.add(meat);
@@ -679,18 +874,18 @@ function renderByMeat(el) {
 
   const meats = [...meatSet].sort();
   const clients = [...clientSet].sort();
+  const prev = el.innerHTML; // filter bar already set
 
   if (!meats.length) {
-    el.innerHTML = '<div class="empty">박스 단위 발주가 없습니다</div>';
+    el.innerHTML = prev + '<div class="empty">박스 단위 발주가 없습니다</div>';
     return;
   }
 
-  // column totals
   const colTotal = {};
   meats.forEach(m => colTotal[m] = 0);
   clients.forEach(c => meats.forEach(m => { colTotal[m] += matrix[c]?.[m] || 0; }));
 
-  let html = '<div class="section-title">거래처 × 고기 (박스 수)</div><div class="matrix-wrap"><table class="matrix"><thead><tr><th>거래처</th>';
+  let html = prev + '<div class="section-title">거래처 × 고기 (박스 수)</div><div class="matrix-wrap"><table class="matrix"><thead><tr><th>거래처</th>';
   meats.forEach(m => html += `<th>${esc(m)}</th>`);
   html += '<th class="total-col">합계</th></tr></thead><tbody>';
 
@@ -705,7 +900,6 @@ function renderByMeat(el) {
     html += `<td class="num total-col">${rowSum || ''}</td></tr>`;
   });
 
-  // total row
   let grand = 0;
   html += '<tr class="total-row"><td>합계</td>';
   meats.forEach(m => {
@@ -751,10 +945,10 @@ function normalizeMeat(name) {
   return cleaned;
 }
 
-function renderLoose(el) {
-  // 거래처별로 묶기
+function renderLoose(el, orders) {
+  const prev = el.innerHTML;
   const byClient = {};
-  currentOrders.forEach(o => {
+  orders.forEach(o => {
     o.items.forEach(it => {
       if (!isLoose(it)) return;
       if (!byClient[o.client]) byClient[o.client] = [];
@@ -763,10 +957,10 @@ function renderLoose(el) {
   });
   const clients = Object.keys(byClient).sort();
   if (!clients.length) {
-    el.innerHTML = '<div class="empty">낱개 항목이 없습니다 (Pack / Kg / Bag)</div>';
+    el.innerHTML = prev + '<div class="empty">낱개 항목이 없습니다 (Pack / Kg / Bag)</div>';
     return;
   }
-  let html = '<div class="section-title">낱개 목록 (Pack / Kg / Bag)</div>';
+  let html = prev + '<div class="section-title">낱개 목록 (Pack / Kg / Bag)</div>';
   clients.forEach(client => {
     const items = byClient[client];
     html += `<div class="card">
@@ -788,17 +982,126 @@ function renderLoose(el) {
   el.innerHTML = html;
 }
 
-function renderRaw(el) {
-  let html = '';
-  currentOrders.forEach(o => {
+function renderRaw(el, orders) {
+  const prev = el.innerHTML;
+  let html = prev;
+  orders.forEach(o => {
+    const shipLabel = o.ship === 'next' ? '다음날' : '당일';
     html += `<div class="card">
-      <h3>${esc(o.client)} <span class="badge">${esc(o.time || '')}</span></h3>
+      <h3>${esc(o.client)} <span class="badge">${esc(o.time || '')}</span> <span class="badge ship-${o.ship === 'next' ? 'next' : 'today'}">${shipLabel}</span></h3>
       ${o.address ? `<div class="addr">${esc(o.address)}</div>` : ''}
-      <pre style="font-size:.85rem;white-space:pre-wrap;margin:0">${esc(o.raw)}</pre>
+      <pre>${esc(o.raw)}</pre>
     </div>`;
   });
-  el.innerHTML = html || '<div class="empty">없음</div>';
+  el.innerHTML = html || prev + '<div class="empty">없음</div>';
 }
+
+
+function renderSummary(el, orders) {
+  const prev = el.innerHTML;
+  // 고기명별 합산 (박스/낱개 구분)
+  const boxMap = {};  // name -> { qty, unit, notes:Set }
+  const looseMap = {};
+
+  orders.forEach(o => {
+    o.items.forEach(it => {
+      const meat = normalizeMeat(it.name) || (it.name || '').trim();
+      if (!meat || isPoliteOnly(meat)) return;
+      const q = parseFloat(it.qty);
+      if (!q && q !== 0) return;
+      const unit = it.unit || (isLoose(it) ? 'Pack' : 'Box');
+      const target = isLoose(it) ? looseMap : boxMap;
+      if (!target[meat]) target[meat] = { qty: 0, unit: unit, notes: new Set() };
+      target[meat].qty += q;
+      if (it.note) target[meat].notes.add(it.note);
+      if (it.extra) target[meat].notes.add(it.extra);
+      // 단위 우선순위: 이미 있으면 유지
+      if (!target[meat].unit) target[meat].unit = unit;
+    });
+  });
+
+  // 정렬: 자주 쓰는 고기 순서 우선
+  const orderPref = ['특삼겹','삼겹','암삼겹','특미삼','미삼','암미삼','특목살','목살','B목살','미전지','목전지','전지','갈비','등갈비','등심','안심','사태','앞미사태','항정','가브리','갈매기','등뼈','미후지','냉장3mm후지','냉동3mm후지','돈피','B지방','잡육','설도','살치'];
+  function sortKeys(map) {
+    return Object.keys(map).sort((a, b) => {
+      const ia = orderPref.indexOf(a); const ib = orderPref.indexOf(b);
+      if (ia === -1 && ib === -1) return a.localeCompare(b, 'ko');
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+  }
+
+  const dateLabel = (currentDate || '').replace(/^(20\d{2})년\s*/, '');
+  let lines = [];
+  lines.push(`[${dateLabel}] 전체 발주 합계`);
+  lines.push('');
+
+  const boxKeys = sortKeys(boxMap);
+  if (boxKeys.length) {
+    lines.push('■ 박스');
+    boxKeys.forEach(k => {
+      const x = boxMap[k];
+      const note = [...x.notes].filter(Boolean).join(' ');
+      const unitLabel = x.unit === 'Box' || !x.unit ? '박스' : x.unit;
+      lines.push(`${k} ${Math.round(x.qty * 10) / 10}${unitLabel}${note ? ' ' + note : ''}`);
+    });
+  }
+
+  const looseKeys = sortKeys(looseMap);
+  if (looseKeys.length) {
+    lines.push('');
+    lines.push('■ 낱개');
+    looseKeys.forEach(k => {
+      const x = looseMap[k];
+      const note = [...x.notes].filter(Boolean).join(' ');
+      let unitLabel = x.unit || 'Pack';
+      if (unitLabel === 'Pack') unitLabel = '팩';
+      if (unitLabel === 'Kg') unitLabel = 'Kg';
+      if (unitLabel === 'Bag') unitLabel = '봉지';
+      lines.push(`${k} ${Math.round(x.qty * 10) / 10}${unitLabel}${note ? ' ' + note : ''}`);
+    });
+  }
+
+  if (!boxKeys.length && !looseKeys.length) {
+    el.innerHTML = prev + '<div class="empty">합산할 발주가 없습니다</div>';
+    return;
+  }
+
+  const text = lines.join('\n');
+  // store for copy
+  window.__summaryText = text;
+
+  let html = prev;
+  html += `<div class="section-title">해당일 전체 발주 (문자식)</div>`;
+  html += `<div class="summary-box" id="summaryText">${esc(text)}</div>`;
+  html += `<div class="summary-actions">
+    <button type="button" onclick="copySummary()">복사하기</button>
+    <button type="button" class="secondary" onclick="shareSummary()">공유</button>
+  </div>`;
+  el.innerHTML = html;
+}
+
+function copySummary() {
+  const t = window.__summaryText || '';
+  if (!t) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(() => alert('복사되었습니다')).catch(() => fallbackCopy(t));
+  } else fallbackCopy(t);
+}
+function fallbackCopy(t) {
+  const ta = document.createElement('textarea');
+  ta.value = t; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); alert('복사되었습니다'); } catch(e) { alert('복사 실패'); }
+  document.body.removeChild(ta);
+}
+function shareSummary() {
+  const t = window.__summaryText || '';
+  if (navigator.share) {
+    navigator.share({ text: t }).catch(() => copySummary());
+  } else copySummary();
+}
+
 
 function esc(s) {
   if (s == null) return '';
