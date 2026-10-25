@@ -2,84 +2,253 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#c41e3a">
 <title>미트포앤 발주 관리</title>
 <style>
 :root {
-  --primary: #c41e3a; --primary-dark: #9a1830; --bg: #f0f2f5; --card: #fff;
-  --text: #1a1a1a; --muted: #666; --border: #e2e2e2; --header-bg: #fff;
+  --primary: #c41e3a;
+  --primary-dark: #9a1830;
+  --bg: #f0f2f5;
+  --card: #ffffff;
+  --text: #1a1a1a;
+  --muted: #666;
+  --border: #e5e5e5;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --header-h: 52px;
+  --tabs-h: 48px;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-#login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #c41e3a, #7a1525); }
-.login-box { background: #fff; padding: 2.5rem; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.3); width: 90%; max-width: 360px; text-align: center; }
-.login-box h1 { font-size: 1.5rem; color: var(--primary); margin-bottom: .4rem; }
-.login-box p { color: var(--muted); margin-bottom: 1.5rem; font-size: .9rem; }
-.login-box input { width: 100%; padding: .9rem; border: 2px solid var(--border); border-radius: 8px; font-size: 1.2rem; text-align: center; letter-spacing: .3em; margin-bottom: 1rem; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { font-size: 16px; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-bottom: var(--safe-bottom);
+  overflow-x: hidden;
+}
+
+/* ===== Login ===== */
+#login-screen {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; min-height: 100dvh;
+  background: linear-gradient(160deg, #c41e3a 0%, #7a1525 100%);
+  padding: 1.25rem;
+  padding-top: calc(1.25rem + var(--safe-top));
+}
+.login-box {
+  background: #fff; padding: 2rem 1.5rem; border-radius: 20px;
+  box-shadow: 0 16px 48px rgba(0,0,0,.28);
+  width: 100%; max-width: 340px; text-align: center;
+}
+.login-box h1 { font-size: 1.4rem; color: var(--primary); margin-bottom: .35rem; }
+.login-box p { color: var(--muted); margin-bottom: 1.4rem; font-size: .9rem; }
+.login-box input {
+  width: 100%; padding: 1rem; border: 2px solid var(--border); border-radius: 12px;
+  font-size: 1.35rem; text-align: center; letter-spacing: .35em; margin-bottom: 1rem;
+}
 .login-box input:focus { outline: none; border-color: var(--primary); }
-.login-box button { width: 100%; padding: .9rem; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
-.login-box button:hover { background: var(--primary-dark); }
+.login-box button {
+  width: 100%; padding: 1rem; background: var(--primary); color: #fff;
+  border: none; border-radius: 12px; font-size: 1.05rem; font-weight: 700;
+  cursor: pointer; min-height: 48px;
+}
+.login-box button:active { background: var(--primary-dark); }
 .error { color: #d32f2f; font-size: .85rem; margin-top: .5rem; display: none; }
 
+/* ===== App shell ===== */
 #app { display: none; }
-header { background: var(--primary); color: #fff; padding: .9rem 1.2rem; display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
-header h1 { font-size: 1.1rem; font-weight: 600; }
-.header-actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
-.btn { background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.4); color: #fff; padding: .4rem .8rem; border-radius: 6px; font-size: .85rem; cursor: pointer; }
-.btn:hover { background: rgba(255,255,255,.3); }
+
+.top-sticky {
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 10px rgba(0,0,0,.12);
+}
+header {
+  background: var(--primary); color: #fff;
+  padding: .55rem .75rem;
+  padding-top: calc(.55rem + var(--safe-top));
+}
+header .header-top {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: .55rem;
+}
+header h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: -.02em; }
+.header-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: .4rem;
+  align-items: center;
+}
+.btn {
+  background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35);
+  color: #fff; padding: .55rem .5rem; border-radius: 10px;
+  font-size: .8rem; font-weight: 600; cursor: pointer;
+  text-align: center; min-height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  white-space: nowrap;
+}
+.btn:active { background: rgba(255,255,255,.3); }
 .btn-file { position: relative; overflow: hidden; }
-.btn-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-select.date-select { background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.4); color: #fff; padding: .4rem .7rem; border-radius: 6px; font-size: .85rem; }
-select.date-select option { color: #222; }
+.btn-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+select.date-select {
+  background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35);
+  color: #fff; padding: .55rem .4rem; border-radius: 10px;
+  font-size: .8rem; font-weight: 600; min-height: 40px; width: 100%;
+  -webkit-appearance: none; appearance: none;
+  text-align: center;
+}
+select.date-select option { color: #222; background: #fff; }
 
-.tabs { display: flex; background: var(--header-bg); border-bottom: 1px solid var(--border); overflow-x: auto; position: sticky; top: 52px; z-index: 90; }
-.tab { flex: 1; min-width: 100px; padding: .8rem .4rem; text-align: center; font-size: .85rem; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
-.tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+/* Tabs - bottom-style feel on mobile, sticky under header */
+.tabs {
+  display: flex; background: #fff;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex: 1 0 auto; min-width: 0;
+  padding: .85rem .6rem;
+  text-align: center; font-size: .82rem; font-weight: 600;
+  color: var(--muted); cursor: pointer;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+}
+.tab.active {
+  color: var(--primary); border-bottom-color: var(--primary);
+  font-weight: 700;
+}
 
-.content { padding: 1rem; max-width: 1100px; margin: 0 auto; }
-.upload-hint { background: #fff3cd; border: 1px solid #ffecb5; border-radius: 8px; padding: .8rem 1rem; margin-bottom: 1rem; font-size: .9rem; color: #856404; }
-.stats { display: flex; gap: .6rem; margin-bottom: 1rem; flex-wrap: wrap; }
-.stat { background: #fff; border-radius: 10px; padding: .7rem 1rem; flex: 1; min-width: 90px; text-align: center; border: 1px solid var(--border); }
-.stat .num { font-size: 1.35rem; font-weight: 700; color: var(--primary); }
-.stat .label { font-size: .72rem; color: var(--muted); }
+.content {
+  padding: .75rem .7rem 1.5rem;
+  max-width: 100%;
+}
 
-.card { background: #fff; border-radius: 10px; padding: 1rem; margin-bottom: .8rem; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,.04); }
-.card h3 { font-size: .95rem; color: var(--primary); margin-bottom: .5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .3rem; }
-.card .addr { font-size: .78rem; color: var(--muted); margin-bottom: .4rem; }
-.badge { background: #ffebee; color: var(--primary); font-size: .72rem; padding: .12rem .45rem; border-radius: 10px; font-weight: 600; }
+.upload-hint {
+  background: #fff8e6; border: 1px solid #ffe0a3; border-radius: 12px;
+  padding: .85rem 1rem; margin-bottom: .85rem;
+  font-size: .88rem; color: #7a5b00; line-height: 1.45;
+}
 
-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
-th, td { border: 1px solid var(--border); padding: .45rem .55rem; text-align: left; }
-th { background: #f8f8f8; font-weight: 600; white-space: nowrap; }
-td.num { text-align: center; font-weight: 600; }
+.stats {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: .4rem; margin-bottom: .85rem;
+}
+.stat {
+  background: #fff; border-radius: 12px; padding: .55rem .3rem;
+  text-align: center; border: 1px solid var(--border);
+}
+.stat .num { font-size: 1.15rem; font-weight: 800; color: var(--primary); line-height: 1.2; }
+.stat .label { font-size: .65rem; color: var(--muted); margin-top: .15rem; }
+
+.card {
+  background: #fff; border-radius: 14px; padding: .9rem;
+  margin-bottom: .7rem; border: 1px solid var(--border);
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+.card h3 {
+  font-size: .95rem; color: var(--primary); margin-bottom: .4rem;
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: .3rem; line-height: 1.3;
+}
+.card .addr { font-size: .75rem; color: var(--muted); margin-bottom: .45rem; line-height: 1.35; }
+.badge {
+  background: #ffebee; color: var(--primary);
+  font-size: .7rem; padding: .18rem .5rem; border-radius: 20px; font-weight: 700;
+}
+
+/* Tables - mobile friendly */
+.matrix-wrap {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  margin: 0 -.15rem; border-radius: 8px;
+}
+table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+th, td {
+  border: 1px solid var(--border);
+  padding: .5rem .4rem;
+  text-align: left;
+  vertical-align: middle;
+}
+th {
+  background: #f6f6f6; font-weight: 700; white-space: nowrap;
+  font-size: .75rem; position: sticky; top: 0;
+}
+td.num { text-align: center; font-weight: 700; }
 td.center { text-align: center; }
 tr:nth-child(even) { background: #fafafa; }
-.matrix-wrap { overflow-x: auto; }
-.matrix th:first-child, .matrix td:first-child { position: sticky; left: 0; background: #fff; z-index: 1; min-width: 120px; }
-.matrix th { background: #f0f0f0; font-size: .78rem; }
-.matrix td.num { min-width: 42px; }
-.matrix .total-row { background: #fff5f5 !important; font-weight: 600; }
-.matrix .total-col { background: #f5f5ff; font-weight: 600; }
 
-.client-list { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
-.client-chip { background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: .35rem .8rem; font-size: .82rem; cursor: pointer; transition: .15s; }
-.client-chip:hover, .client-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+/* Client order table: stack-like on very narrow if needed, but keep columns */
+.client-card table th:nth-child(1) { min-width: 70px; }
+.client-card table th:nth-child(2),
+.client-card table td.num { min-width: 36px; }
+.client-card table th:nth-child(3) { min-width: 36px; }
 
-.search-box { width: 100%; padding: .65rem .9rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: .8rem; font-size: .9rem; }
-.search-box:focus { outline: none; border-color: var(--primary); }
-.empty { text-align: center; padding: 2.5rem 1rem; color: var(--muted); }
-.section-title { font-size: .8rem; color: var(--muted); margin: .8rem 0 .4rem; font-weight: 600; letter-spacing: .03em; }
-.back-btn { background: none; border: none; color: var(--primary); font-size: .9rem; cursor: pointer; margin-bottom: .6rem; font-weight: 500; }
-#detailView { display: none; }
+.matrix th:first-child, .matrix td:first-child {
+  position: sticky; left: 0; background: #fff; z-index: 2;
+  min-width: 88px; max-width: 110px;
+  font-size: .75rem; box-shadow: 2px 0 4px rgba(0,0,0,.04);
+}
+.matrix thead th:first-child { z-index: 3; background: #f0f0f0; }
+.matrix th { background: #f0f0f0; font-size: .7rem; padding: .4rem .3rem; }
+.matrix td.num { min-width: 36px; padding: .4rem .25rem; font-size: .8rem; }
+.matrix .total-row { background: #fff5f5 !important; font-weight: 700; }
+.matrix .total-row td:first-child { background: #fff5f5; }
+.matrix .total-col { background: #f0f4ff; font-weight: 700; }
+
+.search-box {
+  width: 100%; padding: .75rem .9rem;
+  border: 1px solid var(--border); border-radius: 12px;
+  margin-bottom: .75rem; font-size: .95rem;
+  background: #fff;
+}
+.search-box:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(196,30,58,.12); }
+
+.empty {
+  text-align: center; padding: 3rem 1.2rem;
+  color: var(--muted); font-size: .95rem; line-height: 1.5;
+}
+.section-title {
+  font-size: .78rem; color: var(--muted);
+  margin: .3rem 0 .55rem; font-weight: 700;
+  letter-spacing: .02em;
+}
+.back-btn {
+  background: none; border: none; color: var(--primary);
+  font-size: .9rem; cursor: pointer; margin-bottom: .55rem;
+  font-weight: 600; padding: .3rem 0; min-height: 36px;
+}
+
+pre {
+  font-size: .8rem; white-space: pre-wrap; word-break: break-word;
+  margin: 0; line-height: 1.45; font-family: inherit;
+}
+
+/* Note 24 portrait ~412px — already mobile-first; slight tweaks */
+@media (max-width: 400px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .stat .num { font-size: 1.25rem; }
+  .tab { font-size: .78rem; padding: .8rem .45rem; }
+  header h1 { font-size: .98rem; }
+  .header-actions { grid-template-columns: 1fr 1fr; }
+  .header-actions .btn:last-child { grid-column: 1 / -1; }
+}
+
+/* Slightly larger phones / Note 24 */
+@media (min-width: 400px) and (max-width: 480px) {
+  .content { padding: .85rem .85rem 1.75rem; }
+  table { font-size: .82rem; }
+}
 
 @media print {
-  header, .tabs, .upload-hint, .stats, .search-box, .client-list, .back-btn { display: none !important; }
-  .card { break-inside: avoid; }
+  header, .tabs, .upload-hint, .stats, .search-box, .back-btn { display: none !important; }
+  .card { break-inside: avoid; box-shadow: none; }
   body { background: #fff; }
-}
-@media (max-width: 600px) {
-  .tab { font-size: .75rem; padding: .7rem .25rem; min-width: 80px; }
-  table { font-size: .78rem; }
 }
 </style>
 </head>
@@ -95,10 +264,13 @@ tr:nth-child(even) { background: #fafafa; }
 </div>
 
 <div id="app">
+  <div class="top-sticky">
   <header>
-    <h1>미트포앤 발주 관리</h1>
+    <div class="header-top">
+      <h1>🥩 미트포앤 발주</h1>
+    </div>
     <div class="header-actions">
-      <label class="btn btn-file">채팅파일 불러오기
+      <label class="btn btn-file">파일 불러오기
         <input type="file" id="chatFile" accept=".txt,text/plain" onchange="loadChatFile(event)">
       </label>
       <select class="date-select" id="dateSelect" onchange="onDateChange()" disabled>
@@ -108,10 +280,11 @@ tr:nth-child(even) { background: #fafafa; }
     </div>
   </header>
   <div class="tabs">
-    <div class="tab active" data-tab="byClient" onclick="switchTab('byClient')">거래처별 발주</div>
-    <div class="tab" data-tab="byMeat" onclick="switchTab('byMeat')">고기별 발주</div>
-    <div class="tab" data-tab="loose" onclick="switchTab('loose')">낱개 목록</div>
+    <div class="tab active" data-tab="byClient" onclick="switchTab('byClient')">거래처별</div>
+    <div class="tab" data-tab="byMeat" onclick="switchTab('byMeat')">고기별</div>
+    <div class="tab" data-tab="loose" onclick="switchTab('loose')">낱개</div>
     <div class="tab" data-tab="raw" onclick="switchTab('raw')">원본</div>
+  </div>
   </div>
   <div class="content">
     <div id="uploadHint" class="upload-hint">카카오톡 대화 내보내기(.txt) 파일을 불러온 뒤 날짜를 선택하세요.</div>
@@ -239,9 +412,11 @@ function parseOrdersForDate(text, dateStr) {
     }
 
     const first = lines[0];
-    const hasQty = /\d+\s*(박스|팩|키로|kg|대|포|벌|판|마리|덩이)/i.test(first) ||
-                   /(박스|팩|키로)\s*\d+/i.test(first) ||
-                   /\d+\s*[BbPp]/.test(first);
+    const hasQty = /\d+\s*(박스|팩|키로|kg|봉지|봉|벌|판|마리|덩이|개)/i.test(first) ||
+                   /(박스|팩|키로|kg|봉지)\s*\d+/i.test(first) ||
+                   /\d+\s*(포크|대산|정담|황금)/i.test(first) ||
+                   /\d+\s*[BbPp]\b/.test(first) ||
+                   /^\S+\s+\d+(\s|$)/.test(first);
 
     if (!hasQty && first.length < 45 && !/여기까지|발주체크|사진|죄송합니다/.test(first)) {
       flush();
@@ -314,46 +489,51 @@ function similarity(a, b) {
 
 function parseItemLine(line) {
   line = line.replace(/^[\-•·]\s*/, '').trim();
-  if (!line || /부탁|주세요|보내|이상|발주|감사합니다|수고/.test(line) && !/\d/.test(line)) return null;
+  if (!line || (/부탁|주세요|보내|이상|발주|감사합니다|수고/.test(line) && !/\d/.test(line))) return null;
 
-  // patterns: 삼겹10, 삼겹 10박스, 미전지5 대산, 항정 3키로, 특삼겹 1박스 대산 등
+  // 메이커(브랜드) 목록 — 비고로 빼고 박스 단위로 취급
+  const BRANDS = '포크|대산|정담|황금|토레인|두메코|테니쉬|올리멜|알레한|고원돈|바텔|셀렉타|농협|신짜|정담한돈';
+
   let name = '', qty = '', unit = '', note = '', extra = '';
 
-  // qty + unit
-  let m = line.match(/^(.+?)\s*(\d+(?:\.\d+)?)\s*(박스|팩|키로|kg|대|포|벌|판|마리|덩이|봉|개)?(.*)$/i);
+  // 1) 고기명 + 숫자 + (단위) + 나머지
+  // 예: 미전지5 대산 / 항정 3키로 / 삼겹 2박스 포크 / 냉장3mm후지 2
+  let m = line.match(/^(.+?)\s*(\d+(?:\.\d+)?)\s*(박스|팩|키로|kg|봉지|봉|대|포|벌|판|마리|덩이|개)?(.*)$/i);
   if (m) {
-    name = m[1].replace(/[ㅡ\-–]/g, '').trim();
+    name = m[1].replace(/[ㅡ\-–]/g, ' ').replace(/\s+/g, ' ').trim();
     qty = m[2];
     unit = (m[3] || '').trim();
-    const rest = (m[4] || '').trim();
-    // split note / extra
+    let rest = (m[4] || '').trim();
+
+    // 단위가 비어 있고 rest 앞에 단위가 붙은 경우
+    if (!unit && rest) {
+      const um = rest.match(/^(박스|팩|키로|kg|봉지|봉|대|포|벌|판|마리|덩이|개)\s*(.*)$/i);
+      if (um) { unit = um[1]; rest = um[2].trim(); }
+    }
+
+    // 메이커/브랜드를 note로
     if (rest) {
-      const parts = rest.split(/\s(2,)|,/);
-      note = parts[0] || '';
-      extra = parts.slice(1).join(' ').trim();
+      const brandRe = new RegExp('(' + BRANDS + ')', 'i');
+      const bm = rest.match(brandRe);
+      if (bm) {
+        note = bm[1];
+        extra = rest.replace(bm[0], '').replace(/^[,\s]+/, '').trim();
+      } else {
+        const parts = rest.split(/\s{2,}|,/);
+        note = (parts[0] || '').trim();
+        extra = parts.slice(1).join(' ').trim();
+      }
     }
   } else {
-    // 삼겹10 (no unit)
-    m = line.match(/^(.+?)\s*(\d+(?:\.\d+)?)(.*)$/);
-    if (m) {
-      name = m[1].trim();
-      qty = m[2];
-      const rest = (m[3] || '').trim();
-      if (/박스|팩|키로|kg|대|포|벌|판/.test(rest)) {
-        const um = rest.match(/^(박스|팩|키로|kg|대|포|벌|판|마리|덩이|봉)/);
-        if (um) { unit = um[1]; note = rest.slice(um[0].length).trim(); }
-        else note = rest;
-      } else note = rest;
-    } else {
-      name = line;
-    }
+    // 숫자 없는 단순 텍스트
+    name = line;
   }
 
-  // normalize unit
-  if (!unit && /박스/.test(note)) { unit = '박스'; note = note.replace(/박스/, '').trim(); }
-  if (!unit && qty && !note) unit = ''; // leave empty
+  // 단위 정규화
+  if (unit === '봉') unit = '봉지';
+  if (!unit && /박스/.test(note)) { unit = '박스'; note = note.replace(/박스/g, '').trim(); }
 
-  // clean name
+  // 냉장3mm / 3mm냉장 등은 고기명으로 유지
   name = name.replace(/\s+/g, ' ').trim();
   if (!name) return null;
 
@@ -374,8 +554,8 @@ function render() {
   const clientsSet = new Set(currentOrders.map(o => o.client));
   let boxCnt = 0, looseCnt = 0;
   currentOrders.forEach(o => o.items.forEach(it => {
-    if (isBox(it)) boxCnt += parseFloat(it.qty) || 1;
-    else if (it.qty) looseCnt += parseFloat(it.qty) || 1;
+    if (isLoose(it)) looseCnt += parseFloat(it.qty) || 1;
+    else if (it.qty) boxCnt += parseFloat(it.qty) || 1;
   }));
   statsEl.style.display = 'flex';
   statsEl.innerHTML = `
@@ -390,8 +570,21 @@ function render() {
   else if (currentTab === 'raw') renderRaw(el);
 }
 
+// 낱개 = 숫자 뒤에 팩 / kg / 봉지 가 붙은 것
+// 그 외(숫자만, 박스, 대, 포, 메이커명 포크·대산·정담·황금 등)는 모두 박스 단위
+function isLoose(it) {
+  const u = (it.unit || '').toLowerCase();
+  const n = (it.note || '').toLowerCase();
+  const combined = (it.name + ' ' + it.unit + ' ' + it.note).toLowerCase();
+  // 명확한 낱개 단위
+  if (/^(팩|kg|키로|봉지|봉)$/.test(u)) return true;
+  if (/팩|kg|키로|봉지/.test(u) && !/박스/.test(u)) return true;
+  // 이름/비고에만 팩·kg·봉지가 있고 박스 표시가 없는 경우
+  if (/\d+\s*(팩|kg|키로|봉지)/.test(combined) && !/박스/.test(combined)) return true;
+  return false;
+}
 function isBox(it) {
-  return /박스|대|포/.test(it.unit) || /박스|대|포/.test(it.note) || (!it.unit && !it.note && it.qty && parseFloat(it.qty) >= 1 && !/팩|키로|kg|봉|덩이|판/.test(it.name));
+  return !isLoose(it) && (!!it.qty || /박스|대|포/.test(it.unit + it.note));
 }
 
 function renderByClient(el) {
@@ -446,7 +639,7 @@ function renderByMeat(el) {
   currentOrders.forEach(o => {
     clientSet.add(o.client);
     o.items.forEach(it => {
-      if (!isBox(it) && it.unit !== '박스' && !/박스/.test(it.note)) return;
+      if (isLoose(it)) return; // 박스만
       const meat = normalizeMeat(it.name);
       if (!meat) return;
       meatSet.add(meat);
@@ -497,39 +690,42 @@ function renderByMeat(el) {
 }
 
 function normalizeMeat(name) {
+  const n = name.replace(/\s+/g, '');
+  // 냉장3mm 계열을 고기명으로 우선 인식
+  if (/냉장?3mm|3mm냉장|3mm후지|냉장3mm후지|3mm냉장후지/i.test(n)) return '냉장3mm후지';
+  if (/냉동3mm|3mm냉동/i.test(n)) return '냉동3mm후지';
+
   const map = [
     ['특삼겹', '특삼겹'], ['특미삼', '특미삼'], ['특목', '특목살'], ['암삼겹', '암삼겹'],
     ['암미삼', '암미삼'], ['암오겹', '암오겹'], ['미박삼겹', '미박삼겹'],
-    ['삼겹', '삼겹'], ['미삼', '미삼'], ['오겹', '오겹'], ['목살', '목살'],
-    ['B목살', 'B목살'], ['미전지', '미전지'], ['목전지', '목전지'], ['전지', '전지'],
-    ['등뼈', '등뼈'], ['갈비', '갈비'], ['등갈비', '등갈비'], ['등심', '등심'],
-    ['안심', '안심'], ['항정', '항정'], ['가브리', '가브리'], ['갈매기', '갈매기'],
-    ['미후지', '미후지'], ['후지', '후지'], ['사태', '사태'], ['앞미사태', '앞미사태'],
-    ['늑간', '늑간'], ['볼라', '볼라전각'], ['홍두깨', '홍두깨'], ['차돌', '차돌'],
-    ['LA갈비', 'LA갈비'], ['프렌치', '프렌치렉'], ['장족', '장족'], ['돈피', '돈피'],
-    ['잡육', '잡육'], ['설도', '설도'], ['살치', '살치'], ['민찌', '민찌'],
     ['빵삼', '빵삼겹'], ['수삼', '수삼'], ['모돈', '모돈삼겹'], ['우삼', '우삼겹'],
-    ['A삼', 'A삼겹'], ['티스', '티스'], ['올리멜', '올리멜'], ['두메코', '두메코'],
-    ['테니쉬', '테니쉬'], ['알레한', '알레한'],
+    ['A삼', 'A삼겹'], ['삼겹', '삼겹'], ['미삼', '미삼'], ['오겹', '오겹'],
+    ['목살', '목살'], ['B목살', 'B목살'], ['미전지', '미전지'], ['목전지', '목전지'],
+    ['전지', '전지'], ['등뼈', '등뼈'], ['등갈비', '등갈비'], ['갈비', '갈비'],
+    ['등심', '등심'], ['안심', '안심'], ['항정', '항정'], ['가브리', '가브리'],
+    ['갈매기', '갈매기'], ['미후지', '미후지'], ['후지', '후지'], ['사태', '사태'],
+    ['앞미사태', '앞미사태'], ['늑간', '늑간'], ['볼라', '볼라전각'],
+    ['홍두깨', '홍두깨'], ['차돌', '차돌'], ['LA갈비', 'LA갈비'],
+    ['프렌치', '프렌치렉'], ['장족', '장족'], ['돈피', '돈피'], ['잡육', '잡육'],
+    ['설도', '설도'], ['살치', '살치'], ['민찌', '민찌'],
   ];
-  for (const [k, v] of map) if (name.includes(k)) return v;
-  return name.slice(0, 12) || null;
+  for (const [k, v] of map) if (n.includes(k) || name.includes(k)) return v;
+  return name.slice(0, 14) || null;
 }
 
 function renderLoose(el) {
   const rows = [];
   currentOrders.forEach(o => {
     o.items.forEach(it => {
-      if (isBox(it)) return;
-      if (!it.qty && !it.unit && !/팩|키로|kg|봉|덩이|판|벌|개/.test(it.name + it.note)) return;
+      if (!isLoose(it)) return;
       rows.push({ client: o.client, ...it });
     });
   });
   if (!rows.length) {
-    el.innerHTML = '<div class="empty">낱개 항목이 없습니다</div>';
+    el.innerHTML = '<div class="empty">낱개 항목이 없습니다 (팩 / kg / 봉지)</div>';
     return;
   }
-  let html = '<div class="section-title">박스 외 낱개 (팩 / 키로 / 덩이 등)</div>';
+  let html = '<div class="section-title">낱개 목록 (숫자 + 팩 / kg / 봉지)</div>';
   html += `<div class="matrix-wrap"><table>
     <thead><tr><th>거래처</th><th>고기명</th><th>갯수</th><th>단위</th><th>비고</th><th>추가비고</th></tr></thead><tbody>`;
   rows.forEach(r => {
