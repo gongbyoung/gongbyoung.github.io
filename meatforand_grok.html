@@ -376,7 +376,7 @@ function loadChatFile(e) {
       document.getElementById('uploadHint').style.display = 'block';
     } else {
       document.getElementById('uploadHint').textContent =
-        `파일 로드 완료 · 날짜 ${availableDates.length}개. 배송/작업일을 선택하세요.\n일반: 전날 12:00 ~ 당일 14:00  /  월요일: 금요일 13:00 ~ 월요일 12:00`;
+        `파일 로드 완료 · 날짜 ${availableDates.length}개. 배송/작업일을 선택하세요.\n일반: 전날 12:00 ~ 당일 14:00  /  월요일: 금 12:00 ~ 월 12:00 (토·일 포함)`;
       document.getElementById('uploadHint').style.display = 'block';
     }
     currentDate = '';
@@ -408,7 +408,38 @@ function extractDates(text) {
       dow: parsed?.dow
     });
   }
-  return dates;
+
+  // 금·토·일 메시지가 있으면 다음 월요일을 배송일로 추가 (파일에 월 헤더가 없어도)
+  const extra = [];
+  dates.forEach(d => {
+    if (!d.y) return;
+    const dt = toDateObj(d.y, d.mo, d.d);
+    const day = dt.getDay(); // 0일 5금 6토
+    if (day === 5 || day === 6 || day === 0) {
+      const mon = new Date(dt);
+      if (day === 5) mon.setDate(mon.getDate() + 3);
+      else if (day === 6) mon.setDate(mon.getDate() + 2);
+      else mon.setDate(mon.getDate() + 1);
+      const key = formatKey(mon);
+      if (!seen.has(key)) {
+        seen.add(key);
+        extra.push({
+          key,
+          label: key.replace(/^(20\d{2})년\s*/, '') + ' (금토일 발주)',
+          y: mon.getFullYear(), mo: mon.getMonth() + 1, d: mon.getDate(),
+          dow: '월요일'
+        });
+      }
+    }
+  });
+  // 날짜 정렬
+  const all = dates.concat(extra);
+  all.sort((a, b) => {
+    const da = toDateObj(a.y || 0, a.mo || 0, a.d || 0);
+    const db = toDateObj(b.y || 0, b.mo || 0, b.d || 0);
+    return da - db;
+  });
+  return all;
 }
 
 function parseKoreanDate(str) {
@@ -441,7 +472,11 @@ function onDateChange() {
   currentDate = document.getElementById('dateSelect').value;
   if (!currentDate) { currentOrders = []; render(); return; }
   currentOrders = parseOrdersForDeliveryDate(chatText, currentDate);
-  document.getElementById('uploadHint').style.display = 'none';
+  const range = getWindowRange(currentDate);
+  const hint = document.getElementById('uploadHint');
+  hint.style.display = 'block';
+  hint.textContent = formatWindowLabel(range) + ` · 발주 ${currentOrders.length}건` +
+    (range && range.isMonday ? ' (월요일부: 금12시~월12시)' : '');
   document.getElementById('stats').style.display = 'flex';
   shipFilter = 'all';
   render();
@@ -500,14 +535,25 @@ function getWindowRange(deliveryKey) {
   const dow = delivery.getDay(); // 0 Sun ... 1 Mon ... 5 Fri
   let start, end;
   if (dow === 1) {
-    // 월요일: 금요일 13:00 ~ 월요일 12:00
+    // 월요일 발주: 금요일 12:00 ~ 월요일 12:00 (금 오후 + 토 + 일 + 월 오전)
     start = new Date(delivery);
     start.setDate(start.getDate() - 3); // Friday
-    start.setHours(13, 0, 0, 0);
+    start.setHours(12, 0, 0, 0);
     end = new Date(delivery);
     end.setHours(12, 0, 0, 0);
+  } else if (dow === 0 || dow === 6) {
+    // 토/일 선택 시 → 다음 월요일 구간과 동일하게
+    const mon = new Date(delivery);
+    if (dow === 6) mon.setDate(mon.getDate() + 2);
+    else mon.setDate(mon.getDate() + 1);
+    start = new Date(mon);
+    start.setDate(start.getDate() - 3);
+    start.setHours(12, 0, 0, 0);
+    end = new Date(mon);
+    end.setHours(12, 0, 0, 0);
+    return { start, end, delivery: mon, isMonday: true, mappedFromWeekend: true };
   } else {
-    // 전날 12:00 ~ 당일 14:00
+    // 화~금: 전날 12:00 ~ 당일 14:00
     start = new Date(delivery);
     start.setDate(start.getDate() - 1);
     start.setHours(12, 0, 0, 0);
@@ -515,6 +561,15 @@ function getWindowRange(deliveryKey) {
     end.setHours(14, 0, 0, 0);
   }
   return { start, end, delivery, isMonday: dow === 1 };
+}
+
+function formatWindowLabel(range) {
+  if (!range) return '';
+  const f = (dt) => {
+    const days = ['일','월','화','수','목','금','토'];
+    return `${dt.getMonth()+1}/${dt.getDate()}(${days[dt.getDay()]}) ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+  };
+  return `수집구간: ${f(range.start)} ~ ${f(range.end)}`;
 }
 
 function detectShipSide(rawText, msgDt, deliveryDt) {
