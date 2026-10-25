@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>미트포앤 발주 관리</title>
+<style>
+:root {
+  --primary: #c41e3a; --primary-dark: #9a1830; --bg: #f0f2f5; --card: #fff;
+  --text: #1a1a1a; --muted: #666; --border: #e2e2e2; --header-bg: #fff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+#login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #c41e3a, #7a1525); }
+.login-box { background: #fff; padding: 2.5rem; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.3); width: 90%; max-width: 360px; text-align: center; }
+.login-box h1 { font-size: 1.5rem; color: var(--primary); margin-bottom: .4rem; }
+.login-box p { color: var(--muted); margin-bottom: 1.5rem; font-size: .9rem; }
+.login-box input { width: 100%; padding: .9rem; border: 2px solid var(--border); border-radius: 8px; font-size: 1.2rem; text-align: center; letter-spacing: .3em; margin-bottom: 1rem; }
+.login-box input:focus { outline: none; border-color: var(--primary); }
+.login-box button { width: 100%; padding: .9rem; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+.login-box button:hover { background: var(--primary-dark); }
+.error { color: #d32f2f; font-size: .85rem; margin-top: .5rem; display: none; }
+
+#app { display: none; }
+header { background: var(--primary); color: #fff; padding: .9rem 1.2rem; display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+header h1 { font-size: 1.1rem; font-weight: 600; }
+.header-actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.btn { background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.4); color: #fff; padding: .4rem .8rem; border-radius: 6px; font-size: .85rem; cursor: pointer; }
+.btn:hover { background: rgba(255,255,255,.3); }
+.btn-file { position: relative; overflow: hidden; }
+.btn-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+select.date-select { background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.4); color: #fff; padding: .4rem .7rem; border-radius: 6px; font-size: .85rem; }
+select.date-select option { color: #222; }
+
+.tabs { display: flex; background: var(--header-bg); border-bottom: 1px solid var(--border); overflow-x: auto; position: sticky; top: 52px; z-index: 90; }
+.tab { flex: 1; min-width: 100px; padding: .8rem .4rem; text-align: center; font-size: .85rem; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+.content { padding: 1rem; max-width: 1100px; margin: 0 auto; }
+.upload-hint { background: #fff3cd; border: 1px solid #ffecb5; border-radius: 8px; padding: .8rem 1rem; margin-bottom: 1rem; font-size: .9rem; color: #856404; }
+.stats { display: flex; gap: .6rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.stat { background: #fff; border-radius: 10px; padding: .7rem 1rem; flex: 1; min-width: 90px; text-align: center; border: 1px solid var(--border); }
+.stat .num { font-size: 1.35rem; font-weight: 700; color: var(--primary); }
+.stat .label { font-size: .72rem; color: var(--muted); }
+
+.card { background: #fff; border-radius: 10px; padding: 1rem; margin-bottom: .8rem; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+.card h3 { font-size: .95rem; color: var(--primary); margin-bottom: .5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .3rem; }
+.card .addr { font-size: .78rem; color: var(--muted); margin-bottom: .4rem; }
+.badge { background: #ffebee; color: var(--primary); font-size: .72rem; padding: .12rem .45rem; border-radius: 10px; font-weight: 600; }
+
+table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+th, td { border: 1px solid var(--border); padding: .45rem .55rem; text-align: left; }
+th { background: #f8f8f8; font-weight: 600; white-space: nowrap; }
+td.num { text-align: center; font-weight: 600; }
+td.center { text-align: center; }
+tr:nth-child(even) { background: #fafafa; }
+.matrix-wrap { overflow-x: auto; }
+.matrix th:first-child, .matrix td:first-child { position: sticky; left: 0; background: #fff; z-index: 1; min-width: 120px; }
+.matrix th { background: #f0f0f0; font-size: .78rem; }
+.matrix td.num { min-width: 42px; }
+.matrix .total-row { background: #fff5f5 !important; font-weight: 600; }
+.matrix .total-col { background: #f5f5ff; font-weight: 600; }
+
+.client-list { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
+.client-chip { background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: .35rem .8rem; font-size: .82rem; cursor: pointer; transition: .15s; }
+.client-chip:hover, .client-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+.search-box { width: 100%; padding: .65rem .9rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: .8rem; font-size: .9rem; }
+.search-box:focus { outline: none; border-color: var(--primary); }
+.empty { text-align: center; padding: 2.5rem 1rem; color: var(--muted); }
+.section-title { font-size: .8rem; color: var(--muted); margin: .8rem 0 .4rem; font-weight: 600; letter-spacing: .03em; }
+.back-btn { background: none; border: none; color: var(--primary); font-size: .9rem; cursor: pointer; margin-bottom: .6rem; font-weight: 500; }
+#detailView { display: none; }
+
+@media print {
+  header, .tabs, .upload-hint, .stats, .search-box, .client-list, .back-btn { display: none !important; }
+  .card { break-inside: avoid; }
+  body { background: #fff; }
+}
+@media (max-width: 600px) {
+  .tab { font-size: .75rem; padding: .7rem .25rem; min-width: 80px; }
+  table { font-size: .78rem; }
+}
+</style>
+</head>
+<body>
+<div id="login-screen">
+  <div class="login-box">
+    <h1>🥩 미트포앤 발주</h1>
+    <p>비밀번호를 입력하세요</p>
+    <input type="password" id="pw" maxlength="6" placeholder="••••" autofocus>
+    <button onclick="tryLogin()">로그인</button>
+    <div class="error" id="login-error">비밀번호가 틀렸습니다</div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <h1>미트포앤 발주 관리</h1>
+    <div class="header-actions">
+      <label class="btn btn-file">채팅파일 불러오기
+        <input type="file" id="chatFile" accept=".txt,text/plain" onchange="loadChatFile(event)">
+      </label>
+      <select class="date-select" id="dateSelect" onchange="onDateChange()" disabled>
+        <option value="">날짜 선택</option>
+      </select>
+      <button class="btn" onclick="window.print()">인쇄</button>
+    </div>
+  </header>
+  <div class="tabs">
+    <div class="tab active" data-tab="byClient" onclick="switchTab('byClient')">거래처별 발주</div>
+    <div class="tab" data-tab="byMeat" onclick="switchTab('byMeat')">고기별 발주</div>
+    <div class="tab" data-tab="loose" onclick="switchTab('loose')">낱개 목록</div>
+    <div class="tab" data-tab="raw" onclick="switchTab('raw')">원본</div>
+  </div>
+  <div class="content">
+    <div id="uploadHint" class="upload-hint">카카오톡 대화 내보내기(.txt) 파일을 불러온 뒤 날짜를 선택하세요.</div>
+    <div id="stats" class="stats" style="display:none"></div>
+    <div id="mainView"></div>
+    <div id="detailView"></div>
+  </div>
+</div>
+
+<script>
+const PASSWORD = '7421';
+const CLIENTS = [{"name":"(주)굿모닝유통지마트","address":"충북 음성군 맹동면 두성리 1486","alias":""},{"name":"(주)다온마트(10/1부터)","address":"경기도 안산시 상록구 시낭로 25 (월피동)","alias":""},{"name":"(주)대산에프앤비(육가공)","address":"대전시 유성구 교촌대정로 198(대정로)","alias":""},{"name":"(주)도니아","address":"충북 음성군 음성읍 음성로367번길 24,씨동","alias":""},{"name":"(주)신선에프엔비","address":"경기도 화성시 봉담읍 최루백로 198(분천리96-13)","alias":""},{"name":"(주)신선채","address":"충북 음성군 삼성면 대청로 155,가동 1,2층","alias":""},{"name":"(주)아이유팜","address":"경기 광명시 일직로 72, 에이동12층 에이-1215호(일직동)","alias":""},{"name":"(주)올바른한우","address":"서울 강북구 도봉로67길 18(엠마트)","alias":""},{"name":"(주)우경인터내셔널","address":"경기도 수원시 영통구 신원로 192","alias":""},{"name":"(주)원신산업-보미마트","address":"경기도 고양시 덕양구 백양로 107-1,1층(화정동)","alias":""},{"name":"(주)조이건설","address":"경기도 군포시 송부로96번길 12 A동 1304호","alias":""},{"name":"(주)좋은축산유통","address":"경기도 시흥시 군자로 387번길 21-1(거모동)","alias":""},{"name":"(주)지노미트","address":"경기도 광명시 가락골길23(노은사동)","alias":""},{"name":"(주)진흥미트유통","address":"경기도 안산시 상록구 수암4길 17,1층102호(수암동)","alias":""},{"name":"(주)참좋은미트","address":"경기도 성남시 수정구 성남대로 1270,2층(태평동)","alias":""},{"name":"(주)초이스에프엔비","address":"경기도 시흥시 금화로 550번길 36-2","alias":""},{"name":"(주)캐틀팜","address":"경기도 수원시 권선구 호매실로90번길39,6층(호매실동,성지빌딩)","alias":""},{"name":"(주)코리아푸드","address":"경기도 용인시 기흥구 공세로 126-1(공세동)","alias":""},{"name":"(주)큐엔씨육가공","address":"경기도 안산시 단원구 초지2로 59-18(초지동)","alias":""},{"name":"(주)태광푸드","address":"경기도 화성시 매송면 송라길39번길23,1동(송라리) 607-3","alias":""},{"name":"(주)태호미트","address":"경기도 포천시 내촌면 내진로 258번길75","alias":""},{"name":"(주)판교1등축산(구-푸른 대장동","address":"경기도 성남시 분당구 판교대장로6길 10, 108호(대장동)","alias":""},{"name":"(주)푸드백서 농업회사법인","address":"대전광역시 중구 산서로62번길 10, 2층(사정동)","alias":""},{"name":"(주)하나에프에스","address":"경기도 군포시 당정로27번길 42,1층","alias":""},{"name":"(주)하나프라임","address":"경기도 용인시 수지구 신수로 767, A동 1605호(동천동, 분당수지 U-TOWER)","alias":""},{"name":"(주)한마음마트(일동)=>정육으로","address":"경기도 안산시 상록구 일동로20 (일동120-3)","alias":""},{"name":"(주)황금비앤피","address":"경기도 안산시 상록구 청곡길36(부곡동)","alias":""},{"name":"갈비면옥(갈비나라2호점)","address":"경기도 안산시 단원구 선삼로22,1층(선부동)","alias":""},{"name":"거시기 함흥냉면","address":"경기도 군포시 삼성로20번길 16-12, 1층(부곡동)","alias":""},{"name":"고기공장바름(주)","address":"경기도 안산시 상록구 세류로2안길 2,1층(본오동)","alias":""},{"name":"고기바보푸주간(부곡)","address":"경기도 군포시 송부로291번길 16,1층 103호(부곡동)","alias":""},{"name":"고기바보푸주간(송정점)","address":"경기도 군포시 송부로34번길 35, 103호(도마교동,센프럴프라자)","alias":""},{"name":"고기바보푸줏간(장안점)","address":"경기도 의왕시 장안중앙로7, 101.102호(삼동)","alias":""},{"name":"골목대장삼겹살","address":"경기도 시흥시 시흥대로 1073번길 29,1층(신천동)","alias":""},{"name":"곱창연가","address":"경기도 시흥시 하상로4번길 7(하상동,1층)","alias":""},{"name":"구들짱황소곱창삼겹살(인계동)","address":"경기도 수원시 팔달구 권광로 180번길 53-26,1층(인계동)","alias":""},{"name":"구워랑","address":"경기도 화성시 꽃내음2길 12-2 118,119호(새솔동)","alias":""},{"name":"국민생고기(장곡동)","address":"경기도 시흥시 장곡로37번길 5-3,101호(장곡동)","alias":""},{"name":"기둥병원","address":"경기도 안산시 상록구 상록수로34(본오동,3층)","alias":""},{"name":"길산업","address":"경기도 안산시 상록구 삼리1길 30,1층101호","alias":""},{"name":"김치왕뚜껑삼겹살","address":"경기도 부천시 역곡로 37(역곡동)","alias":""},{"name":"김치왕뚜껑삼겹살(2호점)","address":"서울특별시 구로구 고척로 127,1층(개봉동)","alias":""},{"name":"김치왕뚜껑삼겹살(3호점부천)","address":"경기 부천시 부일로 446번길 10-1,1층(심곡동)","alias":""},{"name":"김치찌개전문점(사동)","address":"경기도 안산시 상록구 석호로 178,1층 101호(사동)","alias":""},{"name":"까만돼지","address":"경기도 시흥시 군자로534번안길 7, 나동 지1층 B101호(거모동)","alias":""},{"name":"꿀돼지꿀한우(가리봉)","address":"서울 금천구 가산로 106,상가동 1층104호(가산동,주상복합두산아파트)","alias":""},{"name":"꿀돼지꿀한우(금천)","address":"서울 금천구 금하로697 101호(시흥동)","alias":""},{"name":"꿀돼지꿀한우정육점(광명)","address":"경기도 광명시 광명로 848번길 32-2,1층 103호(광명동,펠리스필)","alias":""},{"name":"노무법인 이엘(EL)","address":"경기도 안산시 상록구 광덕1로385,204호(이동,엔타운)","alias":""},{"name":"농민마트 고잔점","address":"경기도 안산시 단원구 광덕4로88, 106호 외55개(고잔동)","alias":""},{"name":"농법(주)대산축산유통","address":"경기도 안산시 상록구 조구나리길 20(이동,1층)","alias":""},{"name":"농업법인(유)둔포축산","address":"충청남도 아산시 둔포면 아산밸리북로11","alias":""},{"name":"농업회사법인(주)거산미트","address":"인천시 미추홀구 독배로 446번길 15(숭의동)","alias":""},{"name":"농우축산","address":"서울 용산구 효창원로 40길-3, 1층(용문동)","alias":""},{"name":"누리소(비품)","address":"경기도 안산시 상록구 조구나리1길49(이동,1층상가)","alias":""},{"name":"다연홈마트","address":"경기도 시흥시 하중로128(하중동)","alias":""},{"name":"다온마트(월피동)","address":"경기도 안산시 상록구 시낭로25(월피동)","alias":""},{"name":"다온축산(주안)","address":"인천광역시 미추홀구 미추홀대로 510, 117호(주안동,한덕주상복합아파트)","alias":""},{"name":"대박마포숯불갈비","address":"경기도 광명시 광명로 848번길 5(광명동,1층)","alias":""},{"name":"대박축산(금천)하늘소","address":"서울 금천구 시흥대로62길 53(시흥동)","alias":""},{"name":"대반전","address":"서울특별시 양천구 오목로 148, 1층(신정동)","alias":""},{"name":"대부지마트(주)","address":"경기도 안산시 단원구 대부황금로 1295(대부북동)","alias":""},{"name":"대진오토포밍","address":"경기도 시흥시 마유로42번길 111,시화공단 3바 403-1호(정왕동)","alias":""},{"name":"더갈비(거모)","address":"경기도 시흥시 도일로 111-1, 1층(거모동)","alias":""},{"name":"더보플러스(거래명세서)","address":"서울 마포구 마포대교 195 T202동 101호","alias":""},{"name":"덕이네쌈밥","address":"경기도 시흥시 군자로477번길5,1층 일부호(거모동)","alias":""},{"name":"도담(은행)","address":"경기도 시흥시 대은로 16-14,1층(은행동)","alias":""},{"name":"동탄식자재마트","address":"경기도 오산시 외삼미로 162-54(외삼미동)","alias":""},{"name":"두근반세근반","address":"경기도 시흥시 정왕동1624-7번지 106호","alias":""},{"name":"두루치기김치찌개전문점","address":"경기도 시흥시 정왕대로 64, 118호(정왕동)","alias":""},{"name":"린이네축산(본점-영통)","address":"경기도 수원시 영통구 봉영로1770번길 21,상가동 지층 1호(영통동,신명.한","alias":""},{"name":"린이네축산동탄점(구미래)","address":"경기도 화성시 동탄중심상가1길 28,1층 미래마켓내정육코너(반송동)","alias":""},{"name":"막뚱이정육점","address":"인천시 부평구 마장로220번길 13, 106동(상가동)113호(산곡동,한신휴아파트","alias":""},{"name":"맛닭꼬치","address":"경기도 시흥시 호현로22번길 18,1층(신천동)","alias":""},{"name":"맛있는한우(부천상동)","address":"경기도 부천시 원미구 도약로13,1층102호","alias":""},{"name":"매일정육점(신규)","address":"경기도 의정부시 추동로9,1층 103호 (신곡동,휴먼시티)","alias":""},{"name":"바다포차(신규)","address":"경기도 시흥시 함송로 38, 상가동 107호(정왕동,모아아파트)","alias":""},{"name":"바른정육점(사동)","address":"경기도 안산시 상록구 해양5로11, 1층 142호 일부(사동)","alias":""},{"name":"바를정육류연구소","address":"경기도 하남시 미사강변한강로 409번 18, 3층","alias":""},{"name":"백년손두부(백암)","address":"경기도 용인시 처인구 백암면 삼백로 599-1,1층 101호","alias":""},{"name":"백봉(선부동)","address":"경기도 안산시 단원구 선부광장1로 82,115호(선부동, 서림프라자)","alias":""},{"name":"복덩이정육점1호점","address":"서울 은평구 연서로 252,1층(불광동)","alias":""},{"name":"복덩이정육점2호점","address":"서울 은평구 은평로 95 1층 102호","alias":""},{"name":"봉군미트","address":"경기도 화성시 남양읍 시청로160번길 52,1층105호","alias":""},{"name":"삼겹연구소","address":"경기도 안산시 상록구 본오로79,1층 (본오동)","alias":""},{"name":"삼대축산정육점양평점","address":"서울 영등포구 영등포로33,1층 104호(양평동2가,목동비즈타워)","alias":""},{"name":"삼부자돌판골","address":"경기도 안산시 단원구 선부광장1로 30,203,204호(선부동,단원프라자)","alias":""},{"name":"삼사오","address":"경기 안산시 상록구 이동 공원로 53(이동,1층)","alias":""},{"name":"상미왕할인마트(식자재)","address":"경기도 군포시 금산로 9,지층 101-1호,101-2호(금정동)","alias":""},{"name":"샛터돌왕구이","address":"경기 안산시 단원구 신길로 20 (신길동,101호)","alias":""},{"name":"서창별빛정육점","address":"인천시 남동구 서창남로 45,1층 105호(서창동,로데오프라자)","alias":""},{"name":"성대지마트(주)","address":"서울 동작구 상도로 102(상도동)","alias":""},{"name":"섹시포크거성(주)","address":"경기도 화성서 남양읍 남양서로69","alias":""},{"name":"셀프정육점(포동)","address":"경기도 시흥시 신현로38번길26,1층 103호(포동)","alias":""},{"name":"셰프앤백정(배곧)","address":"경기도 시흥시 서울대학로278번길 19-13,108동 비-19호","alias":""},{"name":"소매(명장한우)","address":"경기도 안산시 단원구 안산천남로211 보네르빌리지 110동 1702호","alias":""},{"name":"소매(정영호변호사)","address":"서울시 서초구 신반포로 20 반포래미안트리니원 104동 2505호","alias":""},{"name":"소문난정육점","address":"서울특별시 금천구 시흥대로 143, 1층108호(시흥동, 신라상가)","alias":""},{"name":"소하축산(광명)","address":"경기도 광명시 소하로82,108호(소하동,한빛프라자)","alias":""},{"name":"송명숯불갈비","address":"경기도 안산시 상록구 안산천동로 252,1층(월피동)","alias":""},{"name":"슈퍼킹(사동)","address":"경기도 안산시 상록구 감골1로 33,728동 지하층 1호(사동,상록수타운월드아","alias":""},{"name":"신박축산","address":"인천시 부평구 십정동 486-15 1층일부(3호)","alias":""},{"name":"신풍푸줏간(신길점)","address":"서울시 영등포구 신풍로 77.상가동 b105호(신길동, 래미안에스티움)","alias":""},{"name":"쌈앤쌈(사동)","address":"경기도 안산시 상록구 성안2길5,2층(사동)","alias":""},{"name":"아이비유통","address":"경기도 성남시 중원구 황송로 77, 비01~04호(금광동","alias":""},{"name":"안심한우(광명)","address":"경기도 광명시 오리로 964번길7(광명동)","alias":""},{"name":"에스농축수산마트(율전)","address":"경기도 수원시 장안구 덕영대로425번길 58-2(율전동)","alias":""},{"name":"에스에이치미트(음성)","address":"충북 음성군 음성읍 시장로50번길5","alias":""},{"name":"에이스미트(주안)","address":"인천시 미추홀구 주안로56번길3,에이스미트내정육코너(주안동)","alias":""},{"name":"에이스축산(상일동)신규","address":"서울특별시 강동구 상일로74,상가2동 1층104호(상일동,고덕리엔파크3단지","alias":""},{"name":"여기식당","address":"경기도 시흥시 하중로 130-1, 1층(하중동)","alias":""},{"name":"연성담소골감자탕","address":"경기도 시흥시 하상로4번길 17.1층(하상동)","alias":""},{"name":"영남식당(정왕)","address":"경기도 시흥시 서촌상가2길30-1,104호,105호(정왕동)","alias":""},{"name":"예서감자탕","address":"경기도 안산시 상록구 매화로2길 21, 1층 일부호(이동)","alias":""},{"name":"오늘은고기다(일동)","address":"경기도 안산시 상록구 도매시장로93,1층 102호(일동)","alias":""},{"name":"오늘은냉삼(구-이구집)","address":"경기도 시흥시 진말로 17,1층(장곡동)","alias":""},{"name":"오복정육(옥련점)베스트식자재정","address":"인천광역시 연수구 한나루로79번길 53,1층(옥련동)","alias":""},{"name":"오빠막창","address":"경기도 시흥시 한우물로7 1층 102호(거모동)","alias":""},{"name":"오소돈","address":"경기도 안산시 상록구 댕이길 80,1층(사동)","alias":""},{"name":"옥이네양평해장국(신길동)","address":"경기도 안산시 단원구 신길로 9-3, 109호(신길동)","alias":""},{"name":"옥이네주물럭","address":"경기도 시흥시 함송로13번길 6-7, 101,102호(정왕동)","alias":""},{"name":"올인베이커리하중점(다영이네)","address":"경기도 시흥시 하중로 205, 102호(하중동)","alias":""},{"name":"우도락(스타마트)","address":"경기도 안산시 상록구 화랑로513,지층38호(성포동,스타프라자)","alias":""},{"name":"우리축산정육점(수암동)","address":"경기도 안산시 상록구 원당골길11,104호(수암동,이림지오팰리스)","alias":""},{"name":"우신유통(주)-농민와동","address":"경기도 안산시 단원구 와동공원로 162,1층 일부(와동)","alias":""},{"name":"울트라분식","address":"경기도 시흥시 상직길3-1,101(하상동)","alias":""},{"name":"원대성정육점","address":"경기도 부천시 오정구 성오로124번길47(원종동,49호)","alias":""},{"name":"원산면옥","address":"경기도 안산시 상록구 본오로70, 1층(본오동)","alias":""},{"name":"월드마트(성남)","address":"경기도 성남시 수정구 수정남로 10,113호(수진동,제일프라자)","alias":""},{"name":"유포리바베큐장","address":"경기도 화성시 비봉면 유포길10-29","alias":""},{"name":"으뜸장어(본오)","address":"경기도 안산시 상록구 오목로60, 1층(본오동)","alias":""},{"name":"이나미트(주)","address":"경기도 양주시 옥정동로7다길 74,6층 6997호(옥정동)","alias":""},{"name":"이모네민물매운탕","address":"경기도 시흥시 신천3길27-7,101호(신천동)","alias":""},{"name":"인화숯불갈비","address":"경기도 시흥시 하상로8번길 1,1층일부호(하상동)","alias":""},{"name":"일등축산(안산일동)","address":"경기도 안산시 상록구 구룡로 22, 1층 101호(일동)","alias":""},{"name":"일신할인마트(정육점)","address":"인천광역시 부평구 경인로 1104번길 13-14 1층(일신동,대한빌딩)","alias":""},{"name":"임가네갈비","address":"경기도 시흥시 정왕대로28번길3,상가동105호(정왕동)","alias":""},{"name":"장터국밥","address":"경기도 시흥시 정왕동1738-1번지 103호","alias":""},{"name":"장터식자재마트","address":"경기도 구리시 동구릉로 64, 101동 지층비115호(인창동,인창e-편한세상)","alias":""},{"name":"재수보는통돼지","address":"경기도 오산시 경기대로 636번길 126-2, 지하1층(외삼미동)","alias":""},{"name":"전라도연탄구이","address":"경기도 시흥시 서촌상가2길 29,1층 110호(정왕동 명동프라자)","alias":""},{"name":"전설갈비은행점","address":"경기도 시흥시 대은로 16-4,1층(은행동)","alias":""},{"name":"정성가득집밥","address":"경기도 안산시 상록구 네고지길 2,1층 일부호(사동)","alias":""},{"name":"정성마트정육코너(아차산)","address":"서울특별시 광진구 천호대로661,지하1층(구의동,정성빌딩)","alias":""},{"name":"정은한우(두산홈마트)","address":"경기 시흥시 소래산길 67, 1층 두산홈마트 내(대야동)","alias":""},{"name":"제3글라스(주)","address":"경기도 화성시 남양읍 신남리 1018-12","alias":""},{"name":"제3스틸","address":"경기도 안산시 상록구 사동 1489-7","alias":""},{"name":"주곰감자탕(폐업)","address":"경기도 안산시 단원구 광덕3로 145-7 ,106호,107호(고잔동,한솔프라자)","alias":""},{"name":"주식회사 농민(본오)","address":"경기도 안산시 상록구 선암로 44,1층2층(본오동)","alias":""},{"name":"주식회사 더상상","address":"경기도 용인시 수지구 현암로148,202호 분할내부 205(죽전동,죽전스카이프","alias":""},{"name":"주식회사 두둑","address":"경기도 시흥시 동서로 1198번길 33(목감동)","alias":""},{"name":"주식회사 람다푸드","address":"인천광역시 남동구 논고개로 123번길 35, 901호 일부3호(논현동)","alias":""},{"name":"주식회사 삼정푸드","address":"전북 정읍시 정신로 22-12,2층 (하북동)","alias":""},{"name":"주식회사 씨와이푸드","address":"경기 시흥시 광석동 101-1","alias":""},{"name":"주식회사 정육점","address":"경기도 용인시 기흥구 평촌1로2번길 10,103호(동백동)","alias":""},{"name":"주식회사 축산법인팜","address":"경기도 안산시 단원구 해안로91(목내동)","alias":""},{"name":"주식회사에스할인마트(지점)평택","address":"경기도 평택시 모산영신2길34,1동1층101호 스타주차타워(동삭동)","alias":""},{"name":"주식회사토레인","address":"경기도 남양주시 진건읍 고재로 177,1층","alias":""},{"name":"진안축산","address":"경기도 화성시 병점중앙로195, 진안식자재마트 내정육코너(진안동)","alias":""},{"name":"찌그러진주전자","address":"경기도 시흥시 봉우재로57(정왕동)","alias":""},{"name":"찐하오마라탕 그랑시티시그니처","address":"경기도 안산시 상록구 해양3로 15, 1층 118호(사동)","alias":""},{"name":"차이나감자탕","address":"경기도 수원시 장안구 수성로370번길32,1층 일부호(영화동)","alias":""},{"name":"착한정육점(산현동)","address":"경기도 시흥시 목감둘레로 80,120동 110호(산현동,호반베르디움더숲","alias":""},{"name":"참새방앗간","address":"서울 금천구 범안로 1138, 108호(가산동,고려테크온)","alias":""},{"name":"참예소(포동)","address":"경기도 시흥시 신현로 38번길 23-1. 13동 101호(포동,태산아파트상가)","alias":""},{"name":"창신동매운족발앤얼음막걸리","address":"경기도시흥시 승지로60번길 101,102호(능곡동,다우빌딩)","alias":""},{"name":"천하제일정육점(배곧동)","address":"경기도 시흥시 서울대학로278번길 19-13,108동 제비-103호(배곧동)","alias":""},{"name":"청정맛집(하중동)","address":"경기도 시흥시 연성로29번길12(하중동)","alias":""},{"name":"총각네정육점(소사본동)","address":"경기도 부천시 은성로76번길56, 1층 일부호(소사본동)","alias":""},{"name":"케이마트 정육코너(청주)","address":"충북 청주시 서원구 매봉로 134(모충동)","alias":""},{"name":"큰언니포차(또바기)","address":"경기도 안산시 단원구 와동공원로161 1층 (122612*)","alias":""},{"name":"키큰정육점","address":"경기도 안산시 단원구 북촌길 18, 1층 101호(선부동)","alias":""},{"name":"태랑미트","address":"충남 천안시 동남구 목천읍 종합휴양지로60","alias":""},{"name":"태양축산(능곡동)","address":"경기도 시흥시 승지로60번길 25, 107호(능곡동,송죽센타프라자)","alias":""},{"name":"패밀리포차","address":"경기도 시흥시 하상로13,1층 일부호(하상동)","alias":""},{"name":"푸른목장(삼평동)","address":"경기도 성남시 분당구 판교로 376,1층 105호(삼평동,마크시티 퍼플)","alias":""},{"name":"푸른목장(판교)","address":"경기도 성남시 분당구 운중로 242, 1층 110호(판교동,리버스토리)","alias":""},{"name":"푸줏단(동춘)","address":"인천광역시 연수구 봉재산로48, 1층101호(동춘동)","alias":""},{"name":"풍년돼지양념구이(상미네곱창집)","address":"경기도 안산시 단원구 화랑로 160, 상가동 125,126호(초지동,초지역 메이","alias":""},{"name":"프리미엄정육점(구리)","address":"경기도 구리시 체육관로 73 지하층(제이식자재마트)","alias":""},{"name":"하늘소(광명점)","address":"경기도 광명시 오리로964번길 23-1(광명동)","alias":""},{"name":"하늘소(역곡점)","address":"경기도 부천시 역곡로26번길 25,1층 101호(역곡동,대화빌딩)","alias":""},{"name":"하늘소(화곡점)","address":"서울 강서구 강서로18길 8-10,103호.104호(화곡동)","alias":""},{"name":"한결축산","address":"경기도 시흥시 은계남로 12,상가동 1층147호(은행동,시흥은계 호반써밋플레","alias":""},{"name":"한돈미트(N마트)기흥","address":"경기도 용인시 기흥구 공세로 236(공세동)","alias":""},{"name":"한마음정육(일동)","address":"경기도 안산시 상록구 일동로 20(일동)","alias":""},{"name":"한상궁한식주점","address":"경기도 안산시 상록구 초당로20, 1층(사동)","alias":""},{"name":"한수조경건설","address":"서울 중구 만리재로37길 42, 2층 203호(중림동,미디어센터)","alias":""},{"name":"한양축산도매센타(봉천동)","address":"서울 관악구 봉천동 66-163","alias":""},{"name":"한우세상(부천상동)","address":"경기도 부천시 원미구 송내대로 239, 1F10호(상동,소풍(부천터미널","alias":""},{"name":"행복한 숯불돌쇠구이","address":"경기도 군포시 공단로 356-54(산본동,금정삼성쉐르빌상가143호,144호)","alias":""},{"name":"현대축산(금천)","address":"서울특별시 금천구 금하로23길4,1층1호(시흥동,신영빌딩)","alias":""},{"name":"형제정육점(평촌)","address":"경기도 안양시 동안구 흥안대로456번길42,지상1층일부호(평촌동,동광빌딩)","alias":""},{"name":"홍성축산","address":"경기도 시흥시 호현로9번길6, 108호(신천동,아도니스의꿈)","alias":""},{"name":"횡성생고기","address":"경기도 안산시 단원구 신길로 13-16, 1층(원곡동)","alias":""},{"name":"횡성생고기(인천점)","address":"인천 동구 송화로20번길 11 (화평동,1층)","alias":""},{"name":"효자축산(일산)","address":"경기도 고양시 일산서구 중앙로 1406,110호(주엽동,한솔코아)","alias":""},{"name":"SK축산물도소매","address":"인천시 남동구 논고개로118,104(논현동,양진타워)","alias":""}];
+const ALIASES = {"사동쌈엔쌈":"쌈앤쌈(사동)","태광":"(주)태광푸드","푸른목장 판교점":"푸른목장(판교)","푸른목장판교":"푸른목장(판교)","푸른목장 삼평점":"푸른목장(삼평동)","참새방앗간":"참새방앗간","농민마트와동":"우신유통(주)-농민와동","와동":"우신유통(주)-농민와동","삼부자":"삼부자돌판골","삼부자돈판골":"삼부자돌판골","봉천":"한양축산도매센타(봉천동)","한양봉천":"한양축산도매센타(봉천동)","유포리":"유포리바베큐장","유포리바베큐장":"유포리바베큐장","음성":"에스에이치미트(음성)","에스에이치마트 음성":"에스에이치미트(음성)","린본점":"린이네축산(본점-영통)","린이네축산 본점":"린이네축산(본점-영통)","린이네축산 동탄":"린이네축산동탄점(구미래)","린동탄":"린이네축산동탄점(구미래)","참예소":"참예소(포동)","삼사오":"삼사오","광명꿀":"꿀돼지꿀한우정육점(광명)","횡성본점":"횡성생고기","횡성생고기 인천점":"횡성생고기(인천점)","덕이네":"덕이네쌈밥","덕이네쌈밥":"덕이네쌈밥","청정맛집":"청정맛집(하중동)","천하제일정육점":"천하제일정육점(배곧동)","동탄식자재마트":"동탄식자재마트","원대성정육점":"원대성정육점","오늘은냉삼":"오늘은냉삼(구-이구집)","효자축산":"효자축산(일산)","에스할인마트 (평택)":"주식회사에스할인마트(지점)평택","에스할인마트 평택":"주식회사에스할인마트(지점)평택","큐엔씨육가공":"(주)큐엔씨육가공","정성마트":"정성마트정육코너(아차산)","성대g마트":"성대지마트(주)","풍년돼지양념구이":"풍년돼지양념구이(상미네곱창집)","김치왕뚜껑삼겹살1호점":"김치왕뚜껑삼겹살","김치왕뚜껑삼겹살 1호점":"김치왕뚜껑삼겹살","김치왕뚜껑삼겹살2호점":"김치왕뚜껑삼겹살(2호점)","김치왕뚜껑삼겹살 2호점":"김치왕뚜껑삼겹살(2호점)","김치왕뚜껑삼겹살3호점":"김치왕뚜껑삼겹살(3호점부천)","도담(은행동) 식당":"도담(은행)","도담":"도담(은행)","오소돈":"오소돈","국민생고기 장곡":"국민생고기(장곡동)","전라도연탄구이":"전라도연탄구이","고기바보부곡":"고기바보푸주간(부곡)","고기바보장안":"고기바보푸줏간(장안점)","고기바보송정":"고기바보푸주간(송정점)","갈비면옥":"갈비면옥(갈비나라2호점)","에이스미트 주안":"에이스미트(주안)","에이스미트주안":"에이스미트(주안)","에스농축산마트 율전":"에스농축수산마트(율전)","율전":"에스농축수산마트(율전)","샛터":"샛터돌왕구이","농민마트고잔":"농민마트 고잔점","고잔":"농민마트 고잔점","일신할인마트":"일신할인마트(정육점)","한마음마트":"(주)한마음마트(일동)=>정육으로","대반전":"대반전","하늘소역곡":"하늘소(역곡점)","하늘소광명":"하늘소(광명점)","하늘소 화곡":"하늘소(화곡점)","하늘소화곡":"하늘소(화곡점)","신풍푸줏간":"신풍푸줏간(신길점)","신풍푸줏간 신길":"신풍푸줏간(신길점)","다온마트":"(주)다온마트(10/1부터)","동춘동푸줏단":"푸줏단(동춘)","별빛정육점":"서창별빛정육점","소문난정육점":"소문난정육점","거시기함흥냉면":"거시기 함흥냉면","거시기":"거시기 함흥냉면","원산면옥":"원산면옥","스타마트":"우도락(스타마트)","까만돼지":"까만돼지","금천꿀돼지꿀한우":"꿀돼지꿀한우(금천)","가리봉꿀돼지꿀한우":"꿀돼지꿀한우(가리봉)","신박축산":"신박축산","오복정육":"오복정육(옥련점)베스트식자재정","오빠막창":"오빠막창","한우세상":"한우세상(부천상동)","본오농민마트":"주식회사 농민(본오)","전설은행":"전설갈비은행점","원신산업":"(주)원신산업-보미마트","착한정육점 산현":"착한정육점(산현동)","대부g마트":"대부지마트(주)","좋은축산유통":"(주)좋은축산유통","바른정육점":"바른정육점(사동)","삼겹연구소":"삼겹연구소","백봉":"백봉(선부동)","한돈미트":"한돈미트(N마트)기흥","구들장":"구들짱황소곱창삼겹살(인계동)","프리미엄정육점":"프리미엄정육점(구리)","신길양평해장국":"옥이네양평해장국(신길동)","찐하오마라탕":"찐하오마라탕 그랑시티시그니처","대박마포":"대박마포숯불갈비","차이나감자탕":"차이나감자탕","오늘은고기다":"오늘은고기다(일동)","한결축산":"한결축산","상미마트":"상미왕할인마트(식자재)","소하축산광명":"소하축산(광명)","시흥대박축산":"대박축산(금천)하늘소","충북g마트":"(주)굿모닝유통지마트","진안축산":"진안축산","sk축산":"SK축산물도소매","막뚱이정육점":"막뚱이정육점","예서감자탕":"예서감자탕","더갈비":"더갈비(거모)","우리축산정육점":"우리축산정육점(수암동)","맛있는한우(상동)":"맛있는한우(부천상동)","골목대장":"골목대장삼겹살","김치찌개집":"김치찌개전문점(사동)","정성가득집밥":"정성가득집밥","울트라":"울트라분식","곱창연가":"곱창연가"};
+
+let chatText = '';
+let availableDates = [];
+let currentDate = '';
+let currentOrders = []; // { client, address, items: [{name, qty, unit, note, extra}], raw, time }
+let currentTab = 'byClient';
+
+function tryLogin() {
+  if (document.getElementById('pw').value === PASSWORD) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+    document.getElementById('pw').value = '';
+  }
+}
+document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+
+function loadChatFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    chatText = ev.target.result;
+    availableDates = extractDates(chatText);
+    const sel = document.getElementById('dateSelect');
+    sel.innerHTML = '<option value="">날짜 선택</option>';
+    availableDates.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d.replace(/^2026년\s*/, '');
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+    document.getElementById('uploadHint').textContent = `파일 로드 완료 · 날짜 ${availableDates.length}개 발견. 날짜를 선택하세요.`;
+    currentDate = '';
+    currentOrders = [];
+    render();
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function extractDates(text) {
+  const re = /---------------\s*(2026년\s*\d+월\s*\d+일\s*[가-힣]+)\s*---------------/g;
+  const dates = [];
+  let m;
+  while ((m = re.exec(text)) !== null) dates.push(m[1].replace(/\s+/g, ' ').trim());
+  return dates;
+}
+
+function onDateChange() {
+  currentDate = document.getElementById('dateSelect').value;
+  if (!currentDate) { currentOrders = []; render(); return; }
+  currentOrders = parseOrdersForDate(chatText, currentDate);
+  document.getElementById('uploadHint').style.display = 'none';
+  document.getElementById('stats').style.display = 'flex';
+  render();
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.getElementById('detailView').style.display = 'none';
+  document.getElementById('mainView').style.display = 'block';
+  render();
+}
+
+// ---------- Parsing ----------
+function parseOrdersForDate(text, dateStr) {
+  const dateRe = new RegExp('---------------\\s*' + dateStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*---------------');
+  const parts = text.split(dateRe);
+  if (parts.length < 2) return [];
+  let day = parts[1];
+  // cut at next date
+  const nextDate = day.search(/---------------\s*2026년/);
+  if (nextDate > -1) day = day.slice(0, nextDate);
+
+  const msgRe = /\[([^\]]+)\]\s*\[([^\]]+)\]\s*([\s\S]*?)(?=\n\[|\n---------------|$)/g;
+  const msgs = [];
+  let m;
+  while ((m = msgRe.exec(day)) !== null) {
+    msgs.push({ sender: m[1], time: m[2], text: m[3].trim() });
+  }
+
+  const orders = [];
+  let cur = null;
+
+  function flush() {
+    if (cur && (cur.items.length || cur.rawLines.length)) {
+      orders.push({
+        client: cur.client,
+        address: cur.address,
+        items: cur.items,
+        raw: cur.rawLines.join('\n'),
+        time: cur.time
+      });
+    }
+    cur = null;
+  }
+
+  for (const msg of msgs) {
+    if (msg.text.includes('메시지가 삭제되었습니다')) continue;
+    const lines = msg.text.split('\n').map(l => l.trim()).filter(l => l && !l.includes('메시지가 삭제'));
+    if (!lines.length) continue;
+
+    const isOrder = /한재호|미트포앤/.test(msg.sender);
+    if (!isOrder) continue;
+
+    if (/여기까지|발주체크/.test(lines[0]) && lines.length === 1) {
+      flush();
+      continue;
+    }
+
+    const first = lines[0];
+    const hasQty = /\d+\s*(박스|팩|키로|kg|대|포|벌|판|마리|덩이)/i.test(first) ||
+                   /(박스|팩|키로)\s*\d+/i.test(first) ||
+                   /\d+\s*[BbPp]/.test(first);
+
+    if (!hasQty && first.length < 45 && !/여기까지|발주체크|사진|죄송합니다/.test(first)) {
+      flush();
+      const matched = matchClient(first);
+      cur = {
+        client: matched.name,
+        address: matched.address,
+        items: [],
+        rawLines: lines,
+        time: msg.time
+      };
+      // parse remaining lines as items
+      for (let i = 1; i < lines.length; i++) {
+        if (/여기까지|발주체크/.test(lines[i])) continue;
+        const parsed = parseItemLine(lines[i]);
+        if (parsed) cur.items.push(parsed);
+        else if (lines[i].length > 1) cur.items.push({ name: lines[i], qty: '', unit: '', note: '', extra: '' });
+      }
+    } else if (cur) {
+      for (const line of lines) {
+        if (/여기까지|발주체크/.test(line)) continue;
+        cur.rawLines.push(line);
+        const parsed = parseItemLine(line);
+        if (parsed) cur.items.push(parsed);
+        else if (line.length > 1) cur.items.push({ name: line, qty: '', unit: '', note: '', extra: '' });
+      }
+    } else {
+      // treat first as client even if has qty? rare
+      const matched = matchClient(first.replace(/\d+.*/, '').trim() || first);
+      cur = { client: matched.name, address: matched.address, items: [], rawLines: lines, time: msg.time };
+      for (const line of lines) {
+        const parsed = parseItemLine(line);
+        if (parsed) cur.items.push(parsed);
+      }
+    }
+  }
+  flush();
+  return orders;
+}
+
+function matchClient(text) {
+  text = text.replace(/[●■☆★]/g, '').replace(/추가|정정|급급/g, '').trim();
+  for (const [alias, real] of Object.entries(ALIASES)) {
+    if (text.startsWith(alias) || (alias.length > 2 && text.includes(alias))) {
+      if (!real) return { name: alias, address: '' };
+      const c = CLIENTS.find(x => x.name === real);
+      return c ? { name: c.name, address: c.address } : { name: real, address: '' };
+    }
+  }
+  // fuzzy
+  let best = null, bestScore = 0;
+  const t = text.slice(0, 20);
+  for (const c of CLIENTS) {
+    const score = similarity(t, c.name.slice(0, 20));
+    if (score > bestScore && score > 0.35) { bestScore = score; best = c; }
+  }
+  if (best) return { name: best.name, address: best.address };
+  return { name: text.split(/[\s●]/)[0] || text, address: '' };
+}
+
+function similarity(a, b) {
+  if (!a || !b) return 0;
+  const longer = a.length > b.length ? a : b;
+  const shorter = a.length > b.length ? b : a;
+  if (longer.length === 0) return 1;
+  let matches = 0;
+  for (let i = 0; i < shorter.length; i++) if (longer.includes(shorter[i])) matches++;
+  return matches / longer.length;
+}
+
+function parseItemLine(line) {
+  line = line.replace(/^[\-•·]\s*/, '').trim();
+  if (!line || /부탁|주세요|보내|이상|발주|감사합니다|수고/.test(line) && !/\d/.test(line)) return null;
+
+  // patterns: 삼겹10, 삼겹 10박스, 미전지5 대산, 항정 3키로, 특삼겹 1박스 대산 등
+  let name = '', qty = '', unit = '', note = '', extra = '';
+
+  // qty + unit
+  let m = line.match(/^(.+?)\s*(\d+(?:\.\d+)?)\s*(박스|팩|키로|kg|대|포|벌|판|마리|덩이|봉|개)?(.*)$/i);
+  if (m) {
+    name = m[1].replace(/[ㅡ\-–]/g, '').trim();
+    qty = m[2];
+    unit = (m[3] || '').trim();
+    const rest = (m[4] || '').trim();
+    // split note / extra
+    if (rest) {
+      const parts = rest.split(/\s(2,)|,/);
+      note = parts[0] || '';
+      extra = parts.slice(1).join(' ').trim();
+    }
+  } else {
+    // 삼겹10 (no unit)
+    m = line.match(/^(.+?)\s*(\d+(?:\.\d+)?)(.*)$/);
+    if (m) {
+      name = m[1].trim();
+      qty = m[2];
+      const rest = (m[3] || '').trim();
+      if (/박스|팩|키로|kg|대|포|벌|판/.test(rest)) {
+        const um = rest.match(/^(박스|팩|키로|kg|대|포|벌|판|마리|덩이|봉)/);
+        if (um) { unit = um[1]; note = rest.slice(um[0].length).trim(); }
+        else note = rest;
+      } else note = rest;
+    } else {
+      name = line;
+    }
+  }
+
+  // normalize unit
+  if (!unit && /박스/.test(note)) { unit = '박스'; note = note.replace(/박스/, '').trim(); }
+  if (!unit && qty && !note) unit = ''; // leave empty
+
+  // clean name
+  name = name.replace(/\s+/g, ' ').trim();
+  if (!name) return null;
+
+  return { name, qty, unit, note, extra };
+}
+
+// ---------- Render ----------
+function render() {
+  const el = document.getElementById('mainView');
+  const statsEl = document.getElementById('stats');
+  if (!currentDate || !currentOrders.length) {
+    statsEl.style.display = 'none';
+    el.innerHTML = currentDate ? '<div class="empty">이 날짜의 발주가 없습니다</div>' : '<div class="empty">채팅 파일을 불러오고 날짜를 선택하세요</div>';
+    return;
+  }
+
+  // stats
+  const clientsSet = new Set(currentOrders.map(o => o.client));
+  let boxCnt = 0, looseCnt = 0;
+  currentOrders.forEach(o => o.items.forEach(it => {
+    if (isBox(it)) boxCnt += parseFloat(it.qty) || 1;
+    else if (it.qty) looseCnt += parseFloat(it.qty) || 1;
+  }));
+  statsEl.style.display = 'flex';
+  statsEl.innerHTML = `
+    <div class="stat"><div class="num">${currentOrders.length}</div><div class="label">발주 건수</div></div>
+    <div class="stat"><div class="num">${clientsSet.size}</div><div class="label">거래처</div></div>
+    <div class="stat"><div class="num">${Math.round(boxCnt)}</div><div class="label">박스 합계</div></div>
+    <div class="stat"><div class="num">${Math.round(looseCnt)}</div><div class="label">낱개 합계</div></div>`;
+
+  if (currentTab === 'byClient') renderByClient(el);
+  else if (currentTab === 'byMeat') renderByMeat(el);
+  else if (currentTab === 'loose') renderLoose(el);
+  else if (currentTab === 'raw') renderRaw(el);
+}
+
+function isBox(it) {
+  return /박스|대|포/.test(it.unit) || /박스|대|포/.test(it.note) || (!it.unit && !it.note && it.qty && parseFloat(it.qty) >= 1 && !/팩|키로|kg|봉|덩이|판/.test(it.name));
+}
+
+function renderByClient(el) {
+  // group by client
+  const map = {};
+  currentOrders.forEach(o => {
+    if (!map[o.client]) map[o.client] = { address: o.address, items: [], times: [] };
+    map[o.client].items.push(...o.items);
+    map[o.client].times.push(o.time);
+    if (!map[o.client].address && o.address) map[o.client].address = o.address;
+  });
+  const names = Object.keys(map).sort();
+
+  let html = `<input class="search-box" placeholder="거래처 검색..." oninput="filterCards(this.value)">`;
+  html += '<div id="cards">';
+  names.forEach(name => {
+    const g = map[name];
+    html += `<div class="card client-card" data-name="${esc(name)}">
+      <h3>${esc(name)} <span class="badge">${g.items.length}품목</span></h3>
+      ${g.address ? `<div class="addr">${esc(g.address)}</div>` : ''}
+      <div class="matrix-wrap"><table>
+        <thead><tr><th>고기명</th><th>갯수</th><th>단위</th><th>비고</th><th>추가비고</th></tr></thead>
+        <tbody>`;
+    g.items.forEach(it => {
+      html += `<tr>
+        <td>${esc(it.name)}</td>
+        <td class="num">${esc(it.qty)}</td>
+        <td class="center">${esc(it.unit)}</td>
+        <td>${esc(it.note)}</td>
+        <td>${esc(it.extra)}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div></div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function filterCards(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('.client-card').forEach(c => {
+    c.style.display = c.dataset.name.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function renderByMeat(el) {
+  // collect meats that have box counts
+  const meatSet = new Set();
+  const clientSet = new Set();
+  const matrix = {}; // client -> meat -> qty
+
+  currentOrders.forEach(o => {
+    clientSet.add(o.client);
+    o.items.forEach(it => {
+      if (!isBox(it) && it.unit !== '박스' && !/박스/.test(it.note)) return;
+      const meat = normalizeMeat(it.name);
+      if (!meat) return;
+      meatSet.add(meat);
+      if (!matrix[o.client]) matrix[o.client] = {};
+      const q = parseFloat(it.qty) || 1;
+      matrix[o.client][meat] = (matrix[o.client][meat] || 0) + q;
+    });
+  });
+
+  const meats = [...meatSet].sort();
+  const clients = [...clientSet].sort();
+
+  if (!meats.length) {
+    el.innerHTML = '<div class="empty">박스 단위 발주가 없습니다</div>';
+    return;
+  }
+
+  // column totals
+  const colTotal = {};
+  meats.forEach(m => colTotal[m] = 0);
+  clients.forEach(c => meats.forEach(m => { colTotal[m] += matrix[c]?.[m] || 0; }));
+
+  let html = '<div class="section-title">거래처 × 고기 (박스 수)</div><div class="matrix-wrap"><table class="matrix"><thead><tr><th>거래처</th>';
+  meats.forEach(m => html += `<th>${esc(m)}</th>`);
+  html += '<th class="total-col">합계</th></tr></thead><tbody>';
+
+  clients.forEach(c => {
+    let rowSum = 0;
+    html += `<tr><td>${esc(c)}</td>`;
+    meats.forEach(m => {
+      const v = matrix[c]?.[m] || 0;
+      rowSum += v;
+      html += `<td class="num">${v || ''}</td>`;
+    });
+    html += `<td class="num total-col">${rowSum || ''}</td></tr>`;
+  });
+
+  // total row
+  let grand = 0;
+  html += '<tr class="total-row"><td>합계</td>';
+  meats.forEach(m => {
+    grand += colTotal[m];
+    html += `<td class="num">${colTotal[m] || ''}</td>`;
+  });
+  html += `<td class="num total-col">${grand}</td></tr>`;
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
+}
+
+function normalizeMeat(name) {
+  const map = [
+    ['특삼겹', '특삼겹'], ['특미삼', '특미삼'], ['특목', '특목살'], ['암삼겹', '암삼겹'],
+    ['암미삼', '암미삼'], ['암오겹', '암오겹'], ['미박삼겹', '미박삼겹'],
+    ['삼겹', '삼겹'], ['미삼', '미삼'], ['오겹', '오겹'], ['목살', '목살'],
+    ['B목살', 'B목살'], ['미전지', '미전지'], ['목전지', '목전지'], ['전지', '전지'],
+    ['등뼈', '등뼈'], ['갈비', '갈비'], ['등갈비', '등갈비'], ['등심', '등심'],
+    ['안심', '안심'], ['항정', '항정'], ['가브리', '가브리'], ['갈매기', '갈매기'],
+    ['미후지', '미후지'], ['후지', '후지'], ['사태', '사태'], ['앞미사태', '앞미사태'],
+    ['늑간', '늑간'], ['볼라', '볼라전각'], ['홍두깨', '홍두깨'], ['차돌', '차돌'],
+    ['LA갈비', 'LA갈비'], ['프렌치', '프렌치렉'], ['장족', '장족'], ['돈피', '돈피'],
+    ['잡육', '잡육'], ['설도', '설도'], ['살치', '살치'], ['민찌', '민찌'],
+    ['빵삼', '빵삼겹'], ['수삼', '수삼'], ['모돈', '모돈삼겹'], ['우삼', '우삼겹'],
+    ['A삼', 'A삼겹'], ['티스', '티스'], ['올리멜', '올리멜'], ['두메코', '두메코'],
+    ['테니쉬', '테니쉬'], ['알레한', '알레한'],
+  ];
+  for (const [k, v] of map) if (name.includes(k)) return v;
+  return name.slice(0, 12) || null;
+}
+
+function renderLoose(el) {
+  const rows = [];
+  currentOrders.forEach(o => {
+    o.items.forEach(it => {
+      if (isBox(it)) return;
+      if (!it.qty && !it.unit && !/팩|키로|kg|봉|덩이|판|벌|개/.test(it.name + it.note)) return;
+      rows.push({ client: o.client, ...it });
+    });
+  });
+  if (!rows.length) {
+    el.innerHTML = '<div class="empty">낱개 항목이 없습니다</div>';
+    return;
+  }
+  let html = '<div class="section-title">박스 외 낱개 (팩 / 키로 / 덩이 등)</div>';
+  html += `<div class="matrix-wrap"><table>
+    <thead><tr><th>거래처</th><th>고기명</th><th>갯수</th><th>단위</th><th>비고</th><th>추가비고</th></tr></thead><tbody>`;
+  rows.forEach(r => {
+    html += `<tr>
+      <td>${esc(r.client)}</td>
+      <td>${esc(r.name)}</td>
+      <td class="num">${esc(r.qty)}</td>
+      <td class="center">${esc(r.unit)}</td>
+      <td>${esc(r.note)}</td>
+      <td>${esc(r.extra)}</td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
+}
+
+function renderRaw(el) {
+  let html = '';
+  currentOrders.forEach(o => {
+    html += `<div class="card">
+      <h3>${esc(o.client)} <span class="badge">${esc(o.time || '')}</span></h3>
+      ${o.address ? `<div class="addr">${esc(o.address)}</div>` : ''}
+      <pre style="font-size:.85rem;white-space:pre-wrap;margin:0">${esc(o.raw)}</pre>
+    </div>`;
+  });
+  el.innerHTML = html || '<div class="empty">없음</div>';
+}
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
