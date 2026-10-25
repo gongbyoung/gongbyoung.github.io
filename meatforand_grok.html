@@ -356,7 +356,8 @@ pre {
     </div>
   </header>
   <div class="tabs">
-    <div class="tab active" data-tab="byClient" onclick="switchTab('byClient')">거래처별</div>
+    <div class="tab active" data-tab="regions" onclick="switchTab('regions')">거래처목록</div>
+    <div class="tab" data-tab="byClient" onclick="switchTab('byClient')">거래처별</div>
     <div class="tab" data-tab="byMeat" onclick="switchTab('byMeat')">고기별</div>
     <div class="tab" data-tab="loose" onclick="switchTab('loose')">낱개</div>
     <div class="tab" data-tab="summary" onclick="switchTab('summary')">문자</div>
@@ -380,7 +381,7 @@ let chatText = '';
 let availableDates = [];
 let currentDate = '';
 let currentOrders = []; // { client, address, items: [{name, qty, unit, note, extra}], raw, time }
-let currentTab = 'byClient';
+let currentTab = 'regions';
 
 
 // ===== 관리자 설정 (localStorage) =====
@@ -1149,7 +1150,8 @@ function render() {
     <button class="ship-btn ${shipFilter==='next'?'on':''}" onclick="setShipFilter('next')">다음날 출고 ${nextCnt}</button>
   </div>`;
 
-  if (currentTab === 'byClient') renderByClient(el, orders, filterBar);
+  if (currentTab === 'regions') { el.innerHTML = filterBar; renderRegions(el, orders); }
+  else if (currentTab === 'byClient') renderByClient(el, orders, filterBar);
   else if (currentTab === 'byMeat') { el.innerHTML = filterBar; renderByMeat(el, orders); }
   else if (currentTab === 'loose') { el.innerHTML = filterBar; renderLoose(el, orders); }
   else if (currentTab === 'summary') { el.innerHTML = filterBar; renderSummary(el, orders); }
@@ -1186,6 +1188,95 @@ function isBox(it) {
   if (/box|박스|\b박\b|대|포/i.test(u)) return true;
   return !isLoose(it) && !!it.qty;
 }
+
+
+function parseRegion(address) {
+  if (!address) return '주소미상';
+  const a = address.replace(/\s+/g, ' ').trim();
+  // 광역시/특별시
+  let m = a.match(/^(서울|부산|대구|인천|광주|대전|울산|세종)(?:특별시|광역시)?\s*([가-힣]+[구군])?/);
+  if (m) {
+    const city = m[1] + (m[1].length <= 2 ? '' : '');
+    const gu = m[2] || '';
+    if (gu) return m[1] + ' ' + gu;
+    return m[1];
+  }
+  // 도 + 시/군
+  m = a.match(/^(경기|강원|충북|충남|전북|전남|경북|경남|제주)(?:도)?\s*([가-힣]+[시군])/);
+  if (m) {
+    const si = m[2];
+    // 구/읍/면
+    const m2 = a.match(/[시군]\s*([가-힣]+[구읍면])/);
+    if (m2) return si + ' ' + m2[1];
+    return si;
+  }
+  // fallback: 앞 2토큰
+  const parts = a.split(' ');
+  if (parts.length >= 2) return parts[0].replace(/(특별시|광역시|도)$/, '') + ' ' + parts[1];
+  return parts[0] || '주소미상';
+}
+
+function renderRegions(el, orders) {
+  const prev = el.innerHTML;
+  // unique clients with address from orders
+  const map = {};
+  orders.forEach(o => {
+    if (!map[o.client]) {
+      map[o.client] = { name: o.client, address: o.address || '' };
+    } else if (!map[o.client].address && o.address) {
+      map[o.client].address = o.address;
+    }
+  });
+  // try fill address from client master
+  const all = getAllClients();
+  Object.keys(map).forEach(name => {
+    if (!map[name].address) {
+      const c = all.find(x => x.name === name);
+      if (c && c.address) map[name].address = c.address;
+    }
+  });
+
+  // group by region
+  const byReg = {};
+  Object.values(map).forEach(c => {
+    const reg = parseRegion(c.address);
+    if (!byReg[reg]) byReg[reg] = [];
+    byReg[reg].push(c);
+  });
+  const regions = Object.keys(byReg).sort((a, b) => a.localeCompare(b, 'ko'));
+
+  let html = prev + `<div class="section-title">발주 거래처 목록 (권역별) · ${Object.keys(map).length}곳</div>`;
+  html += `<input class="search-box" placeholder="거래처·권역 검색..." oninput="filterRegionCards(this.value)">`;
+
+  regions.forEach(reg => {
+    const list = byReg[reg].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    html += `<div class="card region-card" data-region="${esc(reg)}">
+      <h3>${esc(reg)} <span class="badge">${list.length}</span></h3>
+      <div class="matrix-wrap"><table>
+        <thead><tr><th>거래처</th><th>주소</th><th>권역</th></tr></thead>
+        <tbody>`;
+    list.forEach(c => {
+      html += `<tr>
+        <td>${esc(c.name)}</td>
+        <td style="font-size:.78rem;color:#555">${esc(c.address || '-')}</td>
+        <td class="center">${esc(reg)}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div></div>`;
+  });
+
+  if (!regions.length) html += `<div class="empty">발주 거래처 없음</div>`;
+  el.innerHTML = html;
+}
+function filterRegionCards(q) {
+  q = (q || '').toLowerCase();
+  document.querySelectorAll('.region-card').forEach(card => {
+    const reg = (card.dataset.region || '').toLowerCase();
+    const text = card.textContent.toLowerCase();
+    card.style.display = (!q || reg.includes(q) || text.includes(q)) ? '' : 'none';
+  });
+}
+
 
 function renderByClient(el, orders, filterBar) {
   const map = {};
