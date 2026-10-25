@@ -283,6 +283,48 @@ pre {
   background: #fff; color: var(--primary); border: 1px solid var(--primary);
 }
 
+
+.admin-panel {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,.45); padding: .5rem; padding-top: calc(.5rem + env(safe-area-inset-top,0px));
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+.admin-panel.open { display: block; }
+.admin-sheet {
+  background: #fff; border-radius: 16px 16px 0 0; min-height: 90vh;
+  max-width: 560px; margin: 0 auto; padding: 1rem .9rem 2rem;
+}
+.admin-sheet h2 { font-size: 1.1rem; color: var(--primary); margin-bottom: .75rem; }
+.admin-tabs { display: flex; gap: .3rem; margin-bottom: .75rem; flex-wrap: wrap; }
+.admin-tab {
+  flex: 1; min-width: 70px; padding: .5rem .3rem; border: 1px solid var(--border);
+  border-radius: 10px; background: #fafafa; font-size: .78rem; font-weight: 600;
+  color: var(--muted); cursor: pointer; text-align: center;
+}
+.admin-tab.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+.admin-list { max-height: 50vh; overflow-y: auto; margin-bottom: .75rem; }
+.admin-row {
+  display: flex; gap: .4rem; align-items: center; padding: .45rem 0;
+  border-bottom: 1px solid #f0f0f0; font-size: .85rem;
+}
+.admin-row span { flex: 1; word-break: break-all; }
+.admin-row button {
+  border: none; background: #ffebee; color: var(--primary);
+  border-radius: 8px; padding: .35rem .55rem; font-size: .75rem; font-weight: 600; cursor: pointer;
+}
+.admin-form { display: flex; flex-direction: column; gap: .45rem; margin-bottom: .75rem; }
+.admin-form input, .admin-form select {
+  padding: .7rem .75rem; border: 1px solid var(--border); border-radius: 10px; font-size: .9rem;
+}
+.admin-form button, .admin-actions button {
+  padding: .75rem; border: none; border-radius: 12px; background: var(--primary);
+  color: #fff; font-weight: 700; font-size: .9rem; cursor: pointer; min-height: 44px;
+}
+.admin-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+.admin-actions button.secondary { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
+.admin-actions button.danger { background: #b71c1c; }
+.admin-hint { font-size: .78rem; color: var(--muted); margin-bottom: .5rem; line-height: 1.4; }
+
 </style>
 </head>
 <body>
@@ -310,6 +352,7 @@ pre {
         <option value="">날짜 선택</option>
       </select>
       <button class="btn" onclick="window.print()">인쇄</button>
+      <button class="btn" onclick="openAdmin()">관리</button>
     </div>
   </header>
   <div class="tabs">
@@ -338,6 +381,271 @@ let availableDates = [];
 let currentDate = '';
 let currentOrders = []; // { client, address, items: [{name, qty, unit, note, extra}], raw, time }
 let currentTab = 'byClient';
+
+
+// ===== 관리자 설정 (localStorage) =====
+const CFG_KEY = 'meatpoan_admin_cfg_v1';
+const DEFAULT_BRANDS = ['포크','대산','정담','황금','토레인','두메코','테니쉬','올리멜','알레한','고원돈','바텔','셀렉타','농협','신짜','정담한돈'];
+const DEFAULT_LOOSE = ['팩','Pack','키로','kg','Kg','봉지','봉'];
+const DEFAULT_MEATS = [
+  ['특삼겹','특삼겹'],['특미삼','특미삼'],['특목','특목살'],['암삼겹','암삼겹'],
+  ['암미삼','암미삼'],['암오겹','암오겹'],['미박삼겹','미박삼겹'],['빵삼','빵삼겹'],
+  ['수삼','수삼'],['모돈','모돈삼겹'],['우삼','우삼겹'],['A삼','A삼겹'],['A지방','A지방'],
+  ['삼겹','삼겹'],['미삼','미삼'],['오겹','오겹'],['목살','목살'],['B목살','B목살'],
+  ['미전지','미전지'],['목전지','목전지'],['전지','전지'],['등뼈','등뼈'],['등갈비','등갈비'],
+  ['갈비','갈비'],['등심','등심'],['안심','안심'],['항정','항정'],['가브리','가브리'],
+  ['갈매기','갈매기'],['미후지','미후지'],['후지','후지'],['사태','사태'],['앞미사태','앞미사태'],
+  ['늑간','늑간'],['볼라','볼라전각'],['홍두깨','홍두깨'],['차돌','차돌'],['LA갈비','LA갈비'],
+  ['프렌치','프렌치렉'],['장족','장족'],['돈피','돈피'],['잡육','잡육'],['설도','설도'],
+  ['살치','살치'],['민찌','민찌'],['등잡','등잡'],['B지방','B지방']
+];
+
+let customClients = []; // {name, address, alias}
+let customAliases = {}; // short -> real name
+let customBrands = [];
+let customMeats = []; // [keyword, normalized]
+let customLoose = [];
+let adminTab = 'alias';
+
+function loadAdminConfig() {
+  try {
+    const raw = localStorage.getItem(CFG_KEY);
+    if (!raw) {
+      customBrands = DEFAULT_BRANDS.slice();
+      customLoose = DEFAULT_LOOSE.slice();
+      customMeats = DEFAULT_MEATS.map(x => x.slice());
+      customAliases = {};
+      customClients = [];
+      return;
+    }
+    const cfg = JSON.parse(raw);
+    customBrands = Array.isArray(cfg.brands) && cfg.brands.length ? cfg.brands : DEFAULT_BRANDS.slice();
+    customLoose = Array.isArray(cfg.loose) && cfg.loose.length ? cfg.loose : DEFAULT_LOOSE.slice();
+    customMeats = Array.isArray(cfg.meats) && cfg.meats.length ? cfg.meats : DEFAULT_MEATS.map(x => x.slice());
+    customAliases = cfg.aliases && typeof cfg.aliases === 'object' ? cfg.aliases : {};
+    customClients = Array.isArray(cfg.clients) ? cfg.clients : [];
+  } catch (e) {
+    customBrands = DEFAULT_BRANDS.slice();
+    customLoose = DEFAULT_LOOSE.slice();
+    customMeats = DEFAULT_MEATS.map(x => x.slice());
+    customAliases = {};
+    customClients = [];
+  }
+}
+function saveAdminConfig() {
+  const cfg = {
+    brands: customBrands,
+    loose: customLoose,
+    meats: customMeats,
+    aliases: customAliases,
+    clients: customClients
+  };
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+}
+loadAdminConfig();
+
+function getAllClients() {
+  return CLIENTS.concat(customClients);
+}
+function getAllAliases() {
+  return Object.assign({}, ALIASES, customAliases);
+}
+function getBrandPattern() {
+  const list = (customBrands && customBrands.length) ? customBrands : DEFAULT_BRANDS;
+  return list.map(b => b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+}
+function getLooseUnits() {
+  return (customLoose && customLoose.length) ? customLoose : DEFAULT_LOOSE;
+}
+
+function openAdmin() {
+  document.getElementById('adminPanel').classList.add('open');
+  renderAdmin();
+}
+function closeAdmin() {
+  document.getElementById('adminPanel').classList.remove('open');
+  // 설정 반영 위해 현재 날짜 다시 파싱
+  if (currentDate && chatText) {
+    currentOrders = parseOrdersForDeliveryDate(chatText, currentDate);
+    render();
+  }
+}
+function switchAdminTab(t) {
+  adminTab = t;
+  document.querySelectorAll('.admin-tab').forEach(el => el.classList.toggle('on', el.dataset.atab === t));
+  renderAdmin();
+}
+function renderAdmin() {
+  const body = document.getElementById('adminBody');
+  if (adminTab === 'alias') renderAdminAlias(body);
+  else if (adminTab === 'client') renderAdminClient(body);
+  else if (adminTab === 'brand') renderAdminList(body, '메이커(브랜드)', customBrands, 'brand');
+  else if (adminTab === 'meat') renderAdminMeat(body);
+  else if (adminTab === 'loose') renderAdminList(body, '낱개 단위 키워드', customLoose, 'loose');
+}
+function renderAdminList(body, title, arr, kind) {
+  let html = `<div class="admin-hint">${title} — 추가/삭제 후 자동 저장됩니다.</div>`;
+  html += `<div class="admin-form">
+    <input id="adminNewItem" placeholder="추가할 항목">
+    <button type="button" onclick="adminAddItem('${kind}')">추가</button>
+  </div><div class="admin-list">`;
+  arr.forEach((v, i) => {
+    html += `<div class="admin-row"><span>${esc(v)}</span><button type="button" onclick="adminDelItem('${kind}',${i})">삭제</button></div>`;
+  });
+  html += '</div>';
+  body.innerHTML = html;
+}
+function adminAddItem(kind) {
+  const input = document.getElementById('adminNewItem');
+  const v = (input.value || '').trim();
+  if (!v) return;
+  if (kind === 'brand') {
+    if (!customBrands.includes(v)) customBrands.push(v);
+  } else if (kind === 'loose') {
+    if (!customLoose.includes(v)) customLoose.push(v);
+  }
+  saveAdminConfig();
+  renderAdmin();
+}
+function adminDelItem(kind, i) {
+  if (kind === 'brand') customBrands.splice(i, 1);
+  else if (kind === 'loose') customLoose.splice(i, 1);
+  saveAdminConfig();
+  renderAdmin();
+}
+function renderAdminAlias(body) {
+  const merged = getAllAliases();
+  const keys = Object.keys(merged).sort((a,b) => a.localeCompare(b,'ko'));
+  let html = `<div class="admin-hint">카톡에 쓰는 짧은 이름 → 정식 거래처명. 추가분은 이 기기에 저장됩니다.</div>
+  <div class="admin-form">
+    <input id="aliasFrom" placeholder="별명 (예: 태광)">
+    <input id="aliasTo" placeholder="정식명 (예: (주)태광푸드)">
+    <button type="button" onclick="adminAddAlias()">별명 추가/수정</button>
+  </div><div class="admin-list">`;
+  keys.forEach(k => {
+    const isCustom = Object.prototype.hasOwnProperty.call(customAliases, k);
+    html += `<div class="admin-row"><span><b>${esc(k)}</b> → ${esc(merged[k]||'')}${isCustom?' <small>(추가)</small>':''}</span>`;
+    if (isCustom) html += `<button type="button" onclick="adminDelAlias('${k.replace(/'/g,"\\'")}')">삭제</button>`;
+    html += `</div>`;
+  });
+  html += '</div>';
+  body.innerHTML = html;
+}
+function adminAddAlias() {
+  const from = (document.getElementById('aliasFrom').value || '').trim();
+  const to = (document.getElementById('aliasTo').value || '').trim();
+  if (!from || !to) return alert('별명과 정식명을 입력하세요');
+  customAliases[from] = to;
+  saveAdminConfig();
+  renderAdmin();
+}
+function adminDelAlias(k) {
+  delete customAliases[k];
+  saveAdminConfig();
+  renderAdmin();
+}
+function renderAdminClient(body) {
+  let html = `<div class="admin-hint">신규 거래처를 추가합니다. (이름·주소)</div>
+  <div class="admin-form">
+    <input id="cliName" placeholder="거래처명">
+    <input id="cliAddr" placeholder="주소 (선택)">
+    <input id="cliAlias" placeholder="별명 (선택, 카톡에 쓰는 이름)">
+    <button type="button" onclick="adminAddClient()">거래처 추가</button>
+  </div><div class="admin-list">`;
+  customClients.forEach((c, i) => {
+    html += `<div class="admin-row"><span><b>${esc(c.name)}</b><br><small>${esc(c.address||'')}</small></span>
+      <button type="button" onclick="adminDelClient(${i})">삭제</button></div>`;
+  });
+  if (!customClients.length) html += `<div class="admin-hint">추가된 거래처 없음 (기본 ${CLIENTS.length}곳은 내장)</div>`;
+  html += '</div>';
+  body.innerHTML = html;
+}
+function adminAddClient() {
+  const name = (document.getElementById('cliName').value || '').trim();
+  const address = (document.getElementById('cliAddr').value || '').trim();
+  const alias = (document.getElementById('cliAlias').value || '').trim();
+  if (!name) return alert('거래처명을 입력하세요');
+  customClients.push({ name, address, alias: alias || '' });
+  if (alias) customAliases[alias] = name;
+  saveAdminConfig();
+  renderAdmin();
+}
+function adminDelClient(i) {
+  const c = customClients[i];
+  if (c && c.alias && customAliases[c.alias] === c.name) delete customAliases[c.alias];
+  customClients.splice(i, 1);
+  saveAdminConfig();
+  renderAdmin();
+}
+function renderAdminMeat(body) {
+  let html = `<div class="admin-hint">카톡 키워드 → 표준 고기명 (예: 빵삼 → 빵삼겹)</div>
+  <div class="admin-form">
+    <input id="meatKey" placeholder="키워드 (예: 빵삼)">
+    <input id="meatVal" placeholder="표준명 (예: 빵삼겹)">
+    <button type="button" onclick="adminAddMeat()">고기명 추가</button>
+  </div><div class="admin-list">`;
+  customMeats.forEach((pair, i) => {
+    html += `<div class="admin-row"><span><b>${esc(pair[0])}</b> → ${esc(pair[1])}</span>
+      <button type="button" onclick="adminDelMeat(${i})">삭제</button></div>`;
+  });
+  html += '</div>';
+  body.innerHTML = html;
+}
+function adminAddMeat() {
+  const k = (document.getElementById('meatKey').value || '').trim();
+  const v = (document.getElementById('meatVal').value || '').trim();
+  if (!k || !v) return alert('키워드와 표준명을 입력하세요');
+  const idx = customMeats.findIndex(p => p[0] === k);
+  if (idx >= 0) customMeats[idx] = [k, v];
+  else customMeats.push([k, v]);
+  saveAdminConfig();
+  renderAdmin();
+}
+function adminDelMeat(i) {
+  customMeats.splice(i, 1);
+  saveAdminConfig();
+  renderAdmin();
+}
+function exportAdminConfig() {
+  const cfg = localStorage.getItem(CFG_KEY) || JSON.stringify({
+    brands: customBrands, loose: customLoose, meats: customMeats,
+    aliases: customAliases, clients: customClients
+  });
+  const blob = new Blob([cfg], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'meatpoan_admin_config.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function importAdminConfig() {
+  document.getElementById('adminImportFile').click();
+}
+function onAdminImportFile(e) {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const cfg = JSON.parse(ev.target.result);
+      localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+      loadAdminConfig();
+      alert('설정을 가져왔습니다');
+      renderAdmin();
+    } catch (err) {
+      alert('JSON 형식이 올바르지 않습니다');
+    }
+  };
+  r.readAsText(f, 'UTF-8');
+  e.target.value = '';
+}
+function resetAdminConfig() {
+  if (!confirm('추가/수정한 관리자 설정을 모두 초기화할까요?')) return;
+  localStorage.removeItem(CFG_KEY);
+  loadAdminConfig();
+  renderAdmin();
+}
+
 
 function tryLogin() {
   if (document.getElementById('pw').value === PASSWORD) {
@@ -691,17 +999,18 @@ function filteredOrders() {
 
 function matchClient(text) {
   text = text.replace(/[●■☆★]/g, '').replace(/추가|정정|급급/g, '').trim();
-  for (const [alias, real] of Object.entries(ALIASES)) {
+  const aliasMap = getAllAliases();
+  const clients = getAllClients();
+  for (const [alias, real] of Object.entries(aliasMap)) {
     if (text.startsWith(alias) || (alias.length > 2 && text.includes(alias))) {
       if (!real) return { name: alias, address: '' };
-      const c = CLIENTS.find(x => x.name === real);
+      const c = clients.find(x => x.name === real);
       return c ? { name: c.name, address: c.address } : { name: real, address: '' };
     }
   }
-  // fuzzy
   let best = null, bestScore = 0;
   const t = text.slice(0, 20);
-  for (const c of CLIENTS) {
+  for (const c of clients) {
     const score = similarity(t, c.name.slice(0, 20));
     if (score > bestScore && score > 0.35) { bestScore = score; best = c; }
   }
@@ -737,7 +1046,7 @@ function parseItemLine(line) {
   if (!line || isPoliteOnly(line)) return null;
 
   // 메이커(브랜드) 목록 — 비고로 빼고 박스 단위로 취급
-  const BRANDS = '포크|대산|정담|황금|토레인|두메코|테니쉬|올리멜|알레한|고원돈|바텔|셀렉타|농협|신짜|정담한돈';
+  const BRANDS = getBrandPattern();
 
   let name = '', qty = '', unit = '', note = '', extra = '';
 
@@ -857,11 +1166,19 @@ function setShipFilter(f) {
 function isLoose(it) {
   const u = (it.unit || '').toLowerCase();
   const combined = (it.name + ' ' + it.unit + ' ' + it.note).toLowerCase();
-  // 박/박스는 절대 낱개 아님
-  if (/^(box|박스|박)$/.test(u) || /\b박\b|박스/.test(u)) return false;
+  if (/^(box|박스|박)$/.test(u) || /박스/.test(u)) return false;
+  const looseList = getLooseUnits().map(x => String(x).toLowerCase());
+  if (looseList.includes(u)) return true;
+  for (const lu of looseList) {
+    if (!lu) continue;
+    if (u === lu || u.includes(lu)) {
+      if (/(box|박스|박)/.test(u)) return false;
+      return true;
+    }
+  }
+  // 기본 낱개
   if (/^(pack|kg|팩|키로|봉지|봉)$/.test(u)) return true;
-  if (/(pack|kg|팩|키로|봉지)/.test(u) && !/(box|박스|박)/.test(u)) return true;
-  if (/\d+\s*(pack|kg|팩|키로|봉지)/i.test(combined) && !/(box|박스|\b박\b)/.test(combined)) return true;
+  if (/\d+\s*(pack|kg|팩|키로|봉지)/i.test(combined) && !/(box|박스)/.test(combined)) return true;
   return false;
 }
 function isBox(it) {
@@ -982,21 +1299,7 @@ function normalizeMeat(name) {
   if (/냉장?3mm|3mm냉장|3mm후지|냉장3mm후지|3mm냉장후지/i.test(n)) return '냉장3mm후지';
   if (/냉동3mm|3mm냉동/i.test(n)) return '냉동3mm후지';
 
-  const map = [
-    ['특삼겹', '특삼겹'], ['특미삼', '특미삼'], ['특목', '특목살'], ['암삼겹', '암삼겹'],
-    ['암미삼', '암미삼'], ['암오겹', '암오겹'], ['미박삼겹', '미박삼겹'],
-    ['빵삼', '빵삼겹'], ['수삼', '수삼'], ['모돈', '모돈삼겹'], ['우삼', '우삼겹'],
-    ['A삼', 'A삼겹'], ['A지방', 'A지방'], ['삼겹', '삼겹'], ['미삼', '미삼'], ['오겹', '오겹'],
-    ['목살', '목살'], ['B목살', 'B목살'], ['미전지', '미전지'], ['목전지', '목전지'],
-    ['전지', '전지'], ['등뼈', '등뼈'], ['등갈비', '등갈비'], ['갈비', '갈비'],
-    ['등심', '등심'], ['안심', '안심'], ['항정', '항정'], ['가브리', '가브리'],
-    ['갈매기', '갈매기'], ['미후지', '미후지'], ['후지', '후지'], ['사태', '사태'],
-    ['앞미사태', '앞미사태'], ['늑간', '늑간'], ['볼라', '볼라전각'],
-    ['홍두깨', '홍두깨'], ['차돌', '차돌'], ['LA갈비', 'LA갈비'],
-    ['프렌치', '프렌치렉'], ['장족', '장족'], ['돈피', '돈피'], ['잡육', '잡육'],
-    ['설도', '설도'], ['살치', '살치'], ['민찌', '민찌'], ['등잡', '등잡'],
-    ['냉동등잡', '냉동등잡'], ['냉동', '냉동'],
-  ];
+  const map = (customMeats && customMeats.length) ? customMeats : DEFAULT_MEATS;
   for (const [k, v] of map) if (n.includes(k) || name.includes(k)) return v;
 
   // 매핑 안 되면 짧은 이름만 허용 (긴 문장/인사 제외)
@@ -1168,5 +1471,27 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
+
+<div class="admin-panel" id="adminPanel">
+  <div class="admin-sheet">
+    <h2>관리자 모드</h2>
+    <div class="admin-tabs">
+      <div class="admin-tab on" data-atab="alias" onclick="switchAdminTab('alias')">거래처별명</div>
+      <div class="admin-tab" data-atab="client" onclick="switchAdminTab('client')">거래처추가</div>
+      <div class="admin-tab" data-atab="brand" onclick="switchAdminTab('brand')">메이커</div>
+      <div class="admin-tab" data-atab="meat" onclick="switchAdminTab('meat')">고기명</div>
+      <div class="admin-tab" data-atab="loose" onclick="switchAdminTab('loose')">낱개단위</div>
+    </div>
+    <div id="adminBody"></div>
+    <div class="admin-actions" style="margin-top:1rem">
+      <button type="button" class="secondary" onclick="closeAdmin()">닫기</button>
+      <button type="button" class="secondary" onclick="exportAdminConfig()">내보내기</button>
+      <button type="button" class="secondary" onclick="importAdminConfig()">가져오기</button>
+      <button type="button" class="danger" onclick="resetAdminConfig()">초기화</button>
+    </div>
+    <input type="file" id="adminImportFile" accept="application/json,.json" style="display:none" onchange="onAdminImportFile(event)">
+  </div>
+</div>
+
 </body>
 </html>
