@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 모바일 발주 집계 v2.014</title>
+  <title>미트포앤 모바일 발주 집계 v2.015</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -25,10 +25,14 @@
     <div class="px-3 py-2 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded text-[10px]">미트포앤</span>
-        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.014)</h1>
+        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.015)</h1>
       </div>
-      <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded border border-slate-700">
-        <span id="dbStatusBadge" class="text-rose-400 font-bold">CSV 미등록</span>
+      <div class="flex items-center gap-2">
+        <!-- 🔥 설정창 다시 열기 버튼 추가 🔥 -->
+        <button onclick="openInputSection()" class="text-[10px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded shadow transition">⚙️ 설정/재입력</button>
+        <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded border border-slate-700">
+          <span id="dbStatusBadge" class="text-rose-400 font-bold">CSV 미등록</span>
+        </div>
       </div>
     </div>
     
@@ -102,7 +106,7 @@
         </div>
 
         <button id="btnRunAnalyze" onclick="runAiAnalysis()" class="w-full bg-indigo-600 text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md active:scale-[0.98] transition flex items-center justify-center gap-1.5">
-          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.014)</span>
+          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.015)</span>
         </button>
       </div>
     </details>
@@ -139,6 +143,14 @@ window.addEventListener('DOMContentLoaded', () => {
 document.getElementById('geminiApiKey').addEventListener('change', function() {
   localStorage.setItem('geminiApiKey', this.value.trim());
 });
+
+// 🔥 설정 및 입력창을 다시 열어주는 함수 🔥
+function openInputSection() {
+  const details = document.getElementById('inputDetails');
+  details.open = true;
+  details.scrollIntoView({ behavior: 'smooth' });
+  showToast("⚙️ 설정창이 열렸습니다. 날짜나 텍스트를 변경 후 다시 실행하세요.");
+}
 
 function showToast(msg, isError = false) {
   const banner = document.getElementById('toastBanner');
@@ -198,9 +210,7 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
   reader.readAsText(file, 'utf-8');
 });
 
-// 텍스트 사전 추출 함수 (로그 추가)
 function extractTargetTimeMessages(rawText) {
-  console.log("▶ [LOG 1] 텍스트 사전 추출 시작 (전날 8시 ~ 당일 14시)");
   const targetDateStr = document.getElementById('targetDate').value;
   const tDt = new Date(targetDateStr + "T00:00:00");
   const winStart = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, 8, 0);
@@ -261,11 +271,9 @@ function extractTargetTimeMessages(rawText) {
   }
 
   if (!matchedAny || !resultText.trim()) {
-    console.warn("⚠️ [LOG 1-WARN] 시간 매칭된 메시지가 없어 최근 400줄을 안전 추출합니다.");
     resultText = lines.slice(-400).join('\n');
   }
 
-  console.log("✅ [LOG 1-END] 추출된 텍스트 글자 수:", resultText.length);
   return resultText;
 }
 
@@ -283,10 +291,8 @@ document.getElementById('txtFileInput').addEventListener('change', function(e) {
 
 async function fetchWithRetry(url, options, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    console.log(`📡 [LOG-FETCH] API 요청 시도 (${attempt}/${maxRetries})...`);
     const response = await fetch(url, options);
     if (response.status === 503 && attempt < maxRetries) {
-      console.warn(`⚠️ [LOG-503] 구글 서버 과부하 발생. ${attempt * 3}초 후 재시도...`);
       await new Promise(r => setTimeout(r, 3000 * attempt));
       continue;
     }
@@ -294,11 +300,7 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
   }
 }
 
-// 단계별 상세 로그가 찍히는 메인 분석 함수
 async function runAiAnalysis() {
-  console.clear();
-  console.log("🚀 [LOG START] AI 분석 프로세스 시작");
-
   const apiKey = document.getElementById('geminiApiKey').value.trim();
   if (!apiKey) {
     alert("⚠️ Google Gemini API 키를 먼저 입력해주세요.");
@@ -309,7 +311,7 @@ async function runAiAnalysis() {
     return;
   }
 
-  let cleanText = document.getElementById('kakaoInput').value.trim();
+  const cleanText = document.getElementById('kakaoInput').value.trim();
   if (!cleanText) {
     alert("분석할 대화 내용이 없습니다. 파일을 업로드하거나 텍스트를 입력해 주세요.");
     return;
@@ -319,12 +321,9 @@ async function runAiAnalysis() {
   const btnText = document.getElementById('btnRunText');
   btn.disabled = true;
   btn.classList.add('opacity-75');
+  btnText.innerText = "⏳ 1단계: AI 모델 탐지 중...";
 
   try {
-    // [단계 1] 모델 탐지
-    btnText.innerText = "⏳ [1/4단계] 사용 가능한 AI 모델 검색 중...";
-    console.log("🔍 [LOG 2] 모델 리스트 조회 중...");
-    
     const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
     const listRes = await fetch(listUrl);
     if (!listRes.ok) throw new Error("API 키 확인 또는 권한 오류입니다.");
@@ -334,8 +333,6 @@ async function runAiAnalysis() {
         .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
         .map(m => m.name.replace('models/', ''));
     
-    console.log("📋 [LOG 2-SUCC] 사용 가능한 모델 목록:", availableModels);
-
     let targetModel = "";
     const priorityModels = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-flash-latest", "gemini-3.5-pro", "gemini-2.5-pro", "gemini-1.5-flash"];
     
@@ -350,11 +347,7 @@ async function runAiAnalysis() {
     if (!targetModel && availableModels.length > 0) targetModel = availableModels[0];
     if (!targetModel) throw new Error("API 키 권한 오류: 텍스트 생성 모델이 목록에 없습니다.");
     
-    console.log("🎯 [LOG 2-FINAL] 최종 선택된 모델:", targetModel);
-
-    // [단계 2] 프롬프트 준비
-    btnText.innerText = "⏳ [2/4단계] 발주 분석 프롬프트 구성 중...";
-    console.log("📝 [LOG 3] 프롬프트 생성 완료 (입력 텍스트 길이:", cleanText.length, "자)");
+    btnText.innerText = `⏳ 2단계: 정제된 발주 데이터 분석 중...`;
 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
 
@@ -392,10 +385,6 @@ async function runAiAnalysis() {
 ${cleanText}
     `;
     
-    // [단계 3] 구글 서버 전송 및 통신
-    btnText.innerText = "⏳ [3/4단계] 구글 AI 서버 전송 및 분석 중...";
-    console.log("🌐 [LOG 4] 구글 API 요청 전송 시작...");
-
     const response = await fetchWithRetry(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -411,25 +400,16 @@ ${cleanText}
 
     if (!response || !response.ok) {
       const errText = response ? await response.text() : "네트워크 응답 없음";
-      console.error("❌ [LOG 4-ERR] 구글 서버 응답 실패:", errText);
       throw new Error(`[구글 서버 에러]\n서버가 혼잡합니다. 잠시 후 다시 시도해주세요.\n\n${errText}`);
     }
 
-    console.log("✨ [LOG 4-SUCC] 구글 서버 응답 성공!");
-
-    // [단계 4] JSON 데이터 파싱 및 매핑
-    btnText.innerText = "⏳ [4/4단계] 데이터 파싱 및 거래처 매칭 중...";
-    console.log("📦 [LOG 5] JSON 응답 파싱 시작...");
-
     const data = await response.json();
     let jsonStr = data.candidates[0].content.parts[0].text;
-    console.log("📄 [LOG 5-RAW] AI 응답 원문:\n", jsonStr);
     
     let aiOrders = [];
     try {
         aiOrders = JSON.parse(jsonStr);
     } catch (parseError) {
-        console.warn("⚠️ [LOG 5-WARN] JSON 기본 파싱 실패, 자동 복구 시도...", parseError);
         jsonStr = jsonStr.replace(/[\n\r\t]/g, ' '); 
         if (!jsonStr.trim().endsWith(']')) {
             const lastBrace = jsonStr.lastIndexOf('}');
@@ -442,9 +422,8 @@ ${cleanText}
         aiOrders = JSON.parse(jsonStr);
     }
 
-    console.log("✅ [LOG 5-SUCC] 추출된 발주 건수:", aiOrders.length);
-
     const orderMap = new Map();
+    
     for (const item of aiOrders) {
       let matchedClient = null;
       let bestLen = 0;
@@ -487,7 +466,6 @@ ${cleanText}
     }
 
     parsedOrders = Array.from(orderMap.values());
-    console.log("🎉 [LOG FINAL] 최종 매칭된 납품처 수:", parsedOrders.length);
     
     if (parsedOrders.length > 0) {
       showToast(`✨ AI 분석 완료! ${parsedOrders.length}곳 추출 성공`);
@@ -519,12 +497,12 @@ ${cleanText}
     setTab('destinations');
 
   } catch (err) {
-    console.error("🔥 [FATAL ERROR]", err);
+    console.error(err);
     alert("오류 원인 상세:\n\n" + err.message);
   } finally {
     btn.disabled = false;
     btn.classList.remove('opacity-75');
-    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.014)";
+    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.015)";
   }
 }
 
@@ -606,7 +584,7 @@ function setTab(tabId) {
     let html = `<div class="p-2 flex flex-col gap-2">`;
     sortedCats.forEach(cat => {
       const items = catMap[cat];
-      const tBox = items.filter(x => x.item.unit.includes('박ส')).reduce((s, x) => s + x.item.qty, 0);
+      const tBox = items.filter(x => x.item.unit.includes('박스')).reduce((s, x) => s + x.item.qty, 0);
       const tSpc = items.filter(x => x.item.isSpecialUnit).length;
       html += `
         <details class="bg-white border border-slate-300 rounded-xl shadow-sm group">
