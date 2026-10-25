@@ -742,7 +742,7 @@ function parseItemLine(line) {
   let name = '', qty = '', unit = '', note = '', extra = '';
 
   // 1) 고기명 + 숫자 + (단위) + 나머지
-  let m = line.match(/^(.+?)\s*(\d+(?:\.\d+)?)\s*(박스|팩|키로|kg|Kg|KG|봉지|봉|대|포|벌|판|마리|덩이|개|Pack|pack)?(.*)$/i);
+  let m = line.match(/^(.+?)\s*(\d+(?:\.\d+)?)\s*(박스|박|팩|키로|kg|Kg|KG|봉지|봉|대|포|벌|판|마리|덩이|개|Pack|pack|Box|box)?(.*)$/i);
   if (m) {
     name = m[1].replace(/[ㅡ\-–]/g, ' ').replace(/\s+/g, ' ').trim();
     qty = m[2];
@@ -750,7 +750,7 @@ function parseItemLine(line) {
     let rest = (m[4] || '').trim();
 
     if (!unit && rest) {
-      const um = rest.match(/^(박스|팩|키로|kg|Kg|봉지|봉|대|포|벌|판|마리|덩이|개|Pack)\s*(.*)$/i);
+      const um = rest.match(/^(박스|박|팩|키로|kg|Kg|봉지|봉|대|포|벌|판|마리|덩이|개|Pack|Box)\s*(.*)$/i);
       if (um) { unit = um[1]; rest = um[2].trim(); }
     }
 
@@ -790,16 +790,17 @@ function parseItemLine(line) {
 
 function normalizeUnit(u) {
   if (!u) return '';
-  const s = u.toLowerCase();
+  const s = String(u).toLowerCase();
   if (s === '팩' || s === 'pack') return 'Pack';
   if (s === '키로' || s === 'kg' || s === '킬로') return 'Kg';
-  if (s === '봉지' || s === '봉') return 'Bag';
-  if (s === '박스') return 'Box';
+  // 봉/봉지 = 봉지 (낱개). 박 = 박스 줄임말 (Bag 아님!)
+  if (s === '봉지' || s === '봉') return '봉지';
+  if (s === '박스' || s === '박' || s === 'box') return 'Box';
   if (s === '판') return 'Pan';
   if (s === '덩이') return 'Chunk';
   if (s === '벌' || s === '마리') return 'Set';
   if (s === '개') return 'Pcs';
-  if (s === '대' || s === '포') return 'Box'; // 관례상 박스성
+  if (s === '대' || s === '포') return 'Box';
   return u;
 }
 
@@ -851,18 +852,22 @@ function setShipFilter(f) {
   render();
 }
 
-// 낱개 = Pack / Kg / Bag
-// 그 외(Box, 숫자만, 메이커 포크·대산·정담·황금 등)는 박스 단위
+// 낱개 = Pack / Kg / 봉지
+// 박·박스·Box = 박스 단위 (박 ≠ Bag)
 function isLoose(it) {
   const u = (it.unit || '').toLowerCase();
   const combined = (it.name + ' ' + it.unit + ' ' + it.note).toLowerCase();
-  if (/^(pack|kg|bag|팩|키로|봉지|봉)$/.test(u)) return true;
-  if (/(pack|kg|bag|팩|키로|봉지)/.test(u) && !/(box|박스)/.test(u)) return true;
-  if (/\d+\s*(pack|kg|bag|팩|키로|봉지)/i.test(combined) && !/(box|박스)/.test(combined)) return true;
+  // 박/박스는 절대 낱개 아님
+  if (/^(box|박스|박)$/.test(u) || /\b박\b|박스/.test(u)) return false;
+  if (/^(pack|kg|팩|키로|봉지|봉)$/.test(u)) return true;
+  if (/(pack|kg|팩|키로|봉지)/.test(u) && !/(box|박스|박)/.test(u)) return true;
+  if (/\d+\s*(pack|kg|팩|키로|봉지)/i.test(combined) && !/(box|박스|\b박\b)/.test(combined)) return true;
   return false;
 }
 function isBox(it) {
-  return !isLoose(it) && (!!it.qty || /box|박스|대|포/i.test(it.unit + ' ' + it.note));
+  const u = (it.unit || '') + ' ' + (it.note || '');
+  if (/box|박스|\b박\b|대|포/i.test(u)) return true;
+  return !isLoose(it) && !!it.qty;
 }
 
 function renderByClient(el, orders, filterBar) {
@@ -1012,10 +1017,10 @@ function renderLoose(el, orders) {
   });
   const clients = Object.keys(byClient).sort();
   if (!clients.length) {
-    el.innerHTML = prev + '<div class="empty">낱개 항목이 없습니다 (Pack / Kg / Bag)</div>';
+    el.innerHTML = prev + '<div class="empty">낱개 항목이 없습니다 (Pack / Kg / 봉지)</div>';
     return;
   }
-  let html = prev + '<div class="section-title">낱개 목록 (Pack / Kg / Bag)</div>';
+  let html = prev + '<div class="section-title">낱개 목록 (Pack / Kg / 봉지)</div>';
   clients.forEach(client => {
     const items = byClient[client];
     html += `<div class="card">
@@ -1113,7 +1118,7 @@ function renderSummary(el, orders) {
       let unitLabel = x.unit || 'Pack';
       if (unitLabel === 'Pack') unitLabel = '팩';
       if (unitLabel === 'Kg') unitLabel = 'Kg';
-      if (unitLabel === 'Bag') unitLabel = '봉지';
+      if (unitLabel === '봉지' || unitLabel === '봉지') unitLabel = '봉지';
       lines.push(`${k} ${Math.round(x.qty * 10) / 10}${unitLabel}${note ? ' ' + note : ''}`);
     });
   }
