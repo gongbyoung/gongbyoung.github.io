@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f6f43">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>발주 정리</title>
+<style>
+:root{
+  --bg:#f4f5f2; --card:#fff; --ink:#1c2420; --sub:#66716b; --line:#e2e6e1;
+  --brand:#1f6f43; --brand-ink:#fff; --soft:#e6f2ea;
+  --red:#c0392b; --red-bg:#fbe9e6; --amber:#8a6100; --amber-bg:#fdf1d3; --blue:#1d5fa8; --blue-bg:#e5effa; --gray-bg:#eceeea;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme:dark;
+    --bg:#121512; --card:#1b201c; --ink:#e8ece9; --sub:#9aa59e; --line:#2c332e;
+    --brand:#4fb87c; --brand-ink:#0c1a12; --soft:#1d3326;
+    --red:#ff8a7a; --red-bg:#3b1f1b; --amber:#f0c25a; --amber-bg:#3a2f12; --blue:#7fb4f0; --blue-bg:#17283d; --gray-bg:#262c28;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Noto Sans KR","Malgun Gothic",sans-serif;padding-bottom:env(safe-area-inset-bottom)}
+header{background:var(--brand);color:var(--brand-ink);padding:max(12px,env(safe-area-inset-top)) 16px 12px;display:flex;align-items:center;justify-content:space-between}
+header h1{margin:0;font-size:19px}
+header button{background:transparent;border:0;color:inherit;font-size:22px;padding:4px 8px}
+main{max-width:720px;margin:0 auto;padding:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+.btn{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;font-size:15px;min-height:44px}
+.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.btn.small{min-height:36px;padding:6px 10px;font-size:14px}
+.btn.full{width:100%;text-align:left}
+.ok{color:var(--brand);font-weight:600}
+.sub{color:var(--sub);font-size:13px}
+input[type=date],input[type=datetime-local],input[type=search],textarea{font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card);color:var(--ink);width:100%}
+textarea{min-height:70px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 0}
+.chip{background:var(--gray-bg);border-radius:999px;padding:3px 10px;font-size:13px}
+.tabs{display:flex;gap:4px;overflow-x:auto;position:sticky;top:0;background:var(--bg);padding:6px 0;z-index:5;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 14px;font:inherit;font-size:15px;min-height:40px}
+.tab.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.tab .n{opacity:.75;font-size:12px;margin-left:4px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:var(--card);color:var(--ink);padding:8px 14px;font:inherit;font-size:14px;min-height:36px}
+.seg button.on{background:var(--soft);color:var(--brand);font-weight:700}
+details{border-top:1px solid var(--line)}
+details:first-of-type{border-top:0}
+summary{list-style:none;cursor:pointer;padding:11px 2px;display:flex;align-items:center;gap:8px;min-height:44px}
+summary::-webkit-details-marker{display:none}
+summary .nm{flex:1;min-width:0;font-weight:600;word-break:keep-all}
+summary .tot{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+summary::after{content:"▾";color:var(--sub);font-size:12px}
+details[open] summary::after{content:"▴"}
+.lines{padding:0 2px 10px 10px}
+.ln{display:flex;gap:8px;padding:5px 0;align-items:baseline;border-bottom:1px dashed var(--line)}
+.ln:last-child{border-bottom:0}
+.ln .l{flex:1;min-width:0;word-break:keep-all}
+.ln .q{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ln .note{display:block;color:var(--sub);font-size:12px}
+.badge{display:inline-block;border-radius:6px;padding:0 6px;font-size:11.5px;font-weight:700;margin-left:4px;vertical-align:1px;white-space:nowrap}
+.b-red{background:var(--red-bg);color:var(--red)}
+.b-amber{background:var(--amber-bg);color:var(--amber)}
+.b-blue{background:var(--blue-bg);color:var(--blue)}
+.b-gray{background:var(--gray-bg);color:var(--sub)}
+.grp{margin:12px 0 4px;font-weight:700;color:var(--brand);font-size:14px}
+.addr{color:var(--sub);font-size:12.5px;padding:0 2px 6px 10px}
+.memo{color:var(--sub);font-size:12.5px;padding:0 2px 4px 10px}
+.empty{text-align:center;color:var(--sub);padding:28px 8px}
+h3{margin:14px 0 6px;font-size:15px}
+dialog{border:0;border-radius:16px;padding:0;width:min(560px,94vw);max-height:88vh;background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.dlg{padding:14px;display:flex;flex-direction:column;gap:10px;max-height:88vh;overflow:auto}
+.pick{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.pick button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:10px;font:inherit;font-size:15px}
+.pick button small{display:block;color:var(--sub)}
+label.chk{display:flex;gap:8px;align-items:center;padding:6px 0}
+label.chk input{width:20px;height:20px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#222;color:#fff;border-radius:999px;padding:10px 16px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
+.toast.on{opacity:.95}
+</style>
+</head>
+<body>
+<header>
+  <h1>🥩 발주 정리</h1>
+  <button id="btnSettings" aria-label="설정">⚙</button>
+</header>
+<main>
+  <section class="card" id="setup">
+    <div class="row" style="margin-bottom:8px" id="rowCsv">
+      <button class="btn grow full" id="btnCsv"></button>
+      <input type="file" id="fileCsv" accept=".csv,text/csv,text/plain" hidden>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <button class="btn primary grow full" id="btnChat"></button>
+      <input type="file" id="fileChat" accept=".txt,text/plain" hidden>
+    </div>
+    <div class="row">
+      <div style="width:150px"><input type="date" id="target" aria-label="발주일"></div>
+      <div class="sub grow" id="winLabel"></div>
+    </div>
+  </section>
+
+  <div id="results" hidden>
+    <div class="chips" id="summary"></div>
+    <nav class="tabs" id="tabs"></nav>
+    <section class="card" id="view"></section>
+  </div>
+  <p class="sub" id="privacy" style="text-align:center">대화 내용은 이 기기 안에서만 처리되고 어디로도 전송되지 않아요.</p>
+</main>
+
+<dialog id="dlgPick"><div class="dlg">
+  <div><b id="pickTitle">거래처 선택</b><div class="sub" id="pickSub"></div></div>
+  <input type="search" id="pickQ" placeholder="거래처 검색">
+  <div class="pick" id="pickList"></div>
+  <div class="row"><button class="btn grow" id="pickRaw">목록에 없음 (그대로 사용)</button><button class="btn" id="pickClose">닫기</button></div>
+</div></dialog>
+
+<dialog id="dlgSet"><div class="dlg">
+  <b>설정</b>
+  <div>
+    <div class="sub">집계 기간 (기본: 전날 12:00 ~ 발주일 16:00, 월요일은 금요일부터)</div>
+    <div class="row"><input type="datetime-local" id="winStart" class="grow"><input type="datetime-local" id="winEnd" class="grow"></div>
+    <button class="btn small" id="winReset" style="margin-top:6px">기본 기간으로</button>
+  </div>
+  <div>
+    <div class="sub">메이커 단어 (쉼표로 구분) — 숫자 뒤나 품목 앞뒤에 있으면 "메이커"로 분리돼요</div>
+    <textarea id="makers"></textarea>
+  </div>
+  <label class="chk"><input type="checkbox" id="optOther"> 다른 날짜로 지정된 발주도 포함 (예: 수요일 예약)</label>
+  <label class="chk"><input type="checkbox" id="optDup"> 똑같이 다시 올라온 발주도 포함</label>
+  <div id="senders"></div>
+  <div class="row">
+    <button class="btn" id="btnCsv2">거래처 CSV 바꾸기</button>
+    <button class="btn" id="btnExport">별명 포함 거래처 CSV 저장</button>
+    <button class="btn" id="btnReset">저장된 데이터 지우기</button>
+  </div>
+  <div class="row"><button class="btn primary grow" id="setOk">적용</button></div>
+</div></dialog>
+
+<div class="toast" id="toast"></div>
+
+<script src="parser.js"></script>
+<script>
+(() => {
+'use strict';
+const P = OrderParser;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+const S = {
+  csvText: store.get('ord.csv', ''),
+  aliases: store.get('ord.alias', {}),
+  settings: Object.assign({ makers: P.DEFAULT_MAKERS.slice(), excludeSenders: [], includeOtherDays: false, includeDuplicates: false }, store.get('ord.set', {})),
+  customers: [], matcher: null,
+  messages: null, chatName: '',
+  target: null, win: null, customWin: false,
+  result: null, tab: 'box', sub: 'item',
+  openAll: false,
+};
+
+/* ───────── 도우미 ───────── */
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 1800); }
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const dtl = (d) => `${ymd(d)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const lbl = (d) => `${P.fmtDate(d)} ${P.fmtTime(d)}`;
+const qtyStr = (q, u) => `${P.fmtQty(q)}${u}`;
+
+async function readText(file) {
+  const buf = await file.arrayBuffer();
+  let t = new TextDecoder('utf-8').decode(buf);
+  if (t.includes('\uFFFD')) { try { t = new TextDecoder('euc-kr').decode(buf); } catch {} }
+  return t;
+}
+
+/* ───────── 거래처 ───────── */
+function loadCustomers() {
+  S.customers = S.csvText ? P.parseCustomers(S.csvText) : [];
+  S.matcher = P.buildMatcher(S.customers, S.aliases);
+}
+
+/* ───────── 실행 ───────── */
+function compute() {
+  if (!S.messages) return;
+  if (!S.customWin) S.win = P.defaultWindow(S.target);
+  S.matcher = P.buildMatcher(S.customers, S.aliases);
+  S.result = P.run({
+    messages: S.messages, window: S.win, target: S.target, matcher: S.matcher,
+    makers: S.settings.makers, excludeSenders: S.settings.excludeSenders,
+    includeOtherDays: S.settings.includeOtherDays, includeDuplicates: S.settings.includeDuplicates,
+  });
+  render();
+}
+
+/* ───────── 화면 ───────── */
+function renderSetup() {
+  $('btnCsv').innerHTML = S.customers.length
+    ? `거래처 목록 <span class="ok">✓ ${S.customers.length}곳 저장됨</span> <span class="sub">(바꾸기)</span>`
+    : '① 거래처 CSV 선택 <span class="sub">(처음 한 번만)</span>';
+  $('rowCsv').hidden = !!(S.messages && S.customers.length);
+  $('btnChat').innerHTML = S.messages
+    ? `📂 ${esc(S.chatName)} <span style="opacity:.85">· 다시 선택</span>`
+    : '② 카톡 대화 txt 선택';
+  if (S.target) {
+    $('target').value = ymd(S.target);
+    $('winLabel').textContent = S.win ? `${lbl(S.win.start)} ~ ${lbl(S.win.end)}` : '';
+  }
+}
+
+function badgesFor(c) {
+  let h = '';
+  if (c.flags.includes('급')) h += '<span class="badge b-red">급</span>';
+  if (c.flags.includes('추가')) h += '<span class="badge b-blue">추가</span>';
+  if (c.flags.includes('오후')) h += '<span class="badge b-gray">오후</span>';
+  if (c.status === 'maybe' || c.status === 'none') h += '<span class="badge b-amber">거래처 확인</span>';
+  return h;
+}
+
+function lineHtml(it, withName = true) {
+  const mk = it.maker ? `<span class="badge b-gray">${esc(it.maker)}</span>` : '';
+  const ad = it.added ? '<span class="badge b-blue">추가</span>' : '';
+  const dl = it.dayLabel ? `<span class="badge b-amber">${esc(it.dayLabel)}</span>` : '';
+  const nt = it.note ? `<span class="note">${esc(it.note)}</span>` : '';
+  return `<div class="ln"><div class="l">${esc(it.name)}${mk}${ad}${dl}${nt}</div><div class="q">${esc(qtyStr(it.qty, it.unit))}</div></div>`;
+}
+
+const CAT_LABEL = { box: '박스', piece: '낱개', maker: '메이커' };
+
+function renderByItem(cat) {
+  let list = P.aggregate(S.result, cat);
+  if (!list.length) return '<div class="empty">해당 항목이 없어요</div>';
+  if (cat === 'maker') list = list.slice().sort((a, b) => a.maker.localeCompare(b.maker, 'ko'));
+  let html = '', lastMaker = null;
+  for (const p of list) {
+    if (cat === 'maker' && p.maker !== lastMaker) { html += `<div class="grp">${esc(p.maker || '메이커')}</div>`; lastMaker = p.maker; }
+    const title = cat === 'maker' ? p.name : p.name + (cat === 'piece' && p.maker ? ` <span class="badge b-gray">${esc(p.maker)}</span>` : '');
+    html += `<details${S.openAll ? ' open' : ''}><summary><span class="nm">${cat === 'maker' ? esc(p.name) : title}</span><span class="tot">${esc(qtyStr(p.total, p.unit))}</span></summary><div class="lines">`;
+    for (const r of p.rows) {
+      const ad = r.added ? '<span class="badge b-blue">추가</span>' : '';
+      const dl = r.dayLabel ? `<span class="badge b-amber">${esc(r.dayLabel)}</span>` : '';
+      const nt = r.note ? `<span class="note">${esc(r.note)}</span>` : '';
+      html += `<div class="ln"><div class="l">${esc(r.customer)}${ad}${dl}${nt}</div><div class="q">${esc(qtyStr(r.qty, p.unit))}</div></div>`;
+    }
+    html += '</div></details>';
+  }
+  return html;
+}
+
+function renderByCustomer(cat) {
+  const list = P.itemsByCustomer(S.result, cat);
+  if (!list.length) return '<div class="empty">해당 항목이 없어요</div>';
+  let html = '';
+  for (const { customer: c, items } of list) {
+    const count = items.length;
+    html += `<details${S.openAll ? ' open' : ''}><summary><span class="nm">${esc(c.name)}${badgesFor(c)}</span><span class="tot">${count}품목</span></summary>`;
+    if (c.address) html += `<div class="addr">${esc(c.address)}</div>`;
+    for (const m of c.memos) html += `<div class="memo">📝 ${esc(m)}</div>`;
+    html += '<div class="lines">';
+    if (cat === 'all') {
+      for (const k of ['box', 'piece', 'maker']) {
+        const sub = items.filter((i) => i.cat === k);
+        if (sub.length) html += `<div class="grp">${CAT_LABEL[k]}</div>` + sub.map((i) => lineHtml(i)).join('');
+      }
+      if (c.noqty.length) html += `<div class="grp">수량 확인</div>` + c.noqty.map((n) => `<div class="ln"><div class="l">${esc(n.name)}</div><div class="q">?</div></div>`).join('');
+    } else html += items.map((i) => lineHtml(i)).join('');
+    if (c.status === 'maybe' || c.status === 'none') html += `<button class="btn small" data-fix="${esc(c.raws[0])}">거래처 지정</button>`;
+    html += '</div></details>';
+  }
+  return html;
+}
+
+function renderReview() {
+  const r = S.result, rv = r.review;
+  let h = '';
+  const sec = (t, n) => `<h3>${t} <span class="sub">${n}건</span></h3>`;
+
+  h += sec('수량을 확인해 주세요', rv.suspicious.length + rv.noqty.length);
+  if (!rv.suspicious.length && !rv.noqty.length) h += '<div class="sub">없음 👍</div>';
+  for (const s of rv.suspicious) h += `<div class="ln"><div class="l">${esc(s.customer)}<span class="note">${esc(s.line)} · ${esc(s.reason)} (${esc(s.sender)} ${P.fmtTime(s.ts)})</span></div></div>`;
+  for (const n of rv.noqty) h += `<div class="ln"><div class="l">${esc(n.customer)} · ${esc(n.name)}<span class="note">수량이 적혀 있지 않아요</span></div></div>`;
+
+  const um = rv.unmatched;
+  h += sec('거래처 확인', um.length);
+  if (!um.length) h += '<div class="sub">모두 확인됨</div>';
+  for (const m of um) {
+    h += `<div class="ln"><div class="l">${esc(m.raw)}<span class="note">${m.status === 'none' ? '거래처 목록에서 못 찾았어요' : '→ ' + esc(m.official) + ' (맞는지 확인)'}</span></div><button class="btn small" data-fix="${esc(m.raw)}">지정</button></div>`;
+  }
+
+  const sk = r.skipped;
+  h += sec('제외된 발주', sk.otherDay.length + sk.dup.length);
+  if (!sk.otherDay.length && !sk.dup.length) h += '<div class="sub">없음</div>';
+  const skLine = (o, why) => `<div class="ln"><div class="l">${esc(o.header)}<span class="note">${why} · ${o.items.map((i) => i.name + ' ' + qtyStr(i.qty, i.unit)).slice(0, 6).join(', ')}</span></div></div>`;
+  for (const o of sk.otherDay) h += skLine(o, `${o.dayRef ? P.fmtDate(o.dayRef) : ''} 지정`);
+  for (const o of sk.dup) h += skLine(o, '중복');
+  if (sk.otherDay.length || sk.dup.length) h += '<div class="sub" style="margin-top:6px">⚙ 설정에서 포함할 수 있어요</div>';
+  return h;
+}
+
+function currentText() {
+  const r = S.result; const tag = P.fmtDate(S.target);
+  const cat = S.tab;
+  if (cat === 'all') {
+    const out = [`${tag} 발주 (배송지별)`];
+    for (const { customer: c, items } of P.itemsByCustomer(r, 'all')) {
+      out.push('', `■ ${c.name}`);
+      for (const i of items) out.push(`- ${i.name}${i.maker ? '(' + i.maker + ')' : ''} ${qtyStr(i.qty, i.unit)}${i.note ? ' [' + i.note + ']' : ''}`);
+      for (const n of c.noqty) out.push(`- ${n.name} ?`);
+    }
+    return out.join('\n');
+  }
+  const title = `${tag} ${CAT_LABEL[cat]}`;
+  const out = [];
+  if (S.sub === 'item') {
+    out.push(`${title} (물품별)`);
+    for (const p of P.aggregate(r, cat)) {
+      out.push('', `${p.name}${p.maker ? ' · ' + p.maker : ''} ${qtyStr(p.total, p.unit)}`);
+      for (const x of p.rows) out.push(`  - ${x.customer} ${qtyStr(x.qty, p.unit)}${x.note ? ' [' + x.note + ']' : ''}`);
+    }
+  } else {
+    out.push(`${title} (배송지별)`);
+    for (const { customer: c, items } of P.itemsByCustomer(r, cat)) {
+      out.push('', `■ ${c.name}`);
+      for (const i of items) out.push(`- ${i.name}${i.maker ? '(' + i.maker + ')' : ''} ${qtyStr(i.qty, i.unit)}${i.note ? ' [' + i.note + ']' : ''}`);
+    }
+  }
+  return out.join('\n');
+}
+
+function render() {
+  renderSetup();
+  if (!S.result) { $('results').hidden = true; return; }
+  const r = S.result;
+  $('results').hidden = false;
+  const cnt = (cat) => P.aggregate(r, cat).length;
+  const reviewN = r.review.suspicious.length + r.review.noqty.length + r.review.unmatched.length;
+  $('summary').innerHTML = [
+    `배송지 ${r.customers.length}곳`, `발주 ${r.orderCount}건`, `읽은 메시지 ${r.scanned}개`,
+  ].map((t) => `<span class="chip">${t}</span>`).join('');
+
+  const tabs = [['box', '발주(박스)', cnt('box')], ['piece', '낱개', cnt('piece')], ['maker', '메이커', cnt('maker')], ['all', '배송지별 전체', r.customers.length], ['review', '확인', reviewN]];
+  $('tabs').innerHTML = tabs.map(([k, t, n]) => `<button class="tab${S.tab === k ? ' on' : ''}" data-tab="${k}">${t}<span class="n">${n}</span></button>`).join('');
+
+  let html = '';
+  if (S.tab === 'review') html = renderReview();
+  else {
+    const showSub = S.tab !== 'all';
+    html += `<div class="row" style="margin-bottom:6px;justify-content:space-between">`;
+    html += showSub ? `<div class="seg"><button data-sub="item" class="${S.sub === 'item' ? 'on' : ''}">물품별</button><button data-sub="cust" class="${S.sub === 'cust' ? 'on' : ''}">배송지별</button></div>` : '<span></span>';
+    html += `<div class="row"><button class="btn small" data-act="toggle">${S.openAll ? '모두 접기' : '모두 펼치기'}</button><button class="btn small" data-act="copy">복사</button>${navigator.share ? '<button class="btn small" data-act="share">공유</button>' : ''}</div></div>`;
+    if (S.tab === 'all') html += renderByCustomer('all');
+    else html += S.sub === 'item' ? renderByItem(S.tab) : renderByCustomer(S.tab);
+  }
+  $('view').innerHTML = html;
+}
+
+/* ───────── 이벤트 ───────── */
+$('btnCsv').onclick = () => $('fileCsv').click();
+$('btnChat').onclick = () => $('fileChat').click();
+$('btnCsv2').onclick = () => $('fileCsv').click();
+
+$('fileCsv').onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const text = await readText(f);
+  const list = P.parseCustomers(text);
+  if (!list.length) { toast('거래처명 열을 찾지 못했어요'); return; }
+  S.csvText = text; store.set('ord.csv', text);
+  loadCustomers(); toast(`거래처 ${list.length}곳 저장`);
+  S.messages ? compute() : renderSetup();
+  e.target.value = '';
+};
+
+$('fileChat').onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const text = await readText(f);
+  const msgs = P.parseChat(text);
+  if (!msgs.length) { toast('카톡 내보내기 형식(안드로이드 txt)이 아닌 것 같아요'); return; }
+  S.messages = msgs; S.chatName = f.name;
+  S.target = P.guessTargetDate(msgs); S.customWin = false;
+  S.tab = 'box';
+  compute();
+  e.target.value = '';
+};
+
+$('target').onchange = (e) => {
+  const [y, m, d] = e.target.value.split('-').map(Number);
+  if (!y) return;
+  S.target = new Date(y, m - 1, d); S.customWin = false; compute();
+};
+
+$('tabs').onclick = (e) => { const b = e.target.closest('[data-tab]'); if (b) { S.tab = b.dataset.tab; render(); window.scrollTo({ top: 0 }); } };
+
+$('view').onclick = async (e) => {
+  const sub = e.target.closest('[data-sub]'); if (sub) { S.sub = sub.dataset.sub; render(); return; }
+  const fix = e.target.closest('[data-fix]'); if (fix) { openPicker(fix.dataset.fix); return; }
+  const act = e.target.closest('[data-act]');
+  if (!act) return;
+  if (act.dataset.act === 'toggle') { S.openAll = !S.openAll; render(); }
+  else if (act.dataset.act === 'copy') {
+    const t = currentText();
+    try { await navigator.clipboard.writeText(t); }
+    catch { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+    toast('복사했어요');
+  } else if (act.dataset.act === 'share') {
+    try { await navigator.share({ text: currentText() }); } catch {}
+  }
+};
+
+/* 거래처 지정 */
+let pickRaw = '';
+function openPicker(raw) {
+  pickRaw = raw;
+  $('pickTitle').textContent = `“${raw}” 은(는) 어느 거래처?`;
+  $('pickSub').textContent = '한 번 지정하면 이 기기에 저장돼요';
+  $('pickQ').value = '';
+  fillPick('');
+  const guess = S.matcher ? S.matcher(raw) : null;
+  if (guess && guess.status === 'maybe') {
+    $('pickList').insertAdjacentHTML('afterbegin', `<button data-n="${esc(guess.official)}" style="background:var(--soft);font-weight:700">✓ 추천: ${esc(guess.official)}<small>${esc(guess.address)}</small></button>`);
+  }
+  $('dlgPick').showModal();
+}
+function fillPick(q) {
+  const nq = q.trim().toLowerCase();
+  const list = S.customers.filter((c) => !nq || c.name.toLowerCase().includes(nq) || c.address.toLowerCase().includes(nq)).slice(0, 80);
+  $('pickList').innerHTML = list.length
+    ? list.map((c) => `<button data-n="${esc(c.name)}">${esc(c.name)}<small>${esc(c.address)}</small></button>`).join('')
+    : '<div class="empty">검색 결과 없음</div>';
+}
+$('pickQ').oninput = (e) => fillPick(e.target.value);
+$('pickList').onclick = (e) => { const b = e.target.closest('[data-n]'); if (b) { setAlias(pickRaw, b.dataset.n); $('dlgPick').close(); } };
+$('pickRaw').onclick = () => { setAlias(pickRaw, pickRaw); $('dlgPick').close(); };
+$('pickClose').onclick = () => $('dlgPick').close();
+function setAlias(raw, official) { S.aliases[raw.trim()] = official; store.set('ord.alias', S.aliases); compute(); }
+
+/* 설정 */
+$('btnSettings').onclick = () => {
+  const s = S.settings;
+  $('makers').value = s.makers.join(', ');
+  $('optOther').checked = s.includeOtherDays; $('optDup').checked = s.includeDuplicates;
+  if (S.win) { $('winStart').value = dtl(S.win.start); $('winEnd').value = dtl(S.win.end); }
+  const stats = S.result ? S.result.senderStats : {};
+  const names = Object.keys(stats);
+  $('senders').innerHTML = names.length
+    ? '<div class="sub">발주로 읽을 작성자</div>' + names.map((n) => `<label class="chk"><input type="checkbox" data-sender="${esc(n)}" ${s.excludeSenders.includes(n) ? '' : 'checked'}> ${esc(n)} <span class="sub">(${stats[n]}건)</span></label>`).join('')
+    : '';
+  $('dlgSet').showModal();
+};
+$('winReset').onclick = () => { S.customWin = false; if (S.target) { const w = P.defaultWindow(S.target); $('winStart').value = dtl(w.start); $('winEnd').value = dtl(w.end); } };
+$('setOk').onclick = () => {
+  const s = S.settings;
+  s.makers = $('makers').value.split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
+  s.includeOtherDays = $('optOther').checked; s.includeDuplicates = $('optDup').checked;
+  const checks = [...document.querySelectorAll('[data-sender]')];
+  if (checks.length) s.excludeSenders = checks.filter((c) => !c.checked).map((c) => c.dataset.sender);
+  store.set('ord.set', s);
+  const a = $('winStart').value, b = $('winEnd').value;
+  if (a && b && S.target) {
+    const st = new Date(a), en = new Date(b);
+    const def = P.defaultWindow(S.target);
+    if (+st !== +def.start || +en !== +def.end) { S.win = { start: st, end: en }; S.customWin = true; } else S.customWin = false;
+  }
+  $('dlgSet').close(); compute();
+};
+$('btnExport').onclick = () => {
+  if (!S.customers.length) { toast('거래처 CSV가 없어요'); return; }
+  const byOff = {};
+  for (const [raw, off] of Object.entries(S.aliases)) if (raw !== off) (byOff[off] = byOff[off] || []).push(raw);
+  const q = (v) => (/[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v);
+  const rows = ['거래처명,주소,별명'];
+  for (const c of S.customers) rows.push([q(c.name), q(c.address), q([...(c.aliases || []), ...(byOff[c.name] || [])].filter((v, i, a) => a.indexOf(v) === i).join('/'))].join(','));
+  const blob = new Blob(['\uFEFF' + rows.join('\r\n')], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '거래처_별명포함.csv'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+$('btnReset').onclick = () => {
+  if (!confirm('저장된 거래처 목록, 별명, 설정을 모두 지울까요?')) return;
+  ['ord.csv', 'ord.alias', 'ord.set'].forEach(store.del);
+  S.csvText = ''; S.aliases = {}; S.settings = { makers: P.DEFAULT_MAKERS.slice(), excludeSenders: [], includeOtherDays: false, includeDuplicates: false };
+  loadCustomers(); $('dlgSet').close(); S.messages ? compute() : renderSetup();
+};
+
+/* 시작 */
+loadCustomers();
+renderSetup();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
