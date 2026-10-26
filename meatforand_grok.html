@@ -6,6 +6,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#c41e3a">
+<meta name="apple-mobile-web-app-title" content="미트포앤 발주">
+<meta name="application-name" content="미트포앤 발주">
+<link rel="manifest" href="manifest.webmanifest">
+
 <title>미트포앤 발주 관리</title>
 <style>
 :root {
@@ -444,6 +448,9 @@ function saveAdminConfig() {
   localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
 }
 loadAdminConfig();
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
 
 function getAllClients() {
   return CLIENTS.concat(customClients);
@@ -631,6 +638,9 @@ function onAdminImportFile(e) {
       const cfg = JSON.parse(ev.target.result);
       localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
       loadAdminConfig();
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
       alert('설정을 가져왔습니다');
       renderAdmin();
     } catch (err) {
@@ -644,6 +654,9 @@ function resetAdminConfig() {
   if (!confirm('추가/수정한 관리자 설정을 모두 초기화할까요?')) return;
   localStorage.removeItem(CFG_KEY);
   loadAdminConfig();
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
   renderAdmin();
 }
 
@@ -664,12 +677,35 @@ let shipFilter = 'all'; // all | today | next
 function loadChatFile(e) {
   const file = e.target.files[0];
   if (!file) return;
+  const hint = document.getElementById('uploadHint');
+  hint.style.display = 'block';
+  hint.textContent = '파일 읽는 중...';
+
   const reader = new FileReader();
   reader.onload = ev => {
-    chatText = ev.target.result || '';
-    // BOM 제거
+    const buf = ev.target.result;
+    // UTF-8 시도 후 날짜 없으면 EUC-KR(CP949) 재시도
+    let text = decodeBuffer(buf, 'utf-8');
+    let dates = extractDates(text);
+    if (!dates.length) {
+      const text2 = decodeBuffer(buf, 'euc-kr');
+      const dates2 = extractDates(text2);
+      if (dates2.length >= dates.length) {
+        text = text2;
+        dates = dates2;
+      }
+    }
+    // 여전히 없으면 latin1 깨진 텍스트에서도 패턴 복구 시도
+    if (!dates.length) {
+      const text3 = tryRepairKakaoText(decodeBuffer(buf, 'utf-8'));
+      const dates3 = extractDates(text3);
+      if (dates3.length) { text = text3; dates = dates3; }
+    }
+
+    chatText = text;
     if (chatText.charCodeAt(0) === 0xFEFF) chatText = chatText.slice(1);
-    availableDates = extractDates(chatText);
+    availableDates = dates;
+
     const sel = document.getElementById('dateSelect');
     sel.innerHTML = '<option value="">배송/작업일 선택</option>';
     availableDates.forEach(d => {
@@ -679,51 +715,73 @@ function loadChatFile(e) {
       sel.appendChild(opt);
     });
     sel.disabled = availableDates.length === 0;
+
     if (availableDates.length === 0) {
-      document.getElementById('uploadHint').textContent =
-        '날짜를 찾지 못했습니다. 카카오톡 "대화 내용 내보내기" TXT 파일인지 확인해 주세요. (예: --------------- 2026년 10월 22일 목요일 ---------------)';
-      document.getElementById('uploadHint').style.display = 'block';
+      const sample = (chatText || '').slice(0, 280).replace(/\s+/g, ' ');
+      hint.textContent =
+        '날짜를 찾지 못했습니다.\n' +
+        '카카오톡 → 채팅방 → 메뉴 → 대화 내용 내보내기 → TXT 로 저장한 파일인지 확인해 주세요.\n' +
+        '파일 미리보기: ' + sample;
     } else {
-      document.getElementById('uploadHint').textContent =
-        `파일 로드 완료 · 날짜 ${availableDates.length}개. 배송/작업일을 선택하세요.\n일반: 전날 12:00 ~ 당일 14:00  /  월요일: 금 12:00 ~ 월 12:00 (토·일 포함)`;
-      document.getElementById('uploadHint').style.display = 'block';
+      hint.textContent =
+        `파일 로드 완료 · 날짜 ${availableDates.length}개. 배송/작업일을 선택하세요.\n일반: 전날 12:00~당일 14:00 / 월요일: 금12:00~월12:00 (토·일 포함)`;
     }
     currentDate = '';
     currentOrders = [];
     render();
   };
   reader.onerror = () => {
-    document.getElementById('uploadHint').textContent = '파일을 읽지 못했습니다. 다시 시도해 주세요.';
+    hint.textContent = '파일을 읽지 못했습니다. 다시 시도해 주세요.';
   };
-  reader.readAsText(file, 'UTF-8');
+  reader.readAsArrayBuffer(file);
 }
 
+function decodeBuffer(buf, enc) {
+  try {
+    return new TextDecoder(enc, { fatal: false }).decode(buf);
+  } catch (e) {
+    try { return new TextDecoder('utf-8', { fatal: false }).decode(buf); }
+    catch (e2) { return ''; }
+  }
+}
+function tryRepairKakaoText(t) { return t || ''; }
+
 function extractDates(text) {
-  // 다양한 구분선·연도 지원
-  const re = /-{3,}\s*((?:20\d{2})년\s*\d{1,2}월\s*\d{1,2}일(?:\s*[가-힣]+)?)\s*-{3,}/g;
   const dates = [];
   const seen = new Set();
-  let m;
-  while ((m = re.exec(text)) !== null) {
-    const raw = m[1].replace(/\s+/g, ' ').trim();
-    const key = raw;
-    if (seen.has(key)) continue;
-    seen.add(key);
+  function addRaw(raw) {
+    raw = (raw || '').replace(/\s+/g, ' ').trim();
+    if (!raw) return;
     const parsed = parseKoreanDate(raw);
+    if (!parsed) return;
+    const key = formatKey(toDateObj(parsed.y, parsed.mo, parsed.d));
+    if (seen.has(key)) return;
+    seen.add(key);
     dates.push({
       key,
-      label: raw.replace(/^(20\d{2})년\s*/, ''),
-      y: parsed?.y, mo: parsed?.mo, d: parsed?.d,
-      dow: parsed?.dow
+      label: key.replace(/^(20\d{2})년\s*/, ''),
+      y: parsed.y, mo: parsed.mo, d: parsed.d,
+      dow: parsed.dow
     });
   }
-
-  // 금·토·일 메시지가 있으면 다음 월요일을 배송일로 추가 (파일에 월 헤더가 없어도)
+  // 1) 카카오 기본: --------------- 2026년 10월 14일 수요일 ---------------
+  const re1 = /[-–—－]{3,}\s*((?:20\d{2})\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일(?:\s*[가-힣]+)?)\s*[-–—－]{3,}/g;
+  let m;
+  while ((m = re1.exec(text)) !== null) addRaw(m[1]);
+  // 2) 줄 단위 날짜 헤더 (구분선 약하거나 없음)
+  const re2 = /(?:^|\n)\s*((?:20\d{2})\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일(?:\s*[월화수목금토일]요일)?)\s*(?:\n|$)/g;
+  while ((m = re2.exec(text)) !== null) addRaw(m[1]);
+  // 3) 2026.10.14 / 2026-10-14 형태
+  const re3 = /(?:^|\n)\s*(20\d{2})[.\-\/](\d{1,2})[.\-\/](\d{1,2})(?:\s*[월화수목금토일]요일)?/g;
+  while ((m = re3.exec(text)) !== null) {
+    addRaw(`${m[1]}년 ${+m[2]}월 ${+m[3]}일`);
+  }
+  // 금·토·일 있으면 다음 월요일 배송일 추가
   const extra = [];
   dates.forEach(d => {
     if (!d.y) return;
     const dt = toDateObj(d.y, d.mo, d.d);
-    const day = dt.getDay(); // 0일 5금 6토
+    const day = dt.getDay();
     if (day === 5 || day === 6 || day === 0) {
       const mon = new Date(dt);
       if (day === 5) mon.setDate(mon.getDate() + 3);
@@ -741,18 +799,13 @@ function extractDates(text) {
       }
     }
   });
-  // 날짜 정렬
   const all = dates.concat(extra);
-  all.sort((a, b) => {
-    const da = toDateObj(a.y || 0, a.mo || 0, a.d || 0);
-    const db = toDateObj(b.y || 0, b.mo || 0, b.d || 0);
-    return da - db;
-  });
+  all.sort((a, b) => toDateObj(a.y||0, a.mo||0, a.d||0) - toDateObj(b.y||0, b.mo||0, b.d||0));
   return all;
 }
 
 function parseKoreanDate(str) {
-  const m = str.match(/(20\d{2})년\s*(\d{1,2})월\s*(\d{1,2})일(?:\s*([가-힣]+))?/);
+  const m = String(str || '').match(/(20\d{2})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일(?:\s*([가-힣]+일))?/);
   if (!m) return null;
   return { y: +m[1], mo: +m[2], d: +m[3], dow: m[4] || '' };
 }
@@ -805,7 +858,9 @@ function switchTab(tab) {
 // 대화 내용의 오늘/내일 키워드로 당일·다음날 출고 구분
 
 function getAllDatedMessages(text) {
-  const dateRe = /-{3,}\s*((?:20\d{2})년\s*\d{1,2}월\s*\d{1,2}일(?:\s*[가-힣]+)?)\s*-{3,}/g;
+  text = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-');
+  const dateRe = /-{2,}\s*((?:20\d{2})\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일(?:\s*[가-힣]+일)?)\s*-{2,}/g;
   const headers = [];
   let m;
   while ((m = dateRe.exec(text)) !== null) {
