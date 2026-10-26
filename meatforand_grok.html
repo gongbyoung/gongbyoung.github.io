@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -329,6 +330,21 @@ pre {
 .admin-actions button.danger { background: #b71c1c; }
 .admin-hint { font-size: .78rem; color: var(--muted); margin-bottom: .5rem; line-height: 1.4; }
 
+
+.progress-wrap {
+  display: none; margin: .5rem 0 .75rem; padding: .6rem .75rem;
+  background: #fff; border-radius: 12px; border: 1px solid var(--border);
+}
+.progress-wrap.show { display: block; }
+.progress-label { font-size: .8rem; color: var(--muted); margin-bottom: .35rem; }
+.progress-bar {
+  height: 10px; background: #eee; border-radius: 6px; overflow: hidden;
+}
+.progress-bar > i {
+  display: block; height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--primary), #e57373);
+  transition: width .15s ease;
+}
 </style>
 </head>
 <body>
@@ -369,6 +385,7 @@ pre {
   </div>
   </div>
   <div class="content">
+    <div id="progressWrap" class="progress-wrap"><div class="progress-label" id="progressLabel">분석 중...</div><div class="progress-bar"><i id="progressBar"></i></div></div>
     <div id="uploadHint" class="upload-hint">카카오톡 대화 내보내기(.txt) 파일을 불러온 뒤 날짜를 선택하세요.</div>
     <div id="stats" class="stats" style="display:none"></div>
     <div id="mainView"></div>
@@ -680,6 +697,7 @@ function loadChatFile(e) {
   const hint = document.getElementById('uploadHint');
   hint.style.display = 'block';
   hint.textContent = '파일 읽는 중...';
+  showProgress(5, '파일 읽는 중...');
 
   const reader = new FileReader();
   reader.onload = ev => {
@@ -705,6 +723,7 @@ function loadChatFile(e) {
     chatText = text;
     if (chatText.charCodeAt(0) === 0xFEFF) chatText = chatText.slice(1);
     availableDates = dates;
+    showProgress(80, '날짜 목록 구성 중...');
 
     const sel = document.getElementById('dateSelect');
     sel.innerHTML = '<option value="">배송/작업일 선택</option>';
@@ -728,6 +747,8 @@ function loadChatFile(e) {
     }
     currentDate = '';
     currentOrders = [];
+    showProgress(100, '파일 로드 완료');
+    setTimeout(hideProgress, 300);
     render();
   };
   reader.onerror = () => {
@@ -832,16 +853,47 @@ function parseMsgTime(timeStr) {
 
 function onDateChange() {
   currentDate = document.getElementById('dateSelect').value;
-  if (!currentDate) { currentOrders = []; render(); return; }
-  currentOrders = parseOrdersForDeliveryDate(chatText, currentDate);
-  const range = getWindowRange(currentDate);
-  const hint = document.getElementById('uploadHint');
-  hint.style.display = 'block';
-  hint.textContent = formatWindowLabel(range) + ` · 발주 ${currentOrders.length}건` +
-    (range && range.isMonday ? ' (월요일부: 금12시~월12시)' : '');
-  document.getElementById('stats').style.display = 'flex';
-  shipFilter = 'all';
-  render();
+  if (!currentDate) { currentOrders = []; hideProgress(); render(); return; }
+  showProgress(0, '발주 분석 중...');
+  // 큰 파일도 UI 멈추지 않게 다음 프레임에서 실행
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      try {
+        showProgress(30, '메시지 수집 중...');
+        currentOrders = parseOrdersForDeliveryDate(chatText, currentDate, pct => {
+          showProgress(30 + Math.round(pct * 0.6), '발주 분석 중 ' + Math.round(pct) + '%');
+        });
+        showProgress(95, '화면 구성 중...');
+        const range = getWindowRange(currentDate);
+        const hint = document.getElementById('uploadHint');
+        hint.style.display = 'block';
+        hint.textContent = formatWindowLabel(range) + ` · 발주 ${currentOrders.length}건` +
+          (range && range.isMonday ? ' (월요일부: 금12시~월12시)' : '');
+        document.getElementById('stats').style.display = 'flex';
+        shipFilter = 'all';
+        render();
+        showProgress(100, '완료');
+        setTimeout(hideProgress, 400);
+      } catch (err) {
+        hideProgress();
+        document.getElementById('uploadHint').textContent = '분석 오류: ' + (err.message || err);
+        console.error(err);
+      }
+    }, 20);
+  });
+}
+function showProgress(pct, label) {
+  const w = document.getElementById('progressWrap');
+  const b = document.getElementById('progressBar');
+  const l = document.getElementById('progressLabel');
+  if (!w) return;
+  w.classList.add('show');
+  if (b) b.style.width = Math.min(100, Math.max(0, pct)) + '%';
+  if (l) l.textContent = label || ('분석 중 ' + Math.round(pct) + '%');
+}
+function hideProgress() {
+  const w = document.getElementById('progressWrap');
+  if (w) w.classList.remove('show');
 }
 
 function switchTab(tab) {
@@ -959,14 +1011,19 @@ function detectShipSide(rawText, msgDt, deliveryDt) {
   return 'today';
 }
 
-function parseOrdersForDeliveryDate(text, deliveryKey) {
+function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
   const range = getWindowRange(deliveryKey);
   if (!range) return [];
+  if (onProgress) onProgress(5);
   const allMsgs = getAllDatedMessages(text);
+  if (onProgress) onProgress(25);
   const msgs = allMsgs.filter(m => m.dt >= range.start && m.dt <= range.end);
+  if (onProgress) onProgress(35);
 
   const orders = [];
   let cur = null;
+  const total = Math.max(msgs.length, 1);
+  let processed = 0;
 
   function flush() {
     if (cur && (cur.items.length || cur.rawLines.length)) {
@@ -985,34 +1042,60 @@ function parseOrdersForDeliveryDate(text, deliveryKey) {
     cur = null;
   }
 
+  // 메시지 → 블록(빈 줄 구분) → 거래처 발주
   for (const msg of msgs) {
-    if (msg.text.includes('메시지가 삭제되었습니다')) continue;
-    const lines = msg.text.split('\n').map(l => l.trim()).filter(l => l && !l.includes('메시지가 삭제'));
-    if (!lines.length) continue;
+    processed++;
+    if (onProgress && processed % 20 === 0) onProgress(35 + (processed / total) * 55);
+    if (!msg.text || msg.text.includes('메시지가 삭제되었습니다')) continue;
+    if (/^사진|^이모티콘|^동영상/.test(msg.text.trim())) continue;
+    if (!isLikelyOrderSender(msg.sender, msg.text)) continue;
 
-    const isOrder = /한재호|미트포앤/.test(msg.sender);
-    if (!isOrder) continue;
+    const body = msg.text.replace(/\r/g, '');
+    // 한 메시지 안 여러 거래처 (빈 줄로 구분)
+    const blocks = body.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
 
-    if (/여기까지|발주체크/.test(lines[0]) && lines.length === 1) {
+    for (const block of blocks) {
+      const lines = block.split('\n').map(l => l.trim()).filter(l => l && !l.includes('메시지가 삭제'));
+      if (!lines.length) continue;
+
+      // 발주체크/여기까지/시세 등은 스킵
+      if (/^(여기까지|발주체크|작성|최종수정)/.test(lines[0]) && lines.length <= 2) {
+        flush();
+        continue;
+      }
+      if (/Web발신|경매가격|도축|등급별|탕박|전국\d/.test(block)) continue;
+      // 순수 계근/개체 로그 (거래처 없이 숫자만)
+      if (isWeightLogOnly(lines)) continue;
+
+      const first = lines[0].replace(/[●■☆★♥❤️⭐️*~]/g, '').trim();
+      // 첫 줄이 품목이면 이전 거래처에 이어붙이기
+      const firstIsItem = looksLikeItemLine(first);
+      if (firstIsItem && cur) {
+        for (const line of lines) {
+          if (/여기까지|발주체크/.test(line)) continue;
+          cur.rawLines.push(line);
+          const parsed = parseItemLine(line);
+          if (parsed) cur.items.push(parsed);
+          else if (line.length > 1 && !isPoliteOnly(line)) {
+            cur.items.push({ name: line, qty: '', unit: '', note: '', extra: '' });
+          }
+        }
+        continue;
+      }
+      if (firstIsItem && !cur) continue;
+
+      // 새 거래처
       flush();
-      continue;
-    }
+      const clientLine = first.replace(/추가|정정|급급|최종|예약분?|오전중|오후에?/g, '').trim();
+      if (!clientLine || clientLine.length > 60) continue;
+      if (/^(네|예|아니요|알겠|수고|감사|사진|이모티콘)/.test(clientLine)) continue;
 
-    const first = lines[0];
-    const hasQty = /\d+\s*(박스|팩|키로|kg|봉지|봉|벌|판|마리|덩이|개)/i.test(first) ||
-                   /(박스|팩|키로|kg|봉지)\s*\d+/i.test(first) ||
-                   /\d+\s*(포크|대산|정담|황금)/i.test(first) ||
-                   /\d+\s*[BbPp]\b/.test(first) ||
-                   /^\S+\s+\d+(\s|$)/.test(first);
-
-    if (!hasQty && first.length < 45 && !/여기까지|발주체크|사진|죄송합니다/.test(first)) {
-      flush();
-      const matched = matchClient(first);
+      const matched = matchClient(clientLine);
       cur = {
         client: matched.name,
         address: matched.address,
         items: [],
-        rawLines: lines,
+        rawLines: lines.slice(),
         time: msg.time,
         msgDt: msg.dt
       };
@@ -1024,27 +1107,48 @@ function parseOrdersForDeliveryDate(text, deliveryKey) {
           cur.items.push({ name: lines[i], qty: '', unit: '', note: '', extra: '' });
         }
       }
-    } else if (cur) {
-      for (const line of lines) {
-        if (/여기까지|발주체크/.test(line)) continue;
-        cur.rawLines.push(line);
-        const parsed = parseItemLine(line);
-        if (parsed) cur.items.push(parsed);
-        else if (line.length > 1 && !isPoliteOnly(line)) {
-          cur.items.push({ name: line, qty: '', unit: '', note: '', extra: '' });
-        }
-      }
-    } else {
-      const matched = matchClient(first.replace(/\d+.*/, '').trim() || first);
-      cur = { client: matched.name, address: matched.address, items: [], rawLines: lines, time: msg.time, msgDt: msg.dt };
-      for (const line of lines) {
-        const parsed = parseItemLine(line);
-        if (parsed) cur.items.push(parsed);
-      }
     }
   }
   flush();
   return orders;
+}
+
+function isLikelyOrderSender(sender, text) {
+  const s = sender || '';
+  // 2023: 미트포앤 XXX / 2026: 한재호(주)미트포앤 / 기타 직원
+  if (/미트포앤|한재호|김석민|표혜영|김태호|조남식|신동현|양주용|이명수|김성은|오민환|엔젤|김영복|윤상호|김석민/.test(s)) return true;
+  if (/한재호|미트포앤/.test(s)) return true;
+  // 다른 이름도 발주 형태면 허용
+  if (looksLikeOrderText(text)) return true;
+  return false;
+}
+function looksLikeOrderText(text) {
+  const t = text || '';
+  if (t.length < 4) return false;
+  if (/박스|팩|키로|kg|봉지|봉|판|벌|마리|덩이|미전지|삼겹|목살|등뼈|항정|가브리/.test(t) && /\d/.test(t)) return true;
+  return false;
+}
+function looksLikeItemLine(line) {
+  const t = (line || '').trim();
+  if (!t) return false;
+  if (/\d+\s*(박스|박|팩|키로|kg|봉지|봉|벌|판|마리|덩이|개|p|P|b|B)/i.test(t)) return true;
+  if (/(박스|박|팩|키로|kg|봉지)\s*\d+/i.test(t)) return true;
+  if (/\d+\s*(포크|대산|정담|황금|신짜|죽향)/i.test(t)) return true;
+  // 고기명 + 숫자
+  if (/^(특|암|미|생|냉동|냉장|수입)?\s*(삼겹|미삼|목살|전지|미전지|갈비|등갈비|등심|안심|사태|항정|가브리|갈매기|등뼈|후지|돈피|왕구이)/.test(t) && /\d/.test(t)) return true;
+  return false;
+}
+function isWeightLogOnly(lines) {
+  // 개체/계근 위주 메시지
+  const joined = lines.join(' ');
+  if (/개체/.test(joined) && !/박스|팩|봉/.test(joined)) return true;
+  // 대부분 숫자만
+  let numLines = 0;
+  for (const l of lines) {
+    if (/^[\d.\s]+$/.test(l) || /\d{3,4}\s+\d{3,4}/.test(l)) numLines++;
+  }
+  if (lines.length >= 2 && numLines >= lines.length - 1) return true;
+  return false;
 }
 
 function filteredOrders() {
