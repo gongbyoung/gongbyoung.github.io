@@ -10,7 +10,7 @@
 <meta name="application-name" content="미트포앤 발주">
 <link rel="manifest" href="manifest.webmanifest">
 
-<title>미트포앤 발주V003</title>
+<title>미트포앤 발주 관리</title>
 <style>
 :root {
   --primary: #c41e3a;
@@ -769,7 +769,7 @@ function scoreDecodedText(t) {
   if (/한재호|미트포앤|매출방/.test(t)) score += 120;
   if (/---------------/.test(t) || /[-–—]{5,}/.test(t)) score += 60;
   // 깨짐 문자 감점
-  const bad = t.match(/\uFFFD|�/g);
+  const bad = t.match(/\uFFFD| /g);
   score -= bad ? bad.length * 5 : 0;
   // 한자 과다(오인코딩 증상) 감점
   const hanja = t.match(/[\u4e00-\u9fff]/g);
@@ -878,6 +878,24 @@ function extractDates(text) {
     }
   });
   const all = dates.concat(extra);
+  // 파일 마지막 날짜의 다음 날도 배송일 후보 (26일 대화 → 27일 선택)
+  if (dates.length) {
+    const last = dates.slice().sort((a, b) => toDateObj(a.y, a.mo, a.d) - toDateObj(b.y, b.mo, b.d)).pop();
+    if (last && last.y) {
+      const nxt = toDateObj(last.y, last.mo, last.d);
+      nxt.setDate(nxt.getDate() + 1);
+      const key = formatKey(nxt);
+      if (!seen.has(key)) {
+        seen.add(key);
+        all.push({
+          key,
+          label: key.replace(/^(20\d{2})년\s*/, '') + ' (다음날)',
+          y: nxt.getFullYear(), mo: nxt.getMonth() + 1, d: nxt.getDate(),
+          dow: ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'][nxt.getDay()]
+        });
+      }
+    }
+  }
   all.sort((a, b) => toDateObj(a.y||0, a.mo||0, a.d||0) - toDateObj(b.y||0, b.mo||0, b.d||0));
   return all;
 }
@@ -966,7 +984,7 @@ function switchTab(tab) {
 // 월요일: 금요일 13:00 ~ 월요일 12:00
 // 대화 내용의 오늘/내일 키워드로 당일·다음날 출고 구분
 
-function getAllDatedMessages(text) {
+function getAllDatedMessages(text, rangeStart, rangeEnd) {
   text = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
     .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-');
   const dateRe = /-{2,}\s*((?:20\d{2})\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일(?:\s*[가-힣]+일)?)\s*-{2,}/g;
@@ -979,8 +997,14 @@ function getAllDatedMessages(text) {
     headers.push({ index: m.index, end: m.index + m[0].length, raw, ...p });
   }
   const msgs = [];
-  const msgRe = /\[([^\]]+)\]\s*\[([^\]]+)\]\s*([\s\S]*?)(?=\n\[|\n-{3,}|$)/g;
+  const msgRe = /\[([^\]]+)\]\s*\[([^\]]+)\]\s*([\s\S]*?)(?=\n\[|\n-{2,}|$)/g;
   for (let i = 0; i < headers.length; i++) {
+    // 해당 날짜 전체가 구간 밖이면 청크 자체를 스킵 (폰 성능)
+    const dayStart = new Date(headers[i].y, headers[i].mo - 1, headers[i].d, 0, 0, 0);
+    const dayEnd = new Date(headers[i].y, headers[i].mo - 1, headers[i].d, 23, 59, 59);
+    if (rangeStart && rangeEnd) {
+      if (dayEnd < rangeStart || dayStart > rangeEnd) continue;
+    }
     const start = headers[i].end;
     const end = i + 1 < headers.length ? headers[i + 1].index : text.length;
     const chunk = text.slice(start, end);
@@ -989,6 +1013,8 @@ function getAllDatedMessages(text) {
     while ((mm = msgRe.exec(chunk)) !== null) {
       const { h, mi } = parseMsgTime(mm[2]);
       const dt = new Date(headers[i].y, headers[i].mo - 1, headers[i].d, h, mi, 0);
+      if (rangeStart && dt < rangeStart) continue;
+      if (rangeEnd && dt > rangeEnd) continue;
       msgs.push({
         sender: mm[1],
         time: mm[2],
@@ -1072,7 +1098,7 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
   const range = getWindowRange(deliveryKey);
   if (!range) return [];
   if (onProgress) onProgress(5);
-  const allMsgs = getAllDatedMessages(text);
+  const allMsgs = getAllDatedMessages(text, range.start, range.end);
   if (onProgress) onProgress(25);
   const msgs = allMsgs.filter(m => m.dt >= range.start && m.dt <= range.end);
   if (onProgress) onProgress(35);
@@ -1115,14 +1141,26 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
       const lines = block.split('\n').map(l => l.trim()).filter(l => l && !l.includes('메시지가 삭제'));
       if (!lines.length) continue;
 
-      // 발주체크/여기까지/시세 등은 스킵
-      if (/^(여기까지|발주체크|작성|최종수정)/.test(lines[0]) && lines.length <= 2) {
+      // 발주체크 = 당일 출고 요약 (고객 발주 아님) — 줄 수와 관계없이 제외
+      const head = lines[0].replace(/\s+/g, '');
+      if (/발주체크/.test(lines[0]) || /^발주체크/.test(head)) {
+        flush();
+        continue;
+      }
+      if (/^(여기까지|작성|최종수정)/.test(lines[0]) && lines.length <= 2) {
+        flush();
+        continue;
+      }
+      // 발주 요약형: 첫 줄이 발주체크 없이 고기+박스만 잔뜩 (거래처명 아님)
+      if (isOrderSummaryBlock(lines)) {
         flush();
         continue;
       }
       if (/Web발신|경매가격|도축|등급별|탕박|전국\d/.test(block)) continue;
       // 순수 계근/개체 로그 (거래처 없이 숫자만)
       if (isWeightLogOnly(lines)) continue;
+      // 내부 지시 (고객 요청 아님)
+      if (/^(남는건|다주게|처리하였|정정해|잘못 눌렀)/.test(lines[0]) && lines.length <= 3) continue;
 
       const first = lines[0].replace(/[●■☆★♥❤️⭐️*~]/g, '').trim();
       // 첫 줄이 품목이면 이전 거래처에 이어붙이기
@@ -1146,6 +1184,7 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
       const clientLine = first.replace(/추가|정정|급급|최종|예약분?|오전중|오후에?/g, '').trim();
       if (!clientLine || clientLine.length > 60) continue;
       if (/^(네|예|아니요|알겠|수고|감사|사진|이모티콘)/.test(clientLine)) continue;
+      if (/발주체크|여기까지/.test(clientLine)) continue;
 
       const matched = matchClient(clientLine);
       cur = {
@@ -1195,6 +1234,22 @@ function looksLikeItemLine(line) {
   if (/^(특|암|미|생|냉동|냉장|수입)?\s*(삼겹|미삼|목살|전지|미전지|갈비|등갈비|등심|안심|사태|항정|가브리|갈매기|등뼈|후지|돈피|왕구이)/.test(t) && /\d/.test(t)) return true;
   return false;
 }
+
+function isOrderSummaryBlock(lines) {
+  if (!lines || lines.length < 6) return false;
+  // 첫 줄이 거래처처럼 보이지 않고, 대부분 "고기 숫자박스" 나열이면 요약
+  const first = (lines[0] || '').trim();
+  if (/발주체크/.test(first)) return true;
+  let itemish = 0;
+  for (const l of lines) {
+    if (/^(삼겹|특삼|암삼|미삼|암미|특미|목살|특목|B목|미전지|전지|갈비|등갈비|등심|안심|사태|앞미|항정|가브리|갈매기|미후지|3mm|등뼈|잡육)/.test(l.replace(/\s/g,''))) itemish++;
+  }
+  // 8개 이상 품목 나열 + 첫 줄도 품목형이면 요약으로 간주
+  if (itemish >= 8 && /박스|팩|키로/.test(lines[0])) return true;
+  if (itemish >= 10) return true;
+  return false;
+}
+
 function isWeightLogOnly(lines) {
   // 개체/계근 위주 메시지
   const joined = lines.join(' ');
