@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -131,68 +130,79 @@ select.date-select option { color: #222; background: #fff; }
 }
 
 .content {
-  padding: .75rem .7rem 1.5rem;
+  padding: .5rem .55rem 1.2rem;
   max-width: 100%;
 }
 
 .upload-hint {
   background: #fff8e6; border: 1px solid #ffe0a3; border-radius: 12px;
-  padding: .85rem 1rem; margin-bottom: .85rem;
+  padding: .55rem .7rem; margin-bottom: .45rem;
   font-size: .88rem; color: #7a5b00; line-height: 1.45;
 }
 
 .stats {
   display: grid; grid-template-columns: repeat(4, 1fr);
-  gap: .4rem; margin-bottom: .85rem;
+  gap: .3rem; margin-bottom: .45rem;
 }
 .stat {
-  background: #fff; border-radius: 12px; padding: .55rem .3rem;
+  background: #fff; border-radius: 10px; padding: .4rem .25rem;
   text-align: center; border: 1px solid var(--border);
 }
 .stat .num { font-size: 1.15rem; font-weight: 800; color: var(--primary); line-height: 1.2; }
 .stat .label { font-size: .65rem; color: var(--muted); margin-top: .15rem; }
 
 .card {
-  background: #fff; border-radius: 14px; padding: .9rem;
-  margin-bottom: .7rem; border: 1px solid var(--border);
-  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  background: #fff; border-radius: 10px; padding: .45rem .55rem;
+  margin-bottom: .4rem; border: 1px solid var(--border);
+  box-shadow: none;
 }
 .card h3 {
-  font-size: .95rem; color: var(--primary); margin-bottom: .4rem;
+  font-size: .88rem; color: var(--primary); margin-bottom: .2rem;
   display: flex; justify-content: space-between; align-items: center;
-  flex-wrap: wrap; gap: .3rem; line-height: 1.3;
+  flex-wrap: wrap; gap: .2rem; line-height: 1.25;
 }
-.card .addr { font-size: .75rem; color: var(--muted); margin-bottom: .45rem; line-height: 1.35; }
+.card .addr { font-size: .7rem; color: var(--muted); margin-bottom: .2rem; line-height: 1.25; }
 .badge {
   background: #ffebee; color: var(--primary);
-  font-size: .7rem; padding: .18rem .5rem; border-radius: 20px; font-weight: 700;
+  font-size: .65rem; padding: .1rem .35rem; border-radius: 12px; font-weight: 700;
 }
 
-/* Tables - mobile friendly */
+/* Tables - compact (고기별 matrix 제외) */
 .matrix-wrap {
   overflow-x: auto; -webkit-overflow-scrolling: touch;
-  margin: 0 -.15rem; border-radius: 8px;
+  margin: 0; border-radius: 6px;
 }
-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+table { width: 100%; border-collapse: collapse; font-size: .78rem; }
 th, td {
   border: 1px solid var(--border);
-  padding: .5rem .4rem;
-  text-align: left;
-  vertical-align: middle;
+  padding: .22rem .3rem;
+  text-align: left; vertical-align: top;
+  word-break: break-word; line-height: 1.25;
 }
 th {
-  background: #f6f6f6; font-weight: 700; white-space: nowrap;
-  font-size: .75rem; position: sticky; top: 0;
+  background: #f5f5f5; font-weight: 700; font-size: .7rem;
+  color: #555; white-space: nowrap;
 }
 td.num { text-align: center; font-weight: 700; }
 td.center { text-align: center; }
 tr:nth-child(even) { background: #fafafa; }
 
+/* 고기별 매트릭스만 여유 있게 */
+table.matrix th, table.matrix td {
+  padding: .4rem .35rem;
+  line-height: 1.35;
+}
+table.matrix th { font-size: .72rem; }
+table.matrix td.num { font-size: .8rem; min-width: 36px; }
+
 /* Client order table: stack-like on very narrow if needed, but keep columns */
-.client-card table th:nth-child(1) { min-width: 70px; }
+.client-card table th:nth-child(1) { min-width: 56px; }
 .client-card table th:nth-child(2),
-.client-card table td.num { min-width: 36px; }
-.client-card table th:nth-child(3) { min-width: 36px; }
+.client-card table td.num { min-width: 28px; }
+.client-card table th:nth-child(3) { min-width: 28px; }
+/* 비고 열 과한 빈칸 방지 */
+.client-card table td:nth-child(4),
+.client-card table td:nth-child(5) { max-width: 40%; }
 
 .matrix th:first-child, .matrix td:first-child {
   position: sticky; left: 0; background: #fff; z-index: 2;
@@ -207,9 +217,9 @@ tr:nth-child(even) { background: #fafafa; }
 .matrix .total-col { background: #f0f4ff; font-weight: 700; }
 
 .search-box {
-  width: 100%; padding: .75rem .9rem;
-  border: 1px solid var(--border); border-radius: 12px;
-  margin-bottom: .75rem; font-size: .95rem;
+  width: 100%; padding: .5rem .7rem;
+  border: 1px solid var(--border); border-radius: 10px;
+  margin-bottom: .4rem; font-size: .88rem;
   background: #fff;
 }
 .search-box:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(196,30,58,.12); }
@@ -225,8 +235,8 @@ tr:nth-child(even) { background: #fafafa; }
 }
 .back-btn {
   background: none; border: none; color: var(--primary);
-  font-size: .9rem; cursor: pointer; margin-bottom: .55rem;
-  font-weight: 600; padding: .3rem 0; min-height: 36px;
+  font-size: .85rem; cursor: pointer; margin-bottom: .3rem;
+  font-weight: 600; padding: .15rem 0; min-height: 28px;
 }
 
 pre {
@@ -257,13 +267,13 @@ pre {
 }
 
 .ship-filter {
-  display: flex; gap: .4rem; margin-bottom: .75rem; flex-wrap: wrap;
+  display: flex; gap: .25rem; margin-bottom: .4rem; flex-wrap: wrap;
 }
 .ship-btn {
-  flex: 1; min-width: 90px; padding: .55rem .4rem;
-  border: 1px solid var(--border); border-radius: 10px;
-  background: #fff; font-size: .8rem; font-weight: 600; color: var(--muted);
-  cursor: pointer; min-height: 40px;
+  flex: 1; min-width: 80px; padding: .4rem .3rem;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: #fff; font-size: .75rem; font-weight: 600; color: var(--muted);
+  cursor: pointer; min-height: 34px;
 }
 .ship-btn.on {
   background: var(--primary); color: #fff; border-color: var(--primary);
@@ -271,10 +281,10 @@ pre {
 .badge.ship-today { background: #e8f5e9; color: #2e7d32; }
 .badge.ship-next { background: #fff3e0; color: #e65100; }
 .summary-box {
-  background: #fff; border: 1px solid var(--border); border-radius: 14px;
-  padding: 1rem; font-size: .9rem; line-height: 1.65;
+  background: #fff; border: 1px solid var(--border); border-radius: 10px;
+  padding: .55rem .65rem; font-size: .85rem; line-height: 1.4;
   white-space: pre-wrap; word-break: break-word;
-  font-family: inherit; min-height: 120px;
+  font-family: inherit; min-height: 80px;
 }
 .summary-actions {
   display: flex; gap: .5rem; margin-top: .75rem;
@@ -1548,18 +1558,47 @@ function parseRegion(address) {
   return parts[0] || '주소미상';
 }
 
+function extractClientRemark(rawText) {
+  const t = rawText || '';
+  const notes = [];
+  if (/급급|완전급|■+급|급\s*배송|급배/.test(t)) notes.push('급급');
+  else if (/■?\s*급\b|급해요|급합니다|급히/.test(t)) notes.push('급');
+  if (/점심/.test(t)) notes.push('점심');
+  if (/오후에|오후\s*배송|오후중/.test(t)) notes.push('오후');
+  if (/아침에|아침\s*배송|오전중|오전에/.test(t)) notes.push('아침');
+  if (/내일/.test(t)) notes.push('내일');
+  if (/키\s*[는은]|비번|비밀번호|냉장고|문\s*열|우편함/.test(t)) notes.push('위치/키');
+  // 아이템 비고에 있는 짧은 메모도
+  return notes;
+}
+
 function renderRegions(el, orders) {
   const prev = el.innerHTML;
-  // unique clients with address from orders
   const map = {};
   orders.forEach(o => {
     if (!map[o.client]) {
-      map[o.client] = { name: o.client, address: o.address || '' };
+      map[o.client] = {
+        name: o.client,
+        address: o.address || '',
+        qty: 0,
+        remarks: new Set()
+      };
     } else if (!map[o.client].address && o.address) {
       map[o.client].address = o.address;
     }
+    // 전체 갯수: 수량이 있으면 합산, 없으면 품목 1로
+    (o.items || []).forEach(it => {
+      const q = parseFloat(it.qty);
+      map[o.client].qty += (q && !isNaN(q)) ? q : (it.name ? 1 : 0);
+    });
+    extractClientRemark(o.raw || '').forEach(r => map[o.client].remarks.add(r));
+    (o.items || []).forEach(it => {
+      const n = ((it.note || '') + ' ' + (it.extra || '')).trim();
+      if (/급급/.test(n)) map[o.client].remarks.add('급급');
+      else if (/급/.test(n)) map[o.client].remarks.add('급');
+      if (/점심/.test(n)) map[o.client].remarks.add('점심');
+    });
   });
-  // try fill address from client master
   const all = getAllClients();
   Object.keys(map).forEach(name => {
     if (!map[name].address) {
@@ -1568,7 +1607,6 @@ function renderRegions(el, orders) {
     }
   });
 
-  // group by region
   const byReg = {};
   Object.values(map).forEach(c => {
     const reg = parseRegion(c.address);
@@ -1585,13 +1623,16 @@ function renderRegions(el, orders) {
     html += `<div class="card region-card" data-region="${esc(reg)}">
       <h3>${esc(reg)} <span class="badge">${list.length}</span></h3>
       <div class="matrix-wrap"><table>
-        <thead><tr><th>거래처</th><th>주소</th><th>권역</th></tr></thead>
+        <thead><tr><th>거래처</th><th>주소</th><th>갯수</th><th>비고</th></tr></thead>
         <tbody>`;
     list.forEach(c => {
+      const qtyStr = (Math.round(c.qty * 10) / 10) || '';
+      const remarkStr = [...c.remarks].join(', ');
       html += `<tr>
         <td>${esc(c.name)}</td>
-        <td style="font-size:.78rem;color:#555">${esc(c.address || '-')}</td>
-        <td class="center">${esc(reg)}</td>
+        <td style="font-size:.72rem;color:#555">${esc(c.address || '-')}</td>
+        <td class="num">${qtyStr}</td>
+        <td style="font-size:.72rem">${esc(remarkStr)}</td>
       </tr>`;
     });
     html += `</tbody></table></div></div>`;
