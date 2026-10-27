@@ -1,7 +1,7 @@
 // 오프라인에서도 열리도록 앱 파일만 캐시합니다 (대화/거래처 데이터는 캐시하지 않음)
-const CACHE = 'order-organizer-v1';
+const CACHE = 'order-organizer-v2';
 const FILES = ['./', 'index.html', 'parser.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
-
+ 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
 });
@@ -20,3 +20,4 @@ self.addEventListener('fetch', (e) => {
     }).catch(() => caches.match(req).then((m) => m || caches.match('index.html')))
   );
 });
+ 
