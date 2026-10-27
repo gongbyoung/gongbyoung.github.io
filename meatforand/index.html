@@ -106,7 +106,7 @@ label.chk input{width:20px;height:20px}
       <div class="sub grow" id="winLabel"></div>
     </div>
   </section>
-
+ 
   <div id="results" hidden>
     <div class="chips" id="summary"></div>
     <nav class="tabs" id="tabs"></nav>
@@ -114,14 +114,14 @@ label.chk input{width:20px;height:20px}
   </div>
   <p class="sub" id="privacy" style="text-align:center">대화 내용은 이 기기 안에서만 처리되고 어디로도 전송되지 않아요.</p>
 </main>
-
+ 
 <dialog id="dlgPick"><div class="dlg">
   <div><b id="pickTitle">거래처 선택</b><div class="sub" id="pickSub"></div></div>
   <input type="search" id="pickQ" placeholder="거래처 검색">
   <div class="pick" id="pickList"></div>
   <div class="row"><button class="btn grow" id="pickRaw">목록에 없음 (그대로 사용)</button><button class="btn" id="pickClose">닫기</button></div>
 </div></dialog>
-
+ 
 <dialog id="dlgSet"><div class="dlg">
   <b>설정</b>
   <div>
@@ -143,9 +143,9 @@ label.chk input{width:20px;height:20px}
   </div>
   <div class="row"><button class="btn primary grow" id="setOk">적용</button></div>
 </div></dialog>
-
+ 
 <div class="toast" id="toast"></div>
-
+ 
 <script src="parser.js"></script>
 <script>
 (() => {
@@ -158,7 +158,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
-
+ 
 const S = {
   csvText: store.get('ord.csv', ''),
   aliases: store.get('ord.alias', {}),
@@ -169,27 +169,30 @@ const S = {
   result: null, tab: 'box', sub: 'item',
   openAll: false,
 };
-
+ 
 /* ───────── 도우미 ───────── */
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 1800); }
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const dtl = (d) => `${ymd(d)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const lbl = (d) => `${P.fmtDate(d)} ${P.fmtTime(d)}`;
 const qtyStr = (q, u) => `${P.fmtQty(q)}${u}`;
-
+ 
 async function readText(file) {
   const buf = await file.arrayBuffer();
+  const u8 = new Uint8Array(buf);
+  if (u8[0] === 0xFF && u8[1] === 0xFE) return new TextDecoder('utf-16le').decode(buf);
+  if (u8[0] === 0xFE && u8[1] === 0xFF) return new TextDecoder('utf-16be').decode(buf);
   let t = new TextDecoder('utf-8').decode(buf);
   if (t.includes('\uFFFD')) { try { t = new TextDecoder('euc-kr').decode(buf); } catch {} }
   return t;
 }
-
+ 
 /* ───────── 거래처 ───────── */
 function loadCustomers() {
   S.customers = S.csvText ? P.parseCustomers(S.csvText) : [];
   S.matcher = P.buildMatcher(S.customers, S.aliases);
 }
-
+ 
 /* ───────── 실행 ───────── */
 function compute() {
   if (!S.messages) return;
@@ -202,7 +205,7 @@ function compute() {
   });
   render();
 }
-
+ 
 /* ───────── 화면 ───────── */
 function renderSetup() {
   $('btnCsv').innerHTML = S.customers.length
@@ -217,7 +220,7 @@ function renderSetup() {
     $('winLabel').textContent = S.win ? `${lbl(S.win.start)} ~ ${lbl(S.win.end)}` : '';
   }
 }
-
+ 
 function badgesFor(c) {
   let h = '';
   if (c.flags.includes('급')) h += '<span class="badge b-red">급</span>';
@@ -226,7 +229,7 @@ function badgesFor(c) {
   if (c.status === 'maybe' || c.status === 'none') h += '<span class="badge b-amber">거래처 확인</span>';
   return h;
 }
-
+ 
 function lineHtml(it, withName = true) {
   const mk = it.maker ? `<span class="badge b-gray">${esc(it.maker)}</span>` : '';
   const ad = it.added ? '<span class="badge b-blue">추가</span>' : '';
@@ -234,9 +237,9 @@ function lineHtml(it, withName = true) {
   const nt = it.note ? `<span class="note">${esc(it.note)}</span>` : '';
   return `<div class="ln"><div class="l">${esc(it.name)}${mk}${ad}${dl}${nt}</div><div class="q">${esc(qtyStr(it.qty, it.unit))}</div></div>`;
 }
-
+ 
 const CAT_LABEL = { box: '박스', piece: '낱개', maker: '메이커' };
-
+ 
 function renderByItem(cat) {
   let list = P.aggregate(S.result, cat);
   if (!list.length) return '<div class="empty">해당 항목이 없어요</div>';
@@ -256,7 +259,7 @@ function renderByItem(cat) {
   }
   return html;
 }
-
+ 
 function renderByCustomer(cat) {
   const list = P.itemsByCustomer(S.result, cat);
   if (!list.length) return '<div class="empty">해당 항목이 없어요</div>';
@@ -279,24 +282,24 @@ function renderByCustomer(cat) {
   }
   return html;
 }
-
+ 
 function renderReview() {
   const r = S.result, rv = r.review;
   let h = '';
   const sec = (t, n) => `<h3>${t} <span class="sub">${n}건</span></h3>`;
-
+ 
   h += sec('수량을 확인해 주세요', rv.suspicious.length + rv.noqty.length);
   if (!rv.suspicious.length && !rv.noqty.length) h += '<div class="sub">없음 👍</div>';
   for (const s of rv.suspicious) h += `<div class="ln"><div class="l">${esc(s.customer)}<span class="note">${esc(s.line)} · ${esc(s.reason)} (${esc(s.sender)} ${P.fmtTime(s.ts)})</span></div></div>`;
   for (const n of rv.noqty) h += `<div class="ln"><div class="l">${esc(n.customer)} · ${esc(n.name)}<span class="note">수량이 적혀 있지 않아요</span></div></div>`;
-
+ 
   const um = rv.unmatched;
   h += sec('거래처 확인', um.length);
   if (!um.length) h += '<div class="sub">모두 확인됨</div>';
   for (const m of um) {
     h += `<div class="ln"><div class="l">${esc(m.raw)}<span class="note">${m.status === 'none' ? '거래처 목록에서 못 찾았어요' : '→ ' + esc(m.official) + ' (맞는지 확인)'}</span></div><button class="btn small" data-fix="${esc(m.raw)}">지정</button></div>`;
   }
-
+ 
   const sk = r.skipped;
   h += sec('제외된 발주', sk.otherDay.length + sk.dup.length);
   if (!sk.otherDay.length && !sk.dup.length) h += '<div class="sub">없음</div>';
@@ -306,7 +309,7 @@ function renderReview() {
   if (sk.otherDay.length || sk.dup.length) h += '<div class="sub" style="margin-top:6px">⚙ 설정에서 포함할 수 있어요</div>';
   return h;
 }
-
+ 
 function currentText() {
   const r = S.result; const tag = P.fmtDate(S.target);
   const cat = S.tab;
@@ -336,7 +339,7 @@ function currentText() {
   }
   return out.join('\n');
 }
-
+ 
 function render() {
   renderSetup();
   if (!S.result) { $('results').hidden = true; return; }
@@ -347,10 +350,10 @@ function render() {
   $('summary').innerHTML = [
     `배송지 ${r.customers.length}곳`, `발주 ${r.orderCount}건`, `읽은 메시지 ${r.scanned}개`,
   ].map((t) => `<span class="chip">${t}</span>`).join('');
-
+ 
   const tabs = [['box', '발주(박스)', cnt('box')], ['piece', '낱개', cnt('piece')], ['maker', '메이커', cnt('maker')], ['all', '배송지별 전체', r.customers.length], ['review', '확인', reviewN]];
   $('tabs').innerHTML = tabs.map(([k, t, n]) => `<button class="tab${S.tab === k ? ' on' : ''}" data-tab="${k}">${t}<span class="n">${n}</span></button>`).join('');
-
+ 
   let html = '';
   if (S.tab === 'review') html = renderReview();
   else {
@@ -363,12 +366,12 @@ function render() {
   }
   $('view').innerHTML = html;
 }
-
+ 
 /* ───────── 이벤트 ───────── */
 $('btnCsv').onclick = () => $('fileCsv').click();
 $('btnChat').onclick = () => $('fileChat').click();
 $('btnCsv2').onclick = () => $('fileCsv').click();
-
+ 
 $('fileCsv').onchange = async (e) => {
   const f = e.target.files[0]; if (!f) return;
   const text = await readText(f);
@@ -379,27 +382,31 @@ $('fileCsv').onchange = async (e) => {
   S.messages ? compute() : renderSetup();
   e.target.value = '';
 };
-
+ 
 $('fileChat').onchange = async (e) => {
   const f = e.target.files[0]; if (!f) return;
   const text = await readText(f);
   const msgs = P.parseChat(text);
-  if (!msgs.length) { toast('카톡 내보내기 형식(안드로이드 txt)이 아닌 것 같아요'); return; }
+  if (!msgs.length) {
+    const head = text.split(/\r?\n/).filter((l) => l.trim()).slice(0, 4).map((l) => l.slice(0, 60)).join('\n');
+    alert((/\.zip$/i.test(f.name) ? 'zip 파일이에요. 압축을 풀고 txt를 선택해 주세요.\n\n' : '대화 형식을 인식하지 못했어요.\n') + '파일 맨 앞 줄:\n' + head);
+    return;
+  }
   S.messages = msgs; S.chatName = f.name;
   S.target = P.guessTargetDate(msgs); S.customWin = false;
   S.tab = 'box';
   compute();
   e.target.value = '';
 };
-
+ 
 $('target').onchange = (e) => {
   const [y, m, d] = e.target.value.split('-').map(Number);
   if (!y) return;
   S.target = new Date(y, m - 1, d); S.customWin = false; compute();
 };
-
+ 
 $('tabs').onclick = (e) => { const b = e.target.closest('[data-tab]'); if (b) { S.tab = b.dataset.tab; render(); window.scrollTo({ top: 0 }); } };
-
+ 
 $('view').onclick = async (e) => {
   const sub = e.target.closest('[data-sub]'); if (sub) { S.sub = sub.dataset.sub; render(); return; }
   const fix = e.target.closest('[data-fix]'); if (fix) { openPicker(fix.dataset.fix); return; }
@@ -415,7 +422,7 @@ $('view').onclick = async (e) => {
     try { await navigator.share({ text: currentText() }); } catch {}
   }
 };
-
+ 
 /* 거래처 지정 */
 let pickRaw = '';
 function openPicker(raw) {
@@ -442,7 +449,7 @@ $('pickList').onclick = (e) => { const b = e.target.closest('[data-n]'); if (b) 
 $('pickRaw').onclick = () => { setAlias(pickRaw, pickRaw); $('dlgPick').close(); };
 $('pickClose').onclick = () => $('dlgPick').close();
 function setAlias(raw, official) { S.aliases[raw.trim()] = official; store.set('ord.alias', S.aliases); compute(); }
-
+ 
 /* 설정 */
 $('btnSettings').onclick = () => {
   const s = S.settings;
@@ -489,7 +496,7 @@ $('btnReset').onclick = () => {
   S.csvText = ''; S.aliases = {}; S.settings = { makers: P.DEFAULT_MAKERS.slice(), excludeSenders: [], includeOtherDays: false, includeDuplicates: false };
   loadCustomers(); $('dlgSet').close(); S.messages ? compute() : renderSetup();
 };
-
+ 
 /* 시작 */
 loadCustomers();
 renderSetup();
@@ -498,3 +505,4 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
 </script>
 </body>
 </html>
+ 
