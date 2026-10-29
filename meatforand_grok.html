@@ -6,11 +6,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#c41e3a">
-<meta name="apple-mobile-web-app-title" content="미트포앤발주V001">
+<meta name="apple-mobile-web-app-title" content="미트포앤 발주">
 <meta name="application-name" content="미트포앤 발주">
 <link rel="manifest" href="manifest.webmanifest">
 
-<title>미트포앤 발주V001</title>
+<title>미트포앤 발주 관리</title>
 <style>
 :root {
   --primary: #c41e3a;
@@ -1189,15 +1189,27 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
 
   function flush() {
     if (cur && (cur.items.length || cur.rawLines.length)) {
+      // 거래처명이 날짜어면 저장하지 않음
+      if (/^(내일|오늘|모레)$/.test((cur.client || '').trim())) {
+        cur = null;
+        return;
+      }
       const raw = cur.rawLines.join('\n');
-      const ship = detectShipSide(raw, cur.msgDt || range.start, range.delivery);
+      let ship = detectShipSide(raw, cur.msgDt || range.start, range.delivery);
+      if (cur.forceShip === 'next') ship = 'next';
+      // 품목에 섞인 '내일' 제거
+      cur.items = (cur.items || []).filter(it => !/^(내일|오늘|모레)$/.test((it.name || '').trim()));
+      if (!cur.items.length && !raw.replace(/내일|오늘|모레/g, '').trim()) {
+        cur = null;
+        return;
+      }
       orders.push({
         client: cur.client,
         address: cur.address,
         items: cur.items,
         raw,
         time: cur.time,
-        ship, // 'today' | 'next'
+        ship,
         msgDt: cur.msgDt
       });
     }
@@ -1258,27 +1270,70 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
       }
       if (firstIsItem && !cur) continue;
 
+      // 날짜 표시어(내일/오늘 등)는 거래처명이 아님
+      const DAY_MARK_RE = /^(내일|오늘|모레|월요일|화요일|수요일|목요일|금요일|토요일|일요일)(\s|발주|입니다|꺼|$)/;
+      if (DAY_MARK_RE.test(first) || /^(내일|오늘|모레)$/.test(first.replace(/\s/g, ''))) {
+        // 이전 거래처에 다음날 표시 + 나머지 줄은 품목
+        if (cur && /^내일/.test(first)) {
+          cur.forceShip = 'next';
+          cur.rawLines.push(first);
+          for (let i = 1; i < lines.length; i++) {
+            if (/여기까지|발주체크/.test(lines[i])) continue;
+            if (/^(내일|오늘|모레)$/.test(lines[i].replace(/\s/g, ''))) {
+              if (/^내일/.test(lines[i])) cur.forceShip = 'next';
+              continue;
+            }
+            cur.rawLines.push(lines[i]);
+            const parsed = parseItemLine(lines[i]);
+            if (parsed) cur.items.push(parsed);
+            else if (lines[i].length > 1 && !isPoliteOnly(lines[i])) {
+              cur.items.push({ name: lines[i], qty: '', unit: '', note: '', extra: '' });
+            }
+          }
+        }
+        continue;
+      }
+
       // 새 거래처
       flush();
-      const clientLine = first.replace(/추가|정정|급급|최종|예약분?|오전중|오후에?/g, '').trim();
+      let clientLine = first.replace(/추가|정정|급급|최종|예약분?|오전중|오후에?/g, '').trim();
+      // 앞에 붙은 내일/오늘 제거 (예: "내일 태광")
+      clientLine = clientLine.replace(/^(내일|오늘|모레)\s+/, '').trim();
       if (!clientLine || clientLine.length > 60) continue;
       if (/^(네|예|아니요|알겠|수고|감사|사진|이모티콘)/.test(clientLine)) continue;
       if (/발주체크|여기까지/.test(clientLine)) continue;
+      if (/^(내일|오늘|모레)$/.test(clientLine)) continue;
 
       const matched = matchClient(clientLine);
+      // 매칭 결과가 날짜어면 버림
+      if (/^(내일|오늘|모레)$/.test((matched.name || '').trim())) continue;
+
+      let forceShip = null;
+      if (/내일/.test(first) || lines.some(l => /^내일\b/.test(l.trim()))) forceShip = 'next';
+
       cur = {
         client: matched.name,
         address: matched.address,
         items: [],
         rawLines: lines.slice(),
         time: msg.time,
-        msgDt: msg.dt
+        msgDt: msg.dt,
+        forceShip
       };
       for (let i = 1; i < lines.length; i++) {
         if (/여기까지|발주체크/.test(lines[i])) continue;
+        // 내일/오늘 단독 줄은 품목 아님
+        if (/^(내일|오늘|모레)(\s*발주.*)?$/.test(lines[i].trim())) {
+          if (/^내일/.test(lines[i].trim())) cur.forceShip = 'next';
+          continue;
+        }
         const parsed = parseItemLine(lines[i]);
-        if (parsed) cur.items.push(parsed);
-        else if (lines[i].length > 1 && !isPoliteOnly(lines[i])) {
+        if (parsed) {
+          // 고기명이 내일인 경우 제외
+          if (/^(내일|오늘|모레)$/.test((parsed.name || '').trim())) continue;
+          cur.items.push(parsed);
+        } else if (lines[i].length > 1 && !isPoliteOnly(lines[i])) {
+          if (/^(내일|오늘|모레)$/.test(lines[i].trim())) continue;
           cur.items.push({ name: lines[i], qty: '', unit: '', note: '', extra: '' });
         }
       }
@@ -1350,6 +1405,8 @@ function filteredOrders() {
 
 function matchClient(text) {
   text = text.replace(/[●■☆★]/g, '').replace(/추가|정정|급급/g, '').trim();
+  text = text.replace(/^(내일|오늘|모레)\s+/, '').trim();
+  if (/^(내일|오늘|모레)$/.test(text)) return { name: '', address: '' };
   const aliasMap = getAllAliases();
   const clients = getAllClients();
   for (const [alias, real] of Object.entries(aliasMap)) {
