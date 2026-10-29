@@ -10,7 +10,7 @@
 <meta name="application-name" content="미트포앤 발주">
 <link rel="manifest" href="manifest.webmanifest">
 
-<title>미트포앤 발V002</title>
+<title>미트포앤 발주 관리</title>
 <style>
 :root {
   --primary: #c41e3a;
@@ -379,8 +379,6 @@ pre {
 .pin-dot.depot { background: #e53935; }
 .pin-dot.client { background: #1e88e5; }
 </style>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 </head>
 <body>
 <div id="login-screen">
@@ -1847,6 +1845,8 @@ function renderRegions(el, orders) {
   });
 
   window.__mapClients = clients.filter(c => c.address).slice();
+  // 좌표 미리 받기 → 지도 보기 즉시
+  try { preloadMapCoords(window.__mapClients); } catch (e) {}
 
   let html = prev;
   html += `<div class="section-title">발주 거래처 · ${clients.length}곳</div>`;
@@ -1854,7 +1854,9 @@ function renderRegions(el, orders) {
     <button type="button" class="map-btn" onclick="showOrderMap()">지도 보기</button>
     <button type="button" class="map-btn secondary" onclick="downloadMyMapsCsv()">마이맵 CSV</button>
   </div>`;
-  html += `<div class="map-pin-legend"><span><i class="pin-dot depot"></i> 미트포앤(기점)</span><span><i class="pin-dot client"></i> 발주 거래처</span></div>`;
+  html += `<div class="map-pin-legend"><span><i class="pin-dot depot"></i> 미트포앤(빨간 별)</span><span><i class="pin-dot client"></i> 발주 거래처(파랑)</span>
+    <button type="button" class="map-btn secondary" style="flex:0;padding:.25rem .5rem;min-height:28px;font-size:.7rem" onclick="promptKakaoKey()">카카오키</button></div>`;
+
   html += `<div id="orderMap" style="display:none"></div>`;
   html += `<input class="search-box" placeholder="거래처·권역·주소 검색..." oninput="filterClientTable(this.value)">`;
 
@@ -1892,119 +1894,232 @@ function filterClientTable(q) {
 
 
 
-// --- 웹 지도 (Leaflet + Nominatim, API키 없음) ---
-let _orderMap = null;
-let _orderMapLayer = null;
 
-function makeIcon(color) {
-  // 원형 마커 (빨강=기점, 파랑=거래처)
-  const svg = encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">
-      <path fill="${color}" stroke="#fff" stroke-width="2"
-        d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.3 21.7 0 14 0z"/>
-      <circle cx="14" cy="14" r="5" fill="#fff"/>
-    </svg>`
-  );
-  return L.icon({
-    iconUrl: 'data:image/svg+xml;charset=UTF-8,' + svg,
-    iconSize: [28, 40],
-    iconAnchor: [14, 40],
-    popupAnchor: [0, -36]
+// --- 카카오맵 (빠름 · JS 키 필요) ---
+// 관리자 또는 아래 기본값에 JavaScript 키 저장
+function getKakaoKey() {
+  try {
+    const k = localStorage.getItem('meatpoan_kakao_js_key');
+    if (k && k.trim()) return k.trim();
+  } catch (e) {}
+  // 기본 키 (Kakao 개발자 콘솔에서 사용 도메인만 등록할 것)
+  return '0f557a46ed789ee7ef976f3a18d69b13';
+}
+
+function setKakaoKey(k) {
+  try { localStorage.setItem('meatpoan_kakao_js_key', (k || '').trim()); } catch (e) {}
+}
+
+let _kakaoReady = null;
+function loadKakaoSdk() {
+  if (window.kakao && window.kakao.maps) return Promise.resolve();
+  if (_kakaoReady) return _kakaoReady;
+  const key = getKakaoKey();
+  if (!key) {
+    return Promise.reject(new Error('NO_KEY'));
+  }
+  _kakaoReady = new Promise((resolve, reject) => {
+    const prev = document.getElementById('kakaoMapSdk');
+    if (prev) prev.remove();
+    const s = document.createElement('script');
+    s.id = 'kakaoMapSdk';
+    s.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + encodeURIComponent(key) + '&libraries=services&autoload=false';
+    s.onload = () => {
+      if (!window.kakao || !window.kakao.maps) {
+        reject(new Error('SDK_FAIL'));
+        return;
+      }
+      window.kakao.maps.load(() => resolve());
+    };
+    s.onerror = () => reject(new Error('SDK_LOAD'));
+    document.head.appendChild(s);
+  });
+  return _kakaoReady;
+}
+
+// 좌표 캐시 (localStorage)
+function geoCacheGet(addr) {
+  try {
+    const p = JSON.parse(localStorage.getItem('kgeo:' + addr) || 'null');
+    if (p && p.y && p.x) return p;
+  } catch (e) {}
+  return null;
+}
+function geoCacheSet(addr, pos) {
+  try { localStorage.setItem('kgeo:' + addr, JSON.stringify(pos)); } catch (e) {}
+}
+
+function kakaoGeocode(addr) {
+  return new Promise((resolve) => {
+    if (!addr) return resolve(null);
+    const cached = geoCacheGet(addr);
+    if (cached) return resolve(cached);
+    if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) return resolve(null);
+    const geocoder = new kakao.maps.services.Geocoder();
+    geocoder.addressSearch(addr, (result, status) => {
+      if (status === kakao.maps.services.Status.OK && result[0]) {
+        const pos = { y: result[0].y, x: result[0].x }; // lat, lng as string
+        geoCacheSet(addr, pos);
+        resolve(pos);
+      } else {
+        // 주소 실패 시 키워드 검색
+        const ps = new kakao.maps.services.Places();
+        ps.keywordSearch(addr, (res2, st2) => {
+          if (st2 === kakao.maps.services.Status.OK && res2[0]) {
+            const pos = { y: res2[0].y, x: res2[0].x };
+            geoCacheSet(addr, pos);
+            resolve(pos);
+          } else resolve(null);
+        });
+      }
+    });
   });
 }
 
-const ICON_DEPOT = null;  // lazy
-const ICON_CLIENT = null;
+let _kakaoMap = null;
+let _kakaoMarkers = [];
 
-function getDepotIcon() {
-  return makeIcon('#e53935'); // 빨강
-}
-function getClientIcon() {
-  return makeIcon('#1e88e5'); // 파랑
+function clearKakaoMarkers() {
+  _kakaoMarkers.forEach(m => m.setMap(null));
+  _kakaoMarkers = [];
 }
 
-async function geocodeAddress(addr) {
-  const key = 'geo:' + addr;
+/** 발주 선택 직후 백그라운드 프리로드 (지도 버튼 즉시 응답) */
+async function preloadMapCoords(clients) {
   try {
-    const cached = localStorage.getItem(key);
-    if (cached) {
-      const p = JSON.parse(cached);
-      if (p && p.lat) return p;
+    await loadKakaoSdk();
+  } catch (e) { return; }
+  const addrs = [DEPOT_ADDR];
+  (clients || []).forEach(c => { if (c.address) addrs.push(c.address); });
+  for (const a of addrs) {
+    if (!geoCacheGet(a)) {
+      await kakaoGeocode(a);
+      // 카카오 제한 여유
+      await new Promise(r => setTimeout(r, 50));
     }
-  } catch (e) {}
-  const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&q='
-    + encodeURIComponent(addr);
-  const res = await fetch(url, { headers: { 'Accept-Language': 'ko' } });
-  if (!res.ok) return null;
-  const data = await res.json();
-  if (!data || !data[0]) return null;
-  const out = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
-  try { localStorage.setItem(key, JSON.stringify(out)); } catch (e) {}
-  return out;
+  }
 }
 
 async function showOrderMap() {
   const box = document.getElementById('orderMap');
   if (!box) return;
-  if (typeof L === 'undefined') {
-    alert('지도를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');
+
+  if (!getKakaoKey()) {
+    const k = prompt(
+      '카카오 지도 JavaScript 키를 입력하세요.\n' +
+      'developers.kakao.com → 내 애플리케이션 → 앱 키 → JavaScript 키\n' +
+      '플랫폼에 GitHub Pages 도메인도 등록해야 합니다.'
+    );
+    if (!k || !k.trim()) return;
+    setKakaoKey(k.trim());
+    _kakaoReady = null;
+  }
+
+  box.style.display = 'block';
+  box.innerHTML = '<div style="padding:12px;font-size:.85rem;color:#666">지도 불러오는 중...</div>';
+
+  try {
+    await loadKakaoSdk();
+  } catch (e) {
+    box.innerHTML = '<div style="padding:12px;font-size:.85rem;color:#c00">카카오맵 로드 실패. 키·도메인 등록을 확인하세요.<br><button type="button" class="map-btn" style="margin-top:8px" onclick="localStorage.removeItem(\'meatpoan_kakao_js_key\');showOrderMap()">키 다시 입력</button></div>';
     return;
   }
-  box.style.display = 'block';
-  if (!_orderMap) {
-    _orderMap = L.map('orderMap').setView([37.38, 126.8], 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap'
-    }).addTo(_orderMap);
-  }
-  if (_orderMapLayer) {
-    _orderMap.removeLayer(_orderMapLayer);
-  }
-  _orderMapLayer = L.featureGroup().addTo(_orderMap);
 
+  box.innerHTML = '';
   const list = (window.__mapClients || []).filter(c => c.address);
-  // 기점 먼저 (빨간 핀)
-  const depotPos = await geocodeAddress(DEPOT_ADDR) || await geocodeAddress(DEPOT_QUERY);
-  if (depotPos) {
-    L.marker([depotPos.lat, depotPos.lon], { icon: getDepotIcon() })
-      .bindPopup('<b>' + DEPOT_NAME + '</b><br>' + DEPOT_ADDR + '<br><small>기점</small>')
-      .addTo(_orderMapLayer);
+
+  // 기점 좌표
+  let depot = geoCacheGet(DEPOT_ADDR) || await kakaoGeocode(DEPOT_ADDR);
+  if (!depot) depot = await kakaoGeocode(DEPOT_QUERY);
+  const center = depot
+    ? new kakao.maps.LatLng(depot.y, depot.x)
+    : new kakao.maps.LatLng(37.38, 126.8);
+
+  if (_kakaoMap) {
+    _kakaoMap.setCenter(center);
+  } else {
+    _kakaoMap = new kakao.maps.Map(box, { center, level: 8 });
+  }
+  clearKakaoMarkers();
+
+  const bounds = new kakao.maps.LatLngBounds();
+
+  // 빨간 핀 = 미트포앤 기점
+  if (depot) {
+    const pos = new kakao.maps.LatLng(depot.y, depot.x);
+    const marker = new kakao.maps.Marker({
+      position: pos,
+      map: _kakaoMap,
+      title: DEPOT_NAME,
+      image: new kakao.maps.MarkerImage(
+        'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
+        new kakao.maps.Size(28, 40),
+        { offset: new kakao.maps.Point(14, 40) }
+      )
+    });
+    const iw = new kakao.maps.InfoWindow({
+      content: '<div style="padding:6px 10px;font-size:13px;"><b style="color:#e53935">' + DEPOT_NAME + '</b><br>' + DEPOT_ADDR + '<br><small>기점</small></div>'
+    });
+    kakao.maps.event.addListener(marker, 'click', () => iw.open(_kakaoMap, marker));
+    _kakaoMarkers.push(marker);
+    bounds.extend(pos);
   }
 
-  // 거래처 (파란 핀) — 요청 간 Nominatim 제한 위해 순차 + 짧은 대기
-  for (let i = 0; i < list.length; i++) {
-    const c = list[i];
-    const pos = await geocodeAddress(c.address);
-    if (!pos) continue;
-    L.marker([pos.lat, pos.lon], { icon: getClientIcon() })
-      .bindPopup('<b>' + (c.name || '') + '</b><br>' + (c.address || ''))
-      .addTo(_orderMapLayer);
-    if (i < list.length - 1) await new Promise(r => setTimeout(r, 900));
+  // 파란 기본 마커 = 거래처
+  for (const c of list) {
+    let posData = geoCacheGet(c.address);
+    if (!posData) posData = await kakaoGeocode(c.address);
+    if (!posData) continue;
+    const pos = new kakao.maps.LatLng(posData.y, posData.x);
+    const marker = new kakao.maps.Marker({
+      position: pos,
+      map: _kakaoMap,
+      title: c.name
+    });
+    const iw = new kakao.maps.InfoWindow({
+      content: '<div style="padding:6px 10px;font-size:13px;"><b>' + (c.name || '') + '</b><br>' + (c.address || '') + '</div>'
+    });
+    kakao.maps.event.addListener(marker, 'click', () => iw.open(_kakaoMap, marker));
+    _kakaoMarkers.push(marker);
+    bounds.extend(pos);
   }
 
-  const layers = _orderMapLayer.getLayers();
-  if (layers.length) {
-    _orderMap.fitBounds(_orderMapLayer.getBounds().pad(0.15));
-  } else if (depotPos) {
-    _orderMap.setView([depotPos.lat, depotPos.lon], 13);
+  if (_kakaoMarkers.length > 1) {
+    _kakaoMap.setBounds(bounds);
+  } else if (depot) {
+    _kakaoMap.setLevel(5);
   }
-  setTimeout(() => _orderMap.invalidateSize(), 100);
 }
 
+function promptKakaoKey() {
+  const cur = getKakaoKey();
+  const k = prompt('카카오 JavaScript 키 입력 (비우면 삭제)\n현재: ' + (cur ? cur.slice(0, 8) + '…' : '없음'), cur || '');
+  if (k === null) return;
+  if (!k.trim()) {
+    try { localStorage.removeItem('meatpoan_kakao_js_key'); } catch (e) {}
+    _kakaoReady = null;
+    alert('키 삭제됨');
+    return;
+  }
+  setKakaoKey(k.trim());
+  _kakaoReady = null;
+  alert('키 저장됨. 지도 보기를 다시 눌러 주세요.\n도메인 등록: developers.kakao.com → 플랫폼');
+}
 
 function showMapHelp() {
   alert(
-    '【구글 마이맵으로 분포 보기】\n\n' +
-    '1. 「마이맵 분포(CSV)」를 눌러 파일 저장\n' +
-    '2. 구글 마이맵 열기 (google.com/mymaps)\n' +
-    '3. 새 지도 만들기 또는 기존 지도 열기\n' +
-    '4. 레이어 → 가져오기 → 저장한 CSV 선택\n' +
-    '5. 위치 열: 주소 / 제목 열: 이름\n\n' +
-    '발주 난 거래처만 핀으로 표시됩니다.\n' +
-    '기점(미트포앤 하상동)도 함께 들어갑니다.'
+    '【카카오맵 설정】\n\n' +
+    '1. developers.kakao.com 접속 → 내 애플리케이션\n' +
+    '2. 앱 키 → JavaScript 키 복사\n' +
+    '3. 플랫폼 → Web 도메인 등록\n' +
+    '   (예: https://oung.github.io )\n' +
+    '4. 지도 보기 시 키 입력 (기기에 저장됨)\n\n' +
+    '미트포앤 = 빨간(별) 핀 / 거래처 = 파란 핀\n' +
+    '좌표는 한 번 찾으면 저장되어 다음날부터 바로 뜹니다.'
   );
 }
+
+
 
 function downloadMyMapsCsv() {
   const list = window.__mapClients || [];
