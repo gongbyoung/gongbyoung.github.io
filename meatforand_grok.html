@@ -10,7 +10,7 @@
 <meta name="application-name" content="미트포앤 발주">
 <link rel="manifest" href="manifest.webmanifest">
 
-<title>미트포앤 발주 관리</title>
+<title>미트포앤 발V002</title>
 <style>
 :root {
   --primary: #c41e3a;
@@ -364,7 +364,23 @@ pre {
 }
 .map-btn.secondary { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
 
+
+#orderMap {
+  width: 100%; height: 320px; border-radius: 10px;
+  border: 1px solid var(--border); margin-bottom: .5rem;
+  z-index: 1;
+}
+.map-pin-legend {
+  font-size: .75rem; color: var(--muted); margin: .2rem 0 .45rem;
+  display: flex; gap: .8rem; flex-wrap: wrap;
+}
+.map-pin-legend span { display: inline-flex; align-items: center; gap: .25rem; }
+.pin-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.pin-dot.depot { background: #e53935; }
+.pin-dot.client { background: #1e88e5; }
 </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 </head>
 <body>
 <div id="login-screen">
@@ -1783,7 +1799,7 @@ function extractClientRemark(rawText) {
 }
 
 // 기점: 하상동 미트포앤 (시작·종점)
-const DEPOT_NAME = '미트포앤(사무실)';
+const DEPOT_NAME = '미트포앤';
 const DEPOT_ADDR = '경기도 시흥시 하상로8번길 7';
 const DEPOT_QUERY = '경기도 시흥시 하상로8번길 7 미트포앤';
 
@@ -1835,9 +1851,11 @@ function renderRegions(el, orders) {
   let html = prev;
   html += `<div class="section-title">발주 거래처 · ${clients.length}곳</div>`;
   html += `<div class="map-actions">
-    <button type="button" class="map-btn" onclick="downloadMyMapsCsv()">마이맵 분포(CSV)</button>
-    <button type="button" class="map-btn secondary" onclick="showMapHelp()">사용법</button>
+    <button type="button" class="map-btn" onclick="showOrderMap()">지도 보기</button>
+    <button type="button" class="map-btn secondary" onclick="downloadMyMapsCsv()">마이맵 CSV</button>
   </div>`;
+  html += `<div class="map-pin-legend"><span><i class="pin-dot depot"></i> 미트포앤(기점)</span><span><i class="pin-dot client"></i> 발주 거래처</span></div>`;
+  html += `<div id="orderMap" style="display:none"></div>`;
   html += `<input class="search-box" placeholder="거래처·권역·주소 검색..." oninput="filterClientTable(this.value)">`;
 
   if (!clients.length) {
@@ -1870,6 +1888,108 @@ function filterClientTable(q) {
     const hay = (tr.getAttribute('data-search') || tr.textContent || '').toLowerCase();
     tr.style.display = (!q || hay.includes(q)) ? '' : 'none';
   });
+}
+
+
+
+// --- 웹 지도 (Leaflet + Nominatim, API키 없음) ---
+let _orderMap = null;
+let _orderMapLayer = null;
+
+function makeIcon(color) {
+  // 원형 마커 (빨강=기점, 파랑=거래처)
+  const svg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">
+      <path fill="${color}" stroke="#fff" stroke-width="2"
+        d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.3 21.7 0 14 0z"/>
+      <circle cx="14" cy="14" r="5" fill="#fff"/>
+    </svg>`
+  );
+  return L.icon({
+    iconUrl: 'data:image/svg+xml;charset=UTF-8,' + svg,
+    iconSize: [28, 40],
+    iconAnchor: [14, 40],
+    popupAnchor: [0, -36]
+  });
+}
+
+const ICON_DEPOT = null;  // lazy
+const ICON_CLIENT = null;
+
+function getDepotIcon() {
+  return makeIcon('#e53935'); // 빨강
+}
+function getClientIcon() {
+  return makeIcon('#1e88e5'); // 파랑
+}
+
+async function geocodeAddress(addr) {
+  const key = 'geo:' + addr;
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) {
+      const p = JSON.parse(cached);
+      if (p && p.lat) return p;
+    }
+  } catch (e) {}
+  const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&q='
+    + encodeURIComponent(addr);
+  const res = await fetch(url, { headers: { 'Accept-Language': 'ko' } });
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (!data || !data[0]) return null;
+  const out = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+  try { localStorage.setItem(key, JSON.stringify(out)); } catch (e) {}
+  return out;
+}
+
+async function showOrderMap() {
+  const box = document.getElementById('orderMap');
+  if (!box) return;
+  if (typeof L === 'undefined') {
+    alert('지도를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');
+    return;
+  }
+  box.style.display = 'block';
+  if (!_orderMap) {
+    _orderMap = L.map('orderMap').setView([37.38, 126.8], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(_orderMap);
+  }
+  if (_orderMapLayer) {
+    _orderMap.removeLayer(_orderMapLayer);
+  }
+  _orderMapLayer = L.featureGroup().addTo(_orderMap);
+
+  const list = (window.__mapClients || []).filter(c => c.address);
+  // 기점 먼저 (빨간 핀)
+  const depotPos = await geocodeAddress(DEPOT_ADDR) || await geocodeAddress(DEPOT_QUERY);
+  if (depotPos) {
+    L.marker([depotPos.lat, depotPos.lon], { icon: getDepotIcon() })
+      .bindPopup('<b>' + DEPOT_NAME + '</b><br>' + DEPOT_ADDR + '<br><small>기점</small>')
+      .addTo(_orderMapLayer);
+  }
+
+  // 거래처 (파란 핀) — 요청 간 Nominatim 제한 위해 순차 + 짧은 대기
+  for (let i = 0; i < list.length; i++) {
+    const c = list[i];
+    const pos = await geocodeAddress(c.address);
+    if (!pos) continue;
+    L.marker([pos.lat, pos.lon], { icon: getClientIcon() })
+      .bindPopup('<b>' + (c.name || '') + '</b><br>' + (c.address || ''))
+      .addTo(_orderMapLayer);
+    if (i < list.length - 1) await new Promise(r => setTimeout(r, 900));
+  }
+
+  const layers = _orderMapLayer.getLayers();
+  if (layers.length) {
+    _orderMap.fitBounds(_orderMapLayer.getBounds().pad(0.15));
+  } else if (depotPos) {
+    _orderMap.setView([depotPos.lat, depotPos.lon], 13);
+  }
+  setTimeout(() => _orderMap.invalidateSize(), 100);
 }
 
 
