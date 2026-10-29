@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -8,7 +9,6 @@
 <meta name="theme-color" content="#c41e3a">
 <meta name="apple-mobile-web-app-title" content="미트포앤 발주">
 <meta name="application-name" content="미트포앤 발주">
-<link rel="manifest" href="manifest.webmanifest">
 
 <title>미트포앤 발주 관리</title>
 <style>
@@ -379,6 +379,8 @@ pre {
 .pin-dot.depot { background: #e53935; }
 .pin-dot.client { background: #1e88e5; }
 </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 </head>
 <body>
 <div id="login-screen">
@@ -501,9 +503,7 @@ function saveAdminConfig() {
   localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
 }
 loadAdminConfig();
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
-}
+
 
 function getAllClients() {
   return CLIENTS.concat(customClients);
@@ -693,9 +693,7 @@ function onAdminImportFile(e) {
       const cfg = JSON.parse(ev.target.result);
       localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
       loadAdminConfig();
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
-}
+
       alert('설정을 가져왔습니다');
       renderAdmin();
     } catch (err) {
@@ -709,9 +707,7 @@ function resetAdminConfig() {
   if (!confirm('추가/수정한 관리자 설정을 모두 초기화할까요?')) return;
   localStorage.removeItem(CFG_KEY);
   loadAdminConfig();
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
-}
+
   renderAdmin();
 }
 
@@ -1214,8 +1210,16 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
       let ship = det.ship;
       let shipExplicit = det.explicit;
       if (cur.forceShip === 'next') { ship = 'next'; shipExplicit = true; }
-      cur.items = (cur.items || []).filter(it => !/^(내일|오늘|모레)$/.test((it.name || '').trim()));
-      if (!cur.items.length && !raw.replace(/내일|오늘|모레/g, '').trim()) {
+      // 유효 발주 품목만 (고기명 + 숫자). 숫자만 있으면 Box
+      cur.items = (cur.items || []).filter(isValidOrderItem).map(it => {
+        if (it.qty && !it.unit) it.unit = 'Box';
+        return it;
+      });
+      if (isJunkClientName(cur.client)) {
+        cur = null;
+        return;
+      }
+      if (!cur.items.length) {
         cur = null;
         return;
       }
@@ -1283,10 +1287,8 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
           if (/여기까지|발주체크/.test(line)) continue;
           cur.rawLines.push(line);
           const parsed = parseItemLine(line);
-          if (parsed) cur.items.push(parsed);
-          else if (line.length > 1 && !isPoliteOnly(line)) {
-            cur.items.push({ name: line, qty: '', unit: '', note: '', extra: '' });
-          }
+          if (parsed && isValidOrderItem(parsed)) cur.items.push(parsed);
+          // 수량 없는 말머리 줄은 품목으로 넣지 않음
         }
         continue;
       }
@@ -1325,6 +1327,7 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
       if (/^(네|예|아니요|알겠|수고|감사|사진|이모티콘)/.test(clientLine)) continue;
       if (/발주체크|여기까지/.test(clientLine)) continue;
       if (/^(내일|오늘|모레)$/.test(clientLine)) continue;
+      if (isJunkClientName(clientLine)) continue;
       // 냉장/냉동 = 고기 구분 (거래처명 아님)
       if (/^(냉장|냉동|국내산|수입)(산|육)?$/.test(clientLine.replace(/\s/g, ''))) {
         if (cur) {
@@ -1341,7 +1344,7 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
       const matched = matchClient(clientLine);
       // 매칭 결과가 날짜어·구분어면 버림
       if (/^(내일|오늘|모레|냉장|냉동)$/.test((matched.name || '').trim())) continue;
-      if (!matched.name) continue;
+      if (!matched.name || isJunkClientName(matched.name)) continue;
 
       let forceShip = null;
       if (/내일/.test(first) || lines.some(l => /^내일\b/.test(l.trim()))) forceShip = 'next';
@@ -1533,18 +1536,48 @@ function similarity(a, b) {
   return matches / longer.length;
 }
 
-// 인사말/안내 문구 (고기명으로 쓰지 않음)
-const POLITE_RE = /부탁|주세요|보내주|보내세|이상입니다|발주|감사|수고|안녕하|문자드립|급급|정정|추가분|입고|이렇게|네요|해요|합니다|드립니다|입니다|오늘|내일|오후에|아침에|수정\s*했|홀에|놔주|되세|만이요|대표님|비번|월요일|화요일|수요일|목요일|금요일|토요일|일요일/;
+// 인사말/안내 문구 (고기명·거래처명으로 쓰지 않음)
+const POLITE_RE = /부탁|주세요|보내주|보내세|이상입니다|발주|감사|수고|안녕하|문자드립|급급|정정|추가분|입고|이렇게|네요|해요|합니다|드립니다|입니다|오늘|내일|오후에|아침에|수정\s*했|홀에|놔주|되세|만이요|대표님|비번|월요일|화요일|수요일|목요일|금요일|토요일|일요일|다음주|이번주|보내주세|드리겠습니다/;
 
 function isPoliteOnly(text) {
   const t = (text || '').trim();
   if (!t) return true;
-  // 숫자(수량)가 없고 인사/안내 표현이면 제외
   if (!/\d/.test(t) && POLITE_RE.test(t)) return true;
-  // 거의 인사말만으로 구성된 짧은 문장
-  if (POLITE_RE.test(t) && t.length < 20 && !/\d+\s*(박스|팩|키로|kg|봉지|봉)/i.test(t)) return true;
+  if (POLITE_RE.test(t) && t.length < 24 && !/\d+\s*(박스|팩|키로|kg|봉지|봉)/i.test(t)) return true;
+  // 문장 끝 존댓말만
+  if (/^(입니다|합니다|세요|습니다|해요|예요|이에요)[\.\!\?]?$/.test(t)) return true;
   return false;
 }
+
+/** 거래처명으로 쓰면 안 되는 말머리/인사 */
+function isJunkClientName(text) {
+  const t = (text || '').replace(/\s+/g, ' ').trim();
+  if (!t || t.length < 2) return true;
+  if (isPoliteOnly(t)) return true;
+  if (/^(내일|오늘|모레|다음주|이번주|냉장|냉동|국내산|수입)$/.test(t)) return true;
+  if (/^(발주가|발주|입고|입니다|합니다|세요|습니다)[\.\!\?]?$/.test(t)) return true;
+  if (/부탁|주세요|보내주|보내세|드리겠습니다|드립니다|이상입니다/.test(t) && t.length < 20) return true;
+  if (/(습니다|세요|해요|입니다|드립니다)[\.\!\?]?$/.test(t) && t.length < 16 && !/[가-힣]{2,}(축산|정육|마트|축산|푸드|유통|반점|식당|고기)/.test(t)) return true;
+  // 숫자만 / 단위만
+  if (/^[\d\s\.]+$/.test(t)) return true;
+  return false;
+}
+
+/** 발주 품목으로 인정: 고기명 + 숫자(단위 없으면 Box) */
+function isValidOrderItem(it) {
+  if (!it || !it.name) return false;
+  const n = String(it.name).trim();
+  if (!n || isPoliteOnly(n) || isJunkClientName(n)) return false;
+  if (/^(내일|오늘|모레|냉장|냉동)$/.test(n)) return false;
+  // 수량 숫자 필수
+  const q = String(it.qty || '').trim();
+  if (!q || !/^\d+(\.\d+)?$/.test(q)) return false;
+  // 3~4자리 로트만 있고 단위 없으면 발주 수량 아님
+  if (!it.unit && /^\d{3,4}$/.test(q)) return false;
+  if (it.lot && !it.unit && /^\d{3,4}$/.test(q)) return false;
+  return true;
+}
+
 
 function parseItemLine(line) {
   line = line.replace(/^[\-•·]\s*/, '').trim();
@@ -1855,7 +1888,7 @@ function renderRegions(el, orders) {
     <button type="button" class="map-btn secondary" onclick="downloadMyMapsCsv()">마이맵 CSV</button>
   </div>`;
   html += `<div class="map-pin-legend"><span><i class="pin-dot depot"></i> 미트포앤(빨간 별)</span><span><i class="pin-dot client"></i> 발주 거래처(파랑)</span>
-    <button type="button" class="map-btn secondary" style="flex:0;padding:.25rem .5rem;min-height:28px;font-size:.7rem" onclick="promptKakaoKey()">카카오키</button></div>`;
+    <button type="button" class="map-btn secondary" style="flex:0;padding:.25rem .5rem;min-height:28px;font-size:.7rem" onclick="showMapHelp()">지도안내</button></div>`;
 
   html += `<div id="orderMap" style="display:none"></div>`;
   html += `<input class="search-box" placeholder="거래처·권역·주소 검색..." oninput="filterClientTable(this.value)">`;
@@ -1895,107 +1928,114 @@ function filterClientTable(q) {
 
 
 
-// --- 카카오맵 (빠름 · JS 키 필요) ---
-// 관리자 또는 아래 기본값에 JavaScript 키 저장
-function getKakaoKey() {
-  try {
-    const k = localStorage.getItem('meatpoan_kakao_js_key');
-    if (k && k.trim()) return k.trim();
-  } catch (e) {}
-  // 기본 키 (Kakao 개발자 콘솔에서 사용 도메인만 등록할 것)
-  return '0f557a46ed789ee7ef976f3a18d69b13';
-}
 
-function setKakaoKey(k) {
-  try { localStorage.setItem('meatpoan_kakao_js_key', (k || '').trim()); } catch (e) {}
-}
+// --- 브이월드(vWorld) 주소검색 + Leaflet 지도 ---
+const VWORLD_KEY = '3351CCD7-07E8-40AB-97D0-243A592B74C3';
 
-let _kakaoReady = null;
-function loadKakaoSdk() {
-  if (window.kakao && window.kakao.maps) return Promise.resolve();
-  if (_kakaoReady) return _kakaoReady;
-  const key = getKakaoKey();
-  if (!key) {
-    return Promise.reject(new Error('NO_KEY'));
-  }
-  _kakaoReady = new Promise((resolve, reject) => {
-    const prev = document.getElementById('kakaoMapSdk');
-    if (prev) prev.remove();
-    const s = document.createElement('script');
-    s.id = 'kakaoMapSdk';
-    s.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + encodeURIComponent(key) + '&libraries=services&autoload=false';
-    s.onload = () => {
-      if (!window.kakao || !window.kakao.maps) {
-        reject(new Error('SDK_FAIL'));
-        return;
-      }
-      window.kakao.maps.load(() => resolve());
-    };
-    s.onerror = () => reject(new Error('SDK_LOAD'));
-    document.head.appendChild(s);
-  });
-  return _kakaoReady;
-}
-
-// 좌표 캐시 (localStorage)
 function geoCacheGet(addr) {
   try {
-    const p = JSON.parse(localStorage.getItem('kgeo:' + addr) || 'null');
-    if (p && p.y && p.x) return p;
+    const p = JSON.parse(localStorage.getItem('vgeo:' + addr) || 'null');
+    if (p && p.lat != null && p.lng != null) return p;
   } catch (e) {}
   return null;
 }
 function geoCacheSet(addr, pos) {
-  try { localStorage.setItem('kgeo:' + addr, JSON.stringify(pos)); } catch (e) {}
+  try { localStorage.setItem('vgeo:' + addr, JSON.stringify(pos)); } catch (e) {}
 }
 
-function kakaoGeocode(addr) {
-  return new Promise((resolve) => {
-    if (!addr) return resolve(null);
-    const cached = geoCacheGet(addr);
-    if (cached) return resolve(cached);
-    if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) return resolve(null);
-    const geocoder = new kakao.maps.services.Geocoder();
-    geocoder.addressSearch(addr, (result, status) => {
-      if (status === kakao.maps.services.Status.OK && result[0]) {
-        const pos = { y: result[0].y, x: result[0].x }; // lat, lng as string
-        geoCacheSet(addr, pos);
-        resolve(pos);
-      } else {
-        // 주소 실패 시 키워드 검색
-        const ps = new kakao.maps.services.Places();
-        ps.keywordSearch(addr, (res2, st2) => {
-          if (st2 === kakao.maps.services.Status.OK && res2[0]) {
-            const pos = { y: res2[0].y, x: res2[0].x };
-            geoCacheSet(addr, pos);
-            resolve(pos);
-          } else resolve(null);
-        });
+/** 브이월드 주소 → 좌표 (EPSG:4326) */
+async function vworldGeocode(addr) {
+  if (!addr) return null;
+  const cached = geoCacheGet(addr);
+  if (cached) return cached;
+
+  // 1) getCoord (도로명/지번)
+  const tryTypes = ['road', 'parcel'];
+  for (const typ of tryTypes) {
+    const url = 'https://api.vworld.kr/req/address?' + new URLSearchParams({
+      service: 'address',
+      request: 'getCoord',
+      version: '2.0',
+      crs: 'epsg:4326',
+      address: addr,
+      refine: 'true',
+      simple: 'false',
+      format: 'json',
+      type: typ,
+      key: VWORLD_KEY
+    }).toString();
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      const st = data && data.response && data.response.status;
+      if (st === 'OK' && data.response.result && data.response.result.point) {
+        const pt = data.response.result.point;
+        const pos = { lat: parseFloat(pt.y), lng: parseFloat(pt.x) };
+        if (!isNaN(pos.lat) && !isNaN(pos.lng)) {
+          geoCacheSet(addr, pos);
+          return pos;
+        }
       }
-    });
+    } catch (e) { /* CORS 등 */ }
+  }
+
+  // 2) 검색 API 폴백
+  try {
+    const url2 = 'https://api.vworld.kr/req/search?' + new URLSearchParams({
+      service: 'search',
+      request: 'search',
+      version: '2.0',
+      crs: 'EPSG:4326',
+      size: '1',
+      page: '1',
+      query: addr,
+      type: 'address',
+      category: 'road',
+      format: 'json',
+      errorformat: 'json',
+      key: VWORLD_KEY
+    }).toString();
+    const res2 = await fetch(url2);
+    const data2 = await res2.json();
+    const items = data2 && data2.response && data2.response.result && data2.response.result.items;
+    if (items && items[0] && items[0].point) {
+      const pos = { lat: parseFloat(items[0].point.y), lng: parseFloat(items[0].point.x) };
+      if (!isNaN(pos.lat) && !isNaN(pos.lng)) {
+        geoCacheSet(addr, pos);
+        return pos;
+      }
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+let _orderMap = null;
+let _orderMapLayer = null;
+
+function makePinIcon(color) {
+  const svg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">
+      <path fill="${color}" stroke="#fff" stroke-width="2"
+        d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.3 21.7 0 14 0z"/>
+      <circle cx="14" cy="14" r="5" fill="#fff"/>
+    </svg>`
+  );
+  return L.icon({
+    iconUrl: 'data:image/svg+xml;charset=UTF-8,' + svg,
+    iconSize: [28, 40],
+    iconAnchor: [14, 40],
+    popupAnchor: [0, -36]
   });
 }
 
-let _kakaoMap = null;
-let _kakaoMarkers = [];
-
-function clearKakaoMarkers() {
-  _kakaoMarkers.forEach(m => m.setMap(null));
-  _kakaoMarkers = [];
-}
-
-/** 발주 선택 직후 백그라운드 프리로드 (지도 버튼 즉시 응답) */
 async function preloadMapCoords(clients) {
-  try {
-    await loadKakaoSdk();
-  } catch (e) { return; }
   const addrs = [DEPOT_ADDR];
   (clients || []).forEach(c => { if (c.address) addrs.push(c.address); });
   for (const a of addrs) {
     if (!geoCacheGet(a)) {
-      await kakaoGeocode(a);
-      // 카카오 제한 여유
-      await new Promise(r => setTimeout(r, 50));
+      await vworldGeocode(a);
+      await new Promise(r => setTimeout(r, 80));
     }
   }
 }
@@ -2003,123 +2043,84 @@ async function preloadMapCoords(clients) {
 async function showOrderMap() {
   const box = document.getElementById('orderMap');
   if (!box) return;
-
-  if (!getKakaoKey()) {
-    const k = prompt(
-      '카카오 지도 JavaScript 키를 입력하세요.\n' +
-      'developers.kakao.com → 내 애플리케이션 → 앱 키 → JavaScript 키\n' +
-      '플랫폼에 GitHub Pages 도메인도 등록해야 합니다.'
-    );
-    if (!k || !k.trim()) return;
-    setKakaoKey(k.trim());
-    _kakaoReady = null;
-  }
-
-  box.style.display = 'block';
-  box.innerHTML = '<div style="padding:12px;font-size:.85rem;color:#666">지도 불러오는 중...</div>';
-
-  try {
-    await loadKakaoSdk();
-  } catch (e) {
-    box.innerHTML = '<div style="padding:12px;font-size:.85rem;color:#c00">카카오맵 로드 실패. 키·도메인 등록을 확인하세요.<br><button type="button" class="map-btn" style="margin-top:8px" onclick="localStorage.removeItem(\'meatpoan_kakao_js_key\');showOrderMap()">키 다시 입력</button></div>';
+  if (typeof L === 'undefined') {
+    alert('지도 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');
     return;
   }
 
-  box.innerHTML = '';
+  box.style.display = 'block';
+  box.innerHTML = '<div style="padding:12px;font-size:.85rem;color:#666">브이월드 주소 검색 중...</div>';
+
   const list = (window.__mapClients || []).filter(c => c.address);
 
-  // 기점 좌표
-  let depot = geoCacheGet(DEPOT_ADDR) || await kakaoGeocode(DEPOT_ADDR);
-  if (!depot) depot = await kakaoGeocode(DEPOT_QUERY);
-  const center = depot
-    ? new kakao.maps.LatLng(depot.y, depot.x)
-    : new kakao.maps.LatLng(37.38, 126.8);
+  // 지도 컨테이너 재생성 (Leaflet은 같은 div 재초기화 주의)
+  const parent = box.parentNode;
+  const next = box.nextSibling;
+  const newBox = document.createElement('div');
+  newBox.id = 'orderMap';
+  newBox.style.cssText = 'width:100%;height:320px;border-radius:10px;border:1px solid var(--border);margin-bottom:.5rem;z-index:1;display:block';
+  parent.removeChild(box);
+  if (next) parent.insertBefore(newBox, next);
+  else parent.appendChild(newBox);
 
-  if (_kakaoMap) {
-    _kakaoMap.setCenter(center);
-  } else {
-    _kakaoMap = new kakao.maps.Map(box, { center, level: 8 });
-  }
-  clearKakaoMarkers();
+  _orderMap = L.map('orderMap').setView([37.38, 126.8], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap | 주소검색 브이월드'
+  }).addTo(_orderMap);
+  _orderMapLayer = L.featureGroup().addTo(_orderMap);
 
-  const bounds = new kakao.maps.LatLngBounds();
+  const depotIcon = makePinIcon('#e53935');
+  const clientIcon = makePinIcon('#1e88e5');
 
-  // 빨간 핀 = 미트포앤 기점
+  // 기점 미트포앤 (빨강)
+  let depot = geoCacheGet(DEPOT_ADDR) || await vworldGeocode(DEPOT_ADDR);
+  if (!depot) depot = await vworldGeocode(DEPOT_QUERY);
   if (depot) {
-    const pos = new kakao.maps.LatLng(depot.y, depot.x);
-    const marker = new kakao.maps.Marker({
-      position: pos,
-      map: _kakaoMap,
-      title: DEPOT_NAME,
-      image: new kakao.maps.MarkerImage(
-        'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
-        new kakao.maps.Size(28, 40),
-        { offset: new kakao.maps.Point(14, 40) }
-      )
-    });
-    const iw = new kakao.maps.InfoWindow({
-      content: '<div style="padding:6px 10px;font-size:13px;"><b style="color:#e53935">' + DEPOT_NAME + '</b><br>' + DEPOT_ADDR + '<br><small>기점</small></div>'
-    });
-    kakao.maps.event.addListener(marker, 'click', () => iw.open(_kakaoMap, marker));
-    _kakaoMarkers.push(marker);
-    bounds.extend(pos);
+    L.marker([depot.lat, depot.lng], { icon: depotIcon })
+      .bindPopup('<b style="color:#e53935">' + DEPOT_NAME + '</b><br>' + DEPOT_ADDR + '<br><small>기점</small>')
+      .addTo(_orderMapLayer);
   }
 
-  // 파란 기본 마커 = 거래처
-  for (const c of list) {
-    let posData = geoCacheGet(c.address);
-    if (!posData) posData = await kakaoGeocode(c.address);
-    if (!posData) continue;
-    const pos = new kakao.maps.LatLng(posData.y, posData.x);
-    const marker = new kakao.maps.Marker({
-      position: pos,
-      map: _kakaoMap,
-      title: c.name
-    });
-    const iw = new kakao.maps.InfoWindow({
-      content: '<div style="padding:6px 10px;font-size:13px;"><b>' + (c.name || '') + '</b><br>' + (c.address || '') + '</div>'
-    });
-    kakao.maps.event.addListener(marker, 'click', () => iw.open(_kakaoMap, marker));
-    _kakaoMarkers.push(marker);
-    bounds.extend(pos);
+  let ok = 0, fail = 0;
+  for (let i = 0; i < list.length; i++) {
+    const c = list[i];
+    let pos = geoCacheGet(c.address) || await vworldGeocode(c.address);
+    if (!pos) { fail++; continue; }
+    ok++;
+    L.marker([pos.lat, pos.lng], { icon: clientIcon })
+      .bindPopup('<b>' + (c.name || '') + '</b><br>' + (c.address || ''))
+      .addTo(_orderMapLayer);
   }
 
-  if (_kakaoMarkers.length > 1) {
-    _kakaoMap.setBounds(bounds);
+  const layers = _orderMapLayer.getLayers();
+  if (layers.length) {
+    _orderMap.fitBounds(_orderMapLayer.getBounds().pad(0.15));
   } else if (depot) {
-    _kakaoMap.setLevel(5);
+    _orderMap.setView([depot.lat, depot.lng], 13);
+  }
+  setTimeout(() => _orderMap.invalidateSize(), 150);
+
+  if (fail > 0 && ok === 0) {
+    alert('주소를 좌표로 변환하지 못했습니다.\\n브이월드 키 도메인 등록(gongbyoung.github.io)을 확인해 주세요.\\n실패: ' + fail);
   }
 }
 
 function promptKakaoKey() {
-  const cur = getKakaoKey();
-  const k = prompt('카카오 JavaScript 키 입력 (비우면 삭제)\n현재: ' + (cur ? cur.slice(0, 8) + '…' : '없음'), cur || '');
-  if (k === null) return;
-  if (!k.trim()) {
-    try { localStorage.removeItem('meatpoan_kakao_js_key'); } catch (e) {}
-    _kakaoReady = null;
-    alert('키 삭제됨');
-    return;
-  }
-  setKakaoKey(k.trim());
-  _kakaoReady = null;
-  alert('키 저장됨. 지도 보기를 다시 눌러 주세요.\n도메인 등록: developers.kakao.com → 플랫폼');
+  alert('현재 지도는 브이월드 키를 사용합니다.\\n키: ' + VWORLD_KEY.slice(0, 8) + '…');
 }
 
 function showMapHelp() {
   alert(
-    '【카카오맵 설정】\n\n' +
-    '1. developers.kakao.com 접속 → 내 애플리케이션\n' +
-    '2. 앱 키 → JavaScript 키 복사\n' +
-    '3. 플랫폼 → Web 도메인 등록\n' +
-    '   (예: https://oung.github.io )\n' +
-    '4. 지도 보기 시 키 입력 (기기에 저장됨)\n\n' +
-    '미트포앤 = 빨간(별) 핀 / 거래처 = 파란 핀\n' +
-    '좌표는 한 번 찾으면 저장되어 다음날부터 바로 뜹니다.'
+    '【브이월드 지도】\\n\\n' +
+    '· 주소검색: 국토부 브이월드 (개발키)\\n' +
+    '· 지도화면: OpenStreetMap\\n' +
+    '· 미트포앤 = 빨간 핀 / 거래처 = 파란 핀\\n' +
+    '· 좌표는 한 번 찾으면 저장되어 다음엔 바로 표시\\n\\n' +
+    '키 만료: 2027-04-29\\n' +
+    '도메인에 gongbyoung.github.io 등록되어 있어야 합니다.'
   );
 }
-
-
 
 function downloadMyMapsCsv() {
   const list = window.__mapClients || [];
