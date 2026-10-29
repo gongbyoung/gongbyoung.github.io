@@ -399,6 +399,7 @@ pre {
     <div class="tab" data-tab="byClient" onclick="switchTab('byClient')">거래처별</div>
     <div class="tab" data-tab="byMeat" onclick="switchTab('byMeat')">고기별</div>
     <div class="tab" data-tab="loose" onclick="switchTab('loose')">낱개</div>
+    <div class="tab" data-tab="weight" onclick="switchTab('weight')">계근</div>
     <div class="tab" data-tab="stock" onclick="switchTab('stock')">재고</div>
     <div class="tab" data-tab="summary" onclick="switchTab('summary')">문자</div>
     <div class="tab" data-tab="raw" onclick="switchTab('raw')">원본</div>
@@ -421,7 +422,8 @@ const ALIASES = {"사동쌈엔쌈":"쌈앤쌈(사동)","태광":"(주)태광푸�
 let chatText = '';
 let availableDates = [];
 let currentDate = '';
-let currentOrders = []; // { client, address, items: [{name, qty, unit, note, extra}], raw, time }
+let currentOrders = []; // { client, address, items, raw, time, ship, shipExplicit }
+let currentWeightLogs = []; // 계근/로트 기록
 let currentTab = 'regions';
 
 
@@ -511,7 +513,9 @@ function closeAdmin() {
   document.getElementById('adminPanel').classList.remove('open');
   // 설정 반영 위해 현재 날짜 다시 파싱
   if (currentDate && chatText) {
-    currentOrders = parseOrdersForDeliveryDate(chatText, currentDate);
+    const _parsed = parseOrdersForDeliveryDate(chatText, currentDate);
+        currentOrders = _parsed.orders || _parsed || [];
+        currentWeightLogs = _parsed.weightLogs || [];
     render();
   }
 }
@@ -754,6 +758,7 @@ function loadChatFile(e) {
     }
     currentDate = '';
     currentOrders = [];
+    currentWeightLogs = [];
     if (typeof showProgress === 'function') {
       showProgress(100, '파일 로드 완료');
       setTimeout(hideProgress, 300);
@@ -963,21 +968,23 @@ function parseMsgTime(timeStr) {
 
 function onDateChange() {
   currentDate = document.getElementById('dateSelect').value;
-  if (!currentDate) { currentOrders = []; hideProgress(); render(); return; }
+  if (!currentDate) { currentOrders = []; currentWeightLogs = []; hideProgress(); render(); return; }
   showProgress(0, '발주 분석 중...');
   // 큰 파일도 UI 멈추지 않게 다음 프레임에서 실행
   requestAnimationFrame(() => {
     setTimeout(() => {
       try {
         showProgress(30, '메시지 수집 중...');
-        currentOrders = parseOrdersForDeliveryDate(chatText, currentDate, pct => {
+        const _parsed = parseOrdersForDeliveryDate(chatText, currentDate, pct => {
           showProgress(30 + Math.round(pct * 0.6), '발주 분석 중 ' + Math.round(pct) + '%');
         });
+        currentOrders = _parsed.orders || [];
+        currentWeightLogs = _parsed.weightLogs || [];
         showProgress(95, '화면 구성 중...');
         const range = getWindowRange(currentDate);
         const hint = document.getElementById('uploadHint');
         hint.style.display = 'block';
-        hint.textContent = formatWindowLabel(range) + ` · 발주 ${currentOrders.length}건` +
+        hint.textContent = formatWindowLabel(range) + ` · 발주 ${currentOrders.length}건 · 계근 ${(currentWeightLogs||[]).length}건` +
           (range && range.isMonday ? ' (월요일부: 금12시~월12시)' : '');
         document.getElementById('stats').style.display = 'flex';
         shipFilter = 'all';
@@ -1152,30 +1159,23 @@ function formatWindowLabel(range) {
 
 function detectShipSide(rawText, msgDt, deliveryDt) {
   const t = rawText || '';
-  // 명시적 다음날
-  if (/다음날|명일/.test(t)) return 'next';
+  if (/다음날|명일/.test(t)) return { ship: 'next', explicit: true };
   if (/내일/.test(t)) {
-    // 메시지가 배송일 당일(또는 이후)에 쓰였고 "내일"이면 → 다음날 출고
-    // 메시지가 전날에 쓰였고 "내일"이면 → 배송일(당일) 출고
     const msgDay = new Date(msgDt.getFullYear(), msgDt.getMonth(), msgDt.getDate());
     const delDay = new Date(deliveryDt.getFullYear(), deliveryDt.getMonth(), deliveryDt.getDate());
-    if (msgDay.getTime() >= delDay.getTime()) return 'next';
-    return 'today';
+    // 전날 창에서 "내일" → 선택 배송일(당일) 출고
+    // 배송일 당일 메시지에서 "내일" → 다음날 출고
+    if (msgDay.getTime() >= delDay.getTime()) return { ship: 'next', explicit: true };
+    return { ship: 'today', explicit: true };
   }
-  if (/오늘|금일/.test(t)) {
-    const msgDay = new Date(msgDt.getFullYear(), msgDt.getMonth(), msgDt.getDate());
-    const delDay = new Date(deliveryDt.getFullYear(), deliveryDt.getMonth(), deliveryDt.getDate());
-    if (msgDay.getTime() === delDay.getTime()) return 'today';
-    // 전날에 "오늘" → 전날 출고라 이 배송일 범위에선 제외 성격이나, 일단 today로
-    return 'today';
-  }
-  // 기본: 이 시간창에서 모은 발주는 선택 배송일(당일) 기준
-  return 'today';
+  if (/오늘|금일/.test(t)) return { ship: 'today', explicit: true };
+  // 표기 없음 → 선택 배송일(당일)로 간주
+  return { ship: 'today', explicit: false };
 }
 
 function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
   const range = getWindowRange(deliveryKey);
-  if (!range) return [];
+  if (!range) return { orders: [], weightLogs: [] };
   if (onProgress) onProgress(5);
   const allMsgs = getAllDatedMessages(text, range.start, range.end);
   if (onProgress) onProgress(25);
@@ -1183,6 +1183,7 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
   if (onProgress) onProgress(35);
 
   const orders = [];
+  const weightLogs = [];
   let cur = null;
   const total = Math.max(msgs.length, 1);
   let processed = 0;
@@ -1195,9 +1196,10 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
         return;
       }
       const raw = cur.rawLines.join('\n');
-      let ship = detectShipSide(raw, cur.msgDt || range.start, range.delivery);
-      if (cur.forceShip === 'next') ship = 'next';
-      // 품목에 섞인 '내일' 제거
+      let det = detectShipSide(raw, cur.msgDt || range.start, range.delivery);
+      let ship = det.ship;
+      let shipExplicit = det.explicit;
+      if (cur.forceShip === 'next') { ship = 'next'; shipExplicit = true; }
       cur.items = (cur.items || []).filter(it => !/^(내일|오늘|모레)$/.test((it.name || '').trim()));
       if (!cur.items.length && !raw.replace(/내일|오늘|모레/g, '').trim()) {
         cur = null;
@@ -1210,6 +1212,7 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
         raw,
         time: cur.time,
         ship,
+        shipExplicit,
         msgDt: cur.msgDt
       });
     }
@@ -1248,8 +1251,13 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
         continue;
       }
       if (/Web발신|경매가격|도축|등급별|탕박|전국\d/.test(block)) continue;
-      // 순수 계근/개체 로그 (거래처 없이 숫자만)
-      if (isWeightLogOnly(lines)) continue;
+      // 계근/로트 로그 → 발주 제외, 계근 탭에 수집
+      if (isWeightLogOnly(lines)) {
+        flush();
+        const w = parseWeightLogBlock(lines, msg);
+        if (w) weightLogs.push(w);
+        continue;
+      }
       // 내부 지시 (고객 요청 아님)
       if (/^(남는건|다주게|처리하였|정정해|잘못 눌렀)/.test(lines[0]) && lines.length <= 3) continue;
 
@@ -1303,10 +1311,23 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
       if (/^(네|예|아니요|알겠|수고|감사|사진|이모티콘)/.test(clientLine)) continue;
       if (/발주체크|여기까지/.test(clientLine)) continue;
       if (/^(내일|오늘|모레)$/.test(clientLine)) continue;
+      // 냉장/냉동 = 고기 구분 (거래처명 아님)
+      if (/^(냉장|냉동|국내산|수입)(산|육)?$/.test(clientLine.replace(/\s/g, ''))) {
+        if (cur) {
+          cur.category = clientLine.replace(/\s/g, '');
+          cur.rawLines.push(first);
+        }
+        continue;
+      }
+      // 앞에 붙은 냉장/냉동 제거 후 거래처 매칭 (예: 냉장 한마음)
+      let categoryPrefix = '';
+      const catM = clientLine.match(/^(냉장|냉동)\s+(.+)$/);
+      if (catM) { categoryPrefix = catM[1]; clientLine = catM[2].trim(); }
 
       const matched = matchClient(clientLine);
-      // 매칭 결과가 날짜어면 버림
-      if (/^(내일|오늘|모레)$/.test((matched.name || '').trim())) continue;
+      // 매칭 결과가 날짜어·구분어면 버림
+      if (/^(내일|오늘|모레|냉장|냉동)$/.test((matched.name || '').trim())) continue;
+      if (!matched.name) continue;
 
       let forceShip = null;
       if (/내일/.test(first) || lines.some(l => /^내일\b/.test(l.trim()))) forceShip = 'next';
@@ -1318,7 +1339,8 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
         rawLines: lines.slice(),
         time: msg.time,
         msgDt: msg.dt,
-        forceShip
+        forceShip,
+        category: categoryPrefix || ''
       };
       for (let i = 1; i < lines.length; i++) {
         if (/여기까지|발주체크/.test(lines[i])) continue;
@@ -1340,7 +1362,60 @@ function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
     }
   }
   flush();
-  return orders;
+  return { orders, weightLogs };
+}
+
+function parseWeightLogBlock(lines, msg) {
+  if (!lines || !lines.length) return null;
+  // 첫 줄이 거래처 추정, 나머지 계근 줄
+  let client = '';
+  let start = 0;
+  const first = lines[0];
+  if (!/\d{3,4}/.test(first) && !/\d+\.\d+/.test(first) && first.length < 25) {
+    client = first.replace(/[●■☆★]/g, '').trim();
+    start = 1;
+  }
+  const rows = [];
+  for (let i = start; i < lines.length; i++) {
+    const l = lines[i];
+    // 고기명 + 로트들 + 무게
+    let m = l.match(/^(.+?)\s+((?:\d{3,4}\s*)+)(?:\s+(\d+\.\d+))?\s*$/);
+    if (m) {
+      rows.push({
+        meat: m[1].trim(),
+        lot: m[2].replace(/\s+/g, ' ').trim(),
+        weight: m[3] || '',
+        raw: l
+      });
+      continue;
+    }
+    // 고기 8포 19.3 / 13대 10.7
+    m = l.match(/^(.+?)\s+(\d+)\s*(포|대|팩)?\s+(\d+\.\d+)\s*$/);
+    if (m) {
+      rows.push({
+        meat: m[1].trim(),
+        lot: '',
+        weight: m[4],
+        pack: (m[2] || '') + (m[3] || ''),
+        raw: l
+      });
+      continue;
+    }
+    // 숫자만
+    if (/^[\d.\s]+$/.test(l)) {
+      rows.push({ meat: '', lot: l.trim(), weight: '', raw: l });
+      continue;
+    }
+    rows.push({ meat: l, lot: '', weight: '', raw: l });
+  }
+  if (!rows.length && !client) return null;
+  return {
+    client: client || '(미상)',
+    sender: msg.sender || '',
+    time: msg.time || '',
+    rows,
+    raw: lines.join('\n')
+  };
 }
 
 function isLikelyOrderSender(sender, text) {
@@ -1385,15 +1460,23 @@ function isOrderSummaryBlock(lines) {
 }
 
 function isWeightLogOnly(lines) {
-  // 개체/계근 위주 메시지
+  // 개체/계근·로트 기록 (발주 아님)
+  // 예: 수입차돌 451 15.3 / 테니쉬 1582 1432
   const joined = lines.join(' ');
   if (/개체/.test(joined) && !/박스|팩|봉/.test(joined)) return true;
-  // 대부분 숫자만
   let numLines = 0;
+  let lotStyle = 0;
+  let orderStyle = 0;
   for (const l of lines) {
     if (/^[\d.\s]+$/.test(l) || /\d{3,4}\s+\d{3,4}/.test(l)) numLines++;
+    // 고기 + 3~4자리 로트 + (무게) 패턴
+    if (/[가-힣A-Za-z]+\s+\d{3,4}(\s+\d{3,4})*(\s+\d+\.\d+)?\s*$/.test(l.trim())) lotStyle++;
+    if (/\d+\s*(박스|박|팩|봉|키로|kg|판|벌|마리)/i.test(l)) orderStyle++;
   }
   if (lines.length >= 2 && numLines >= lines.length - 1) return true;
+  // 로트형 줄이 많고 발주 단위(박스/팩)가 거의 없으면 계근 로그
+  if (lotStyle >= 2 && orderStyle === 0) return true;
+  if (lotStyle >= 3 && orderStyle <= 1) return true;
   return false;
 }
 
@@ -1452,17 +1535,18 @@ function isPoliteOnly(text) {
 function parseItemLine(line) {
   line = line.replace(/^[\-•·]\s*/, '').trim();
   if (!line || isPoliteOnly(line)) return null;
+  // 구분 표기만 있는 줄
+  if (/^(냉장|냉동|국내산|수입)$/.test(line.replace(/\s/g, ''))) return null;
 
-  // 메이커(브랜드) 목록 — 비고로 빼고 박스 단위로 취급
   const BRANDS = getBrandPattern();
-
   let name = '', qty = '', unit = '', note = '', extra = '';
+  let lot = '', weight = '';
 
   // 1) 고기명 + 숫자 + (단위) + 나머지
   let m = line.match(/^(.+?)\s*(\d+(?:\.\d+)?)\s*(박스|박|팩|키로|kg|Kg|KG|봉지|봉|대|포|벌|판|마리|덩이|개|Pack|pack|Box|box)?(.*)$/i);
   if (m) {
     name = m[1].replace(/[ㅡ\-–]/g, ' ').replace(/\s+/g, ' ').trim();
-    qty = m[2];
+    let num = m[2];
     unit = (m[3] || '').trim();
     let rest = (m[4] || '').trim();
 
@@ -1471,41 +1555,77 @@ function parseItemLine(line) {
       if (um) { unit = um[1]; rest = um[2].trim(); }
     }
 
+    // 숫자 분류:
+    // - 단위 있음 → 수량
+    // - 소수점(12.34, 5.5) → 무게 (수량 아님)
+    // - 정수 3~4자리 (또는 앞에 0) → 로트/일련번호 (수량 아님)
+    // - 그 외 정수 1~2자리 → 수량(박스 등)
+    if (unit) {
+      qty = num;
+    } else if (/\d+\.\d+/.test(num)) {
+      weight = num;
+      qty = '';
+    } else if (/^\d{3,4}$/.test(num) || /^0\d+$/.test(num)) {
+      lot = num;
+      qty = '';
+    } else {
+      qty = num;
+    }
+
+    // rest 에 추가 숫자들 (로트·무게 나열)
     if (rest) {
-      // rest 안의 인사말 제거
       rest = rest.replace(/부탁\S*|보내\S*|주세요|감사합니다?/g, '').trim();
+      // rest 안 무게/로트 추출
+      const nums = rest.match(/\d+(?:\.\d+)?/g) || [];
+      const restNoNum = rest.replace(/\d+(?:\.\d+)?/g, ' ').replace(/\s+/g, ' ').trim();
+      nums.forEach(n => {
+        if (/\d+\.\d+/.test(n)) {
+          if (!weight) weight = n;
+          else extra = (extra + ' ' + n).trim();
+        } else if (/^\d{3,4}$/.test(n) || /^0\d+$/.test(n)) {
+          if (!lot) lot = n;
+          else extra = (extra + ' lot:' + n).trim();
+        } else if (!qty && !unit && n.length <= 2) {
+          qty = n;
+        } else {
+          extra = (extra + ' ' + n).trim();
+        }
+      });
       const brandRe = new RegExp('(' + BRANDS + ')', 'i');
-      const bm = rest.match(brandRe);
+      const bm = restNoNum.match(brandRe);
       if (bm) {
         note = bm[1];
-        extra = rest.replace(bm[0], '').replace(/^[,\s]+/, '').trim();
-      } else {
-        const parts = rest.split(/\s{2,}|,/);
-        note = (parts[0] || '').trim();
-        extra = parts.slice(1).join(' ').trim();
+        const left = restNoNum.replace(bm[0], '').replace(/^[,\s]+/, '').trim();
+        if (left) extra = (extra + ' ' + left).trim();
+      } else if (restNoNum) {
+        note = (note ? note + ' ' : '') + restNoNum;
       }
     }
   } else {
-    // 숫자 없는 줄 — 인사말이면 이미 위에서 걸러짐
     if (isPoliteOnly(line)) return null;
     name = line;
   }
 
-  // 고기명에 인사말/안내 제거
   name = name.replace(/부탁\S*|주세요|보내세\S*|보내주\S*|감사합니다?|수정\S*|홀에\S*|놔주\S*/g, '').trim();
+  // 이름 앞 냉장/냉동은 구분 → 이름에 유지(냉장3mm후지 등)하되 단독 제거
   if (!name || isPoliteOnly(name)) return null;
-  // 문장형 고기명 제외
+  if (/^(냉장|냉동)$/.test(name)) return null;
   if (/요$|세요$|습니다$|해요$/.test(name) && name.length > 6) return null;
 
-  // 단위 → 영어 표기
   unit = normalizeUnit(unit);
   if (!unit && /박스/.test(note)) { unit = 'Box'; note = note.replace(/박스/g, '').trim(); }
+
+  // 로트·무게는 비고에 표시
+  if (lot) note = (note ? note + ' ' : '') + 'lot:' + lot;
+  if (weight) note = (note ? note + ' ' : '') + weight + 'kg';
 
   name = name.replace(/\s+/g, ' ').trim();
   if (!name) return null;
 
-  return { name, qty, unit, note, extra };
+  // 수량·단위·로트만 있고 발주 수량이 없으면 null 대신 note-only 품목 (발주 합계에서 제외되도록 qty 빈값)
+  return { name, qty, unit, note: note.trim(), extra: extra.trim(), lot, weight };
 }
+
 
 function normalizeUnit(u) {
   if (!u) return '';
@@ -1527,17 +1647,21 @@ function normalizeUnit(u) {
 function render() {
   const el = document.getElementById('mainView');
   const statsEl = document.getElementById('stats');
-  if (!currentDate || !currentOrders.length) {
+  if (!currentDate) {
     statsEl.style.display = 'none';
-    el.innerHTML = currentDate
-      ? '<div class="empty">선택 구간에 발주가 없습니다<br><small>일반: 전날 12시~당일 14시 / 월요일: 금 13시~월 12시</small></div>'
-      : '<div class="empty">채팅 파일을 불러오고<br>배송/작업일을 선택하세요</div>';
+    el.innerHTML = '<div class="empty">채팅 파일을 불러오고<br>배송/작업일을 선택하세요</div>';
+    return;
+  }
+  if (!currentOrders.length && !(currentWeightLogs && currentWeightLogs.length)) {
+    statsEl.style.display = 'none';
+    el.innerHTML = '<div class="empty">선택 구간에 발주·계근이 없습니다<br><small>전날 12시~당일 14시 / 월요일: 금12시~월12시</small></div>';
     return;
   }
 
   const orders = filteredOrders();
   const todayCnt = currentOrders.filter(o => o.ship !== 'next').length;
   const nextCnt = currentOrders.filter(o => o.ship === 'next').length;
+  const implicitCnt = currentOrders.filter(o => !o.shipExplicit).length;
 
   const clientsSet = new Set(orders.map(o => o.client));
   let boxCnt = 0, looseCnt = 0;
@@ -1555,14 +1679,21 @@ function render() {
   // 출고 구분 필터
   let filterBar = `<div class="ship-filter">
     <button class="ship-btn ${shipFilter==='all'?'on':''}" onclick="setShipFilter('all')">전체 ${currentOrders.length}</button>
-    <button class="ship-btn ${shipFilter==='today'?'on':''}" onclick="setShipFilter('today')">당일 출고 ${todayCnt}</button>
-    <button class="ship-btn ${shipFilter==='next'?'on':''}" onclick="setShipFilter('next')">다음날 출고 ${nextCnt}</button>
+    <button class="ship-btn ${shipFilter==='today'?'on':''}" onclick="setShipFilter('today')">당일 ${todayCnt}</button>
+    <button class="ship-btn ${shipFilter==='next'?'on':''}" onclick="setShipFilter('next')">다음날 ${nextCnt}</button>
   </div>`;
+  if (implicitCnt > 0 && currentTab !== 'weight') {
+    filterBar += `<div class="admin-hint">오늘/내일 미표기 ${implicitCnt}건 → 선택 배송일(당일)로 간주</div>`;
+  }
+  if (currentTab === 'weight') {
+    filterBar = `<div class="admin-hint">계근·로트·무게 기록 (발주 아님) · ${(currentWeightLogs||[]).length}건</div>`;
+  }
 
   if (currentTab === 'regions') { el.innerHTML = filterBar; renderRegions(el, orders); }
   else if (currentTab === 'byClient') renderByClient(el, orders, filterBar);
   else if (currentTab === 'byMeat') { el.innerHTML = filterBar; renderByMeat(el, orders); }
   else if (currentTab === 'loose') { el.innerHTML = filterBar; renderLoose(el, orders); }
+  else if (currentTab === 'weight') { el.innerHTML = filterBar; renderWeightLogs(el); }
   else if (currentTab === 'stock') { el.innerHTML = filterBar; renderStock(el, orders); }
   else if (currentTab === 'summary') { el.innerHTML = filterBar; renderSummary(el, orders); }
   else if (currentTab === 'raw') { el.innerHTML = filterBar; renderRaw(el, orders); }
@@ -1684,50 +1815,63 @@ function collectOrderClients(orders) {
 
 function renderRegions(el, orders) {
   const prev = el.innerHTML;
-  const clients = collectOrderClients(orders);
-  // 권역별
-  const byReg = {};
-  clients.forEach(c => {
+  const clients = collectOrderClients(orders).map(c => {
     const reg = parseRegion(c.address);
-    if (!byReg[reg]) byReg[reg] = [];
-    byReg[reg].push(c);
+    return Object.assign({}, c, { reg: reg || '주소미상' });
   });
-  const regions = Object.keys(byReg).sort((a, b) => a.localeCompare(b, 'ko'));
 
-  // 지도용 목록 전역 보관
-  window.__mapClients = clients.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  // 주소미상은 맨 아래, 나머지는 권역→이름 순
+  clients.sort((a, b) => {
+    const aUnk = (!a.address || a.reg === '주소미상') ? 1 : 0;
+    const bUnk = (!b.address || b.reg === '주소미상') ? 1 : 0;
+    if (aUnk !== bUnk) return aUnk - bUnk;
+    const cr = (a.reg || '').localeCompare(b.reg || '', 'ko');
+    if (cr) return cr;
+    return a.name.localeCompare(b.name, 'ko');
+  });
+
+  window.__mapClients = clients.filter(c => c.address).slice();
 
   let html = prev;
-  html += `<div class="section-title">발주 거래처 · ${clients.length}곳 · 기점 ${esc(DEPOT_NAME)}(하상동)</div>`;
+  html += `<div class="section-title">발주 거래처 · ${clients.length}곳</div>`;
   html += `<div class="map-actions">
     <button type="button" class="map-btn" onclick="downloadMyMapsCsv()">마이맵 분포(CSV)</button>
     <button type="button" class="map-btn secondary" onclick="showMapHelp()">사용법</button>
   </div>`;
-  html += `<div class="admin-hint" style="margin-bottom:.35rem">경로가 아니라 <b>발주 거래처 위치 분포</b>용입니다. CSV를 구글 마이맵에 가져오면 핀으로 표시됩니다.</div>`;
-  html += `<input class="search-box" placeholder="거래처·권역 검색..." oninput="filterRegionCards(this.value)">`;
+  html += `<input class="search-box" placeholder="거래처·권역·주소 검색..." oninput="filterClientTable(this.value)">`;
 
-  regions.forEach(reg => {
-    const list = byReg[reg].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-    html += `<div class="card region-card" data-region="${esc(reg)}">
-      <h3>${esc(reg)} <span class="badge">${list.length}</span></h3>
-      <div class="matrix-wrap"><table>
-        <thead><tr><th>권역</th><th>거래처명</th><th>주소</th><th>비고</th></tr></thead>
-        <tbody>`;
-    list.forEach(c => {
-      const remarkStr = [...c.remarks].join(', ');
-      html += `<tr>
-        <td style="white-space:nowrap;font-size:.72rem">${esc(reg)}</td>
-        <td>${esc(c.name)}</td>
-        <td style="font-size:.72rem;color:#555">${esc(shortAddress(c.address))}</td>
-        <td style="font-size:.72rem">${esc(remarkStr)}</td>
-      </tr>`;
-    });
-    html += `</tbody></table></div></div>`;
+  if (!clients.length) {
+    html += `<div class="empty">발주 거래처 없음</div>`;
+    el.innerHTML = html;
+    return;
+  }
+
+  html += `<div class="card"><div class="matrix-wrap"><table id="clientListTable">
+    <thead><tr><th>권역</th><th>거래처명</th><th>주소</th><th>비고</th></tr></thead>
+    <tbody>`;
+  clients.forEach(c => {
+    const remarkStr = [...(c.remarks || [])].join(', ');
+    const isUnk = !c.address || c.reg === '주소미상';
+    html += `<tr class="${isUnk ? 'addr-unknown' : ''}" data-search="${esc((c.reg + ' ' + c.name + ' ' + (c.address || '') + ' ' + remarkStr).toLowerCase())}">
+      <td style="white-space:nowrap;font-size:.72rem">${esc(c.reg)}</td>
+      <td>${esc(c.name)}</td>
+      <td style="font-size:.72rem;color:#555">${esc(isUnk ? '주소미상' : shortAddress(c.address))}</td>
+      <td style="font-size:.72rem">${esc(remarkStr)}</td>
+    </tr>`;
   });
-
-  if (!regions.length) html += `<div class="empty">발주 거래처 없음</div>`;
+  html += `</tbody></table></div></div>`;
   el.innerHTML = html;
 }
+
+function filterClientTable(q) {
+  q = (q || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('#clientListTable tbody tr');
+  rows.forEach(tr => {
+    const hay = (tr.getAttribute('data-search') || tr.textContent || '').toLowerCase();
+    tr.style.display = (!q || hay.includes(q)) ? '' : 'none';
+  });
+}
+
 
 function showMapHelp() {
   alert(
@@ -1783,7 +1927,7 @@ function renderByClient(el, orders, filterBar) {
   orders.forEach(o => {
     if (!map[o.client]) map[o.client] = { address: o.address, items: [], ships: new Set(), times: [] };
     map[o.client].items.push(...o.items);
-    map[o.client].ships.add(o.ship === 'next' ? '다음날' : '당일');
+    map[o.client].ships.add(o.ship === 'next' ? '다음날' : (o.shipExplicit ? '당일' : '당일(기본)'));
     map[o.client].times.push(o.time);
     if (!map[o.client].address && o.address) map[o.client].address = o.address;
   });
@@ -1959,6 +2103,35 @@ function renderLoose(el, orders) {
     </tr>`;
   });
   html += `</tbody></table></div></div>`;
+  el.innerHTML = html;
+}
+
+
+function renderWeightLogs(el) {
+  const prev = el.innerHTML;
+  const logs = currentWeightLogs || [];
+  if (!logs.length) {
+    el.innerHTML = prev + '<div class="empty">계근 기록이 없습니다<br><small>로트·무게 위주 메시지가 여기 모입니다</small></div>';
+    return;
+  }
+  let html = prev + `<div class="section-title">계근 확인 · ${logs.length}건</div>`;
+  logs.forEach(w => {
+    html += `<div class="card">
+      <h3>${esc(w.client)} <span class="badge">${esc(w.time || '')}</span>
+        <span class="badge" style="background:#eee;color:#555">${esc((w.sender||'').slice(0,12))}</span></h3>
+      <div class="matrix-wrap"><table>
+        <thead><tr><th>고기</th><th>로트</th><th>무게/포대</th></tr></thead>
+        <tbody>`;
+    (w.rows || []).forEach(r => {
+      const wstr = r.weight ? (r.weight + (r.pack ? ' / ' + r.pack : '')) : (r.pack || '');
+      html += `<tr>
+        <td>${esc(r.meat)}</td>
+        <td class="num" style="font-size:.75rem">${esc(r.lot)}</td>
+        <td class="num">${esc(wstr)}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div></div>`;
+  });
   el.innerHTML = html;
 }
 
