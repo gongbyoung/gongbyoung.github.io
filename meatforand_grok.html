@@ -1641,11 +1641,12 @@ function renderRegions(el, orders) {
   window.__mapClients = clients.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 
   let html = prev;
-  html += `<div class="section-title">발주 거래처 · ${clients.length}곳 · 기점 ${esc(DEPOT_NAME)} · 시작·종점만</div>`;
+  html += `<div class="section-title">발주 거래처 · ${clients.length}곳 · 기점 ${esc(DEPOT_NAME)}(하상동)</div>`;
   html += `<div class="map-actions">
-    <button type="button" class="map-btn" onclick="openGoogleRoute()">구글맵 경로</button>
-    <button type="button" class="map-btn secondary" onclick="downloadMyMapsCsv()">마이맵 CSV</button>
+    <button type="button" class="map-btn" onclick="downloadMyMapsCsv()">마이맵 분포(CSV)</button>
+    <button type="button" class="map-btn secondary" onclick="showMapHelp()">사용법</button>
   </div>`;
+  html += `<div class="admin-hint" style="margin-bottom:.35rem">경로가 아니라 <b>발주 거래처 위치 분포</b>용입니다. CSV를 구글 마이맵에 가져오면 핀으로 표시됩니다.</div>`;
   html += `<input class="search-box" placeholder="거래처·권역 검색..." oninput="filterRegionCards(this.value)">`;
 
   regions.forEach(reg => {
@@ -1671,44 +1672,29 @@ function renderRegions(el, orders) {
   el.innerHTML = html;
 }
 
-function openGoogleRoute() {
-  // 기점(사무실)은 시작·종점만 — 경유지에 넣지 않음
-  let list = (window.__mapClients || []).filter(c => {
-    const n = (c.name || '');
-    if (/미트포앤|사무실/.test(n) && !/마트|정육/.test(n)) return false;
-    return true;
-  });
-  list = list.filter(c => c.address || c.name);
-  if (!list.length) {
-    window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(DEPOT_QUERY), '_blank');
-    return;
-  }
-  const origin = encodeURIComponent(DEPOT_QUERY);
-  const dest = encodeURIComponent(DEPOT_QUERY);
-  const maxWp = 9;
-  const wps = list.slice(0, maxWp).map(c => encodeURIComponent(c.address || c.name));
-  let url = 'https://www.google.com/maps/dir/?api=1&origin=' + origin + '&destination=' + dest;
-  if (wps.length) url += '&waypoints=' + wps.join('%7C');
-  if (list.length > maxWp) {
-    alert('거래처 ' + list.length + '곳 중 경로에는 최대 ' + maxWp + '곳만 넣습니다.\n전체는 「마이맵 CSV」로 불러오세요.');
-  }
-  window.open(url, '_blank');
+function showMapHelp() {
+  alert(
+    '【구글 마이맵으로 분포 보기】\n\n' +
+    '1. 「마이맵 분포(CSV)」를 눌러 파일 저장\n' +
+    '2. 구글 마이맵 열기 (google.com/mymaps)\n' +
+    '3. 새 지도 만들기 또는 기존 지도 열기\n' +
+    '4. 레이어 → 가져오기 → 저장한 CSV 선택\n' +
+    '5. 위치 열: 주소 / 제목 열: 이름\n\n' +
+    '발주 난 거래처만 핀으로 표시됩니다.\n' +
+    '기점(미트포앤 하상동)도 함께 들어갑니다.'
+  );
 }
 
 function downloadMyMapsCsv() {
-  const list = (window.__mapClients || []).filter(c => {
-    const n = (c.name || '');
-    if (/미트포앤|사무실/.test(n) && !/마트|정육/.test(n)) return false;
-    return true;
-  });
+  const list = window.__mapClients || [];
   if (!list.length) return alert('표시할 거래처가 없습니다');
-  // Google My Maps 가져오기용 CSV (이름, 주소, 설명)
-  // 기점(사무실)은 시작·종점 표기만 — 중간 경유 아님
-  const rows = [['이름', '주소', '설명']];
-  rows.push([DEPOT_NAME, DEPOT_ADDR, '시작점·종점(사무실)']);
+  // 마이맵 가져오기용: 이름, 주소, 권역, 비고 (분포 확인용 · 경로 아님)
+  const rows = [['이름', '주소', '권역', '비고']];
+  rows.push([DEPOT_NAME + '(기점)', DEPOT_ADDR, parseRegion(DEPOT_ADDR), '기점']);
   list.forEach(c => {
     const remark = [...(c.remarks || [])].join(' ');
-    rows.push([c.name, c.address || '', remark]);
+    const reg = parseRegion(c.address || '');
+    rows.push([c.name, c.address || c.name, reg, remark]);
   });
   const bom = '\uFEFF';
   const csv = bom + rows.map(r => r.map(cell => {
@@ -1719,7 +1705,8 @@ function downloadMyMapsCsv() {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = '발주거래처_마이맵.csv';
+  const day = (currentDate || '').replace(/^20\d{2}년\s*/, '').replace(/\s+/g, '') || '발주';
+  a.download = '발주분포_' + day + '.csv';
   a.click();
   URL.revokeObjectURL(a.href);
 }
