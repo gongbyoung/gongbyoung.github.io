@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="미트포앤 발주">
 <meta name="application-name" content="미트포앤 발주">
 
-<title>미트포앤 발주V002</title>
+<title>미트포앤 발주 관리</title>
 <style>
 :root {
   --primary: #c41e3a;
@@ -1943,16 +1943,85 @@ function geoCacheSet(addr, pos) {
   try { localStorage.setItem('vgeo:' + addr, JSON.stringify(pos)); } catch (e) {}
 }
 
-/** 브이월드 주소 → 좌표 (EPSG:4326) */
+/** JSONP — 브이월드가 CORS 헤더를 안 줘서 fetch 불가, script 태그로 우회 */
+function jsonpRequest(url, timeoutMs) {
+  timeoutMs = timeoutMs || 8000;
+  return new Promise((resolve, reject) => {
+    const cb = 'vw_cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error('timeout'));
+    }, timeoutMs);
+    function cleanup() {
+      clearTimeout(timer);
+      try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+      if (script && script.parentNode) script.parentNode.removeChild(script);
+    }
+    window[cb] = function (data) {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(data);
+    };
+    const script = document.createElement('script');
+    script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + cb;
+    script.onerror = function () {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error('script error'));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+function parseVworldPoint(data) {
+  if (!data || !data.response) return null;
+  const r = data.response;
+  if (r.status === 'OK' && r.result && r.result.point) {
+    const lat = parseFloat(r.result.point.y);
+    const lng = parseFloat(r.result.point.x);
+    if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+  }
+  const items = r.result && r.result.items;
+  if (items && items[0] && items[0].point) {
+    const lat = parseFloat(items[0].point.y);
+    const lng = parseFloat(items[0].point.x);
+    if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+  }
+  return null;
+}
+
+/** Photon (키 없음, CORS 허용) — 브이월드 실패 시 */
+async function photonGeocode(addr) {
+  try {
+    const url = 'https://photon.komoot.io/api/?' + new URLSearchParams({
+      q: addr,
+      limit: '1',
+      lang: 'ko'
+    }).toString();
+    const res = await fetch(url);
+    const data = await res.json();
+    const f = data && data.features && data.features[0];
+    if (f && f.geometry && f.geometry.coordinates) {
+      return { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] };
+    }
+  } catch (e) {}
+  return null;
+}
+
+/** 주소 → 좌표: 브이월드(JSONP) → Photon 순 */
 async function vworldGeocode(addr) {
   if (!addr) return null;
   const cached = geoCacheGet(addr);
   if (cached) return cached;
 
-  // 1) getCoord (도로명/지번)
   const tryTypes = ['road', 'parcel'];
   for (const typ of tryTypes) {
-    const url = 'https://api.vworld.kr/req/address?' + new URLSearchParams({
+    const params = new URLSearchParams({
       service: 'address',
       request: 'getCoord',
       version: '2.0',
@@ -1963,25 +2032,17 @@ async function vworldGeocode(addr) {
       format: 'json',
       type: typ,
       key: VWORLD_KEY
-    }).toString();
+    });
     try {
-      const res = await fetch(url);
-      const data = await res.json();
-      const st = data && data.response && data.response.status;
-      if (st === 'OK' && data.response.result && data.response.result.point) {
-        const pt = data.response.result.point;
-        const pos = { lat: parseFloat(pt.y), lng: parseFloat(pt.x) };
-        if (!isNaN(pos.lat) && !isNaN(pos.lng)) {
-          geoCacheSet(addr, pos);
-          return pos;
-        }
-      }
-    } catch (e) { /* CORS 등 */ }
+      const data = await jsonpRequest('https://api.vworld.kr/req/address?' + params.toString());
+      const pos = parseVworldPoint(data);
+      if (pos) { geoCacheSet(addr, pos); return pos; }
+    } catch (e) {}
   }
 
-  // 2) 검색 API 폴백
+  // 검색 API JSONP
   try {
-    const url2 = 'https://api.vworld.kr/req/search?' + new URLSearchParams({
+    const params2 = new URLSearchParams({
       service: 'search',
       request: 'search',
       version: '2.0',
@@ -1994,21 +2055,21 @@ async function vworldGeocode(addr) {
       format: 'json',
       errorformat: 'json',
       key: VWORLD_KEY
-    }).toString();
-    const res2 = await fetch(url2);
-    const data2 = await res2.json();
-    const items = data2 && data2.response && data2.response.result && data2.response.result.items;
-    if (items && items[0] && items[0].point) {
-      const pos = { lat: parseFloat(items[0].point.y), lng: parseFloat(items[0].point.x) };
-      if (!isNaN(pos.lat) && !isNaN(pos.lng)) {
-        geoCacheSet(addr, pos);
-        return pos;
-      }
-    }
+    });
+    const data2 = await jsonpRequest('https://api.vworld.kr/req/search?' + params2.toString());
+    const pos2 = parseVworldPoint(data2);
+    if (pos2) { geoCacheSet(addr, pos2); return pos2; }
   } catch (e) {}
+
+  // Photon 폴백 (CORS 없음, 키 없음)
+  const ph = await photonGeocode(addr + ' 대한민국');
+  if (ph) { geoCacheSet(addr, ph); return ph; }
+  const ph2 = await photonGeocode(addr);
+  if (ph2) { geoCacheSet(addr, ph2); return ph2; }
 
   return null;
 }
+
 
 let _orderMap = null;
 let _orderMapLayer = null;
