@@ -6,10 +6,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#c41e3a">
-<meta name="apple-mobile-web-app-title" content="미트포앤V002">
-<meta name="application-name" content="미트포앤V002">
+<meta name="apple-mobile-web-app-title" content="미트포앤 발주">
+<meta name="application-name" content="미트포앤 발주">
 
-<title>미트포앤 발주V002</title>
+<title>미트포앤 발주 관리</title>
 <style>
 :root {
   --primary: #c41e3a;
@@ -73,20 +73,77 @@ body {
 }
 header {
   background: var(--primary); color: #fff;
-  padding: .55rem .75rem;
-  padding-top: calc(.55rem + var(--safe-top));
+  padding: .4rem .65rem;
+  padding-top: calc(.4rem + var(--safe-top));
 }
 header .header-top {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: .55rem;
+  gap: .5rem; margin-bottom: 0;
 }
-header h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: -.02em; }
-.header-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: .4rem;
-  align-items: center;
+header h1 { font-size: 1rem; font-weight: 700; letter-spacing: -.02em; flex: 1; min-width: 0; }
+.header-status {
+  font-size: .68rem; opacity: .9; max-width: 42%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-align: right;
 }
+.btn-home {
+  flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.18);
+  color: #fff; font-size: 1.15rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-home:active { background: rgba(255,255,255,.3); }
+.header-actions { display: none; } /* 홈 패널로 이동 */
+
+/* 홈 패널 */
+.home-panel {
+  display: none; position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,.45);
+}
+.home-panel.show { display: flex; align-items: flex-end; justify-content: center; }
+.home-sheet {
+  width: 100%; max-width: 480px; max-height: 92vh; overflow-y: auto;
+  background: #fff; border-radius: 16px 16px 0 0;
+  padding: 1rem 1rem calc(1rem + var(--safe-bottom));
+  box-shadow: 0 -8px 30px rgba(0,0,0,.2);
+}
+.home-sheet h2 {
+  font-size: 1.05rem; color: var(--primary); margin: 0 0 .75rem;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.home-sheet .home-close {
+  border: none; background: #f0f0f0; width: 36px; height: 36px;
+  border-radius: 50%; font-size: 1.1rem; cursor: pointer;
+}
+.home-row { margin-bottom: .65rem; }
+.home-row label.lbl {
+  display: block; font-size: .75rem; color: #666; margin-bottom: .25rem; font-weight: 600;
+}
+.home-actions {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .45rem;
+}
+.home-actions .btn-dark {
+  background: var(--primary); color: #fff; border: none;
+  padding: .7rem .5rem; border-radius: 12px; font-weight: 700;
+  font-size: .85rem; cursor: pointer; min-height: 44px;
+  text-align: center; position: relative; overflow: hidden;
+}
+.home-actions .btn-dark.secondary {
+  background: #fff; color: var(--primary); border: 1px solid var(--primary);
+}
+.home-actions .btn-dark input {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.home-sheet select.date-select {
+  width: 100%; background: #f7f7f7; border: 1px solid var(--border);
+  color: #222; padding: .7rem .6rem; border-radius: 12px;
+  font-size: .9rem; font-weight: 600; min-height: 44px;
+}
+.home-hint {
+  font-size: .78rem; color: #666; line-height: 1.45;
+  background: #fff8e6; border-radius: 10px; padding: .55rem .7rem; margin-top: .35rem;
+}
+
 .btn {
   background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35);
   color: #fff; padding: .55rem .5rem; border-radius: 10px;
@@ -129,7 +186,7 @@ select.date-select option { color: #222; background: #fff; }
 }
 
 .content {
-  padding: .5rem .55rem 1.2rem;
+  padding: .4rem .5rem 1rem;
   max-width: 100%;
 }
 
@@ -249,8 +306,7 @@ pre {
   .stat .num { font-size: 1.25rem; }
   .tab { font-size: .78rem; padding: .8rem .45rem; }
   header h1 { font-size: .98rem; }
-  .header-actions { grid-template-columns: 1fr 1fr; }
-  .header-actions .btn:last-child { grid-column: 1 / -1; }
+  /* header-actions moved to home */
 }
 
 /* Slightly larger phones / Note 24 */
@@ -422,16 +478,8 @@ pre {
   <header>
     <div class="header-top">
       <h1>🥩 미트포앤 발주</h1>
-    </div>
-    <div class="header-actions">
-      <label class="btn btn-file">파일 불러오기
-        <input type="file" id="chatFile" accept=".txt,text/plain" onchange="loadChatFile(event)">
-      </label>
-      <select class="date-select" id="dateSelect" onchange="onDateChange()" disabled>
-        <option value="">날짜 선택</option>
-      </select>
-      <button class="btn" onclick="window.print()">인쇄</button>
-      <button class="btn" onclick="openAdmin()">관리</button>
+      <div class="header-status" id="headerStatus">파일·날짜: 홈에서</div>
+      <button type="button" class="btn-home" onclick="openHome()" title="홈">🏠</button>
     </div>
   </header>
   <div class="tabs">
@@ -447,15 +495,79 @@ pre {
   </div>
   <div class="content">
     <div id="progressWrap" class="progress-wrap"><div class="progress-label" id="progressLabel">분석 중...</div><div class="progress-bar"><i id="progressBar"></i></div></div>
-    <div id="uploadHint" class="upload-hint">카카오톡 대화 내보내기(.txt) 파일을 불러온 뒤 날짜를 선택하세요.</div>
+    <div id="uploadHint" class="upload-hint" style="display:none"></div>
     <div id="stats" class="stats" style="display:none"></div>
     <div id="mainView"></div>
     <div id="detailView"></div>
   </div>
 </div>
 
+<!-- 홈: 파일 / 날짜 / 인쇄 / 관리 -->
+<div class="home-panel" id="homePanel" onclick="if(event.target===this)closeHome()">
+  <div class="home-sheet" onclick="event.stopPropagation()">
+    <h2>홈 <button type="button" class="home-close" onclick="closeHome()">×</button></h2>
+    <div class="home-row">
+      <span class="lbl">1. 카카오톡 내보내기 파일</span>
+      <div class="home-actions">
+        <label class="btn-dark">파일 불러오기
+          <input type="file" id="chatFile" accept=".txt,text/plain" onchange="loadChatFile(event)">
+        </label>
+        <button type="button" class="btn-dark secondary" onclick="window.print()">인쇄</button>
+      </div>
+    </div>
+    <div class="home-row">
+      <span class="lbl">2. 배송/작업일</span>
+      <select class="date-select" id="dateSelect" onchange="onDateChange(); updateHeaderStatus();" disabled>
+        <option value="">날짜 선택</option>
+      </select>
+    </div>
+    <div class="home-row">
+      <div class="home-actions">
+        <button type="button" class="btn-dark secondary" onclick="closeHome(); openAdmin();">관리</button>
+        <button type="button" class="btn-dark" onclick="closeHome()">결과 보기</button>
+      </div>
+    </div>
+    <div class="home-hint" id="homeHint">
+      브라우저 보안상 페이지를 새로고침하면 파일은 다시 선택해야 합니다.<br>
+      같은 화면 안에서는 파일·날짜가 유지됩니다.
+    </div>
+  </div>
+</div>
+
+
 <script>
 const PASSWORD = '7421';
+
+function openHome() {
+  const p = document.getElementById('homePanel');
+  if (p) p.classList.add('show');
+  updateHeaderStatus();
+  const hint = document.getElementById('homeHint');
+  const uh = document.getElementById('uploadHint');
+  if (hint && uh && uh.textContent) {
+    // keep home hint + file status
+  }
+}
+function closeHome() {
+  const p = document.getElementById('homePanel');
+  if (p) p.classList.remove('show');
+}
+function updateHeaderStatus() {
+  const el = document.getElementById('headerStatus');
+  if (!el) return;
+  if (!chatText) {
+    el.textContent = '파일 없음 · 홈에서 불러오기';
+    return;
+  }
+  if (!currentDate) {
+    el.textContent = '날짜 선택 필요';
+    return;
+  }
+  const short = currentDate.replace(/^20\d{2}년\s*/, '').replace(/\s*요일/, '');
+  el.textContent = short + ' · 발주 ' + (currentOrders || []).length;
+}
+
+
 const CLIENTS = [{"name":"(주)굿모닝유통지마트","address":"충북 음성군 맹동면 두성리 1486","alias":""},{"name":"(주)다온마트(10/1부터)","address":"경기도 안산시 상록구 시낭로 25 (월피동)","alias":""},{"name":"(주)대산에프앤비(육가공)","address":"대전시 유성구 교촌대정로 198(대정로)","alias":""},{"name":"(주)도니아","address":"충북 음성군 음성읍 음성로367번길 24,씨동","alias":""},{"name":"(주)신선에프엔비","address":"경기도 화성시 봉담읍 최루백로 198(분천리96-13)","alias":""},{"name":"(주)신선채","address":"충북 음성군 삼성면 대청로 155,가동 1,2층","alias":""},{"name":"(주)아이유팜","address":"경기 광명시 일직로 72, 에이동12층 에이-1215호(일직동)","alias":""},{"name":"(주)올바른한우","address":"서울 강북구 도봉로67길 18(엠마트)","alias":""},{"name":"(주)우경인터내셔널","address":"경기도 수원시 영통구 신원로 192","alias":""},{"name":"(주)원신산업-보미마트","address":"경기도 고양시 덕양구 백양로 107-1,1층(화정동)","alias":""},{"name":"(주)조이건설","address":"경기도 군포시 송부로96번길 12 A동 1304호","alias":""},{"name":"(주)좋은축산유통","address":"경기도 시흥시 군자로 387번길 21-1(거모동)","alias":""},{"name":"(주)지노미트","address":"경기도 광명시 가락골길23(노은사동)","alias":""},{"name":"(주)진흥미트유통","address":"경기도 안산시 상록구 수암4길 17,1층102호(수암동)","alias":""},{"name":"(주)참좋은미트","address":"경기도 성남시 수정구 성남대로 1270,2층(태평동)","alias":""},{"name":"(주)초이스에프엔비","address":"경기도 시흥시 금화로 550번길 36-2","alias":""},{"name":"(주)캐틀팜","address":"경기도 수원시 권선구 호매실로90번길39,6층(호매실동,성지빌딩)","alias":""},{"name":"(주)코리아푸드","address":"경기도 용인시 기흥구 공세로 126-1(공세동)","alias":""},{"name":"(주)큐엔씨육가공","address":"경기도 안산시 단원구 초지2로 59-18(초지동)","alias":""},{"name":"(주)태광푸드","address":"경기도 화성시 매송면 송라길39번길23,1동(송라리) 607-3","alias":""},{"name":"(주)태호미트","address":"경기도 포천시 내촌면 내진로 258번길75","alias":""},{"name":"(주)판교1등축산(구-푸른 대장동","address":"경기도 성남시 분당구 판교대장로6길 10, 108호(대장동)","alias":""},{"name":"(주)푸드백서 농업회사법인","address":"대전광역시 중구 산서로62번길 10, 2층(사정동)","alias":""},{"name":"(주)하나에프에스","address":"경기도 군포시 당정로27번길 42,1층","alias":""},{"name":"(주)하나프라임","address":"경기도 용인시 수지구 신수로 767, A동 1605호(동천동, 분당수지 U-TOWER)","alias":""},{"name":"(주)한마음마트(일동)=>정육으로","address":"경기도 안산시 상록구 일동로20 (일동120-3)","alias":""},{"name":"(주)황금비앤피","address":"경기도 안산시 상록구 청곡길36(부곡동)","alias":""},{"name":"갈비면옥(갈비나라2호점)","address":"경기도 안산시 단원구 선삼로22,1층(선부동)","alias":""},{"name":"거시기 함흥냉면","address":"경기도 군포시 삼성로20번길 16-12, 1층(부곡동)","alias":""},{"name":"고기공장바름(주)","address":"경기도 안산시 상록구 세류로2안길 2,1층(본오동)","alias":""},{"name":"고기바보푸주간(부곡)","address":"경기도 군포시 송부로291번길 16,1층 103호(부곡동)","alias":""},{"name":"고기바보푸주간(송정점)","address":"경기도 군포시 송부로34번길 35, 103호(도마교동,센프럴프라자)","alias":""},{"name":"고기바보푸줏간(장안점)","address":"경기도 의왕시 장안중앙로7, 101.102호(삼동)","alias":""},{"name":"골목대장삼겹살","address":"경기도 시흥시 시흥대로 1073번길 29,1층(신천동)","alias":""},{"name":"곱창연가","address":"경기도 시흥시 하상로4번길 7(하상동,1층)","alias":""},{"name":"구들짱황소곱창삼겹살(인계동)","address":"경기도 수원시 팔달구 권광로 180번길 53-26,1층(인계동)","alias":""},{"name":"구워랑","address":"경기도 화성시 꽃내음2길 12-2 118,119호(새솔동)","alias":""},{"name":"국민생고기(장곡동)","address":"경기도 시흥시 장곡로37번길 5-3,101호(장곡동)","alias":""},{"name":"기둥병원","address":"경기도 안산시 상록구 상록수로34(본오동,3층)","alias":""},{"name":"길산업","address":"경기도 안산시 상록구 삼리1길 30,1층101호","alias":""},{"name":"김치왕뚜껑삼겹살","address":"경기도 부천시 역곡로 37(역곡동)","alias":""},{"name":"김치왕뚜껑삼겹살(2호점)","address":"서울특별시 구로구 고척로 127,1층(개봉동)","alias":""},{"name":"김치왕뚜껑삼겹살(3호점부천)","address":"경기 부천시 부일로 446번길 10-1,1층(심곡동)","alias":""},{"name":"김치찌개전문점(사동)","address":"경기도 안산시 상록구 석호로 178,1층 101호(사동)","alias":""},{"name":"까만돼지","address":"경기도 시흥시 군자로534번안길 7, 나동 지1층 B101호(거모동)","alias":""},{"name":"꿀돼지꿀한우(가리봉)","address":"서울 금천구 가산로 106,상가동 1층104호(가산동,주상복합두산아파트)","alias":""},{"name":"꿀돼지꿀한우(금천)","address":"서울 금천구 금하로697 101호(시흥동)","alias":""},{"name":"꿀돼지꿀한우정육점(광명)","address":"경기도 광명시 광명로 848번길 32-2,1층 103호(광명동,펠리스필)","alias":""},{"name":"노무법인 이엘(EL)","address":"경기도 안산시 상록구 광덕1로385,204호(이동,엔타운)","alias":""},{"name":"농민마트 고잔점","address":"경기도 안산시 단원구 광덕4로88, 106호 외55개(고잔동)","alias":""},{"name":"농법(주)대산축산유통","address":"경기도 안산시 상록구 조구나리길 20(이동,1층)","alias":""},{"name":"농업법인(유)둔포축산","address":"충청남도 아산시 둔포면 아산밸리북로11","alias":""},{"name":"농업회사법인(주)거산미트","address":"인천시 미추홀구 독배로 446번길 15(숭의동)","alias":""},{"name":"농우축산","address":"서울 용산구 효창원로 40길-3, 1층(용문동)","alias":""},{"name":"누리소(비품)","address":"경기도 안산시 상록구 조구나리1길49(이동,1층상가)","alias":""},{"name":"다연홈마트","address":"경기도 시흥시 하중로128(하중동)","alias":""},{"name":"다온마트(월피동)","address":"경기도 안산시 상록구 시낭로25(월피동)","alias":""},{"name":"다온축산(주안)","address":"인천광역시 미추홀구 미추홀대로 510, 117호(주안동,한덕주상복합아파트)","alias":""},{"name":"대박마포숯불갈비","address":"경기도 광명시 광명로 848번길 5(광명동,1층)","alias":""},{"name":"대박축산(금천)하늘소","address":"서울 금천구 시흥대로62길 53(시흥동)","alias":""},{"name":"대반전","address":"서울특별시 양천구 오목로 148, 1층(신정동)","alias":""},{"name":"대부지마트(주)","address":"경기도 안산시 단원구 대부황금로 1295(대부북동)","alias":""},{"name":"대진오토포밍","address":"경기도 시흥시 마유로42번길 111,시화공단 3바 403-1호(정왕동)","alias":""},{"name":"더갈비(거모)","address":"경기도 시흥시 도일로 111-1, 1층(거모동)","alias":""},{"name":"더보플러스(거래명세서)","address":"서울 마포구 마포대교 195 T202동 101호","alias":""},{"name":"덕이네쌈밥","address":"경기도 시흥시 군자로477번길5,1층 일부호(거모동)","alias":""},{"name":"도담(은행)","address":"경기도 시흥시 대은로 16-14,1층(은행동)","alias":""},{"name":"동탄식자재마트","address":"경기도 오산시 외삼미로 162-54(외삼미동)","alias":""},{"name":"두근반세근반","address":"경기도 시흥시 정왕동1624-7번지 106호","alias":""},{"name":"두루치기김치찌개전문점","address":"경기도 시흥시 정왕대로 64, 118호(정왕동)","alias":""},{"name":"린이네축산(본점-영통)","address":"경기도 수원시 영통구 봉영로1770번길 21,상가동 지층 1호(영통동,신명.한","alias":""},{"name":"린이네축산동탄점(구미래)","address":"경기도 화성시 동탄중심상가1길 28,1층 미래마켓내정육코너(반송동)","alias":""},{"name":"막뚱이정육점","address":"인천시 부평구 마장로220번길 13, 106동(상가동)113호(산곡동,한신휴아파트","alias":""},{"name":"맛닭꼬치","address":"경기도 시흥시 호현로22번길 18,1층(신천동)","alias":""},{"name":"맛있는한우(부천상동)","address":"경기도 부천시 원미구 도약로13,1층102호","alias":""},{"name":"매일정육점(신규)","address":"경기도 의정부시 추동로9,1층 103호 (신곡동,휴먼시티)","alias":""},{"name":"바다포차(신규)","address":"경기도 시흥시 함송로 38, 상가동 107호(정왕동,모아아파트)","alias":""},{"name":"바른정육점(사동)","address":"경기도 안산시 상록구 해양5로11, 1층 142호 일부(사동)","alias":""},{"name":"바를정육류연구소","address":"경기도 하남시 미사강변한강로 409번 18, 3층","alias":""},{"name":"백년손두부(백암)","address":"경기도 용인시 처인구 백암면 삼백로 599-1,1층 101호","alias":""},{"name":"백봉(선부동)","address":"경기도 안산시 단원구 선부광장1로 82,115호(선부동, 서림프라자)","alias":""},{"name":"복덩이정육점1호점","address":"서울 은평구 연서로 252,1층(불광동)","alias":""},{"name":"복덩이정육점2호점","address":"서울 은평구 은평로 95 1층 102호","alias":""},{"name":"봉군미트","address":"경기도 화성시 남양읍 시청로160번길 52,1층105호","alias":""},{"name":"삼겹연구소","address":"경기도 안산시 상록구 본오로79,1층 (본오동)","alias":""},{"name":"삼대축산정육점양평점","address":"서울 영등포구 영등포로33,1층 104호(양평동2가,목동비즈타워)","alias":""},{"name":"삼부자돌판골","address":"경기도 안산시 단원구 선부광장1로 30,203,204호(선부동,단원프라자)","alias":""},{"name":"삼사오","address":"경기 안산시 상록구 이동 공원로 53(이동,1층)","alias":""},{"name":"상미왕할인마트(식자재)","address":"경기도 군포시 금산로 9,지층 101-1호,101-2호(금정동)","alias":""},{"name":"샛터돌왕구이","address":"경기 안산시 단원구 신길로 20 (신길동,101호)","alias":""},{"name":"서창별빛정육점","address":"인천시 남동구 서창남로 45,1층 105호(서창동,로데오프라자)","alias":""},{"name":"성대지마트(주)","address":"서울 동작구 상도로 102(상도동)","alias":""},{"name":"섹시포크거성(주)","address":"경기도 화성서 남양읍 남양서로69","alias":""},{"name":"셀프정육점(포동)","address":"경기도 시흥시 신현로38번길26,1층 103호(포동)","alias":""},{"name":"셰프앤백정(배곧)","address":"경기도 시흥시 서울대학로278번길 19-13,108동 비-19호","alias":""},{"name":"소매(명장한우)","address":"경기도 안산시 단원구 안산천남로211 보네르빌리지 110동 1702호","alias":""},{"name":"소매(정영호변호사)","address":"서울시 서초구 신반포로 20 반포래미안트리니원 104동 2505호","alias":""},{"name":"소문난정육점","address":"서울특별시 금천구 시흥대로 143, 1층108호(시흥동, 신라상가)","alias":""},{"name":"소하축산(광명)","address":"경기도 광명시 소하로82,108호(소하동,한빛프라자)","alias":""},{"name":"송명숯불갈비","address":"경기도 안산시 상록구 안산천동로 252,1층(월피동)","alias":""},{"name":"슈퍼킹(사동)","address":"경기도 안산시 상록구 감골1로 33,728동 지하층 1호(사동,상록수타운월드아","alias":""},{"name":"신박축산","address":"인천시 부평구 십정동 486-15 1층일부(3호)","alias":""},{"name":"신풍푸줏간(신길점)","address":"서울시 영등포구 신풍로 77.상가동 b105호(신길동, 래미안에스티움)","alias":""},{"name":"쌈앤쌈(사동)","address":"경기도 안산시 상록구 성안2길5,2층(사동)","alias":""},{"name":"아이비유통","address":"경기도 성남시 중원구 황송로 77, 비01~04호(금광동","alias":""},{"name":"안심한우(광명)","address":"경기도 광명시 오리로 964번길7(광명동)","alias":""},{"name":"에스농축수산마트(율전)","address":"경기도 수원시 장안구 덕영대로425번길 58-2(율전동)","alias":""},{"name":"에스에이치미트(음성)","address":"충북 음성군 음성읍 시장로50번길5","alias":""},{"name":"에이스미트(주안)","address":"인천시 미추홀구 주안로56번길3,에이스미트내정육코너(주안동)","alias":""},{"name":"에이스축산(상일동)신규","address":"서울특별시 강동구 상일로74,상가2동 1층104호(상일동,고덕리엔파크3단지","alias":""},{"name":"여기식당","address":"경기도 시흥시 하중로 130-1, 1층(하중동)","alias":""},{"name":"연성담소골감자탕","address":"경기도 시흥시 하상로4번길 17.1층(하상동)","alias":""},{"name":"영남식당(정왕)","address":"경기도 시흥시 서촌상가2길30-1,104호,105호(정왕동)","alias":""},{"name":"예서감자탕","address":"경기도 안산시 상록구 매화로2길 21, 1층 일부호(이동)","alias":""},{"name":"오늘은고기다(일동)","address":"경기도 안산시 상록구 도매시장로93,1층 102호(일동)","alias":""},{"name":"오늘은냉삼(구-이구집)","address":"경기도 시흥시 진말로 17,1층(장곡동)","alias":""},{"name":"오복정육(옥련점)베스트식자재정","address":"인천광역시 연수구 한나루로79번길 53,1층(옥련동)","alias":""},{"name":"오빠막창","address":"경기도 시흥시 한우물로7 1층 102호(거모동)","alias":""},{"name":"오소돈","address":"경기도 안산시 상록구 댕이길 80,1층(사동)","alias":""},{"name":"옥이네양평해장국(신길동)","address":"경기도 안산시 단원구 신길로 9-3, 109호(신길동)","alias":""},{"name":"옥이네주물럭","address":"경기도 시흥시 함송로13번길 6-7, 101,102호(정왕동)","alias":""},{"name":"올인베이커리하중점(다영이네)","address":"경기도 시흥시 하중로 205, 102호(하중동)","alias":""},{"name":"우도락(스타마트)","address":"경기도 안산시 상록구 화랑로513,지층38호(성포동,스타프라자)","alias":""},{"name":"우리축산정육점(수암동)","address":"경기도 안산시 상록구 원당골길11,104호(수암동,이림지오팰리스)","alias":""},{"name":"우신유통(주)-농민와동","address":"경기도 안산시 단원구 와동공원로 162,1층 일부(와동)","alias":""},{"name":"울트라분식","address":"경기도 시흥시 상직길3-1,101(하상동)","alias":""},{"name":"원대성정육점","address":"경기도 부천시 오정구 성오로124번길47(원종동,49호)","alias":""},{"name":"원산면옥","address":"경기도 안산시 상록구 본오로70, 1층(본오동)","alias":""},{"name":"월드마트(성남)","address":"경기도 성남시 수정구 수정남로 10,113호(수진동,제일프라자)","alias":""},{"name":"유포리바베큐장","address":"경기도 화성시 비봉면 유포길10-29","alias":""},{"name":"으뜸장어(본오)","address":"경기도 안산시 상록구 오목로60, 1층(본오동)","alias":""},{"name":"이나미트(주)","address":"경기도 양주시 옥정동로7다길 74,6층 6997호(옥정동)","alias":""},{"name":"이모네민물매운탕","address":"경기도 시흥시 신천3길27-7,101호(신천동)","alias":""},{"name":"인화숯불갈비","address":"경기도 시흥시 하상로8번길 1,1층일부호(하상동)","alias":""},{"name":"일등축산(안산일동)","address":"경기도 안산시 상록구 구룡로 22, 1층 101호(일동)","alias":""},{"name":"일신할인마트(정육점)","address":"인천광역시 부평구 경인로 1104번길 13-14 1층(일신동,대한빌딩)","alias":""},{"name":"임가네갈비","address":"경기도 시흥시 정왕대로28번길3,상가동105호(정왕동)","alias":""},{"name":"장터국밥","address":"경기도 시흥시 정왕동1738-1번지 103호","alias":""},{"name":"장터식자재마트","address":"경기도 구리시 동구릉로 64, 101동 지층비115호(인창동,인창e-편한세상)","alias":""},{"name":"재수보는통돼지","address":"경기도 오산시 경기대로 636번길 126-2, 지하1층(외삼미동)","alias":""},{"name":"전라도연탄구이","address":"경기도 시흥시 서촌상가2길 29,1층 110호(정왕동 명동프라자)","alias":""},{"name":"전설갈비은행점","address":"경기도 시흥시 대은로 16-4,1층(은행동)","alias":""},{"name":"정성가득집밥","address":"경기도 안산시 상록구 네고지길 2,1층 일부호(사동)","alias":""},{"name":"정성마트정육코너(아차산)","address":"서울특별시 광진구 천호대로661,지하1층(구의동,정성빌딩)","alias":""},{"name":"정은한우(두산홈마트)","address":"경기 시흥시 소래산길 67, 1층 두산홈마트 내(대야동)","alias":""},{"name":"제3글라스(주)","address":"경기도 화성시 남양읍 신남리 1018-12","alias":""},{"name":"제3스틸","address":"경기도 안산시 상록구 사동 1489-7","alias":""},{"name":"주곰감자탕(폐업)","address":"경기도 안산시 단원구 광덕3로 145-7 ,106호,107호(고잔동,한솔프라자)","alias":""},{"name":"주식회사 농민(본오)","address":"경기도 안산시 상록구 선암로 44,1층2층(본오동)","alias":""},{"name":"주식회사 더상상","address":"경기도 용인시 수지구 현암로148,202호 분할내부 205(죽전동,죽전스카이프","alias":""},{"name":"주식회사 두둑","address":"경기도 시흥시 동서로 1198번길 33(목감동)","alias":""},{"name":"주식회사 람다푸드","address":"인천광역시 남동구 논고개로 123번길 35, 901호 일부3호(논현동)","alias":""},{"name":"주식회사 삼정푸드","address":"전북 정읍시 정신로 22-12,2층 (하북동)","alias":""},{"name":"주식회사 씨와이푸드","address":"경기 시흥시 광석동 101-1","alias":""},{"name":"주식회사 정육점","address":"경기도 용인시 기흥구 평촌1로2번길 10,103호(동백동)","alias":""},{"name":"주식회사 축산법인팜","address":"경기도 안산시 단원구 해안로91(목내동)","alias":""},{"name":"주식회사에스할인마트(지점)평택","address":"경기도 평택시 모산영신2길34,1동1층101호 스타주차타워(동삭동)","alias":""},{"name":"주식회사토레인","address":"경기도 남양주시 진건읍 고재로 177,1층","alias":""},{"name":"진안축산","address":"경기도 화성시 병점중앙로195, 진안식자재마트 내정육코너(진안동)","alias":""},{"name":"찌그러진주전자","address":"경기도 시흥시 봉우재로57(정왕동)","alias":""},{"name":"찐하오마라탕 그랑시티시그니처","address":"경기도 안산시 상록구 해양3로 15, 1층 118호(사동)","alias":""},{"name":"차이나감자탕","address":"경기도 수원시 장안구 수성로370번길32,1층 일부호(영화동)","alias":""},{"name":"착한정육점(산현동)","address":"경기도 시흥시 목감둘레로 80,120동 110호(산현동,호반베르디움더숲","alias":""},{"name":"참새방앗간","address":"서울 금천구 범안로 1138, 108호(가산동,고려테크온)","alias":""},{"name":"참예소(포동)","address":"경기도 시흥시 신현로 38번길 23-1. 13동 101호(포동,태산아파트상가)","alias":""},{"name":"창신동매운족발앤얼음막걸리","address":"경기도시흥시 승지로60번길 101,102호(능곡동,다우빌딩)","alias":""},{"name":"천하제일정육점(배곧동)","address":"경기도 시흥시 서울대학로278번길 19-13,108동 제비-103호(배곧동)","alias":""},{"name":"청정맛집(하중동)","address":"경기도 시흥시 연성로29번길12(하중동)","alias":""},{"name":"총각네정육점(소사본동)","address":"경기도 부천시 은성로76번길56, 1층 일부호(소사본동)","alias":""},{"name":"케이마트 정육코너(청주)","address":"충북 청주시 서원구 매봉로 134(모충동)","alias":""},{"name":"큰언니포차(또바기)","address":"경기도 안산시 단원구 와동공원로161 1층 (122612*)","alias":""},{"name":"키큰정육점","address":"경기도 안산시 단원구 북촌길 18, 1층 101호(선부동)","alias":""},{"name":"태랑미트","address":"충남 천안시 동남구 목천읍 종합휴양지로60","alias":""},{"name":"태양축산(능곡동)","address":"경기도 시흥시 승지로60번길 25, 107호(능곡동,송죽센타프라자)","alias":""},{"name":"패밀리포차","address":"경기도 시흥시 하상로13,1층 일부호(하상동)","alias":""},{"name":"푸른목장(삼평동)","address":"경기도 성남시 분당구 판교로 376,1층 105호(삼평동,마크시티 퍼플)","alias":""},{"name":"푸른목장(판교)","address":"경기도 성남시 분당구 운중로 242, 1층 110호(판교동,리버스토리)","alias":""},{"name":"푸줏단(동춘)","address":"인천광역시 연수구 봉재산로48, 1층101호(동춘동)","alias":""},{"name":"풍년돼지양념구이(상미네곱창집)","address":"경기도 안산시 단원구 화랑로 160, 상가동 125,126호(초지동,초지역 메이","alias":""},{"name":"프리미엄정육점(구리)","address":"경기도 구리시 체육관로 73 지하층(제이식자재마트)","alias":""},{"name":"하늘소(광명점)","address":"경기도 광명시 오리로964번길 23-1(광명동)","alias":""},{"name":"하늘소(역곡점)","address":"경기도 부천시 역곡로26번길 25,1층 101호(역곡동,대화빌딩)","alias":""},{"name":"하늘소(화곡점)","address":"서울 강서구 강서로18길 8-10,103호.104호(화곡동)","alias":""},{"name":"한결축산","address":"경기도 시흥시 은계남로 12,상가동 1층147호(은행동,시흥은계 호반써밋플레","alias":""},{"name":"한돈미트(N마트)기흥","address":"경기도 용인시 기흥구 공세로 236(공세동)","alias":""},{"name":"한마음정육(일동)","address":"경기도 안산시 상록구 일동로 20(일동)","alias":""},{"name":"한상궁한식주점","address":"경기도 안산시 상록구 초당로20, 1층(사동)","alias":""},{"name":"한수조경건설","address":"서울 중구 만리재로37길 42, 2층 203호(중림동,미디어센터)","alias":""},{"name":"한양축산도매센타(봉천동)","address":"서울 관악구 봉천동 66-163","alias":""},{"name":"한우세상(부천상동)","address":"경기도 부천시 원미구 송내대로 239, 1F10호(상동,소풍(부천터미널","alias":""},{"name":"행복한 숯불돌쇠구이","address":"경기도 군포시 공단로 356-54(산본동,금정삼성쉐르빌상가143호,144호)","alias":""},{"name":"현대축산(금천)","address":"서울특별시 금천구 금하로23길4,1층1호(시흥동,신영빌딩)","alias":""},{"name":"형제정육점(평촌)","address":"경기도 안양시 동안구 흥안대로456번길42,지상1층일부호(평촌동,동광빌딩)","alias":""},{"name":"홍성축산","address":"경기도 시흥시 호현로9번길6, 108호(신천동,아도니스의꿈)","alias":""},{"name":"횡성생고기","address":"경기도 안산시 단원구 신길로 13-16, 1층(원곡동)","alias":""},{"name":"횡성생고기(인천점)","address":"인천 동구 송화로20번길 11 (화평동,1층)","alias":""},{"name":"효자축산(일산)","address":"경기도 고양시 일산서구 중앙로 1406,110호(주엽동,한솔코아)","alias":""},{"name":"SK축산물도소매","address":"인천시 남동구 논고개로118,104(논현동,양진타워)","alias":""}];
 const ALIASES = {"사동쌈엔쌈":"쌈앤쌈(사동)","태광":"(주)태광푸드","푸른목장 판교점":"푸른목장(판교)","푸른목장판교":"푸른목장(판교)","푸른목장 삼평점":"푸른목장(삼평동)","참새방앗간":"참새방앗간","농민마트와동":"우신유통(주)-농민와동","와동":"우신유통(주)-농민와동","삼부자":"삼부자돌판골","삼부자돈판골":"삼부자돌판골","봉천":"한양축산도매센타(봉천동)","한양봉천":"한양축산도매센타(봉천동)","유포리":"유포리바베큐장","유포리바베큐장":"유포리바베큐장","음성":"에스에이치미트(음성)","에스에이치마트 음성":"에스에이치미트(음성)","린본점":"린이네축산(본점-영통)","린이네축산 본점":"린이네축산(본점-영통)","린이네축산 동탄":"린이네축산동탄점(구미래)","린동탄":"린이네축산동탄점(구미래)","참예소":"참예소(포동)","삼사오":"삼사오","광명꿀":"꿀돼지꿀한우정육점(광명)","횡성본점":"횡성생고기","횡성생고기 인천점":"횡성생고기(인천점)","덕이네":"덕이네쌈밥","덕이네쌈밥":"덕이네쌈밥","청정맛집":"청정맛집(하중동)","천하제일정육점":"천하제일정육점(배곧동)","동탄식자재마트":"동탄식자재마트","원대성정육점":"원대성정육점","오늘은냉삼":"오늘은냉삼(구-이구집)","효자축산":"효자축산(일산)","에스할인마트 (평택)":"주식회사에스할인마트(지점)평택","에스할인마트 평택":"주식회사에스할인마트(지점)평택","큐엔씨육가공":"(주)큐엔씨육가공","정성마트":"정성마트정육코너(아차산)","성대g마트":"성대지마트(주)","풍년돼지양념구이":"풍년돼지양념구이(상미네곱창집)","김치왕뚜껑삼겹살1호점":"김치왕뚜껑삼겹살","김치왕뚜껑삼겹살 1호점":"김치왕뚜껑삼겹살","김치왕뚜껑삼겹살2호점":"김치왕뚜껑삼겹살(2호점)","김치왕뚜껑삼겹살 2호점":"김치왕뚜껑삼겹살(2호점)","김치왕뚜껑삼겹살3호점":"김치왕뚜껑삼겹살(3호점부천)","도담(은행동) 식당":"도담(은행)","도담":"도담(은행)","오소돈":"오소돈","국민생고기 장곡":"국민생고기(장곡동)","전라도연탄구이":"전라도연탄구이","고기바보부곡":"고기바보푸주간(부곡)","고기바보장안":"고기바보푸줏간(장안점)","고기바보송정":"고기바보푸주간(송정점)","갈비면옥":"갈비면옥(갈비나라2호점)","에이스미트 주안":"에이스미트(주안)","에이스미트주안":"에이스미트(주안)","에스농축산마트 율전":"에스농축수산마트(율전)","율전":"에스농축수산마트(율전)","샛터":"샛터돌왕구이","농민마트고잔":"농민마트 고잔점","고잔":"농민마트 고잔점","일신할인마트":"일신할인마트(정육점)","한마음마트":"(주)한마음마트(일동)=>정육으로","대반전":"대반전","하늘소역곡":"하늘소(역곡점)","하늘소광명":"하늘소(광명점)","하늘소 화곡":"하늘소(화곡점)","하늘소화곡":"하늘소(화곡점)","신풍푸줏간":"신풍푸줏간(신길점)","신풍푸줏간 신길":"신풍푸줏간(신길점)","다온마트":"(주)다온마트(10/1부터)","동춘동푸줏단":"푸줏단(동춘)","별빛정육점":"서창별빛정육점","소문난정육점":"소문난정육점","거시기함흥냉면":"거시기 함흥냉면","거시기":"거시기 함흥냉면","원산면옥":"원산면옥","스타마트":"우도락(스타마트)","까만돼지":"까만돼지","금천꿀돼지꿀한우":"꿀돼지꿀한우(금천)","가리봉꿀돼지꿀한우":"꿀돼지꿀한우(가리봉)","신박축산":"신박축산","오복정육":"오복정육(옥련점)베스트식자재정","오빠막창":"오빠막창","한우세상":"한우세상(부천상동)","본오농민마트":"주식회사 농민(본오)","전설은행":"전설갈비은행점","원신산업":"(주)원신산업-보미마트","착한정육점 산현":"착한정육점(산현동)","대부g마트":"대부지마트(주)","좋은축산유통":"(주)좋은축산유통","바른정육점":"바른정육점(사동)","삼겹연구소":"삼겹연구소","백봉":"백봉(선부동)","한돈미트":"한돈미트(N마트)기흥","구들장":"구들짱황소곱창삼겹살(인계동)","프리미엄정육점":"프리미엄정육점(구리)","신길양평해장국":"옥이네양평해장국(신길동)","찐하오마라탕":"찐하오마라탕 그랑시티시그니처","대박마포":"대박마포숯불갈비","차이나감자탕":"차이나감자탕","오늘은고기다":"오늘은고기다(일동)","한결축산":"한결축산","상미마트":"상미왕할인마트(식자재)","소하축산광명":"소하축산(광명)","시흥대박축산":"대박축산(금천)하늘소","충북g마트":"(주)굿모닝유통지마트","진안축산":"진안축산","sk축산":"SK축산물도소매","막뚱이정육점":"막뚱이정육점","예서감자탕":"예서감자탕","더갈비":"더갈비(거모)","우리축산정육점":"우리축산정육점(수암동)","맛있는한우(상동)":"맛있는한우(부천상동)","골목대장":"골목대장삼겹살","김치찌개집":"김치찌개전문점(사동)","정성가득집밥":"정성가득집밥","울트라":"울트라분식","곱창연가":"곱창연가"};
 
@@ -740,6 +852,8 @@ function tryLogin() {
   if (document.getElementById('pw').value === PASSWORD) {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+    updateHeaderStatus();
+    openHome();
   } else {
     document.getElementById('login-error').style.display = 'block';
     document.getElementById('pw').value = '';
@@ -781,11 +895,13 @@ function loadChatFile(e) {
 
     if (availableDates.length === 0) {
       const sample = (chatText || '').slice(0, 200).replace(/\s+/g, ' ');
+      updateHeaderStatus();
       hint.textContent =
         '날짜를 찾지 못했습니다. (감지 인코딩: ' + best.enc + ')\n' +
         '카카오톡 → 채팅방 → 메뉴 → 대화 내용 내보내기 → TXT 로 저장한 파일인지 확인해 주세요.\n' +
         '파일 미리보기: ' + sample;
     } else {
+      updateHeaderStatus();
       hint.textContent =
         `파일 로드 완료 · 날짜 ${availableDates.length}개 · ${best.enc}\n` +
         `배송/작업일을 선택하세요. (월: 금12시~월12시 / 그 외: 전날12시~당일14시)`;
@@ -1018,6 +1134,7 @@ function onDateChange() {
         const range = getWindowRange(currentDate);
         const hint = document.getElementById('uploadHint');
         hint.style.display = 'block';
+        updateHeaderStatus();
         hint.textContent = formatWindowLabel(range) + ` · 발주 ${currentOrders.length}건 · 계근 ${(currentWeightLogs||[]).length}건` +
           (range && range.isMonday ? ' (월요일부: 금12시~월12시)' : '');
         document.getElementById('stats').style.display = 'flex';
