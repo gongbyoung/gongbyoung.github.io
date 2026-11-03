@@ -488,6 +488,7 @@ pre {
     <div class="tab" data-tab="byMeat" onclick="switchTab('byMeat')">고기별</div>
     <div class="tab" data-tab="loose" onclick="switchTab('loose')">낱개</div>
     <div class="tab" data-tab="weight" onclick="switchTab('weight')">계근</div>
+    <div class="tab" data-tab="dispatch" onclick="switchTab('dispatch')">배차</div>
     <div class="tab" data-tab="stock" onclick="switchTab('stock')">재고</div>
     <div class="tab" data-tab="summary" onclick="switchTab('summary')">문자</div>
     <div class="tab" data-tab="raw" onclick="switchTab('raw')">원본</div>
@@ -1912,6 +1913,7 @@ function render() {
   else if (currentTab === 'byMeat') { el.innerHTML = filterBar; renderByMeat(el, orders); }
   else if (currentTab === 'loose') { el.innerHTML = filterBar; renderLoose(el, orders); }
   else if (currentTab === 'weight') { el.innerHTML = filterBar; renderWeightLogs(el); }
+  else if (currentTab === 'dispatch') { el.innerHTML = filterBar; renderDispatch(el, orders); }
   else if (currentTab === 'stock') { el.innerHTML = filterBar; renderStock(el, orders); }
   else if (currentTab === 'summary') { el.innerHTML = filterBar; renderSummary(el, orders); }
   else if (currentTab === 'raw') { el.innerHTML = filterBar; renderRaw(el, orders); }
@@ -2030,6 +2032,132 @@ function collectOrderClients(orders) {
   });
   return Object.values(map);
 }
+
+
+// ---------- 배차 (차량별 행선지) ----------
+const VEHICLE_COLORS = ['#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00acc1', '#6d4c41', '#546e7a', '#c0ca33'];
+const DEFAULT_VEHICLES = ['승호', '진', '한', '명', '진우'];
+
+function getVehicles() {
+  try {
+    const v = JSON.parse(localStorage.getItem('meatpoan_vehicles') || 'null');
+    if (Array.isArray(v) && v.length) return v;
+  } catch (e) {}
+  return DEFAULT_VEHICLES.slice();
+}
+function setVehicles(list) {
+  try { localStorage.setItem('meatpoan_vehicles', JSON.stringify(list)); } catch (e) {}
+}
+/** clientName -> vehicleName */
+function getDispatchMap() {
+  try {
+    return JSON.parse(localStorage.getItem('meatpoan_dispatch') || '{}') || {};
+  } catch (e) { return {}; }
+}
+function setDispatchMap(map) {
+  try { localStorage.setItem('meatpoan_dispatch', JSON.stringify(map)); } catch (e) {}
+}
+function setClientVehicle(client, vehicle) {
+  const m = getDispatchMap();
+  if (!vehicle) delete m[client];
+  else m[client] = vehicle;
+  setDispatchMap(m);
+}
+function vehicleColor(name) {
+  const vs = getVehicles();
+  const i = vs.indexOf(name);
+  if (i < 0) return '#9e9e9e';
+  return VEHICLE_COLORS[i % VEHICLE_COLORS.length];
+}
+
+function renderDispatch(el, orders) {
+  const prev = el.innerHTML;
+  const clients = collectOrderClients(orders).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  const vehicles = getVehicles();
+  const dmap = getDispatchMap();
+
+  let html = prev;
+  html += `<div class="section-title">배차 · 차량별 행선지 (${clients.length}곳)</div>`;
+  html += `<div class="card" style="margin-bottom:.4rem">
+    <div style="font-size:.8rem;color:#555;margin-bottom:.35rem">화이트보드처럼 거래처를 차량에 배정하세요. 지도에 차량 색으로 표시됩니다.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.4rem">`;
+  vehicles.forEach(v => {
+    html += `<span class="badge" style="background:${vehicleColor(v)};color:#fff">${esc(v)}</span>`;
+  });
+  html += `</div>
+    <div style="display:flex;gap:.35rem;flex-wrap:wrap">
+      <input id="newVehicleName" class="search-box" style="margin:0;flex:1;min-width:120px" placeholder="차량/기사 추가">
+      <button type="button" class="map-btn" style="flex:0;min-width:70px" onclick="addVehicleFromInput()">추가</button>
+      <button type="button" class="map-btn secondary" style="flex:0;min-width:90px" onclick="showOrderMap()">지도</button>
+    </div>
+  </div>`;
+
+  // 차량별 요약
+  const byV = {};
+  vehicles.forEach(v => { byV[v] = []; });
+  byV['(미배정)'] = [];
+  clients.forEach(c => {
+    const v = dmap[c.name] || '(미배정)';
+    if (!byV[v]) byV[v] = [];
+    byV[v].push(c);
+  });
+
+  html += `<div class="card"><div class="matrix-wrap"><table>
+    <thead><tr><th>거래처</th><th>권역</th><th>차량</th></tr></thead><tbody>`;
+  clients.forEach(c => {
+    const reg = parseRegion(c.address);
+    const cur = dmap[c.name] || '';
+    html += `<tr>
+      <td>${esc(c.name)}</td>
+      <td style="font-size:.72rem">${esc(reg)}</td>
+      <td><select data-client="${esc(c.name)}" onchange="onDispatchChange(this)" style="width:100%;padding:.25rem;border-radius:6px;border:1px solid #ddd;font-size:.8rem">
+        <option value="">미배정</option>`;
+    vehicles.forEach(v => {
+      html += `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(v)}</option>`;
+    });
+    html += `</select></td></tr>`;
+  });
+  html += `</tbody></table></div></div>`;
+
+  // 차량별 목록 (화이트보드 형태)
+  html += `<div class="section-title">차량별 행선지</div>`;
+  vehicles.forEach(v => {
+    const list = byV[v] || [];
+    html += `<div class="card" style="border-left:4px solid ${vehicleColor(v)}">
+      <h3 style="color:${vehicleColor(v)}">${esc(v)} <span class="badge">${list.length}</span></h3>
+      <div style="font-size:.85rem;line-height:1.5">${list.length ? list.map(c => esc(c.name)).join(' · ') : '<span style="color:#aaa">없음</span>'}</div>
+    </div>`;
+  });
+  if ((byV['(미배정)'] || []).length) {
+    html += `<div class="card" style="border-left:4px solid #9e9e9e">
+      <h3 style="color:#666">미배정 <span class="badge">${byV['(미배정)'].length}</span></h3>
+      <div style="font-size:.85rem;line-height:1.5">${byV['(미배정)'].map(c => esc(c.name)).join(' · ')}</div>
+    </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function onDispatchChange(sel) {
+  const client = sel.getAttribute('data-client');
+  setClientVehicle(client, sel.value || '');
+  // 차량별 요약만 다시 그리면 좋지만 간단히 전체 재렌더
+  render();
+}
+
+function addVehicleFromInput() {
+  const inp = document.getElementById('newVehicleName');
+  const name = (inp && inp.value || '').trim();
+  if (!name) return;
+  const vs = getVehicles();
+  if (!vs.includes(name)) {
+    vs.push(name);
+    setVehicles(vs);
+  }
+  if (inp) inp.value = '';
+  render();
+}
+
 
 function renderRegions(el, orders) {
   const prev = el.innerHTML;
@@ -2292,9 +2420,8 @@ async function showOrderMap() {
         <button type="button" id="mapFsClose">닫기</button>
       </div>
       <div id="orderMapFs"></div>
-      <div class="map-fs-legend">
-        <span><i class="pin-dot depot"></i> 미트포앤(기점)</span>
-        <span><i class="pin-dot client"></i> 발주 거래처</span>
+      <div class="map-fs-legend" id="mapFsLegend">
+        <span><i class="pin-dot depot"></i> 기점</span>
         <span id="mapFsStatus" style="margin-left:auto;color:#888"></span>
       </div>`;
     document.body.appendChild(overlay);
@@ -2342,8 +2469,12 @@ async function showOrderMap() {
     let pos = geoCacheGet(c.address) || await vworldGeocode(c.address);
     if (!pos) { fail++; continue; }
     ok++;
-    L.marker([pos.lat, pos.lng], { icon: clientIcon })
-      .bindPopup('<b>' + (c.name || '') + '</b><br>' + (c.address || ''))
+    const dmap = getDispatchMap();
+    const veh = dmap[c.name] || '';
+    const col = veh ? vehicleColor(veh) : '#1e88e5';
+    const label = veh ? (c.name + ' [' + veh + ']') : c.name;
+    L.marker([pos.lat, pos.lng], { icon: makePinIcon(col) })
+      .bindPopup('<b>' + (c.name || '') + '</b>' + (veh ? ' <span style="color:' + col + '">[' + veh + ']</span>' : '') + '<br>' + (c.address || ''))
       .addTo(_orderMapLayer);
   }
 
@@ -2356,7 +2487,19 @@ async function showOrderMap() {
   setTimeout(() => { try { _orderMap.invalidateSize(); } catch (e) {} }, 200);
 
   status.textContent = '표시 ' + ok + '곳' + (fail ? ' · 실패 ' + fail : '');
+  // 차량 색 범례
+  const leg = document.getElementById('mapFsLegend');
+  if (leg) {
+    const vs = getVehicles();
+    let legHtml = '<span><i class="pin-dot depot"></i> 기점</span>';
+    vs.forEach(v => {
+      legHtml += ' <span><i class="pin-dot" style="background:' + vehicleColor(v) + '"></i> ' + v + '</span>';
+    });
+    legHtml += '<span id="mapFsStatus" style="margin-left:auto;color:#888">' + status.textContent + '</span>';
+    leg.innerHTML = legHtml;
+  }
 }
+
 
 function closeOrderMapFs() {
   const overlay = document.getElementById('mapFsOverlay');
