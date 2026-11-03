@@ -657,6 +657,63 @@ function getLooseUnits() {
   return (customLoose && customLoose.length) ? customLoose : DEFAULT_LOOSE;
 }
 
+
+// ---------- 화면 글자 크기 (관리자) ----------
+function getFontScale() {
+  try {
+    const v = parseInt(localStorage.getItem('meatpoan_font_scale') || '100', 10);
+    if (v >= 90 && v <= 150) return v;
+  } catch (e) {}
+  return 100;
+}
+function setFontScale(pct) {
+  pct = Math.max(90, Math.min(150, parseInt(pct, 10) || 100));
+  try { localStorage.setItem('meatpoan_font_scale', String(pct)); } catch (e) {}
+  applyFontScale(pct);
+  return pct;
+}
+function applyFontScale(pct) {
+  pct = pct || getFontScale();
+  // 기준 17px * scale
+  const base = 17 * (pct / 100);
+  document.documentElement.style.fontSize = base + 'px';
+  const label = document.getElementById('fontScaleLabel');
+  if (label) label.textContent = pct + '%';
+  const range = document.getElementById('fontScaleRange');
+  if (range && String(range.value) !== String(pct)) range.value = pct;
+}
+function renderAdminDisplay(body) {
+  const pct = getFontScale();
+  body.innerHTML = `
+    <div class="admin-hint">스마트폰에서 글자가 작으면 크게 조절하세요. 이 기기에만 저장됩니다.</div>
+    <div class="card" style="margin:.5rem 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+        <b style="font-size:1.05rem">글자 크기</b>
+        <span id="fontScaleLabel" style="font-size:1.15rem;font-weight:800;color:var(--primary)">${pct}%</span>
+      </div>
+      <input id="fontScaleRange" type="range" min="90" max="150" step="5" value="${pct}"
+        style="width:100%;height:36px"
+        oninput="setFontScale(this.value)">
+      <div style="display:flex;justify-content:space-between;font-size:.9rem;color:#666;margin-top:.25rem">
+        <span>작게 90%</span><span>기본 100%</span><span>크게 150%</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.35rem;margin-top:.65rem">
+        <button type="button" class="btn-dark secondary" style="min-height:44px" onclick="setFontScale(100);renderAdmin()">100%</button>
+        <button type="button" class="btn-dark secondary" style="min-height:44px" onclick="setFontScale(110);renderAdmin()">110%</button>
+        <button type="button" class="btn-dark secondary" style="min-height:44px" onclick="setFontScale(125);renderAdmin()">125%</button>
+        <button type="button" class="btn-dark secondary" style="min-height:44px" onclick="setFontScale(140);renderAdmin()">140%</button>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:1rem;line-height:1.5">미리보기</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--primary);margin:.35rem 0">거래처명 예시</div>
+      <div style="font-size:.95rem">삼겹 3 Box · 미전지 5 · 항정 2 Pack</div>
+    </div>`;
+}
+// 시작 시 적용
+try { applyFontScale(getFontScale()); } catch (e) {}
+
+
 function openAdmin() {
   document.getElementById('adminPanel').classList.add('open');
   renderAdmin();
@@ -683,6 +740,7 @@ function renderAdmin() {
   else if (adminTab === 'brand') renderAdminList(body, '메이커(브랜드)', customBrands, 'brand');
   else if (adminTab === 'meat') renderAdminMeat(body);
   else if (adminTab === 'loose') renderAdminList(body, '낱개 단위 키워드', customLoose, 'loose');
+  else if (adminTab === 'display') renderAdminDisplay(body);
 }
 function renderAdminList(body, title, arr, kind) {
   let html = `<div class="admin-hint">${title} — 추가/삭제 후 자동 저장됩니다.</div>`;
@@ -854,6 +912,7 @@ function tryLogin() {
   if (document.getElementById('pw').value === PASSWORD) {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+    applyFontScale(getFontScale());
     updateHeaderStatus();
     openHome();
   } else {
@@ -2958,6 +3017,7 @@ function esc(s) {
       <div class="admin-tab" data-atab="brand" onclick="switchAdminTab('brand')">메이커</div>
       <div class="admin-tab" data-atab="meat" onclick="switchAdminTab('meat')">고기명</div>
       <div class="admin-tab" data-atab="loose" onclick="switchAdminTab('loose')">낱개단위</div>
+      <div class="admin-tab" data-atab="display" onclick="switchAdminTab('display')">화면글자</div>
     </div>
     <div id="adminBody"></div>
     <div class="admin-actions" style="margin-top:1rem">
@@ -2971,4 +3031,4 @@ function esc(s) {
 </div>
 
 </body>
-</html>
+</html>기능 - Grok
