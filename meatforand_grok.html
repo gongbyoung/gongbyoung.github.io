@@ -25,7 +25,7 @@
   --tabs-h: 48px;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html { font-size: 16px; }
+html { font-size: 17px; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
   background: var(--bg);
@@ -80,9 +80,9 @@ header .header-top {
   display: flex; align-items: center; justify-content: space-between;
   gap: .5rem; margin-bottom: 0;
 }
-header h1 { font-size: 1rem; font-weight: 700; letter-spacing: -.02em; flex: 1; min-width: 0; }
+header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: -.02em; flex: 1; min-width: 0; }
 .header-status {
-  font-size: .68rem; opacity: .9; max-width: 42%;
+  font-size: .8rem; opacity: .95; max-width: 42%;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   text-align: right;
 }
@@ -108,7 +108,7 @@ header h1 { font-size: 1rem; font-weight: 700; letter-spacing: -.02em; flex: 1; 
   box-shadow: 0 -8px 30px rgba(0,0,0,.2);
 }
 .home-sheet h2 {
-  font-size: 1.05rem; color: var(--primary); margin: 0 0 .75rem;
+  font-size: 1.2rem; color: var(--primary); margin: 0 0 .75rem;
   display: flex; justify-content: space-between; align-items: center;
 }
 .home-sheet .home-close {
@@ -125,7 +125,7 @@ header h1 { font-size: 1rem; font-weight: 700; letter-spacing: -.02em; flex: 1; 
 .home-actions .btn-dark {
   background: var(--primary); color: #fff; border: none;
   padding: .7rem .5rem; border-radius: 12px; font-weight: 700;
-  font-size: .85rem; cursor: pointer; min-height: 44px;
+  font-size: .95rem; cursor: pointer; min-height: 48px;
   text-align: center; position: relative; overflow: hidden;
 }
 .home-actions .btn-dark.secondary {
@@ -174,7 +174,8 @@ select.date-select option { color: #222; background: #fff; }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
   flex: 1 0 auto; min-width: 0;
-  padding: .85rem .6rem;
+  padding: .95rem .65rem;
+
   text-align: center; font-size: .82rem; font-weight: 600;
   color: var(--muted); cursor: pointer;
   border-bottom: 3px solid transparent;
@@ -192,8 +193,8 @@ select.date-select option { color: #222; background: #fff; }
 
 .upload-hint {
   background: #fff8e6; border: 1px solid #ffe0a3; border-radius: 12px;
-  padding: .55rem .7rem; margin-bottom: .45rem;
-  font-size: .88rem; color: #7a5b00; line-height: 1.45;
+  padding: .65rem .75rem; margin-bottom: .5rem;
+  font-size: .95rem; color: #7a5b00; line-height: 1.5;
 }
 
 .stats {
@@ -204,23 +205,23 @@ select.date-select option { color: #222; background: #fff; }
   background: #fff; border-radius: 10px; padding: .4rem .25rem;
   text-align: center; border: 1px solid var(--border);
 }
-.stat .num { font-size: 1.15rem; font-weight: 800; color: var(--primary); line-height: 1.2; }
-.stat .label { font-size: .65rem; color: var(--muted); margin-top: .15rem; }
+.stat .num { font-size: 1.25rem; font-weight: 800; color: var(--primary); line-height: 1.2; }
+.stat .label { font-size: .8rem; color: var(--muted); margin-top: .15rem; }
 
 .card {
-  background: #fff; border-radius: 10px; padding: .45rem .55rem;
-  margin-bottom: .4rem; border: 1px solid var(--border);
+  background: #fff; border-radius: 12px; padding: .65rem .7rem;
+  margin-bottom: .55rem; border: 1px solid var(--border);
   box-shadow: none;
 }
 .card h3 {
-  font-size: .88rem; color: var(--primary); margin-bottom: .2rem;
+  font-size: 1.05rem; color: var(--primary); margin-bottom: .35rem;
   display: flex; justify-content: space-between; align-items: center;
-  flex-wrap: wrap; gap: .2rem; line-height: 1.25;
+  flex-wrap: wrap; gap: .3rem; line-height: 1.35;
 }
-.card .addr { font-size: .7rem; color: var(--muted); margin-bottom: .2rem; line-height: 1.25; }
+.card .addr { font-size: .88rem; color: var(--muted); margin-bottom: .3rem; line-height: 1.35; }
 .badge {
   background: #ffebee; color: var(--primary);
-  font-size: .65rem; padding: .1rem .35rem; border-radius: 12px; font-weight: 700;
+  font-size: .8rem; padding: .15rem .45rem; border-radius: 12px; font-weight: 700;
 }
 
 /* Tables - compact (고기별 matrix 제외) */
@@ -228,28 +229,28 @@ select.date-select option { color: #222; background: #fff; }
   overflow-x: auto; -webkit-overflow-scrolling: touch;
   margin: 0; border-radius: 6px;
 }
-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+table { width: 100%; border-collapse: collapse; font-size: .95rem; }
 th, td {
   border: 1px solid var(--border);
-  padding: .22rem .3rem;
+  padding: .45rem .4rem;
   text-align: left; vertical-align: top;
-  word-break: break-word; line-height: 1.25;
+  word-break: break-word; line-height: 1.4;
 }
 th {
-  background: #f5f5f5; font-weight: 700; font-size: .7rem;
-  color: #555; white-space: nowrap;
+  background: #f5f5f5; font-weight: 700; font-size: .85rem;
+  color: #444; white-space: nowrap;
 }
 td.num { text-align: center; font-weight: 700; }
 td.center { text-align: center; }
 tr:nth-child(even) { background: #fafafa; }
 
-/* 고기별 매트릭스만 여유 있게 */
+/* 고기별 매트릭스 */
 table.matrix th, table.matrix td {
-  padding: .4rem .35rem;
-  line-height: 1.35;
+  padding: .5rem .4rem;
+  line-height: 1.4;
 }
-table.matrix th { font-size: .72rem; }
-table.matrix td.num { font-size: .8rem; min-width: 36px; }
+table.matrix th { font-size: .85rem; }
+table.matrix td.num { font-size: .95rem; min-width: 40px; }
 
 /* Client order table: stack-like on very narrow if needed, but keep columns */
 .client-card table th:nth-child(1) { min-width: 56px; }
@@ -273,16 +274,16 @@ table.matrix td.num { font-size: .8rem; min-width: 36px; }
 .matrix .total-col { background: #f0f4ff; font-weight: 700; }
 
 .search-box {
-  width: 100%; padding: .5rem .7rem;
+  width: 100%; padding: .65rem .8rem;
   border: 1px solid var(--border); border-radius: 10px;
-  margin-bottom: .4rem; font-size: .88rem;
+  margin-bottom: .5rem; font-size: 1rem;
   background: #fff;
 }
 .search-box:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(196,30,58,.12); }
 
 .empty {
   text-align: center; padding: 3rem 1.2rem;
-  color: var(--muted); font-size: .95rem; line-height: 1.5;
+  color: var(--muted); font-size: 1.05rem; line-height: 1.55;
 }
 .section-title {
   font-size: .78rem; color: var(--muted);
@@ -304,7 +305,7 @@ pre {
 @media (max-width: 400px) {
   .stats { grid-template-columns: repeat(2, 1fr); }
   .stat .num { font-size: 1.25rem; }
-  .tab { font-size: .78rem; padding: .8rem .45rem; }
+  .tab { font-size: .9rem; padding: .9rem .5rem; }
   header h1 { font-size: .98rem; }
   /* header-actions moved to home */
 }
@@ -325,10 +326,10 @@ pre {
   display: flex; gap: .25rem; margin-bottom: .4rem; flex-wrap: wrap;
 }
 .ship-btn {
-  flex: 1; min-width: 80px; padding: .4rem .3rem;
-  border: 1px solid var(--border); border-radius: 8px;
-  background: #fff; font-size: .75rem; font-weight: 600; color: var(--muted);
-  cursor: pointer; min-height: 34px;
+  flex: 1; min-width: 80px; padding: .55rem .4rem;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: #fff; font-size: .9rem; font-weight: 600; color: var(--muted);
+  cursor: pointer; min-height: 42px;
 }
 .ship-btn.on {
   background: var(--primary); color: #fff; border-color: var(--primary);
@@ -2079,7 +2080,7 @@ function renderDispatch(el, orders) {
   let html = prev;
   html += `<div class="section-title">배차 · 차량별 행선지 (${clients.length}곳)</div>`;
   html += `<div class="card" style="margin-bottom:.4rem">
-    <div style="font-size:.8rem;color:#555;margin-bottom:.35rem">화이트보드처럼 거래처를 차량에 배정하세요. 지도에 차량 색으로 표시됩니다.</div>
+    <div style="font-size:.95rem;color:#555;margin-bottom:.35rem">화이트보드처럼 거래처를 차량에 배정하세요. 지도에 차량 색으로 표시됩니다.</div>
     <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.4rem">`;
   vehicles.forEach(v => {
     html += `<span class="badge" style="background:${vehicleColor(v)};color:#fff">${esc(v)}</span>`;
@@ -2109,8 +2110,8 @@ function renderDispatch(el, orders) {
     const cur = dmap[c.name] || '';
     html += `<tr>
       <td>${esc(c.name)}</td>
-      <td style="font-size:.72rem">${esc(reg)}</td>
-      <td><select data-client="${esc(c.name)}" onchange="onDispatchChange(this)" style="width:100%;padding:.25rem;border-radius:6px;border:1px solid #ddd;font-size:.8rem">
+      <td style="font-size:.9rem">${esc(reg)}</td>
+      <td><select data-client="${esc(c.name)}" onchange="onDispatchChange(this)" style="width:100%;padding:.4rem;border-radius:8px;border:1px solid #ddd;font-size:1rem;min-height:40px">
         <option value="">미배정</option>`;
     vehicles.forEach(v => {
       html += `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(v)}</option>`;
@@ -2125,13 +2126,13 @@ function renderDispatch(el, orders) {
     const list = byV[v] || [];
     html += `<div class="card" style="border-left:4px solid ${vehicleColor(v)}">
       <h3 style="color:${vehicleColor(v)}">${esc(v)} <span class="badge">${list.length}</span></h3>
-      <div style="font-size:.85rem;line-height:1.5">${list.length ? list.map(c => esc(c.name)).join(' · ') : '<span style="color:#aaa">없음</span>'}</div>
+      <div style="font-size:.95rem;line-height:1.5">${list.length ? list.map(c => esc(c.name)).join(' · ') : '<span style="color:#aaa">없음</span>'}</div>
     </div>`;
   });
   if ((byV['(미배정)'] || []).length) {
     html += `<div class="card" style="border-left:4px solid #9e9e9e">
       <h3 style="color:#666">미배정 <span class="badge">${byV['(미배정)'].length}</span></h3>
-      <div style="font-size:.85rem;line-height:1.5">${byV['(미배정)'].map(c => esc(c.name)).join(' · ')}</div>
+      <div style="font-size:.95rem;line-height:1.5">${byV['(미배정)'].map(c => esc(c.name)).join(' · ')}</div>
     </div>`;
   }
 
@@ -2205,10 +2206,10 @@ function renderRegions(el, orders) {
     const remarkStr = [...(c.remarks || [])].join(', ');
     const isUnk = !c.address || c.reg === '주소미상';
     html += `<tr class="${isUnk ? 'addr-unknown' : ''}" data-search="${esc((c.reg + ' ' + c.name + ' ' + (c.address || '') + ' ' + remarkStr).toLowerCase())}">
-      <td style="white-space:nowrap;font-size:.72rem">${esc(c.reg)}</td>
+      <td style="white-space:nowrap;font-size:.9rem">${esc(c.reg)}</td>
       <td>${esc(c.name)}</td>
-      <td style="font-size:.72rem;color:#555">${esc(isUnk ? '주소미상' : shortAddress(c.address))}</td>
-      <td style="font-size:.72rem">${esc(remarkStr)}</td>
+      <td style="font-size:.9rem;color:#555">${esc(isUnk ? '주소미상' : shortAddress(c.address))}</td>
+      <td style="font-size:.9rem">${esc(remarkStr)}</td>
     </tr>`;
   });
   html += `</tbody></table></div></div>`;
@@ -2770,7 +2771,7 @@ function renderLoose(el, orders) {
       <td>${esc(r.name)}</td>
       <td class="num">${esc(r.qty)}</td>
       <td class="center">${esc(r.unit)}</td>
-      <td style="font-size:.72rem">${esc(r.note)}</td>
+      <td style="font-size:.9rem">${esc(r.note)}</td>
     </tr>`;
   });
   html += `</tbody></table></div></div>`;
@@ -2797,7 +2798,7 @@ function renderWeightLogs(el) {
       const wstr = r.weight ? (r.weight + (r.pack ? ' / ' + r.pack : '')) : (r.pack || '');
       html += `<tr>
         <td>${esc(r.meat)}</td>
-        <td class="num" style="font-size:.75rem">${esc(r.lot)}</td>
+        <td class="num" style="font-size:.9rem">${esc(r.lot)}</td>
         <td class="num">${esc(wstr)}</td>
       </tr>`;
     });
@@ -2810,7 +2811,7 @@ function renderStock(el, orders) {
   const prev = el.innerHTML;
   let html = prev + `<div class="section-title">재고 (준비 중)</div>
     <div class="card">
-      <p style="font-size:.85rem;line-height:1.5;color:#555">
+      <p style="font-size:.95rem;line-height:1.5;color:#555">
         재고 수량을 입력하면 발주와 연계해 <b>가능 수량</b>을 표시할 예정입니다.<br>
         · 고기별 재고 등록<br>
         · 당일 발주 차감 / 잔여 표시<br>
