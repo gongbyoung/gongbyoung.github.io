@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="미트포앤 발주">
 <meta name="application-name" content="미트포앤 발주">
 
-<title>미트포앤 발주 관리</title>
+<title>미트포앤 V002</title>
 <style>
 :root {
   --primary: #c41e3a;
@@ -459,6 +459,19 @@ pre {
   background: #f8f8f8; border-top: 1px solid #eee;
   display: flex; gap: .75rem; flex-wrap: wrap; align-items: center;
 }
+
+/* 같은 거래처/권역 셀 통합 */
+table.compact-merge td {
+  padding: .35rem .4rem;
+  vertical-align: middle;
+}
+table.compact-merge td.group-cell {
+  background: #fafafa;
+  font-weight: 700;
+  border-right: 2px solid #e0e0e0;
+  vertical-align: middle;
+}
+table.compact-merge tr.group-start td { border-top: 2px solid #ddd; }
 </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -539,6 +552,72 @@ pre {
 
 <script>
 const PASSWORD = '7421';
+
+// ---------- 마지막 결과 유지 ----------
+const SESSION_KEY = 'meatpoan_last_session';
+function saveSessionState() {
+  try {
+    const payload = {
+      currentDate,
+      availableDates,
+      currentOrders,
+      currentWeightLogs,
+      currentTab,
+      shipFilter,
+      savedAt: Date.now()
+    };
+    // 채팅 원문은 용량 크면 제외
+    let withChat = Object.assign({}, payload, { chatText: chatText || '' });
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(withChat));
+    } catch (e) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+    }
+  } catch (e) {}
+}
+function restoreSessionState() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    if (!d || !d.currentDate || !(d.currentOrders && d.currentOrders.length)) return false;
+    currentDate = d.currentDate;
+    availableDates = d.availableDates || [];
+    currentOrders = d.currentOrders || [];
+    currentWeightLogs = d.weightLogs || d.currentWeightLogs || [];
+    currentTab = d.currentTab || 'regions';
+    shipFilter = d.shipFilter || 'all';
+    if (d.chatText) chatText = d.chatText;
+
+    const sel = document.getElementById('dateSelect');
+    if (sel) {
+      sel.innerHTML = '<option value="">배송/작업일 선택</option>';
+      (availableDates || []).forEach(dd => {
+        const opt = document.createElement('option');
+        opt.value = dd.key;
+        opt.textContent = dd.label;
+        if (dd.key === currentDate) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      // 목록에 없어도 현재 날짜 옵션 유지
+      if (currentDate && !availableDates.some(x => x.key === currentDate)) {
+        const opt = document.createElement('option');
+        opt.value = currentDate;
+        opt.textContent = currentDate;
+        opt.selected = true;
+        sel.appendChild(opt);
+      }
+      sel.disabled = false;
+    }
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === currentTab));
+    updateHeaderStatus();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+
 
 function openHome() {
   const p = document.getElementById('homePanel');
@@ -913,8 +992,14 @@ function tryLogin() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     applyFontScale(getFontScale());
+    const restored = restoreSessionState();
     updateHeaderStatus();
-    openHome();
+    if (restored) {
+      closeHome();
+      render();
+    } else {
+      openHome();
+    }
   } else {
     document.getElementById('login-error').style.display = 'block';
     document.getElementById('pw').value = '';
@@ -1196,6 +1281,7 @@ function onDateChange() {
         const hint = document.getElementById('uploadHint');
         hint.style.display = 'block';
         updateHeaderStatus();
+        try { saveSessionState(); } catch (e) {}
         hint.textContent = formatWindowLabel(range) + ` · 발주 ${currentOrders.length}건 · 계근 ${(currentWeightLogs||[]).length}건` +
           (range && range.isMonday ? ' (월요일부: 금12시~월12시)' : '');
         document.getElementById('stats').style.display = 'flex';
@@ -2258,15 +2344,26 @@ function renderRegions(el, orders) {
     return;
   }
 
-  html += `<div class="card"><div class="matrix-wrap"><table id="clientListTable">
+  html += `<div class="card"><div class="matrix-wrap"><table id="clientListTable" class="compact-merge">
     <thead><tr><th>권역</th><th>거래처명</th><th>주소</th><th>비고</th></tr></thead>
     <tbody>`;
-  clients.forEach(c => {
+  // 같은 권역 셀 통합
+  const regSpans = {};
+  for (let i = 0; i < clients.length; ) {
+    let j = i + 1;
+    while (j < clients.length && clients[j].reg === clients[i].reg) j++;
+    regSpans[i] = j - i;
+    i = j;
+  }
+  clients.forEach((c, i) => {
     const remarkStr = [...(c.remarks || [])].join(', ');
     const isUnk = !c.address || c.reg === '주소미상';
-    html += `<tr class="${isUnk ? 'addr-unknown' : ''}" data-search="${esc((c.reg + ' ' + c.name + ' ' + (c.address || '') + ' ' + remarkStr).toLowerCase())}">
-      <td style="white-space:nowrap;font-size:.9rem">${esc(c.reg)}</td>
-      <td>${esc(c.name)}</td>
+    const isStart = regSpans[i] != null;
+    html += `<tr class="${isUnk ? 'addr-unknown' : ''} ${isStart ? 'group-start' : ''}" data-search="${esc((c.reg + ' ' + c.name + ' ' + (c.address || '') + ' ' + remarkStr).toLowerCase())}">`;
+    if (isStart) {
+      html += `<td class="group-cell" rowspan="${regSpans[i]}" style="white-space:nowrap;font-size:.9rem">${esc(c.reg)}</td>`;
+    }
+    html += `<td>${esc(c.name)}</td>
       <td style="font-size:.9rem;color:#555">${esc(isUnk ? '주소미상' : shortAddress(c.address))}</td>
       <td style="font-size:.9rem">${esc(remarkStr)}</td>
     </tr>`;
@@ -2820,14 +2917,28 @@ function renderLoose(el, orders) {
     el.innerHTML = prev + '<div class="empty">낱개 없음</div>';
     return;
   }
+  // 같은 거래처 rowspan
+  const spans = [];
+  for (let i = 0; i < rows.length; ) {
+    let j = i + 1;
+    while (j < rows.length && rows[j].client === rows[i].client) j++;
+    spans.push({ start: i, len: j - i });
+    i = j;
+  }
+  const spanAt = {};
+  spans.forEach(s => { spanAt[s.start] = s.len; });
+
   let html = prev + `<div class="section-title">낱개 · ${rows.length}건</div>`;
-  html += `<div class="card"><div class="matrix-wrap"><table>
+  html += `<div class="card"><div class="matrix-wrap"><table class="compact-merge">
     <thead><tr><th>거래처명</th><th>고기명</th><th>숫자</th><th>단위</th><th>비고</th></tr></thead>
     <tbody>`;
-  rows.forEach(r => {
-    html += `<tr>
-      <td>${esc(r.client)}</td>
-      <td>${esc(r.name)}</td>
+  rows.forEach((r, i) => {
+    const isStart = spanAt[i] != null;
+    html += `<tr class="${isStart ? 'group-start' : ''}">`;
+    if (isStart) {
+      html += `<td class="group-cell" rowspan="${spanAt[i]}">${esc(r.client)}</td>`;
+    }
+    html += `<td>${esc(r.name)}</td>
       <td class="num">${esc(r.qty)}</td>
       <td class="center">${esc(r.unit)}</td>
       <td style="font-size:.9rem">${esc(r.note)}</td>
@@ -3031,4 +3142,4 @@ function esc(s) {
 </div>
 
 </body>
-</html>기능 - Grok
+</html>
