@@ -1,3 +1,430 @@
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>미트포앤 스마트 재고 피벗</title>
+    <style>
+        :root {
+            --bg-color: #1a1510;
+            --card-bg: #221c16;
+            --text-main: #f3f0ea;
+            --text-sub: #b3aca2;
+            --border-color: #3d352a;
+            --accent: #d97706;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 15px;
+            font-size: 13px;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        h2 {
+            font-size: 16px;
+            margin-top: 0;
+            margin-bottom: 12px;
+            color: #fde68a;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .input-box {
+            margin-bottom: 15px;
+        }
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: #15110d;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 11px;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 6px;
+        }
+        button {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        button:hover {
+            background-color: #b45309;
+        }
+        button.sub-btn {
+            background-color: #4b5563;
+        }
+        button.sub-btn:hover {
+            background-color: #374151;
+        }
+        /* 관리자 패널 스타일 */
+        .admin-panel {
+            display: none;
+            background: #15110d;
+            border: 1px solid var(--accent);
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+        .admin-panel h3 {
+            margin-top: 0;
+            font-size: 14px;
+            color: #fde68a;
+        }
+        .admin-panel textarea {
+            height: 70px;
+        }
+        .table-container {
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 6px 8px;
+        }
+        th {
+            background-color: #2d241c;
+            color: #fde68a;
+            font-weight: 600;
+        }
+        td.left {
+            text-align: left;
+            padding-left: 10px;
+        }
+        tr:hover {
+            background-color: rgba(255,255,255,0.02);
+        }
+        .note-text {
+            color: #f87171;
+            font-size: 11px;
+            text-align: left;
+        }
+        @media print {
+            body { background: white; color: black; padding: 0; }
+            .container { box-shadow: none; background: white; padding: 0; }
+            textarea, button, .admin-panel { display: none; }
+            th { background: #eee; color: black; border: 1px solid #999; }
+            td { border: 1px solid #999; color: black; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>
+        <span>📦 재고현황 피벗 매트릭스 (박스수 기준)</span>
+        <span style="font-size: 11px; color: var(--text-sub);">미트포앤</span>
+    </h2>
+    <div class="input-box">
+        <textarea id="rawText" placeholder="여기에 카카오톡 재고 텍스트를 그대로 붙여넣으세요..."></textarea>
+        <div class="btn-row">
+            <button onclick="parseAndRender()">표 변환하기</button>
+            <button class="sub-btn" onclick="toggleAdmin()">⚙ 관리자 모드 (예외/치환 설정)</button>
+        </div>
+    </div>
+    <!-- 관리자 모드 설정 영역 -->
+    <div id="adminPanel" class="admin-panel">
+        <h3>관리자 치환 규칙 설정 (쉼표로 구분)</h3>
+        <label style="font-size:11px; color:#b3aca2;">메이커로 자동 인식할 브랜드명 목록:</label>
+        <textarea id="adminMakers">대산, 포크, 황금, IBP, 엑셀, NBP, 올리멜, 토레인</textarea>
+        
+        <label style="font-size:11px; color:#b3aca2; margin-top:8px; display:block;">특수 품목명 예외처리 (예: "토레인 삼겹" -> 메이커: 토레인, 품목: 삼겹):</label>
+        <textarea id="adminRules">토레인 삼겹=토레인|삼겹</textarea>
+        <button style="margin-top:8px; padding:4px 10px; font-size:11px;" onclick="saveAdminAndRun()">설정 적용 및 재변환</button>
+    </div>
+    <div class="table-container" id="resultArea"></div>
+</div>
+<script>
+window.onload = function() {
+    document.getElementById('rawText').value = `삼겹   (대산) 7박 5
+               40박 6
+               13박 7
+                2박 9
+         (포크) 0박 낱 4
+                8박 5
+               50박 7
+                                       
+암삼겹 (대산) 13박 6
+                 5박 9
+         (포크) 2박 4
+                4박 5
+                6박 7
+토레인 삼겹 5박 4
+                1박 5
+냉장 수입 올리멜 삼겹 7박 ~12/3
+냉장 수입 올리멜 목살 6박 ~12/5`;
+    parseAndRender();
+};
+function toggleAdmin() {
+    let panel = document.getElementById('adminPanel');
+    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+function saveAdminAndRun() {
+    parseAndRender();
+    alert('관리자 설정이 적용되었습니다.');
+}
+function parseAndRender() {
+    const text = document.getElementById('rawText').value;
+    const lines = text.split('\n');
+    // 관리자 설정 불러오기
+    let makerListText = document.getElementById('adminMakers').value;
+    let validMakers = makerListText.split(',').map(m => m.trim());
+    let rows = [];
+    let curProd = '';
+    let curBrand = '기본';
+    let detectedDaysSet = new Set();
+    lines.forEach(line => {
+        let trimmed = line.trim();
+        if (!trimmed) return;
+        // 예외 규칙 체크 (예: 토레인 삼겹)
+        if (trimmed.startsWith('토레인 삼겹')) {
+            curProd = '삼겹';
+            curBrand = '토레인';
+            let remainder = trimmed.replace('토레인 삼겹', '').trim();
+            if (remainder) processDetail(curProd, curBrand, remainder);
+            return;
+        }
+        let makerMatch = trimmed.match(/$$ ([^)]+) $$/);
+        let firstToken = trimmed.split(/\s+/)[0];
+        let isNewProd = !firstToken.startsWith('(') && !/^\d/.test(firstToken) && isNaN(firstToken);
+        if (isNewProd) {
+            let parts = trimmed.split(/\s*$$ ([^)]+) $$\s*/);
+            curProd = parts[0].trim();
+            if (makerMatch) {
+                curBrand = makerMatch[1];
+                let remainder = trimmed.replace(curProd, '').replace(`(${curBrand})`, '').trim();
+                if (remainder) processDetail(curProd, curBrand, remainder);
+            } else {
+                curBrand = '기본';
+                // 품목명 안에 메이커가 포함되어 있는지 확인
+                for (let m of validMakers) {
+                    if (curProd.includes(m)) {
+                        curBrand = m;
+                        curProd = curProd.replace(m, '').trim();
+                        break;
+                    }
+                }
+                let remainder = trimmed.replace(parts[0], '').trim();
+                if (remainder) processDetail(curProd, curBrand, remainder);
+            }
+        } else if (makerMatch) {
+            curBrand = makerMatch[1];
+            let remainder = trimmed.replace(`(${curBrand})`, '').trim();
+            if (remainder) processDetail(curProd, curBrand, remainder);
+        } else {
+            if (curProd) {
+                processDetail(curProd, curBrand, trimmed);
+            }
+        }
+    });
+    function processDetail(prod, brand, detailStr) {
+        if (brand === '기본') {
+            for (let m of validMakers) {
+                if (prod.includes(m)) {
+                    brand = m;
+                    prod = prod.replace(m, '').trim();
+                    break;
+                }
+            }
+        }
+        let existing = rows.find(r => r.product === prod && r.brand === brand);
+        if (!existing) {
+            existing = { product: prod, brand: brand, dates: {}, notes: [] };
+            rows.push(existing);
+        }
+        // 비고(~유효기간 등) 추출
+        let noteMatch = detailStr.match(/~[^\s]+/);
+        let cleanStr = detailStr;
+        if (noteMatch) {
+            existing.notes.push(noteMatch[0]);
+            cleanStr = cleanStr.replace(noteMatch[0], '').trim();
+        }
+        // '박' 글자 공통 제거 및 낱개 처리
+        cleanStr = cleanStr.replace(/박/g, '').trim();
+        let tokens = cleanStr.split(/\s+/);
+        let lastToken = tokens[tokens.length - 1];
+        let dayKey = '무일';
+        let valText = cleanStr;
+        if (tokens.length >= 2 && /^[0-9]$/.test(lastToken)) {
+            dayKey = lastToken + '일';
+            valText = tokens.slice(0, tokens.length - 1).join(' ');
+            detectedDaysSet.add(dayKey);
+        } else {
+            detectedDaysSet.add('무일');
+        }
+        existing.dates[dayKey] = valText;
+    }
+    let sortedDays = Array.from(detectedDaysSet).sort((a, b) => {
+        if (a === '무일') return 1;
+        if (b === '무일') return -1;
+        return parseInt(a) - parseInt(b);
+    });
+    renderTable(rows, sortedDays);
+}
+function renderTable(dataList, daysList) {
+    let html = `<table>
+        <thead>
+            <tr>
+                <th style="width: 25%;">품목</th>
+                <th style="width: 12%;">브랜드</th>`;
+    
+    daysList.forEach(day => {
+        html += `<th>${day}</th>`;
+    });
+    html += `<th>합계 (박스수)</th>
+             <th style="width: 18%;">비고</th>
+            </tr>
+        </thead>
+        <tbody>`;
+    // 품목별 행 수 계산 (셀 병합을 위함)
+    let prodCounts = {};
+    dataList.forEach(item => {
+        prodCounts[item.product] = (prodCounts[item.product] || 0) + 1;
+    });
+    let renderedProds = {};
+    dataList.forEach(item => {
+        let sum = 0;
+        daysList.forEach(day => {
+            let val = item.dates[day];
+            if (val) {
+                // 숫자만 추출해서 합계 계산 (낱개 표기는 제외 혹은 숫자로 환산)
+                let numMatch = val.match(/(\d+)/);
+                if (numMatch && !val.includes('0') && val !== '0' && !val.includes('낱')) {
+                    sum += parseInt(numMatch[1]);
+                } else if (val.includes('낱') && numMatch) {
+                    // 낱개 표기가 있는 경우 수량 반영 (필요시)
+                }
+            }
+        });
+        html += `<tr>`;
+        
+        // 품목명이 같으면 rowspan 적용하여 한 번만 출력
+        if (!renderedProds[item.product]) {
+            renderedProds[item.product] = true;
+            let rowSpan = prodCounts[item.product];
+            html += `<td class="left" style="font-weight:bold; vertical-align: middle;" rowspan="${rowSpan}">${item.product}</td>`;
+        }
+        html += `<td>${item.brand}</td>`;
+        daysList.forEach(day => {
+            let val = item.dates[day];
+            html += `<td>${val ? val : '—'}</td>`;
+        });
+        html += `<td style="font-weight:bold; color:#fde68a;">${sum > 0 ? sum : '0'}</td>`;
+        html += `<td class="note-text">${item.notes.length > 0 ? item.notes.join(', ') : '—'}</td>`;
+        html += `</tr>`;
+    });
+    html += `</tbody></table>`;
+    document.getElementById('resultArea').innerHTML = html;
+}
+</script>
+</body>
+</html>
+지금 이 코드는 일일재고 정리하는 코드야, 지금 발주 추출한걸 재고정리한거 오른쪽에 정리해서 몇개 남을지 정리하는 표를 만들어줄래, 순서는
+일일재고 정리하고, 결과표에 카카오톡 로딩해서 발주를 추출해서 정리하는걸로,
+그리고 제일 아래에 업체별 권역 표시하는걸로
+
+Grok
+
+1m 54s동안 작업함
+복잡한 탭 앱 대신, 요청하신 흐름만 담은 단순 페이지를 새로 만들었습니다.
+
+파일: artifacts/meatpoan_simple.html
+
+화면 순서
+순서	내용
+1	일일 재고 붙여넣기 → 피벗 표 (품목·브랜드·일자·합계)
+2	카톡 TXT 불러오기 / 붙여넣기 → 발주 표 (거래처 셀 합침 + 고기별 합계)
+3	재고 − 발주 = 잔여 (부족분은 빨간색)
+4	발주 업체 목록 (아래)
+사용
+재고 문자 붙여넣고 재고 표 만들기
+발주 카톡 파일 또는 붙여넣기 → (날짜 선택) → 발주 표 만들기
+잔여·업체 목록 자동 갱신
+인쇄 가능
+관리자에서 메이커·예외 규칙(토레인 삼겹 등)도 조정할 수 있습니다.
+
+GitHub에는 이 파일을 올리시면 됩니다. 기존 meatpoan_orders.html 은 그대로 두었고, 원하시면 나중에 정리·삭제하면 됩니다.
+
+당신
+비밀번호 넣는거 없애고, 카톡 추출한거 결과를 내핸드폰, 내컴퓨터에 저장해서 다시 새로고침하면 마지막 결과를 볼수 있게 해줘
+
+Grok
+
+51s동안 작업함
+meatpoan_simple.html 기준으로 반영했습니다. (이 파일에는 원래 비밀번호가 없습니다.)
+
+저장
+재고 표 / 발주 표 / 잔여 / 관리자 설정
+같은 폰·같은 브라우저에 자동 저장
+새로고침해도 마지막 결과부터 표시
+참고
+브라우저 용량 때문에 카톡 원문 전체는 빠질 수 있습니다.
+그래도 변환된 표 결과는 유지됩니다.
+저장삭제 버튼으로 초기화 가능
+GitHub에 올린 뒤 한 번 변환해 두시면, 다음에 열 때 그 결과가 나옵니다.
+
+당신
+로그인 번호 안눌러도 들어오게 해줘,
+그냥 팝업으로 현재 어떤 정보를 결과를 보여주고 있는지 그것만 보여주게해줘, 공지라고
+
+Grok
+
+51s동안 작업함
+반영했습니다.
+
+변경
+비밀번호/로그인 화면 제거 → 열면 바로 사용
+대신 공지 팝업만 표시
+공지 내용 예시
+저장된 결과가 있을 때
+
+작업일(날짜)
+발주 건수 / 재고·발주 줄 수
+→ “지금 보고 있는 결과” 안내
+없을 때
+
+결과 없음 → 홈에서 파일 불러오라는 안내
+확인 누르면 닫히고 화면을 그대로 씁니다.
+
+meatpoan_orders.html · meatpoan_simple.html 둘 다 적용해 두었습니다. GitHub 반영 후 확인해 주세요.
+
+
+
+
+
+meatpoan_orders.html
+
+
+
+파일
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -9,7 +436,7 @@
 <meta name="apple-mobile-web-app-title" content="미트포앤 발주">
 <meta name="application-name" content="미트포앤 발주">
 
-<title>미트포앤 V002</title>
+<title>미트포앤 발주 관리</title>
 <style>
 :root {
   --primary: #c41e3a;
@@ -65,7 +492,7 @@ body {
 .error { color: #d32f2f; font-size: .85rem; margin-top: .5rem; display: none; }
 
 /* ===== App shell ===== */
-#app { display: none; }
+#app { display: block; }
 
 .top-sticky {
   position: sticky; top: 0; z-index: 100;
@@ -477,17 +904,16 @@ table.compact-merge tr.group-start td { border-top: 2px solid #ddd; }
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 </head>
 <body>
-<div id="login-screen">
-  <div class="login-box">
-    <h1>🥩 미트포앤 발주</h1>
-    <p>비밀번호를 입력하세요</p>
-    <input type="password" id="pw" maxlength="6" placeholder="••••" autofocus>
-    <button onclick="tryLogin()">로그인</button>
-    <div class="error" id="login-error">비밀번호가 틀렸습니다</div>
+<!-- 로그인 제거: 바로 사용 -->
+<div id="noticeModal" class="notice-modal" style="display:none">
+  <div class="notice-box">
+    <h3>공지</h3>
+    <p id="noticeText"></p>
+    <button type="button" onclick="closeNotice()">확인</button>
   </div>
 </div>
 
-<div id="app">
+<div id="app" style="display:block">
   <div class="top-sticky">
   <header>
     <div class="header-top">
@@ -987,25 +1413,48 @@ function resetAdminConfig() {
 }
 
 
-function tryLogin() {
-  if (document.getElementById('pw').value === PASSWORD) {
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    applyFontScale(getFontScale());
-    const restored = restoreSessionState();
-    updateHeaderStatus();
-    if (restored) {
-      closeHome();
-      render();
-    } else {
-      openHome();
-    }
+function closeNotice() {
+  const m = document.getElementById('noticeModal');
+  if (m) m.style.display = 'none';
+}
+function showNotice(msg) {
+  const m = document.getElementById('noticeModal');
+  const t = document.getElementById('noticeText');
+  if (t) t.textContent = msg;
+  if (m) m.style.display = 'flex';
+}
+function bootApp() {
+  try { applyFontScale(getFontScale()); } catch (e) {}
+  const restored = typeof restoreSessionState === 'function' && restoreSessionState();
+  try { updateHeaderStatus(); } catch (e) {}
+  if (restored) {
+    try { closeHome(); } catch (e) {}
+    try { render(); } catch (e) {}
+    const n = (currentOrders || []).length;
+    const w = (currentWeightLogs || []).length;
+    const d = currentDate || '(날짜 없음)';
+    showNotice(
+      '저장된 마지막 결과입니다.\n\n' +
+      '• 작업일: ' + d + '\n' +
+      '• 발주: ' + n + '건\n' +
+      '• 계근: ' + w + '건\n\n' +
+      '다른 날짜는 홈(🏠)에서 파일을 다시 불러오세요.'
+    );
   } else {
-    document.getElementById('login-error').style.display = 'block';
-    document.getElementById('pw').value = '';
+    try { openHome(); } catch (e) {}
+    showNotice(
+      '미트포앤 발주\n\n' +
+      '현재 저장된 결과가 없습니다.\n' +
+      '홈에서 카톡 TXT를 불러오고 날짜를 선택하세요.'
+    );
   }
 }
-document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+// 로그인 없이 즉시 시작
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootApp);
+} else {
+  bootApp();
+}
 
 let shipFilter = 'all'; // all | today | next
 
