@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -165,6 +166,13 @@ tailwind.config = {
         상단 <span class="material-symbols-outlined text-secondary text-[18px] align-middle">upload_file</span> 아이콘으로<br>카카오톡 내보내기(TXT)를 불러오세요
       </div>
     </div>
+    <div class="px-3 pb-4" id="candidateSection" style="display:none">
+      <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+        <h3 class="text-sm font-bold text-amber-900 mb-1">미포함 · 검토 목록</h3>
+        <p class="text-xs text-amber-800/80 mb-2">계근·기타·제외된 항목입니다. 발주면 [발주로 추가]를 누르세요.</p>
+        <div id="candidateBox" class="flex flex-col gap-2"></div>
+      </div>
+    </div>
   </section>
 
   <!-- ===== 재고관리 ===== -->
@@ -299,6 +307,7 @@ function getOrderKind(o) {
   if (m[k]) return m[k];
   return o.kind || 'order';
 }
+
 function setOrderKind(idx, kind) {
   if (!orders[idx]) return;
   const m = getKindMap();
@@ -309,6 +318,43 @@ function setOrderKind(idx, kind) {
   renderRemain();
   saveState();
 }
+function removeOrder(idx) {
+  if (!orders[idx]) return;
+  if (!confirm('이 건을 발주 목록에서 제거할까요?\n(아래 미포함 목록으로 옮겨집니다)')) return;
+  setOrderKind(idx, 'other');
+}
+function addItemToOrder(idx) {
+  if (!orders[idx]) return;
+  const name = prompt('고기명');
+  if (!name) return;
+  const qty = parseFloat(prompt('수량', '1') || '0');
+  if (!qty) return;
+  const unit = prompt('단위 (Box/Pack/Kg)', 'Box') || 'Box';
+  const note = prompt('비고 (없으면 확인)', '') || '';
+  orders[idx].items.push({ name: name.trim(), qty, unit, note });
+  orders[idx].kind = 'order';
+  const m = getKindMap();
+  m[orderKey(orders[idx])] = 'order';
+  setKindMap(m);
+  renderVouchers();
+  renderRemain();
+  saveState();
+}
+function promoteToOrder(idx) {
+  setOrderKind(idx, 'order');
+}
+function removeItemFromOrder(oidx, iidx) {
+  if (!orders[oidx] || !orders[oidx].items[iidx]) return;
+  if (!confirm('이 품목을 삭제할까요?')) return;
+  orders[oidx].items.splice(iidx, 1);
+  if (!orders[oidx].items.length) setOrderKind(oidx, 'other');
+  else {
+    renderVouchers();
+    renderRemain();
+    saveState();
+  }
+}
+
 function guessRegion(client, address) {
   const t = (address || '') + ' ' + (client || '');
   const rules = parseRegionDriverRules();
@@ -577,28 +623,38 @@ function parseOrdersFromText(text) {
 
   function flush() {
     if (!client || !rawBuf.length) { rawBuf = []; return; }
-    // 블록 전체가 계근이면 발주 제외
-    if (isWeightOnlyBlock(rawBuf)) { rawBuf = []; return; }
+    const weightBlock = isWeightOnlyBlock(rawBuf);
     const items = [];
     rawBuf.forEach(line => {
-      if (isWeightOrLotLine(line, strict)) return;
+      if (!weightBlock && isWeightOrLotLine(line, strict)) return;
       const im = line.match(itemRe);
       if (!im) return;
       let name = im[1].replace(/[●■☆★]/g, '').trim();
       let qty = im[2], unit = (im[3] || '').trim(), note = (im[4] || '').trim();
-      if (!unit && /^\d{3,4}$/.test(qty)) return;
-      if (/\d+\.\d+/.test(qty) && !unit) return;
-      if (/^(대|포)$/.test(unit)) return;
+      if (!weightBlock) {
+        if (!unit && /^\d{3,4}$/.test(qty)) return;
+        if (/\d+\.\d+/.test(qty) && !unit) return;
+        if (/^(대|포)$/.test(unit)) return;
+      }
       if (POLITE.test(name) && name.length < 12) return;
-      if (!unit) unit = 'Box';
+      if (!unit) unit = weightBlock ? 'Kg' : 'Box';
       if (/박/.test(unit)) unit = 'Box';
       if (/팩|Pack/i.test(unit)) unit = 'Pack';
       if (/키로|kg/i.test(unit)) unit = 'Kg';
       if (/봉/.test(unit)) unit = '봉';
+      if (/포|대/.test(unit)) unit = unit;
       items.push({ name, qty: parseFloat(qty), unit, note });
     });
-    if (items.length) {
-      result.push({ client, address: '', time, items, raw: rawBuf.join('\n') });
+    // 아이템 없어도 원문이 있으면 검토용으로 보관
+    if (items.length || weightBlock) {
+      result.push({
+        client,
+        address: '',
+        time,
+        items: items.length ? items : [{ name: '(원문)', qty: 0, unit: '', note: '' }],
+        raw: rawBuf.join('\n'),
+        kind: weightBlock ? 'weight' : 'order'
+      });
     }
     rawBuf = [];
   }
@@ -673,14 +729,17 @@ async function onFile(e) {
 
 function renderVouchers() {
   const box = document.getElementById('voucherContainer');
-  // attach kind from saved map
+  const candSec = document.getElementById('candidateSection');
+  const candBox = document.getElementById('candidateBox');
   orders.forEach(o => { o.kind = getOrderKind(o); });
-  let list = orders.map((o, i) => Object.assign({}, o, { _idx: i }));
+  let indexed = orders.map((o, i) => Object.assign({}, o, { _idx: i }));
   const sort = document.getElementById('sortSelect').value;
-  if (sort === 'name') list.sort((a, b) => a.client.localeCompare(b.client, 'ko'));
-  else list.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  if (sort === 'name') indexed.sort((a, b) => a.client.localeCompare(b.client, 'ko'));
+  else indexed.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 
-  const orderOnly = list.filter(o => (o.kind || 'order') === 'order');
+  const orderOnly = indexed.filter(o => (o.kind || 'order') === 'order');
+  const candidates = indexed.filter(o => (o.kind || 'order') !== 'order');
+
   let totalBox = 0, totalLoose = 0;
   orderOnly.forEach(o => o.items.forEach(it => {
     if (/Box|박스/i.test(it.unit)) totalBox += it.qty;
@@ -690,54 +749,94 @@ function renderVouchers() {
   document.getElementById('mBoxes').textContent = totalBox;
   document.getElementById('mLoose').textContent = totalLoose;
 
-  if (!list.length) {
+  if (!orderOnly.length && !candidates.length) {
     box.innerHTML = '<div class="text-center text-on-surface-variant text-sm py-16">추출된 발주가 없습니다</div>';
+    if (candSec) candSec.style.display = 'none';
     return;
   }
 
-  box.innerHTML = list.map((o, idx) => {
-    const kind = o.kind || 'order';
-    const rows = o.items.map(it => {
-      const noteCls = it.note ? 'text-error font-medium' : 'text-on-surface-variant';
-      return `<tr>
-        <td class="py-1.5">${esc(it.name)}</td>
-        <td class="py-1.5 text-right font-mono font-semibold text-secondary">${it.qty}</td>
-        <td class="py-1.5 text-center text-on-surface-variant">${esc(it.unit)}</td>
-        <td class="py-1.5 pl-2 ${noteCls}">${esc(it.note || '-')}</td>
-      </tr>`;
-    }).join('');
-    const tlabel = o.time ? o.time : '--:--';
-    const borderCls = kind === 'weight' ? 'border-amber-300' : (kind === 'other' ? 'border-slate-300' : 'border-outline-variant/40');
-    return `<article class="voucher-card bg-white rounded border ${borderCls} p-2.5 shadow-sm ${kind !== 'order' ? 'opacity-80' : ''}">
-      <div class="flex items-center justify-between text-sm pb-1.5 border-b border-surface-container-low gap-1">
-        <div class="flex items-center gap-1.5 min-w-0 flex-1">
-          <span class="font-mono text-secondary font-bold flex-shrink-0">#${String(idx + 1).padStart(2, '0')}</span>
-          <span class="font-semibold text-on-surface truncate">${esc(o.client)}</span>
-          <button type="button" class="p-0.5 text-on-surface-variant" onclick="this.closest('article').querySelector('.raw-preview').classList.toggle('hidden')" title="원문">
-            <span class="material-symbols-outlined text-[18px] leading-none">article</span>
-          </button>
+  if (!orderOnly.length) {
+    box.innerHTML = '<div class="text-center text-slate-500 text-sm py-8">표시할 발주가 없습니다. 아래 미포함 목록을 확인하세요.</div>';
+  } else {
+    box.innerHTML = orderOnly.map((o, idx) => {
+      const rows = o.items.map((it, iidx) => {
+        const noteCls = it.note ? 'text-error font-medium' : 'text-on-surface-variant';
+        return `<tr>
+          <td class="py-1.5">${esc(it.name)}</td>
+          <td class="py-1.5 text-right font-mono font-semibold text-secondary">${it.qty}</td>
+          <td class="py-1.5 text-center text-on-surface-variant">${esc(it.unit)}</td>
+          <td class="py-1.5 pl-2 ${noteCls}">${esc(it.note || '-')}</td>
+          <td class="py-1.5 text-right">
+            <button type="button" class="text-red-500 text-xs px-1" onclick="removeItemFromOrder(${o._idx},${iidx})" title="품목 삭제">✕</button>
+          </td>
+        </tr>`;
+      }).join('');
+      const tlabel = o.time ? o.time : '--:--';
+      return `<article class="voucher-card bg-white rounded border border-outline-variant/40 p-2.5 shadow-sm">
+        <div class="flex items-center justify-between text-sm pb-1.5 border-b border-surface-container-low gap-1">
+          <div class="flex items-center gap-1.5 min-w-0 flex-1">
+            <span class="font-mono text-secondary font-bold flex-shrink-0">#${String(idx + 1).padStart(2, '0')}</span>
+            <span class="font-semibold text-on-surface truncate">${esc(o.client)}</span>
+            <button type="button" class="p-0.5 text-on-surface-variant" onclick="this.closest('article').querySelector('.raw-preview').classList.toggle('hidden')" title="원문">
+              <span class="material-symbols-outlined text-[18px] leading-none">article</span>
+            </button>
+          </div>
+          <span class="font-mono text-on-surface-variant text-xs flex-shrink-0">${esc(tlabel)}</span>
         </div>
-        <span class="font-mono text-on-surface-variant text-xs flex-shrink-0">${esc(tlabel)}</span>
-      </div>
-      <div class="flex flex-wrap gap-1 mt-1.5">
-        <button type="button" class="text-[11px] px-2 py-1 rounded-full border ${kind==='order'?'kind-order font-bold':'bg-white'}" onclick="setOrderKind(${o._idx},'order')">발주</button>
-        <button type="button" class="text-[11px] px-2 py-1 rounded-full border ${kind==='weight'?'kind-weight font-bold':'bg-white'}" onclick="setOrderKind(${o._idx},'weight')">계근</button>
-        <button type="button" class="text-[11px] px-2 py-1 rounded-full border ${kind==='other'?'kind-other font-bold':'bg-white'}" onclick="setOrderKind(${o._idx},'other')">기타</button>
-      </div>
-      <div class="raw-preview hidden mt-1.5 p-1.5 bg-surface-container-low rounded text-xs font-mono text-on-surface-variant border border-outline-variant/30 whitespace-pre-wrap">${esc(o.raw)}</div>
-      <div class="mt-1.5 overflow-x-auto">
-        <table class="w-full text-left text-sm">
-          <thead><tr class="text-xs text-on-surface-variant/80 border-b border-surface-container">
-            <th class="py-1 font-medium">품목명</th>
-            <th class="py-1 text-right font-medium">수량</th>
-            <th class="py-1 text-center font-medium">단위</th>
-            <th class="py-1 pl-2 font-medium">비고</th>
-          </tr></thead>
-          <tbody class="divide-y divide-surface-container/60">${rows}</tbody>
-        </table>
-      </div>
-    </article>`;
-  }).join('');
+        <div class="flex flex-wrap gap-1 mt-1.5">
+          <button type="button" class="text-[11px] px-2 py-1 rounded-full border kind-order font-bold">발주</button>
+          <button type="button" class="text-[11px] px-2 py-1 rounded-full border bg-white" onclick="setOrderKind(${o._idx},'weight')">계근으로</button>
+          <button type="button" class="text-[11px] px-2 py-1 rounded-full border bg-white" onclick="setOrderKind(${o._idx},'other')">기타로</button>
+          <button type="button" class="text-[11px] px-2 py-1 rounded-full border bg-white text-secondary" onclick="addItemToOrder(${o._idx})">+ 품목</button>
+          <button type="button" class="text-[11px] px-2 py-1 rounded-full border bg-white text-red-600" onclick="removeOrder(${o._idx})">삭제</button>
+        </div>
+        <div class="raw-preview hidden mt-1.5 p-1.5 bg-surface-container-low rounded text-xs font-mono text-on-surface-variant border border-outline-variant/30 whitespace-pre-wrap">${esc(o.raw)}</div>
+        <div class="mt-1.5 overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead><tr class="text-xs text-on-surface-variant/80 border-b border-surface-container">
+              <th class="py-1 font-medium">품목명</th>
+              <th class="py-1 text-right font-medium">수량</th>
+              <th class="py-1 text-center font-medium">단위</th>
+              <th class="py-1 pl-2 font-medium">비고</th>
+              <th class="py-1"></th>
+            </tr></thead>
+            <tbody class="divide-y divide-surface-container/60">${rows}</tbody>
+          </table>
+        </div>
+      </article>`;
+    }).join('');
+  }
+
+  // 미포함 목록
+  if (candSec && candBox) {
+    if (!candidates.length) {
+      candSec.style.display = 'none';
+      candBox.innerHTML = '';
+    } else {
+      candSec.style.display = 'block';
+      candBox.innerHTML = candidates.map(o => {
+        const kind = o.kind || 'other';
+        const kindLab = kind === 'weight' ? '계근' : '기타/제외';
+        const items = (o.items || []).map(it => `${esc(it.name)} ${it.qty}${esc(it.unit || '')}`).join(', ');
+        return `<div class="bg-white border border-amber-200 rounded-lg p-2.5">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-semibold text-slate-800">${esc(o.client)}
+                <span class="text-[11px] font-normal px-1.5 py-0.5 rounded ${kind==='weight'?'kind-weight':'kind-other'}">${kindLab}</span>
+              </div>
+              <div class="text-xs text-slate-600 mt-0.5">${items || esc((o.raw || '').slice(0, 80))}</div>
+              <div class="text-[11px] text-slate-400 font-mono mt-0.5">${esc(o.time || '')}</div>
+            </div>
+            <div class="flex flex-col gap-1 flex-shrink-0">
+              <button type="button" class="text-xs px-2.5 py-1.5 rounded bg-primary text-white font-semibold" onclick="promoteToOrder(${o._idx})">발주로 추가</button>
+              <button type="button" class="text-xs px-2.5 py-1 rounded border" onclick="this.closest('div').parentElement.querySelector('.cand-raw').classList.toggle('hidden')">원문</button>
+            </div>
+          </div>
+          <div class="cand-raw hidden mt-1 text-[11px] font-mono text-slate-500 whitespace-pre-wrap bg-slate-50 p-1.5 rounded">${esc(o.raw || '')}</div>
+        </div>`;
+      }).join('');
+    }
+  }
 }
 
 /* ----- stock ----- */
