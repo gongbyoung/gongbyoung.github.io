@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -40,6 +39,14 @@ tailwind.config = {
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
   .nav-active { color: #00236f !important; font-weight: 700; }
+  html { font-size: 16px; }
+  .sticky-head th {
+    position: sticky; top: 0; background: #f8fafc; z-index: 5;
+    box-shadow: 0 1px solid #e2e8f0;
+  }
+  .kind-order { background: #eff6ff; color: #1e40af; }
+  .kind-weight { background: #fef3c7; color: #92400e; }
+  .kind-other { background: #f1f5f9; color: #475569; }
 </style>
 </head>
 <body class="bg-surface text-on-surface text-sm antialiased flex flex-col min-h-screen">
@@ -48,23 +55,50 @@ tailwind.config = {
 <div id="adminModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/40 p-3">
   <div class="bg-white rounded-xl p-4 max-w-md w-full shadow-xl max-h-[90vh] overflow-y-auto">
     <div class="flex items-center justify-between mb-3">
-      <h3 class="text-primary font-bold text-base">관리자</h3>
+      <h3 class="text-primary font-bold text-base">관리자 · 추출 설정</h3>
       <button type="button" class="text-slate-500" onclick="closeAdmin()"><span class="material-symbols-outlined">close</span></button>
     </div>
-    <p class="text-xs text-slate-500 mb-2">발주에서 제외할 패턴 · 메이커 · 계근 키워드를 조정합니다.</p>
-    <label class="block text-xs font-semibold text-slate-600 mb-1">계근/제외 키워드 (줄마다)</label>
-    <textarea id="adminExclude" class="w-full h-20 text-xs border rounded p-2 font-mono mb-2" placeholder="개체&#10;계근&#10;바코드"></textarea>
-    <label class="block text-xs font-semibold text-slate-600 mb-1">메이커(발주 비고로만, 거래처 아님)</label>
-    <textarea id="adminMakers" class="w-full h-14 text-xs border rounded p-2 font-mono mb-2">대산,포크,황금,정담,IBP,올리멜,토레인</textarea>
-    <label class="text-xs font-semibold text-slate-600 mb-1 flex items-center gap-2">
+
+    <div class="mb-3 p-2 bg-slate-50 rounded-lg">
+      <div class="flex justify-between items-center mb-1">
+        <span class="text-sm font-bold text-slate-700">글자 크기</span>
+        <span id="fontScaleLabel" class="text-primary font-bold">100%</span>
+      </div>
+      <input id="fontScaleRange" type="range" min="90" max="150" step="5" value="100" class="w-full"
+        oninput="setFontScale(this.value)">
+      <div class="flex justify-between text-[11px] text-slate-400"><span>90%</span><span>150%</span></div>
+    </div>
+
+    <p class="text-xs text-slate-500 mb-1 font-semibold">발주 추출 규칙</p>
+    <label class="block text-xs text-slate-600 mb-1">계근/제외 키워드 (줄마다)</label>
+    <textarea id="adminExclude" class="w-full h-16 text-sm border rounded p-2 font-mono mb-2"></textarea>
+    <label class="block text-xs text-slate-600 mb-1">메이커 (쉼표)</label>
+    <textarea id="adminMakers" class="w-full h-12 text-sm border rounded p-2 font-mono mb-2">대산,포크,황금,정담,IBP,올리멜,토레인</textarea>
+    <label class="flex items-center gap-2 mb-2">
       <input type="checkbox" id="adminStrictWeight" checked class="rounded">
-      <span class="text-xs font-semibold text-slate-600">로트·무게·포/대 줄은 발주 제외 (권장)</span>
+      <span class="text-xs text-slate-700">로트·4자리무게·포/대 → 계근 제외</span>
     </label>
+    <label class="block text-xs text-slate-600 mb-1">인사말/제외 문장 키워드 (줄마다)</label>
+    <textarea id="adminPolite" class="w-full h-14 text-sm border rounded p-2 font-mono mb-2">부탁
+주세요
+이상입니다
+발주체크</textarea>
+
+    <p class="text-xs text-slate-500 mb-1 font-semibold mt-2">권역 → 기사 자동배차</p>
+    <label class="block text-xs text-slate-600 mb-1">한 줄에 권역=기사 (예: 화성=진)</label>
+    <textarea id="adminRegionDrivers" class="w-full h-20 text-sm border rounded p-2 font-mono mb-2">화성=진
+안산=명
+시흥=승호
+부천=한
+서울=진우
+광명=한
+군포=명</textarea>
+
     <div class="flex gap-2 mt-3">
-      <button type="button" class="flex-1 py-2.5 rounded-lg bg-primary text-white font-bold text-sm" onclick="saveAdminAndReparse()">저장 후 다시 추출</button>
+      <button type="button" class="flex-1 py-2.5 rounded-lg bg-primary text-white font-bold text-sm" onclick="saveAdminAndReparse()">저장·다시 추출</button>
       <button type="button" class="px-3 py-2.5 rounded-lg border text-sm" onclick="closeAdmin()">닫기</button>
     </div>
-    <p class="text-[11px] text-slate-400 mt-2">설정은 이 기기에 저장됩니다.</p>
+    <p class="text-[11px] text-slate-400 mt-2">설정·재분류·배차는 이 기기에 저장됩니다.</p>
   </div>
 </div>
 
@@ -149,8 +183,9 @@ tailwind.config = {
           <span class="text-[11px] text-slate-500" id="stockMeta">—</span>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-slate-50 text-slate-600">
+          <div class="max-h-[50vh] overflow-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 text-slate-600 sticky-head">
               <tr>
                 <th class="py-2 px-2.5">품목</th>
                 <th class="py-2 px-2">메이커</th>
@@ -160,6 +195,7 @@ tailwind.config = {
             </thead>
             <tbody id="inventory-tbody" class="divide-y divide-slate-100"></tbody>
           </table>
+          </div>
         </div>
       </div>
       <div class="bg-white rounded-lg border border-slate-200 p-3">
@@ -178,16 +214,22 @@ tailwind.config = {
 
   <!-- ===== 배차 ===== -->
   <section id="panel-dispatch" class="tab-panel">
-    <div class="p-3">
-      <div class="bg-white rounded-lg border border-slate-200 p-3 mb-2">
-        <p class="text-xs text-slate-600 mb-2">발주 거래처를 차량에 배정하세요. (기기에 저장)</p>
-        <div class="flex gap-2 mb-2">
-          <input id="newVehicle" class="flex-1 text-xs border rounded px-2 py-1.5" placeholder="차량/기사 추가">
-          <button type="button" class="text-xs px-3 py-1.5 bg-primary text-white rounded" onclick="addVehicle()">추가</button>
+    <div class="p-3 flex flex-col gap-2">
+      <div class="bg-white rounded-lg border border-slate-200 p-3">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-sm font-bold text-slate-800">권역 자동배차</p>
+          <button type="button" class="text-xs px-2.5 py-1.5 bg-primary text-white rounded" onclick="autoDispatchByRegion()">자동 배차 실행</button>
         </div>
+        <div class="flex gap-2 mb-2">
+          <input id="newVehicle" class="flex-1 text-sm border rounded px-2 py-1.5" placeholder="기사/차량 추가">
+          <button type="button" class="text-sm px-3 py-1.5 border rounded" onclick="addVehicle()">추가</button>
+        </div>
+        <div id="dispatchSummary" class="flex flex-col gap-2"></div>
+      </div>
+      <div class="bg-white rounded-lg border border-slate-200 p-3">
+        <p class="text-sm font-bold text-slate-800 mb-2">전체 거래처 · 담당기사</p>
         <div id="dispatchList" class="flex flex-col gap-2"></div>
       </div>
-      <div id="dispatchSummary" class="flex flex-col gap-2"></div>
     </div>
   </section>
 
@@ -229,6 +271,74 @@ tailwind.config = {
 const SAVE_KEY = 'meatpoan_dash_v1';
 const POLITE = /부탁|주세요|보내주|이상입니다|감사|수고|입니다|합니다|드립니다|입고|다음주|발주체크/;
 const DEFAULT_VEHICLES = ['승호', '진', '한', '명', '진우'];
+
+function getFontScale() {
+  try { const v = parseInt(localStorage.getItem('meatpoan_font_scale') || '110', 10); return (v >= 90 && v <= 150) ? v : 110; } catch (e) { return 110; }
+}
+function setFontScale(pct) {
+  pct = Math.max(90, Math.min(150, parseInt(pct, 10) || 110));
+  try { localStorage.setItem('meatpoan_font_scale', String(pct)); } catch (e) {}
+  document.documentElement.style.fontSize = (16 * pct / 100) + 'px';
+  const lab = document.getElementById('fontScaleLabel');
+  if (lab) lab.textContent = pct + '%';
+  const range = document.getElementById('fontScaleRange');
+  if (range) range.value = pct;
+}
+function orderKey(o) {
+  return (o.client || '') + '||' + (o.raw || '').slice(0, 120);
+}
+function getKindMap() {
+  try { return JSON.parse(localStorage.getItem('meatpoan_kind_map') || '{}'); } catch (e) { return {}; }
+}
+function setKindMap(m) {
+  try { localStorage.setItem('meatpoan_kind_map', JSON.stringify(m)); } catch (e) {}
+}
+function getOrderKind(o) {
+  const m = getKindMap();
+  const k = orderKey(o);
+  if (m[k]) return m[k];
+  return o.kind || 'order';
+}
+function setOrderKind(idx, kind) {
+  if (!orders[idx]) return;
+  const m = getKindMap();
+  m[orderKey(orders[idx])] = kind;
+  setKindMap(m);
+  orders[idx].kind = kind;
+  renderVouchers();
+  renderRemain();
+  saveState();
+}
+function guessRegion(client, address) {
+  const t = (address || '') + ' ' + (client || '');
+  const rules = parseRegionDriverRules();
+  for (const r of rules) {
+    if (t.includes(r.region)) return r.region;
+  }
+  if (/화성|매송|봉담|향남/.test(t)) return '화성';
+  if (/안산|단원|상록|와동|선부|신길/.test(t)) return '안산';
+  if (/시흥|정왕|배곧|하상/.test(t)) return '시흥';
+  if (/부천|원미|소사|역곡/.test(t)) return '부천';
+  if (/서울|강동|강서|관악|영등|구로|금천|노원|도봉|동대|동작|마포|서대|서초|성동|성북|송파|양천|용산|은평|종로|중랑|중구/.test(t)) return '서울';
+  if (/광명/.test(t)) return '광명';
+  if (/군포|산본/.test(t)) return '군포';
+  if (/수원|영통|권선|팔달/.test(t)) return '수원';
+  if (/성남|분당|판교/.test(t)) return '성남';
+  return '기타';
+}
+function parseRegionDriverRules() {
+  const el = document.getElementById('adminRegionDrivers');
+  const text = el ? el.value : (getAdminConfig().regionDrivers || '');
+  const rules = [];
+  String(text || '').split('\n').forEach(line => {
+    line = line.trim();
+    if (!line || !line.includes('=')) return;
+    const [region, driver] = line.split('=').map(s => s.trim());
+    if (region && driver) rules.push({ region, driver });
+  });
+  return rules;
+}
+
 
 let chatText = '';
 let availableDates = [];
@@ -359,9 +469,14 @@ function loadAdminUI() {
   const ex = document.getElementById('adminExclude');
   const mk = document.getElementById('adminMakers');
   const sw = document.getElementById('adminStrictWeight');
+  const pol = document.getElementById('adminPolite');
+  const rd = document.getElementById('adminRegionDrivers');
   if (ex) ex.value = cfg.excludeText != null ? cfg.excludeText : '개체\n계근\n바코드\n스캔안됨\n스캔 안\n이력';
   if (mk) mk.value = cfg.makers != null ? cfg.makers : '대산,포크,황금,정담,IBP,올리멜,토레인';
   if (sw) sw.checked = cfg.strictWeight !== false;
+  if (pol) pol.value = cfg.politeText != null ? cfg.politeText : '부탁\n주세요\n이상입니다\n발주체크';
+  if (rd) rd.value = cfg.regionDrivers != null ? cfg.regionDrivers : '화성=진\n안산=명\n시흥=승호\n부천=한\n서울=진우\n광명=한\n군포=명';
+  setFontScale(getFontScale());
 }
 function openAdmin() {
   loadAdminUI();
@@ -378,11 +493,13 @@ function saveAdminAndReparse() {
   setAdminConfig({
     excludeText: document.getElementById('adminExclude').value,
     makers: document.getElementById('adminMakers').value,
-    strictWeight: document.getElementById('adminStrictWeight').checked
+    strictWeight: document.getElementById('adminStrictWeight').checked,
+    politeText: document.getElementById('adminPolite').value,
+    regionDrivers: document.getElementById('adminRegionDrivers').value
   });
   closeAdmin();
   if (chatText) reparseOrders();
-  else showNotice('관리자 설정을 저장했습니다.\n파일이 있으면 다시 추출됩니다.');
+  else showNotice('관리자 설정을 저장했습니다.');
 }
 
 /** 계근 예제
@@ -556,17 +673,20 @@ async function onFile(e) {
 
 function renderVouchers() {
   const box = document.getElementById('voucherContainer');
-  let list = orders.slice();
+  // attach kind from saved map
+  orders.forEach(o => { o.kind = getOrderKind(o); });
+  let list = orders.map((o, i) => Object.assign({}, o, { _idx: i }));
   const sort = document.getElementById('sortSelect').value;
   if (sort === 'name') list.sort((a, b) => a.client.localeCompare(b.client, 'ko'));
   else list.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 
+  const orderOnly = list.filter(o => (o.kind || 'order') === 'order');
   let totalBox = 0, totalLoose = 0;
-  list.forEach(o => o.items.forEach(it => {
+  orderOnly.forEach(o => o.items.forEach(it => {
     if (/Box|박스/i.test(it.unit)) totalBox += it.qty;
     else totalLoose += it.qty;
   }));
-  document.getElementById('mClients').textContent = list.length;
+  document.getElementById('mClients').textContent = orderOnly.length;
   document.getElementById('mBoxes').textContent = totalBox;
   document.getElementById('mLoose').textContent = totalLoose;
 
@@ -576,31 +696,38 @@ function renderVouchers() {
   }
 
   box.innerHTML = list.map((o, idx) => {
+    const kind = o.kind || 'order';
     const rows = o.items.map(it => {
       const noteCls = it.note ? 'text-error font-medium' : 'text-on-surface-variant';
       return `<tr>
-        <td class="py-1">${esc(it.name)}</td>
-        <td class="py-1 text-right font-mono font-semibold text-secondary">${it.qty}</td>
-        <td class="py-1 text-center text-on-surface-variant">${esc(it.unit)}</td>
-        <td class="py-1 pl-2 ${noteCls}">${esc(it.note || '-')}</td>
+        <td class="py-1.5">${esc(it.name)}</td>
+        <td class="py-1.5 text-right font-mono font-semibold text-secondary">${it.qty}</td>
+        <td class="py-1.5 text-center text-on-surface-variant">${esc(it.unit)}</td>
+        <td class="py-1.5 pl-2 ${noteCls}">${esc(it.note || '-')}</td>
       </tr>`;
     }).join('');
     const tlabel = o.time ? o.time : '--:--';
-    return `<article class="voucher-card bg-white rounded border border-outline-variant/40 p-2.5 shadow-sm">
-      <div class="flex items-center justify-between text-xs pb-1.5 border-b border-surface-container-low">
-        <div class="flex items-center gap-1.5 min-w-0 flex-1 mr-2">
+    const borderCls = kind === 'weight' ? 'border-amber-300' : (kind === 'other' ? 'border-slate-300' : 'border-outline-variant/40');
+    return `<article class="voucher-card bg-white rounded border ${borderCls} p-2.5 shadow-sm ${kind !== 'order' ? 'opacity-80' : ''}">
+      <div class="flex items-center justify-between text-sm pb-1.5 border-b border-surface-container-low gap-1">
+        <div class="flex items-center gap-1.5 min-w-0 flex-1">
           <span class="font-mono text-secondary font-bold flex-shrink-0">#${String(idx + 1).padStart(2, '0')}</span>
           <span class="font-semibold text-on-surface truncate">${esc(o.client)}</span>
           <button type="button" class="p-0.5 text-on-surface-variant" onclick="this.closest('article').querySelector('.raw-preview').classList.toggle('hidden')" title="원문">
-            <span class="material-symbols-outlined text-[16px] leading-none">article</span>
+            <span class="material-symbols-outlined text-[18px] leading-none">article</span>
           </button>
         </div>
-        <span class="font-mono text-on-surface-variant text-[11px] flex-shrink-0">${esc(tlabel)}</span>
+        <span class="font-mono text-on-surface-variant text-xs flex-shrink-0">${esc(tlabel)}</span>
       </div>
-      <div class="raw-preview hidden mt-1.5 p-1.5 bg-surface-container-low rounded text-[11px] font-mono text-on-surface-variant border border-outline-variant/30 whitespace-pre-wrap">${esc(o.raw)}</div>
+      <div class="flex flex-wrap gap-1 mt-1.5">
+        <button type="button" class="text-[11px] px-2 py-1 rounded-full border ${kind==='order'?'kind-order font-bold':'bg-white'}" onclick="setOrderKind(${o._idx},'order')">발주</button>
+        <button type="button" class="text-[11px] px-2 py-1 rounded-full border ${kind==='weight'?'kind-weight font-bold':'bg-white'}" onclick="setOrderKind(${o._idx},'weight')">계근</button>
+        <button type="button" class="text-[11px] px-2 py-1 rounded-full border ${kind==='other'?'kind-other font-bold':'bg-white'}" onclick="setOrderKind(${o._idx},'other')">기타</button>
+      </div>
+      <div class="raw-preview hidden mt-1.5 p-1.5 bg-surface-container-low rounded text-xs font-mono text-on-surface-variant border border-outline-variant/30 whitespace-pre-wrap">${esc(o.raw)}</div>
       <div class="mt-1.5 overflow-x-auto">
-        <table class="w-full text-left text-xs">
-          <thead><tr class="text-[11px] text-on-surface-variant/80 border-b border-surface-container">
+        <table class="w-full text-left text-sm">
+          <thead><tr class="text-xs text-on-surface-variant/80 border-b border-surface-container">
             <th class="py-1 font-medium">품목명</th>
             <th class="py-1 text-right font-medium">수량</th>
             <th class="py-1 text-center font-medium">단위</th>
@@ -673,22 +800,38 @@ function renderStock() {
     document.getElementById('stockMeta').textContent = '—';
     return;
   }
-  document.getElementById('stockMeta').textContent = stockRows.length + '줄';
-  tb.innerHTML = stockRows.map(r => `<tr class="hover:bg-slate-50">
-    <td class="py-2 px-2.5 font-bold whitespace-nowrap">${esc(r.product)}</td>
-    <td class="py-2 px-2"><span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px]">${esc(r.brand)}</span></td>
+  const rows = stockRows.slice().sort((a, b) => a.product.localeCompare(b.product, 'ko') || a.brand.localeCompare(b.brand, 'ko'));
+  document.getElementById('stockMeta').textContent = rows.length + '줄';
+  const spanAt = {};
+  for (let i = 0; i < rows.length; ) {
+    let j = i + 1;
+    while (j < rows.length && rows[j].product === rows[i].product) j++;
+    spanAt[i] = j - i;
+    i = j;
+  }
+  let html = '';
+  rows.forEach((r, i) => {
+    html += '<tr class="hover:bg-slate-50">';
+    if (spanAt[i]) {
+      html += `<td class="py-2 px-2.5 font-bold align-middle bg-slate-50" rowspan="${spanAt[i]}">${esc(r.product)}</td>`;
+    }
+    html += `<td class="py-2 px-2"><span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-xs">${esc(r.brand)}</span></td>
     <td class="py-2 px-2.5 font-mono font-bold">${r.qty ? r.qty + '박스' : esc(r.detail)}</td>
-    <td class="py-2 px-2 text-right pr-3 font-mono text-[11px] text-slate-600">${esc(r.note || '—')}</td>
-  </tr>`).join('');
+    <td class="py-2 px-2 text-right pr-3 font-mono text-xs text-slate-600">${esc(r.note || '—')}</td></tr>`;
+  });
+  tb.innerHTML = html;
 }
 
 function renderRemain() {
   const orderSum = {};
-  orders.forEach(o => o.items.forEach(it => {
-    if (!/Box|박스/i.test(it.unit)) return;
-    const k = it.name.replace(/냉장|냉동|수입|국내산|\s/g, '');
-    orderSum[k] = (orderSum[k] || 0) + it.qty;
-  }));
+  orders.forEach(o => {
+    if (getOrderKind(o) !== 'order') return;
+    o.items.forEach(it => {
+      if (!/Box|박스/i.test(it.unit)) return;
+      const k = it.name.replace(/냉장|냉동|수입|국내산|\s/g, '');
+      orderSum[k] = (orderSum[k] || 0) + it.qty;
+    });
+  });
   const stockSum = {};
   stockRows.forEach(r => {
     const k = r.product.replace(/냉장|냉동|수입|국내산|\s/g, '');
@@ -738,39 +881,88 @@ function addVehicle() {
   renderDispatch();
 }
 
+function clientMetaList() {
+  const map = {};
+  orders.filter(o => getOrderKind(o) === 'order').forEach(o => {
+    if (!map[o.client]) map[o.client] = { name: o.client, address: o.address || '', region: guessRegion(o.client, o.address) };
+  });
+  return Object.values(map).sort((a, b) => a.region.localeCompare(b.region, 'ko') || a.name.localeCompare(b.name, 'ko'));
+}
+function autoDispatchByRegion() {
+  const rules = parseRegionDriverRules();
+  const ruleMap = {};
+  rules.forEach(r => { ruleMap[r.region] = r.driver; });
+  const dm = getDispatch();
+  const clients = clientMetaList();
+  const vs = getVehicles();
+  clients.forEach(c => {
+    const driver = ruleMap[c.region];
+    if (driver) {
+      dm[c.name] = driver;
+      if (!vs.includes(driver)) { vs.push(driver); setVehicles(vs); }
+    }
+  });
+  setDispatch(dm);
+  renderDispatch();
+  showNotice('권역 기준 자동배차를 적용했습니다.\n아래에서 담당기사를 수정할 수 있습니다.');
+}
+function onDriverChange(sel) {
+  const c = sel.getAttribute('data-c');
+  const m = getDispatch();
+  if (sel.value) m[c] = sel.value;
+  else delete m[c];
+  setDispatch(m);
+  renderDispatch();
+}
 function renderDispatch() {
-  const clients = [...new Set(orders.map(o => o.client))].sort((a, b) => a.localeCompare(b, 'ko'));
+  const clients = clientMetaList();
   const vs = getVehicles();
   const dm = getDispatch();
   const list = document.getElementById('dispatchList');
+  const sum = document.getElementById('dispatchSummary');
   if (!clients.length) {
-    list.innerHTML = '<p class="text-xs text-slate-400">발주 거래처 없음</p>';
-    document.getElementById('dispatchSummary').innerHTML = '';
+    list.innerHTML = '<p class="text-sm text-slate-400">발주 거래처 없음</p>';
+    sum.innerHTML = '';
     return;
   }
-  list.innerHTML = clients.map(c => {
-    const opts = vs.map(v => `<option value="${esc(v)}" ${dm[c] === v ? 'selected' : ''}>${esc(v)}</option>`).join('');
-    return `<div class="flex items-center gap-2 text-xs">
-      <span class="flex-1 font-medium truncate">${esc(c)}</span>
-      <select class="border rounded px-1 py-1" data-c="${esc(c)}" onchange="(function(s){const m=getDispatch();if(s.value)m[s.dataset.c]=s.value;else delete m[s.dataset.c];setDispatch(m);renderDispatch();})(this)">
-        <option value="">미배정</option>${opts}
-      </select>
+  // 상단: 기사별
+  const byV = {};
+  vs.forEach(v => { byV[v] = []; });
+  clients.forEach(c => {
+    const v = dm[c.name];
+    if (v) {
+      if (!byV[v]) byV[v] = [];
+      byV[v].push(c);
+    }
+  });
+  sum.innerHTML = vs.map(v => {
+    const arr = byV[v] || [];
+    return `<div class="border border-slate-200 rounded p-2.5">
+      <div class="text-sm font-bold text-primary mb-1">${esc(v)} <span class="text-xs font-normal text-slate-500">${arr.length}곳</span></div>
+      <div class="text-sm text-slate-700 leading-relaxed">${arr.length ? arr.map(c => esc(c.name) + (c.region ? '(' + esc(c.region) + ')' : '')).join(' · ') : '<span class="text-slate-400">없음</span>'}</div>
     </div>`;
   }).join('');
 
-  const byV = {};
-  vs.forEach(v => { byV[v] = []; });
-  clients.forEach(c => { const v = dm[c]; if (v && byV[v]) byV[v].push(c); });
-  document.getElementById('dispatchSummary').innerHTML = vs.map(v =>
-    `<div class="bg-white border border-slate-200 rounded p-2.5">
-      <div class="text-sm font-bold text-primary mb-1">${esc(v)} <span class="text-xs font-normal text-slate-500">${(byV[v]||[]).length}</span></div>
-      <div class="text-xs text-slate-700 leading-relaxed">${(byV[v]||[]).length ? byV[v].map(esc).join(' · ') : '<span class="text-slate-400">없음</span>'}</div>
-    </div>`
-  ).join('');
+  // 하단: 전체 거래처 + 콤보
+  list.innerHTML = clients.map(c => {
+    const opts = vs.map(v => `<option value="${esc(v)}" ${dm[c.name] === v ? 'selected' : ''}>${esc(v)}</option>`).join('');
+    return `<div class="flex flex-col gap-0.5 border-b border-slate-100 pb-2">
+      <div class="flex items-start gap-2">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold">${esc(c.name)}</div>
+          <div class="text-xs text-slate-500">${esc(c.region)}${c.address ? ' · ' + esc(c.address) : ''}</div>
+        </div>
+        <select class="border rounded px-2 py-1.5 text-sm min-w-[5.5rem]" data-c="${esc(c.name)}" onchange="onDriverChange(this)">
+          <option value="">미배정</option>${opts}
+        </select>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 /* ----- boot ----- */
 (function boot() {
+  setFontScale(getFontScale());
   const ok = loadState();
   renderVouchers();
   renderStock();
