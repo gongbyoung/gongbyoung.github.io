@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>스마트 재고현황 피벗 매트릭스</title>
+    <title>미트포앤 스마트 재고 피벗</title>
     <style>
         :root {
             --bg-color: #1a1510;
@@ -50,7 +50,7 @@
 
         textarea {
             width: 100%;
-            height: 130px;
+            height: 120px;
             background: #15110d;
             color: var(--text-main);
             border: 1px solid var(--border-color);
@@ -62,6 +62,12 @@
             box-sizing: border-box;
         }
 
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
         button {
             background-color: var(--accent);
             color: white;
@@ -71,11 +77,37 @@
             font-weight: bold;
             cursor: pointer;
             font-size: 13px;
-            margin-top: 6px;
         }
 
         button:hover {
             background-color: #b45309;
+        }
+
+        button.sub-btn {
+            background-color: #4b5563;
+        }
+        button.sub-btn:hover {
+            background-color: #374151;
+        }
+
+        /* 관리자 패널 스타일 */
+        .admin-panel {
+            display: none;
+            background: #15110d;
+            border: 1px solid var(--accent);
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .admin-panel h3 {
+            margin-top: 0;
+            font-size: 14px;
+            color: #fde68a;
+        }
+
+        .admin-panel textarea {
+            height: 70px;
         }
 
         .table-container {
@@ -120,7 +152,7 @@
         @media print {
             body { background: white; color: black; padding: 0; }
             .container { box-shadow: none; background: white; padding: 0; }
-            textarea, button { display: none; }
+            textarea, button, .admin-panel { display: none; }
             th { background: #eee; color: black; border: 1px solid #999; }
             td { border: 1px solid #999; color: black; }
         }
@@ -130,20 +162,33 @@
 
 <div class="container">
     <h2>
-        <span>📦 재고현황 피벗 매트릭스 변환기</span>
+        <span>📦 재고현황 피벗 매트릭스 (박스수 기준)</span>
         <span style="font-size: 11px; color: var(--text-sub);">미트포앤</span>
     </h2>
 
     <div class="input-box">
         <textarea id="rawText" placeholder="여기에 카카오톡 재고 텍스트를 그대로 붙여넣으세요..."></textarea>
-        <button onclick="parseAndRender()">표 변환하기</button>
+        <div class="btn-row">
+            <button onclick="parseAndRender()">표 변환하기</button>
+            <button class="sub-btn" onclick="toggleAdmin()">⚙️ 관리자 모드 (예외/치환 설정)</button>
+        </div>
+    </div>
+
+    <!-- 관리자 모드 설정 영역 -->
+    <div id="adminPanel" class="admin-panel">
+        <h3>관리자 치환 규칙 설정 (쉼표로 구분)</h3>
+        <label style="font-size:11px; color:#b3aca2;">메이커로 자동 인식할 브랜드명 목록:</label>
+        <textarea id="adminMakers">대산, 포크, 황금, IBP, 엑셀, NBP, 올리멜, 토레인</textarea>
+        
+        <label style="font-size:11px; color:#b3aca2; margin-top:8px; display:block;">특수 품목명 예외처리 (예: "토레인 삼겹" -> 메이커: 토레인, 품목: 삼겹):</label>
+        <textarea id="adminRules">토레인 삼겹=토레인|삼겹</textarea>
+        <button style="margin-top:8px; padding:4px 10px; font-size:11px;" onclick="saveAdminAndRun()">설정 적용 및 재변환</button>
     </div>
 
     <div class="table-container" id="resultArea"></div>
 </div>
 
 <script>
-// 페이지 열리자마자 예시 데이터 자동 입력 및 렌더링
 window.onload = function() {
     document.getElementById('rawText').value = `삼겹   (대산) 7박 5
                40박 6
@@ -159,35 +204,55 @@ window.onload = function() {
                 4박 5
                 6박 7
 
+토레인 삼겹 5박 4
+                1박 5
+
 냉장 수입 올리멜 삼겹 7박 ~12/3
 냉장 수입 올리멜 목살 6박 ~12/5`;
     parseAndRender();
 };
 
+function toggleAdmin() {
+    let panel = document.getElementById('adminPanel');
+    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+
+function saveAdminAndRun() {
+    parseAndRender();
+    alert('관리자 설정이 적용되었습니다.');
+}
+
 function parseAndRender() {
     const text = document.getElementById('rawText').value;
     const lines = text.split('\n');
 
-    let rows = []; // 품목 + 브랜드별 데이터 수집
+    // 관리자 설정 불러오기
+    let makerListText = document.getElementById('adminMakers').value;
+    let validMakers = makerListText.split(',').map(m => m.trim());
+
+    let rows = []; 
     let curProd = '';
     let curBrand = '기본';
-
-    // 동적으로 발견되는 모든 일자/등급 컬럼을 추적하기 위한 집합
     let detectedDaysSet = new Set();
 
     lines.forEach(line => {
         let trimmed = line.trim();
         if (!trimmed) return;
 
-        // 1. 브랜드 괄호 추출 ((대산), (포크), (황금) 등)
+        // 예외 규칙 체크 (예: 토레인 삼겹)
+        if (trimmed.startsWith('토레인 삼겹')) {
+            curProd = '삼겹';
+            curBrand = '토레인';
+            let remainder = trimmed.replace('토레인 삼겹', '').trim();
+            if (remainder) processDetail(curProd, curBrand, remainder);
+            return;
+        }
+
         let makerMatch = trimmed.match(/\(([^)]+)\)/);
-        
-        // 2. 새로운 품목명인지 판단 (시작이 괄호나 숫자가 아니면 새로운 품목)
         let firstToken = trimmed.split(/\s+/)[0];
         let isNewProd = !firstToken.startsWith('(') && !/^\d/.test(firstToken) && isNaN(firstToken);
 
         if (isNewProd) {
-            // 품목명 분리
             let parts = trimmed.split(/\s*\(([^)]+)\)\s*/);
             curProd = parts[0].trim();
             if (makerMatch) {
@@ -196,16 +261,22 @@ function parseAndRender() {
                 if (remainder) processDetail(curProd, curBrand, remainder);
             } else {
                 curBrand = '기본';
-                let remainder = trimmed.replace(curProd, '').trim();
+                // 품목명 안에 메이커가 포함되어 있는지 확인
+                for (let m of validMakers) {
+                    if (curProd.includes(m)) {
+                        curBrand = m;
+                        curProd = curProd.replace(m, '').trim();
+                        break;
+                    }
+                }
+                let remainder = trimmed.replace(parts[0], '').trim();
                 if (remainder) processDetail(curProd, curBrand, remainder);
             }
         } else if (makerMatch) {
-            // 품목명은 유지되고 브랜드만 바뀔 때 (예: "(포크) 2박 4")
             curBrand = makerMatch[1];
             let remainder = trimmed.replace(`(${curBrand})`, '').trim();
             if (remainder) processDetail(curProd, curBrand, remainder);
         } else {
-            // 이어서 나오는 수량 줄들
             if (curProd) {
                 processDetail(curProd, curBrand, trimmed);
             }
@@ -213,13 +284,14 @@ function parseAndRender() {
     });
 
     function processDetail(prod, brand, detailStr) {
-        // 브랜드가 명시되지 않은 경우 품목명 속에서 메이커(IBP, 엑셀, NBP, 올리멜 등) 추출 시도
         if (brand === '기본') {
-            if (prod.includes('IBP')) brand = 'IBP';
-            else if (prod.includes('엑셀')) brand = '엑셀';
-            else if (prod.includes('NBP')) brand = 'NBP';
-            else if (prod.includes('올리멜')) brand = '올리멜';
-            else if (prod.includes('토레인')) brand = '토레인';
+            for (let m of validMakers) {
+                if (prod.includes(m)) {
+                    brand = m;
+                    prod = prod.replace(m, '').trim();
+                    break;
+                }
+            }
         }
 
         let existing = rows.find(r => r.product === prod && r.brand === brand);
@@ -228,7 +300,7 @@ function parseAndRender() {
             rows.push(existing);
         }
 
-        // 비고(~유효기간 등) 분리 (~로 시작하는 패턴 추출)
+        // 비고(~유효기간 등) 추출
         let noteMatch = detailStr.match(/~[^\s]+/);
         let cleanStr = detailStr;
         if (noteMatch) {
@@ -236,13 +308,14 @@ function parseAndRender() {
             cleanStr = cleanStr.replace(noteMatch[0], '').trim();
         }
 
-        // 끝에 붙은 일자/등급 숫자 판별 (예: "7박 5" -> 수량: "7박", 일자: "5일")
+        // '박' 글자 공통 제거 및 낱개 처리
+        cleanStr = cleanStr.replace(/박/g, '').trim();
+
         let tokens = cleanStr.split(/\s+/);
         let lastToken = tokens[tokens.length - 1];
         let dayKey = '무일';
         let valText = cleanStr;
 
-        // 마지막 토큰이 한 자리 숫자이거나 등급 패턴일 경우
         if (tokens.length >= 2 && /^[0-9]$/.test(lastToken)) {
             dayKey = lastToken + '일';
             valText = tokens.slice(0, tokens.length - 1).join(' ');
@@ -254,7 +327,6 @@ function parseAndRender() {
         existing.dates[dayKey] = valText;
     }
 
-    // 등장한 일자들을 정렬 (예: 4일, 5일, 6일, 7일, 9일 순)
     let sortedDays = Array.from(detectedDaysSet).sort((a, b) => {
         if (a === '무일') return 1;
         if (b === '무일') return -1;
@@ -275,26 +347,44 @@ function renderTable(dataList, daysList) {
         html += `<th>${day}</th>`;
     });
 
-    html += `<th>합계</th>
+    html += `<th>합계 (박스수)</th>
              <th style="width: 18%;">비고</th>
             </tr>
         </thead>
         <tbody>`;
+
+    // 품목별 행 수 계산 (셀 병합을 위함)
+    let prodCounts = {};
+    dataList.forEach(item => {
+        prodCounts[item.product] = (prodCounts[item.product] || 0) + 1;
+    });
+
+    let renderedProds = {};
 
     dataList.forEach(item => {
         let sum = 0;
         daysList.forEach(day => {
             let val = item.dates[day];
             if (val) {
+                // 숫자만 추출해서 합계 계산 (낱개 표기는 제외 혹은 숫자로 환산)
                 let numMatch = val.match(/(\d+)/);
-                if (numMatch && !val.includes('0박') && val !== '0') {
+                if (numMatch && !val.includes('0') && val !== '0' && !val.includes('낱')) {
                     sum += parseInt(numMatch[1]);
+                } else if (val.includes('낱') && numMatch) {
+                    // 낱개 표기가 있는 경우 수량 반영 (필요시)
                 }
             }
         });
 
         html += `<tr>`;
-        html += `<td class="left" style="font-weight:bold;">${item.product}</td>`;
+        
+        // 품목명이 같으면 rowspan 적용하여 한 번만 출력
+        if (!renderedProds[item.product]) {
+            renderedProds[item.product] = true;
+            let rowSpan = prodCounts[item.product];
+            html += `<td class="left" style="font-weight:bold; vertical-align: middle;" rowspan="${rowSpan}">${item.product}</td>`;
+        }
+
         html += `<td>${item.brand}</td>`;
 
         daysList.forEach(day => {
