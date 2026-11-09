@@ -3,518 +3,316 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>재고현황 스마트 파서 & 표 정리기</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>미트포앤 재고현황 매트릭스</title>
     <style>
-        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        :root {
+            --primary: #1e293b;
+            --accent: #2563eb;
+            --bg: #f8fafc;
+            --border: #cbd5e1;
+        }
+
         body {
-            font-family: 'Pretendard', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--primary);
+            margin: 0;
+            padding: 12px;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 18px;
+            text-align: center;
+            margin-bottom: 12px;
+            color: var(--primary);
+        }
+
+        .input-section {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        button {
+            flex: 1;
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:active {
+            background-color: #1d4ed8;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 8px 10px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            font-weight: 600;
+        }
+
+        td.product-name {
+            font-weight: bold;
+            background-color: #f8fafc;
+            text-align: left;
+        }
+
+        .maker-tag {
+            font-size: 11px;
+            padding: 2px 4px;
+            border-radius: 3px;
+            background: #e2e8f0;
+            margin-right: 4px;
+        }
+
+        .qty-val {
+            font-weight: bold;
+            color: #0f172a;
+        }
+
+        @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; padding: 0; }
+            .input-section, button { display: none; }
         }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen p-4 sm:p-8">
+<body>
 
-    <div class="max-w-6xl mx-auto space-y-6">
-        <!-- 헤더 -->
-        <header class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-                <h1 class="text-2xl font-bold text-slate-900">📦 재고현황 스마트 파서 & 표 정리</h1>
-                <p class="text-sm text-slate-500 mt-1">자유로운 텍스트 형태로 재고 데이터를 입력하면 자동으로 품목, 메이커, 수량, 날짜를 분석하여 표로 정리해 줍니다.</p>
-            </div>
-            <div class="flex gap-2 w-full md:w-auto">
-                <button onclick="loadSampleData()" class="flex-1 md:flex-none px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-xl transition">샘플 데이터 불러오기</button>
-                <button onclick="clearAll()" class="flex-1 md:flex-none px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 text-sm font-medium rounded-xl transition">초기화</button>
-            </div>
-        </header>
-
-        <!-- 메인 그리드 레이아웃 -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            <!-- 좌측: 입력 영역 (텍스트박스) -->
-            <div class="lg:col-span-5 flex flex-col space-y-3">
-                <div class="flex justify-between items-center px-1">
-                    <label for="rawInput" class="text-sm font-semibold text-slate-700">원문 텍스트 입력 / 붙여넣기</label>
-                    <span class="text-xs text-slate-400">자유로운 줄바꿈 인식</span>
-                </div>
-                <textarea id="rawInput" rows="18" 
-                    class="w-full p-4 rounded-2xl border border-slate-200 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs leading-relaxed resize-y"
-                    placeholder="여기에 재고현황 텍스트를 붙여넣으세요..."></textarea>
-                <button onclick="parseInventory()" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl shadow-lg shadow-blue-500/20 transition duration-200 flex items-center justify-center gap-2">
-                    <span>✨ 깔끔한 표로 변환하기</span>
-                </button>
-            </div>
-
-            <!-- 우측: 결과 테이블 및 검색 영역 -->
-            <div class="lg:col-span-7 flex flex-col space-y-4">
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-full">
-                    
-                    <!-- 검색 및 요약 통계 바 -->
-                    <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mb-4">
-                        <div class="relative flex-1">
-                            <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="품목명, 메이커 등으로 검색..."
-                                class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50/50">
-                            <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        </div>
-                        <div class="flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-100 px-3 py-2 rounded-xl">
-                            <span>총 항목: <strong id="itemCount" class="text-slate-800">0</strong>개</span>
-                        </div>
-                    </div>
-
-                    <!-- 테이블 컨테이너 -->
-                    <div class="flex-1 overflow-x-auto max-h-[500px] border border-slate-100 rounded-xl">
-                        <table id="resultTable" class="w-full text-left border-collapse text-sm">
-                            <thead class="bg-slate-50 sticky top-0 z-10 text-slate-600 font-semibold border-b border-slate-200">
-                                <tr>
-                                    <th class="p-3.5">품목명</th>
-                                    <th class="p-3.5">메이커</th>
-                                    <th class="p-3.5">수량 (박스/낱개)</th>
-                                    <th class="p-3.5">상세/비고/기한</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tableBody" class="divide-y divide-slate-100 text-slate-700">
-                                <tr>
-                                    <td colspan="4" class="p-8 text-center text-slate-400">데이터를 입력하고 변환 버튼을 눌러주세요.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- 하단 내보내기 버튼 -->
-                    <div class="mt-4 flex justify-end gap-2">
-                        <button onclick="copyTableAsText()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl transition flex items-center gap-1.5">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                            텍스트로 복사
-                        </button>
-                    </div>
-
-                </div>
-            </div>
-
+<div class="container">
+    <h1>📦 재고현황 매트릭스 정리</h1>
+    
+    <div class="input-section">
+        <label for="rawText">카톡 재고 텍스트 입력/붙여넣기:</label>
+        <textarea id="rawText">삼겹   (대산) 7박 5
+               40박 6
+               13박 7
+                2박 9 
+         (포크) 0박 낱 4
+                8박 5 
+               50박 7
+                                       
+암삼겹 (대산) 13박 6
+                 5박 9
+         (포크) 2박 4
+                4박 5
+                6박 7</textarea>
+        <div class="btn-group">
+            <button onclick="parseAndRender()">매트릭스 표로 변환하기</button>
         </div>
     </div>
 
-    <!-- 알림 메시지 모달 박스 -->
-    <div id="toast" class="fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-2">
-        <span id="toastMsg">알림 메시지</span>
+    <div class="table-container" id="resultArea">
+        <!-- 변환된 표가 여기에 표시됩니다 -->
     </div>
+</div>
 
-    <script>
-        // 샘플 데이터 로드
-        function loadSampleData() {
-            const sampleText = `11월 9일 재고현황
+<script>
+function parseAndRender() {
+    const text = document.getElementById('rawText').value;
+    const lines = text.split('\n');
+    
+    let inventory = {};
+    let currentProduct = '';
+    let currentMaker = '';
 
-삼겹  (대산) 7박 5
-                 40박 6
-                 13박 7
-                  2박 9 
-         (포크) 0박 낱 4
-                  8박 5 
-                50박 7
-                                        
-암삼겹 (대산) 13박 6
-                     5박 9
-         (포크) 2박 4
-                  4박 5
-                  6박 7
+    lines.forEach(line => {
+        let trimmed = line.trim();
+        if (!trimmed) return;
 
-특삼겹 (대산) 4박 4
-          (포크) 2박 7 
-                     
-빵삼겹 (포크) 0박                 
-
-미삼 (대산) 10박 6
-                8박 9
-       (포크) 7박 7
-           
-암미삼 (대산) 1박 낱 6
-         (포크) 5박 7
-
-특미삼  (대산) 1박 4
-                    1박 6
-          (포크) 0박 
-
-목살 (대산) 2박 6
-              31박 9
-       (포크) 23박 7
-                 
-특목살 (대산) 4박 6
-                   7박 9
-          (포크) 7박 4
-                  2박 7
-
-B목살 (대산) 4박 9
-          (포크) 0박 
-
-미전지 (대산) 42박 6
-                  34박 7
-                  46박 9
-        (포크) 27박 7
-
-전지 (대산) 2박 6  
-       (포크) 1박 7
-
-지전지 (대산) 5박 9
-
-갈비 (대산) 12박 9
-       (포크) 6박 7
-                                 
-등갈비 (대산) 0박 낱 4
-          (포크) 11박 7
-
-등심 (대산) 8박 4
-       (포크) 10박 낱 4
-
-안심  (대산) 3박 7
-        (포크) 0박
-
-사태 (대산) 2박 4
-       (포크) 2박 7                
-
-앞미사태 (대산) 10박 9
-            (포크) 6박 7
-
-항정  (대산) 4박 6
-                 2박 7
-        (포크) 0박 낱 5
-                 5박 7
-                  
-가브리 (대산) 0박 낱 4
-                 1박 7
-          (포크) 1박 5
-                 2박 7
-
-갈매기 (대산) 0박 낱 6
-                 1박 9
-            (포크) 3박 7
-
-미후지 (포크) 0박
-          (황금) 18박 5
-
-후지 (포크) 0박
-        (대산) 0박
-        (황금) 9박 9
-                  
-등뼈 (대산) 17박 6
-               25박 9
-        (포크) 0박
-                 
-냉장잡육 (포크) 0박 
-
-토레인 삼겹 5박 4
-                1박 5
-
-냉장 알목심f PR
-    IBP 5박
-
-냉장 살치f PR
-    엑셀 0박 낱
-
-냉장 늑간f CH NBP 2박 낱
-                                 
-냉장 수입 올리멜 삼겹 7박 ~12/3
-                                 
-냉장 수입 올리멜 목살 6박 ~12/5`;
-
-            document.getElementById('rawInput').value = sampleText;
-            parseInventory();
-            showToast("샘플 데이터가 로드되었습니다.");
-        }
-
-        function clearAll() {
-            document.getElementById('rawInput').value = '';
-            document.getElementById('tableBody').innerHTML = `<tr><td colspan="4" class="p-8 text-center text-slate-400">데이터를 입력하고 변환 버튼을 눌러주세요.</td></tr>`;
-            document.getElementById('itemCount').innerText = '0';
-            document.getElementById('searchInput').value = '';
-            showToast("초기화되었습니다.");
-        }
-
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            const toastMsg = document.getElementById('toastMsg');
-            toastMsg.innerText = message;
-            toast.classList.remove('translate-y-20', 'opacity-0');
-            setTimeout(() => {
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 2500);
-        }
-
-        // 지능형 파서 엔진
-        function parseInventory() {
-            const rawText = document.getElementById('rawInput').value;
-            if (!rawText.trim()) {
-                showToast("변환할 텍스트를 입력해주세요.");
-                return;
+        // 1. 메이커가 포함된 줄인지 확인 ((대산), (포크), (황금) 등)
+        let makerMatch = trimmed.match(/\(([^)]+)\)/);
+        if (makerMatch && !trimmed.startsWith('박') && !trimmed.includes('박') && !trimmed.includes('낱')) {
+            // 메이커가 앞에 품목명과 같이 온 경우 (예: "삼겹 (대산) 7박 5")
+            let parts = trimmed.split(/\s*\([^)]+\)\s*/);
+            if (parts[0].trim()) {
+                currentProduct = parts[0].trim();
             }
-
-            const lines = rawText.split('\n');
-            let parsedData = [];
+            currentMaker = makerMatch[1];
             
-            let currentItem = "";
-            let currentMaker = "";
-
-            for (let i = 0; i < lines.length; i++) {
-                let line = lines[i].trim();
-                if (!line || line.includes("재고현황")) continue; // 빈 줄이나 날짜/제목성 줄 스킵
-
-                // 괄호 메이커 추출 시도 (예: (대산), (포크))
-                let makerMatch = line.match(/\(([^)]+)\)/);
-                let makerInLine = makerMatch ? makerMatch[1] : null;
-
-                // 괄호를 제거하거나 분리하여 품목명과 수량정보 파악
-                // 보통 형식: [품목명] [(메이커)] [수량박스/낱개] [상세/등급/기한]
-                
-                // 만약 라인이 메이커로 시작하거나 공백으로 들여쓰기 된 수량 라인인 경우
-                let cleanLine = line.replace(/\([^)]+\)/g, ' ').trim();
-                
-                // 숫자와 '박', '낱', '~', '/' 등이 포함되어 있는지 확인 (수량/옵션 라인인지 판단)
-                let hasQuantityKeyword = /[0-9]+박|[0-9]+낱|~|\/[0-9]+/.test(cleanLine) || (cleanLine === "0박" || cleanLine.startsWith("0박"));
-
-                // 만약 괄호만 있고 품목명이 앞에 없거나, 들여쓰기된 서브 라인인 경우
-                if (line.startsWith('(') || (!hasQuantityKeyword && makerInLine && !cleanLine)) {
-                    // 순수 메이커 변경 라인일 수 있음 (예: "    IBP 5박" 형태 등)
-                    // 앞서 지정된 품목명 유지
-                }
-
-                // 품목명이 새로 정의되는 라인 판별
-                // 숫자로 시작하지 않고, 박/낱 단어가 없거나 혹은 품목명이 함께 있는 경우
-                // 정규식 매칭을 통해 단어 분리
-                
-                // 좀 더 유연한 휴리스틱 파싱 로직
-                // 1. 라인에 품목명이 포함되어 있는지 확인 (첫 단어들)
-                // 만약 이전에 품목이 있고, 현재 라인이 메이커나 수량으로만 시작하면 이전 품목명을 상속
-                
-                // 예: "삼겹  (대산) 7박 5" -> 품목: 삼겹, 메이커: 대산, 내용: 7박 5
-                // 예: "                 40박 6" -> 품목: 이전 품목(삼겹), 메이커: 이전 메이커(대산), 내용: 40박 6
-                
-                // 단어 토큰화
-                let tokens = line.split(/\s+/);
-                
-                // 첫 토큰이 괄호이거나 숫자로 시작하지 않으면 새로운 품목명 후보
-                let firstToken = tokens[0];
-                
-                if (firstToken && !firstToken.startsWith('(') && !/^[0-9]+박?$/.test(firstToken) && !line.startsWith("    ") && !line.startsWith("\t")) {
-                    // 새로운 품목명 등장
-                    // 메이커가 이 라인에 있는지 확인
-                    if (makerInLine) {
-                        // 품목명 + 메이커 + 나머지 수량
-                        let parts = line.split(/\s*\([^)]+\)\s*/);
-                        if (parts[0].trim()) currentItem = parts[0].trim();
-                        currentMaker = makerInLine;
-                        
-                        // 나머지 수량 및 정보 추출
-                        let remainder = line.substring(line.indexOf('(' + makerInLine + ')') + makerInLine.length + 2).trim();
-                        if (remainder) {
-                            parsedData.push({
-                                item: currentItem,
-                                maker: currentMaker,
-                                qtyInfo: extractQuantityAndDetail(remainder)
-                            });
-                        } else {
-                            // 괄호 뒤에 내용이 없으면 다음 줄에 수량이 올 수 있음
-                        }
-                    } else {
-                        // 메이커가 없는 품목명만 있는 경우 또는 품목명 + 수량
-                        // 예: "토레인 삼겹 5박 4" 또는 "냉장 알목심f PR"
-                        let potentialMaker = findMakerInText(line);
-                        if (potentialMaker) {
-                            currentMaker = potentialMaker;
-                            currentItem = line.replace('(' + potentialMaker + ')', '').replace(potentialMaker, '').trim();
-                        } else {
-                            // 메이커가 명시되지 않은 경우 품목명으로 설정
-                            // 수량이 포함되어 있는지 확인
-                            if (hasQuantityKeyword || /\d+박/.test(line)) {
-                                // 품목명과 수량이 한 줄에 있음
-                                let parsed = parseInlineItemAndQty(line, currentItem, currentMaker);
-                                if (parsed.item) currentItem = parsed.item;
-                                if (parsed.maker) currentMaker = parsed.maker;
-                                parsedData.push({
-                                    item: currentItem,
-                                    maker: currentMaker,
-                                    qtyInfo: parsed.qtyInfo
-                                });
-                            } else {
-                                currentItem = line;
-                            }
-                        }
-                    }
-                } else {
-                    // 들여쓰기 되었거나 수량/메이커 추가 라인
-                    // 예: "    (포크) 0박 낱 4" 또는 "                 40박 6" 또는 "    IBP 5박"
-                    
-                    if (makerInLine) {
-                        currentMaker = makerInLine;
-                        let remainder = line.replace('(' + makerInLine + ')', '').trim();
-                        if (remainder) {
-                            parsedData.push({
-                                item: currentItem,
-                                maker: currentMaker,
-                                qtyInfo: extractQuantityAndDetail(remainder)
-                            });
-                        }
-                    } else {
-                        // 메이커 없이 수량만 있거나 새로운 메이커명(예: IBP 5박)이 있는 경우
-                        let potentialMaker = findMakerInText(line);
-                        if (potentialMaker && !/^[0-9]/.test(potentialMaker)) {
-                            currentMaker = potentialMaker;
-                            let remainder = line.replace(potentialMaker, '').trim();
-                            if (remainder) {
-                                parsedData.push({
-                                    item: currentItem,
-                                    maker: currentMaker,
-                                    qtyInfo: extractQuantityAndDetail(remainder)
-                                });
-                            }
-                        } else {
-                            // 순수 수량 및 등급/기한 정보 라인
-                            parsedData.push({
-                                item: currentItem,
-                                maker: currentMaker,
-                                qtyInfo: extractQuantityAndDetail(line)
-                            });
-                        }
-                    }
-                }
+            // 메이커 뒤에 수량이 이어지는 경우 처리
+            let remainder = trimmed.replace(currentProduct, '').trim();
+            remainder = remainder.replace(`(${currentMaker})`, '').trim();
+            if (remainder) {
+                parseDetail(currentProduct, currentMaker, remainder);
             }
-
-            renderTable(parsedData);
-            showToast(`총 ${parsedData.length개의 재고 항목을 성공적으로 파싱했습니다!`);
-        }
-
-        // 텍스트 내에서 알려진 메이커 키워드나 패턴 감지
-        function findMakerInText(text) {
-            const knownMakers = ["대산", "포크", "황금", "토레인", "IBP", "엑셀", "NBP", "올리멜"];
-            for (let m of knownMakers) {
-                if (text.includes(m)) return m;
+        } else if (makerMatch && (trimmed.startsWith('(') || !hasProductName(trimmed))) {
+            // 품목명 없이 메이커만 바뀌는 경우 (예: "(포크) 0박 낱 4")
+            currentMaker = makerMatch[1];
+            let remainder = trimmed.replace(`(${currentMaker})`, '').trim();
+            if (remainder) {
+                parseDetail(currentProduct, currentMaker, remainder);
             }
-            return null;
+        } else if (trimmed.includes('박') || trimmed.includes('낱')) {
+            // 수량만 있는 줄 (이전 품목/메이커 유지)
+            parseDetail(currentProduct, currentMaker, trimmed);
+        } else {
+            // 새로운 품목명 단독인 경우
+            currentProduct = trimmed;
         }
+    });
 
-        // 한 줄에 품목명과 수량이 같이 있는 경우 분리
-        function parseInlineItemAndQty(line, defaultItem, defaultMaker) {
-            // 예: "토레인 삼겹 5박 4" -> 품목: 토레인 삼겹, 수량: 5박 4
-            // 예: "냉장 수입 올리멜 삼겹 7박 ~12/3" -> 품목: 냉장 수입 올리멜 삼겹, 수량: 7박 ~12/3
-            
-            // 수량 패턴(숫자+박 또는 숫자+낱 등)이 시작되는 지점 찾기
-            let match = line.match(/(\d+박|\d+박\s*낱|\d+낱)/);
-            if (match) {
-                let idx = line.indexOf(match[0]);
-                let itemPart = line.substring(0, idx).trim();
-                let qtyPart = line.substring(idx).trim();
-                
-                let maker = findMakerInText(itemPart) || defaultMaker;
-                let cleanItem = itemPart;
-                
-                return {
-                    item: cleanItem || defaultItem,
-                    maker: maker,
-                    qtyInfo: extractQuantityAndDetail(qtyPart)
-                };
+    renderTable(inventory);
+}
+
+function hasProductName(str) {
+    return !str.startsWith('(') && !/^\d/.test(str);
+}
+
+function parseDetail(product, maker, detailStr) {
+    if (!product) return;
+    if (!inventory[product]) inventory[product] = {};
+    if (!inventory[product][maker]) inventory[product][maker] = [];
+
+    // 예: "7박 5" 또는 "0박 낱 4" 또는 "7박 ~12/3" 파싱
+    inventory[product][maker].push(detailStr);
+}
+
+// 전역 변수로 데이터 유지
+let inventory = {};
+
+function parseAndRender() {
+    const text = document.getElementById('rawText').value;
+    const lines = text.split('\n');
+    
+    inventory = {};
+    let currentProduct = '';
+    let currentMaker = '';
+
+    lines.forEach(line => {
+        let trimmed = line.trim();
+        if (!trimmed) return;
+
+        // 메이커 감지
+        let makerMatch = trimmed.match(/\(([^)]+)\)/);
+        
+        // 제품명이 앞에 있는지 확인 (괄호나 숫자로 시작하지 않음)
+        let firstToken = trimmed.split(/\s+/)[0];
+        if (!firstToken.startsWith('(') && !/^\d/.test(firstToken) && isNaN(firstToken)) {
+            // 새로운 제품명 등장
+            let parts = trimmed.split(/\s*\(([^)]+)\)\s*/);
+            currentProduct = parts[0].trim();
+            if (makerMatch) {
+                currentMaker = makerMatch[1];
+                let remainder = trimmed.replace(currentProduct, '').replace(`(${currentMaker})`, '').trim();
+                if (remainder) addEntry(currentProduct, currentMaker, remainder);
             }
-
-            return {
-                item: defaultItem,
-                maker: defaultMaker,
-                qtyInfo: extractQuantityAndDetail(line)
-            };
-        }
-
-        // 수량 및 상세(등급, 날짜) 분리 추출
-        function extractQuantityAndDetail(text) {
-            text = text.trim();
-            // 예: "7박 5" -> 수량: 7박, 비고/등급: 5등급 또는 5
-            // 예: "0박 낱 4" -> 수량: 0박 낱, 비고: 4등급
-            // 예: "7박 ~12/3" -> 수량: 7박, 유효기간: ~12/3
-            
-            return text;
-        }
-
-        // 테이블 렌더링
-        function renderTable(data) {
-            const tbody = document.getElementById('tableBody');
-            document.getElementById('itemCount').innerText = data.length;
-
-            if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-slate-400">추출된 데이터가 없습니다. 원문을 확인해주세요.</td></tr>`;
-                return;
-            }
-
-            let html = '';
-            data.forEach((row, index) => {
-                let makerBadgeClass = "bg-slate-100 text-slate-700";
-                if (row.maker === '대산') makerBadgeClass = "bg-sky-50 text-sky-700 border border-sky-100";
-                else if (row.maker === '포크') makerBadgeClass = "bg-emerald-50 text-emerald-700 border border-emerald-100";
-                else if (row.maker === '황금') makerBadgeClass = "bg-amber-50 text-amber-700 border border-amber-100";
-                else if (row.maker) makerBadgeClass = "bg-purple-50 text-purple-700 border border-purple-100";
-
-                html += `
-                    <tr class="hover:bg-slate-50/80 transition group">
-                        <td class="p-3.5 font-medium text-slate-800 item-name">${escapeHtml(row.item || '-')}</td>
-                        <td class="p-3.5 maker-name">
-                            ${row.maker ? `<span class="inline-block px-2.5 py-1 rounded-lg text-xs font-semibold ${makerBadgeClass}">${escapeHtml(row.maker)}</span>` : '<span class="text-slate-300">-</span>'}
-                        </td>
-                        <td class="p-3.5 font-semibold text-blue-600">${escapeHtml(row.qtyInfo || '-')}</td>
-                        <td class="p-3.5 text-xs text-slate-500">-</td>
-                    </tr>
-                `;
-            });
-
-            tbody.innerHTML = html;
-        }
-
-        // 실시간 검색 필터
-        function filterTable() {
-            let input = document.getElementById('searchInput');
-            let filter = input.value.toLowerCase();
-            let table = document.getElementById('resultTable');
-            let tr = table.getElementsByTagName('tr');
-
-            for (let i = 1; i < tr.length; i++) {
-                let tdItem = tr[i].getElementsByTagName('td')[0];
-                let tdMaker = tr[i].getElementsByTagName('td')[1];
-                let tdQty = tr[i].getElementsByTagName('td')[2];
-                if (tdItem || tdMaker || tdQty) {
-                    let text = (tdItem.textContent + " " + tdMaker.textContent + " " + tdQty.textContent).toLowerCase();
-                    if (text.indexOf(filter) > -1) {
-                        tr[i].style.display = "";
-                    } else {
-                        tr[i].style.display = "none";
-                    }
-                }
+        } else if (makerMatch) {
+            currentMaker = makerMatch[1];
+            let remainder = trimmed.replace(`(${currentMaker})`, '').trim();
+            if (remainder) addEntry(currentProduct, currentMaker, remainder);
+        } else {
+            if (currentProduct) {
+                addEntry(currentProduct, currentMaker, trimmed);
             }
         }
+    });
 
-        function escapeHtml(str) {
-            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-        }
+    renderMatrixTable();
+}
 
-        // 표 내용을 텍스트로 복사
-        function copyTableAsText() {
-            const rows = document.querySelectorAll('#resultTable tr');
-            let textOutput = "";
-            rows.forEach((row, idx) => {
-                const cols = row.querySelectorAll('th, td');
-                let rowData = [];
-                cols.forEach(col => rowData.push(col.innerText.trim()));
-                textOutput += rowData.join("\t") + "\n";
-            });
+function addEntry(product, maker, detail) {
+    if (!inventory[product]) inventory[product] = {};
+    if (!inventory[product][maker]) inventory[product][maker] = [];
+    inventory[product][maker].push(detail);
+}
 
-            const textarea = document.createElement("textarea");
-            textarea.value = textOutput;
-            document.body.appendChild(textarea);
-            textarea.select();
-            try {
-                document.execCommand('copy');
-                showToast("표 내용이 클립보드에 복사되었습니다. (엑셀에 바로 붙여넣기 가능)");
-            } catch (err) {
-                showToast("복사 실패");
-            }
-            document.body.removeChild(textarea);
-        }
+function renderMatrixTable() {
+    let html = `<table>
+        <thead>
+            <tr>
+                <th style="width: 25%;">제품명</th>
+                <th style="width: 20%;">대산</th>
+                <th style="width: 20%;">포크</th>
+                <th style="width: 20%;">기타/황금</th>
+                <th style="width: 15%;">비고</th>
+            </tr>
+        </thead>
+        <tbody>`;
 
-        // 페이지 로드 시 자동 샘플 파싱 실행
-        window.onload = function() {
-            loadSampleData();
-        };
-    </script>
+    for (let [product, makers] of Object.entries(inventory)) {
+        html += `<tr>`;
+        html += `<td class="product-name">${product}</td>`;
+        
+        // 대산 컬럼
+        html += `<td>${formatMakerData(makers['대산'])}</td>`;
+        // 포크 컬럼
+        html += `<td>${formatMakerData(makers['포크'])}</td>`;
+        // 황금 및 기타 컬럼 합치기
+        let otherMakers = Object.keys(makers).filter(m => m !== '대산' && m !== '포크');
+        let otherHtml = otherMakers.map(m => `<span class="maker-tag">${m}</span>` + formatMakerData(makers[m])).join('<br>');
+        html += `<td>${otherHtml}</td>`;
+        
+        html += `<td>-</td>`;
+        html += `</tr>`;
+    }
+
+    html += `</tbody></table>`;
+    document.getElementById('resultArea').innerHTML = html;
+}
+
+function formatMakerData(arr) {
+    if (!arr || arr.length === 0) return '';
+    return arr.map(item => `<span class="qty-val">${item}</span>`).join('<br>');
+}
+
+// 페이지 로드 시 자동 실행
+window.onload = parseAndRender;
+</script>
+
 </body>
 </html>
