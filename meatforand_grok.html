@@ -1,8 +1,10 @@
+<!DOCTYPE html>
+
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미트포앤 스마트 재고 피벗</title> 
+    <title>미트포앤 스마트 재고 피벗</title>
     <style>
         :root {
             --bg-color: #1a1510;
@@ -416,11 +418,36 @@ Grok
 
 meatpoan_orders.html · meatpoan_simple.html 둘 다 적용해 두었습니다. GitHub 반영 후 확인해 주세요.
 
+당신
+지금까지 만든 코딩 내용을 지금 올린 ui에 맞춰서 배치해줘,
+지금 ui에는 카톡 로딩하는 부분은 없으니까 아이콘으로 넣어주고,
+기존에 마지막 넣었던 한번 추출한 결과는 로컬에 저장했다가 다시 열면 마지막 결과가 보이게 해줘야돼,
+
+Grok
+
+2m 25s동안 작업함
+올려주신 UI 스타일로 동작하는 대시보드를 맞춰 두었습니다.
+
+파일: artifacts/meatpoan_dashboard.html
+
+UI
+상단 헤더 + 하단 탭 (발주추출 / 재고관리 / 배차동선 / …)
+발주 = 거래처 카드(전표) 형태
+재고 = 표 + 재고−발주 잔여
+배차 = 차량 배정
+카톡 로딩
+헤더 오른쪽 📁 업로드 아이콘 → TXT 선택
+날짜 선택 후 발주 카드 자동 생성
+저장
+추출 결과·재고·날짜·탭을 로컬 저장
+다시 열면 마지막 결과 + 공지로 안내
+GitHub에 이 파일을 올리고 열어서 확인하시면 됩니다.
 
 
 
 
-meatpoan_orders.html
+
+meatpoan_dashboard.html
 
 
 
@@ -428,2211 +455,582 @@ meatpoan_orders.html
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#c41e3a">
-<meta name="apple-mobile-web-app-title" content="미트포앤 발주">
-<meta name="application-name" content="미트포앤 발주">
-
-<title>미트포앤 발주 관리</title>
+<title>미트포앤 유통시스템</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        primary: "#00236f",
+        secondary: "#0051d5",
+        surface: "#faf8ff",
+        "on-surface": "#131b2e",
+        "on-surface-variant": "#444651",
+        "surface-container": "#eaedff",
+        "surface-container-low": "#f2f3ff",
+        "surface-container-lowest": "#ffffff",
+        "outline-variant": "#c5c5d3",
+        tertiary: "#6a5f00",
+        error: "#ba1a1a"
+      }
+    }
+  }
+};
+</script>
 <style>
-:root {
-  --primary: #c41e3a;
-  --primary-dark: #9a1830;
-  --bg: #f0f2f5;
-  --card: #ffffff;
-  --text: #1a1a1a;
-  --muted: #666;
-  --border: #e5e5e5;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --header-h: 52px;
-  --tabs-h: 48px;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html { font-size: 17px; }
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding-bottom: var(--safe-bottom);
-  overflow-x: hidden;
-}
-
-/* ===== Login ===== */
-#login-screen {
-  display: flex; align-items: center; justify-content: center;
-  min-height: 100vh; min-height: 100dvh;
-  background: linear-gradient(160deg, #c41e3a 0%, #7a1525 100%);
-  padding: 1.25rem;
-  padding-top: calc(1.25rem + var(--safe-top));
-}
-.login-box {
-  background: #fff; padding: 2rem 1.5rem; border-radius: 20px;
-  box-shadow: 0 16px 48px rgba(0,0,0,.28);
-  width: 100%; max-width: 340px; text-align: center;
-}
-.login-box h1 { font-size: 1.4rem; color: var(--primary); margin-bottom: .35rem; }
-.login-box p { color: var(--muted); margin-bottom: 1.4rem; font-size: .9rem; }
-.login-box input {
-  width: 100%; padding: 1rem; border: 2px solid var(--border); border-radius: 12px;
-  font-size: 1.35rem; text-align: center; letter-spacing: .35em; margin-bottom: 1rem;
-}
-.login-box input:focus { outline: none; border-color: var(--primary); }
-.login-box button {
-  width: 100%; padding: 1rem; background: var(--primary); color: #fff;
-  border: none; border-radius: 12px; font-size: 1.05rem; font-weight: 700;
-  cursor: pointer; min-height: 48px;
-}
-.login-box button:active { background: var(--primary-dark); }
-.error { color: #d32f2f; font-size: .85rem; margin-top: .5rem; display: none; }
-
-/* ===== App shell ===== */
-#app { display: block; }
-
-.top-sticky {
-  position: sticky; top: 0; z-index: 100;
-  box-shadow: 0 2px 10px rgba(0,0,0,.12);
-}
-header {
-  background: var(--primary); color: #fff;
-  padding: .4rem .65rem;
-  padding-top: calc(.4rem + var(--safe-top));
-}
-header .header-top {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: .5rem; margin-bottom: 0;
-}
-header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: -.02em; flex: 1; min-width: 0; }
-.header-status {
-  font-size: .8rem; opacity: .95; max-width: 42%;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  text-align: right;
-}
-.btn-home {
-  flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px;
-  border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.18);
-  color: #fff; font-size: 1.15rem; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-}
-.btn-home:active { background: rgba(255,255,255,.3); }
-.header-actions { display: none; } /* 홈 패널로 이동 */
-
-/* 홈 패널 */
-.home-panel {
-  display: none; position: fixed; inset: 0; z-index: 2000;
-  background: rgba(0,0,0,.45);
-}
-.home-panel.show { display: flex; align-items: flex-end; justify-content: center; }
-.home-sheet {
-  width: 100%; max-width: 480px; max-height: 92vh; overflow-y: auto;
-  background: #fff; border-radius: 16px 16px 0 0;
-  padding: 1rem 1rem calc(1rem + var(--safe-bottom));
-  box-shadow: 0 -8px 30px rgba(0,0,0,.2);
-}
-.home-sheet h2 {
-  font-size: 1.2rem; color: var(--primary); margin: 0 0 .75rem;
-  display: flex; justify-content: space-between; align-items: center;
-}
-.home-sheet .home-close {
-  border: none; background: #f0f0f0; width: 36px; height: 36px;
-  border-radius: 50%; font-size: 1.1rem; cursor: pointer;
-}
-.home-row { margin-bottom: .65rem; }
-.home-row label.lbl {
-  display: block; font-size: .75rem; color: #666; margin-bottom: .25rem; font-weight: 600;
-}
-.home-actions {
-  display: grid; grid-template-columns: 1fr 1fr; gap: .45rem;
-}
-.home-actions .btn-dark {
-  background: var(--primary); color: #fff; border: none;
-  padding: .7rem .5rem; border-radius: 12px; font-weight: 700;
-  font-size: .95rem; cursor: pointer; min-height: 48px;
-  text-align: center; position: relative; overflow: hidden;
-}
-.home-actions .btn-dark.secondary {
-  background: #fff; color: var(--primary); border: 1px solid var(--primary);
-}
-.home-actions .btn-dark input {
-  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
-}
-.home-sheet select.date-select {
-  width: 100%; background: #f7f7f7; border: 1px solid var(--border);
-  color: #222; padding: .7rem .6rem; border-radius: 12px;
-  font-size: .9rem; font-weight: 600; min-height: 44px;
-}
-.home-hint {
-  font-size: .78rem; color: #666; line-height: 1.45;
-  background: #fff8e6; border-radius: 10px; padding: .55rem .7rem; margin-top: .35rem;
-}
-
-.btn {
-  background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35);
-  color: #fff; padding: .55rem .5rem; border-radius: 10px;
-  font-size: .8rem; font-weight: 600; cursor: pointer;
-  text-align: center; min-height: 40px;
-  display: flex; align-items: center; justify-content: center;
-  white-space: nowrap;
-}
-.btn:active { background: rgba(255,255,255,.3); }
-.btn-file { position: relative; overflow: hidden; }
-.btn-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-select.date-select {
-  background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35);
-  color: #fff; padding: .55rem .4rem; border-radius: 10px;
-  font-size: .8rem; font-weight: 600; min-height: 40px; width: 100%;
-  -webkit-appearance: none; appearance: none;
-  text-align: center;
-}
-select.date-select option { color: #222; background: #fff; }
-
-/* Tabs - bottom-style feel on mobile, sticky under header */
-.tabs {
-  display: flex; background: #fff;
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto; -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-.tabs::-webkit-scrollbar { display: none; }
-.tab {
-  flex: 1 0 auto; min-width: 0;
-  padding: .95rem .65rem;
-
-  text-align: center; font-size: .82rem; font-weight: 600;
-  color: var(--muted); cursor: pointer;
-  border-bottom: 3px solid transparent;
-  white-space: nowrap;
-}
-.tab.active {
-  color: var(--primary); border-bottom-color: var(--primary);
-  font-weight: 700;
-}
-
-.content {
-  padding: .4rem .5rem 1rem;
-  max-width: 100%;
-}
-
-.upload-hint {
-  background: #fff8e6; border: 1px solid #ffe0a3; border-radius: 12px;
-  padding: .65rem .75rem; margin-bottom: .5rem;
-  font-size: .95rem; color: #7a5b00; line-height: 1.5;
-}
-
-.stats {
-  display: grid; grid-template-columns: repeat(4, 1fr);
-  gap: .3rem; margin-bottom: .45rem;
-}
-.stat {
-  background: #fff; border-radius: 10px; padding: .4rem .25rem;
-  text-align: center; border: 1px solid var(--border);
-}
-.stat .num { font-size: 1.25rem; font-weight: 800; color: var(--primary); line-height: 1.2; }
-.stat .label { font-size: .8rem; color: var(--muted); margin-top: .15rem; }
-
-.card {
-  background: #fff; border-radius: 12px; padding: .65rem .7rem;
-  margin-bottom: .55rem; border: 1px solid var(--border);
-  box-shadow: none;
-}
-.card h3 {
-  font-size: 1.05rem; color: var(--primary); margin-bottom: .35rem;
-  display: flex; justify-content: space-between; align-items: center;
-  flex-wrap: wrap; gap: .3rem; line-height: 1.35;
-}
-.card .addr { font-size: .88rem; color: var(--muted); margin-bottom: .3rem; line-height: 1.35; }
-.badge {
-  background: #ffebee; color: var(--primary);
-  font-size: .8rem; padding: .15rem .45rem; border-radius: 12px; font-weight: 700;
-}
-
-/* Tables - compact (고기별 matrix 제외) */
-.matrix-wrap {
-  overflow-x: auto; -webkit-overflow-scrolling: touch;
-  margin: 0; border-radius: 6px;
-}
-table { width: 100%; border-collapse: collapse; font-size: .95rem; }
-th, td {
-  border: 1px solid var(--border);
-  padding: .45rem .4rem;
-  text-align: left; vertical-align: top;
-  word-break: break-word; line-height: 1.4;
-}
-th {
-  background: #f5f5f5; font-weight: 700; font-size: .85rem;
-  color: #444; white-space: nowrap;
-}
-td.num { text-align: center; font-weight: 700; }
-td.center { text-align: center; }
-tr:nth-child(even) { background: #fafafa; }
-
-/* 고기별 매트릭스 */
-table.matrix th, table.matrix td {
-  padding: .5rem .4rem;
-  line-height: 1.4;
-}
-table.matrix th { font-size: .85rem; }
-table.matrix td.num { font-size: .95rem; min-width: 40px; }
-
-/* Client order table: stack-like on very narrow if needed, but keep columns */
-.client-card table th:nth-child(1) { min-width: 56px; }
-.client-card table th:nth-child(2),
-.client-card table td.num { min-width: 28px; }
-.client-card table th:nth-child(3) { min-width: 28px; }
-/* 비고 열 과한 빈칸 방지 */
-.client-card table td:nth-child(4),
-.client-card table td:nth-child(5) { max-width: 40%; }
-
-.matrix th:first-child, .matrix td:first-child {
-  position: sticky; left: 0; background: #fff; z-index: 2;
-  min-width: 88px; max-width: 110px;
-  font-size: .75rem; box-shadow: 2px 0 4px rgba(0,0,0,.04);
-}
-.matrix thead th:first-child { z-index: 3; background: #f0f0f0; }
-.matrix th { background: #f0f0f0; font-size: .7rem; padding: .4rem .3rem; }
-.matrix td.num { min-width: 36px; padding: .4rem .25rem; font-size: .8rem; }
-.matrix .total-row { background: #fff5f5 !important; font-weight: 700; }
-.matrix .total-row td:first-child { background: #fff5f5; }
-.matrix .total-col { background: #f0f4ff; font-weight: 700; }
-
-.search-box {
-  width: 100%; padding: .65rem .8rem;
-  border: 1px solid var(--border); border-radius: 10px;
-  margin-bottom: .5rem; font-size: 1rem;
-  background: #fff;
-}
-.search-box:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(196,30,58,.12); }
-
-.empty {
-  text-align: center; padding: 3rem 1.2rem;
-  color: var(--muted); font-size: 1.05rem; line-height: 1.55;
-}
-.section-title {
-  font-size: .78rem; color: var(--muted);
-  margin: .3rem 0 .55rem; font-weight: 700;
-  letter-spacing: .02em;
-}
-.back-btn {
-  background: none; border: none; color: var(--primary);
-  font-size: .85rem; cursor: pointer; margin-bottom: .3rem;
-  font-weight: 600; padding: .15rem 0; min-height: 28px;
-}
-
-pre {
-  font-size: .8rem; white-space: pre-wrap; word-break: break-word;
-  margin: 0; line-height: 1.45; font-family: inherit;
-}
-
-/* Note 24 portrait ~412px — already mobile-first; slight tweaks */
-@media (max-width: 400px) {
-  .stats { grid-template-columns: repeat(2, 1fr); }
-  .stat .num { font-size: 1.25rem; }
-  .tab { font-size: .9rem; padding: .9rem .5rem; }
-  header h1 { font-size: .98rem; }
-  /* header-actions moved to home */
-}
-
-/* Slightly larger phones / Note 24 */
-@media (min-width: 400px) and (max-width: 480px) {
-  .content { padding: .85rem .85rem 1.75rem; }
-  table { font-size: .82rem; }
-}
-
-@media print {
-  header, .tabs, .upload-hint, .stats, .search-box, .back-btn { display: none !important; }
-  .card { break-inside: avoid; box-shadow: none; }
-  body { background: #fff; }
-}
-
-.ship-filter {
-  display: flex; gap: .25rem; margin-bottom: .4rem; flex-wrap: wrap;
-}
-.ship-btn {
-  flex: 1; min-width: 80px; padding: .55rem .4rem;
-  border: 1px solid var(--border); border-radius: 10px;
-  background: #fff; font-size: .9rem; font-weight: 600; color: var(--muted);
-  cursor: pointer; min-height: 42px;
-}
-.ship-btn.on {
-  background: var(--primary); color: #fff; border-color: var(--primary);
-}
-.badge.ship-today { background: #e8f5e9; color: #2e7d32; }
-.badge.ship-next { background: #fff3e0; color: #e65100; }
-.summary-box {
-  background: #fff; border: 1px solid var(--border); border-radius: 10px;
-  padding: .55rem .65rem; font-size: .85rem; line-height: 1.4;
-  white-space: pre-wrap; word-break: break-word;
-  font-family: inherit; min-height: 80px;
-}
-.summary-actions {
-  display: flex; gap: .5rem; margin-top: .75rem;
-}
-.summary-actions button {
-  flex: 1; padding: .75rem; border: none; border-radius: 12px;
-  background: var(--primary); color: #fff; font-weight: 700; font-size: .9rem;
-  cursor: pointer; min-height: 44px;
-}
-.summary-actions button.secondary {
-  background: #fff; color: var(--primary); border: 1px solid var(--primary);
-}
-
-
-.admin-panel {
-  display: none; position: fixed; inset: 0; z-index: 200;
-  background: rgba(0,0,0,.45); padding: .5rem; padding-top: calc(.5rem + env(safe-area-inset-top,0px));
-  overflow-y: auto; -webkit-overflow-scrolling: touch;
-}
-.admin-panel.open { display: block; }
-.admin-sheet {
-  background: #fff; border-radius: 16px 16px 0 0; min-height: 90vh;
-  max-width: 560px; margin: 0 auto; padding: 1rem .9rem 2rem;
-}
-.admin-sheet h2 { font-size: 1.1rem; color: var(--primary); margin-bottom: .75rem; }
-.admin-tabs { display: flex; gap: .3rem; margin-bottom: .75rem; flex-wrap: wrap; }
-.admin-tab {
-  flex: 1; min-width: 70px; padding: .5rem .3rem; border: 1px solid var(--border);
-  border-radius: 10px; background: #fafafa; font-size: .78rem; font-weight: 600;
-  color: var(--muted); cursor: pointer; text-align: center;
-}
-.admin-tab.on { background: var(--primary); color: #fff; border-color: var(--primary); }
-.admin-list { max-height: 50vh; overflow-y: auto; margin-bottom: .75rem; }
-.admin-row {
-  display: flex; gap: .4rem; align-items: center; padding: .45rem 0;
-  border-bottom: 1px solid #f0f0f0; font-size: .85rem;
-}
-.admin-row span { flex: 1; word-break: break-all; }
-.admin-row button {
-  border: none; background: #ffebee; color: var(--primary);
-  border-radius: 8px; padding: .35rem .55rem; font-size: .75rem; font-weight: 600; cursor: pointer;
-}
-.admin-form { display: flex; flex-direction: column; gap: .45rem; margin-bottom: .75rem; }
-.admin-form input, .admin-form select {
-  padding: .7rem .75rem; border: 1px solid var(--border); border-radius: 10px; font-size: .9rem;
-}
-.admin-form button, .admin-actions button {
-  padding: .75rem; border: none; border-radius: 12px; background: var(--primary);
-  color: #fff; font-weight: 700; font-size: .9rem; cursor: pointer; min-height: 44px;
-}
-.admin-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
-.admin-actions button.secondary { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
-.admin-actions button.danger { background: #b71c1c; }
-.admin-hint { font-size: .78rem; color: var(--muted); margin-bottom: .5rem; line-height: 1.4; }
-
-
-.progress-wrap {
-  display: none; margin: .5rem 0 .75rem; padding: .6rem .75rem;
-  background: #fff; border-radius: 12px; border: 1px solid var(--border);
-}
-.progress-wrap.show { display: block; }
-.progress-label { font-size: .8rem; color: var(--muted); margin-bottom: .35rem; }
-.progress-bar {
-  height: 10px; background: #eee; border-radius: 6px; overflow: hidden;
-}
-.progress-bar > i {
-  display: block; height: 100%; width: 0%;
-  background: linear-gradient(90deg, var(--primary), #e57373);
-  transition: width .15s ease;
-}
-
-.map-actions { display: flex; gap: .35rem; margin-bottom: .4rem; }
-.map-btn {
-  flex: 1; padding: .5rem .4rem; border: none; border-radius: 10px;
-  background: var(--primary); color: #fff; font-weight: 700; font-size: .8rem;
-  cursor: pointer; min-height: 40px;
-}
-.map-btn.secondary { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
-
-
-#orderMap {
-  width: 100%; height: 320px; border-radius: 10px;
-  border: 1px solid var(--border); margin-bottom: .5rem;
-  z-index: 1;
-}
-.map-pin-legend {
-  font-size: .75rem; color: var(--muted); margin: .2rem 0 .45rem;
-  display: flex; gap: .8rem; flex-wrap: wrap;
-}
-.map-pin-legend span { display: inline-flex; align-items: center; gap: .25rem; }
-.pin-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.pin-dot.depot { background: #e53935; }
-.pin-dot.client { background: #1e88e5; }
-
-.map-fs-overlay {
-  position: fixed; inset: 0; z-index: 9999;
-  background: #fff; display: flex; flex-direction: column;
-}
-.map-fs-bar {
-  display: flex; align-items: center; gap: .4rem;
-  padding: .5rem .6rem; padding-top: calc(.5rem + var(--safe-top));
-  background: #c41e3a; color: #fff; flex-shrink: 0;
-}
-.map-fs-bar h2 { font-size: .95rem; font-weight: 700; flex: 1; margin: 0; }
-.map-fs-bar button {
-  border: none; background: rgba(255,255,255,.2); color: #fff;
-  padding: .4rem .65rem; border-radius: 8px; font-size: .8rem; font-weight: 600;
-  cursor: pointer; min-height: 36px;
-}
-.map-fs-bar button:active { background: rgba(255,255,255,.35); }
-#orderMapFs {
-  flex: 1; width: 100%; min-height: 0; z-index: 1;
-}
-.map-fs-legend {
-  padding: .35rem .6rem; font-size: .72rem; color: #555;
-  background: #f8f8f8; border-top: 1px solid #eee;
-  display: flex; gap: .75rem; flex-wrap: wrap; align-items: center;
-}
-
-/* 같은 거래처/권역 셀 통합 */
-table.compact-merge td {
-  padding: .35rem .4rem;
-  vertical-align: middle;
-}
-table.compact-merge td.group-cell {
-  background: #fafafa;
-  font-weight: 700;
-  border-right: 2px solid #e0e0e0;
-  vertical-align: middle;
-}
-table.compact-merge tr.group-start td { border-top: 2px solid #ddd; }
+  html, body { margin: 0; min-height: 100%; font-family: Pretendard, -apple-system, sans-serif; }
+  body { overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; background: #faf8ff; }
+  .pb-safe { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 4.25rem); }
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+  ::-webkit-scrollbar { display: none; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .nav-active { color: #00236f !important; font-weight: 700; }
 </style>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 </head>
-<body>
-<!-- 로그인 제거: 바로 사용 -->
-<div id="noticeModal" class="notice-modal" style="display:none">
-  <div class="notice-box">
-    <h3>공지</h3>
-    <p id="noticeText"></p>
-    <button type="button" onclick="closeNotice()">확인</button>
+<body class="bg-surface text-on-surface text-sm antialiased flex flex-col min-h-screen">
+
+<!-- 공지 -->
+<div id="noticeModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/40 p-4">
+  <div class="bg-white rounded-xl p-4 max-w-sm w-full shadow-xl">
+    <h3 class="text-primary font-bold text-base mb-2">공지</h3>
+    <p id="noticeText" class="text-sm text-on-surface leading-relaxed whitespace-pre-wrap mb-4"></p>
+    <button type="button" class="w-full py-2.5 rounded-lg bg-primary text-white font-bold" onclick="closeNotice()">확인</button>
   </div>
 </div>
 
-<div id="app" style="display:block">
-  <div class="top-sticky">
-  <header>
-    <div class="header-top">
-      <h1>🥩 미트포앤 발주</h1>
-      <div class="header-status" id="headerStatus">파일·날짜: 홈에서</div>
-      <button type="button" class="btn-home" onclick="openHome()" title="홈">🏠</button>
+<header class="fixed top-0 w-full z-50 bg-white/95 backdrop-blur-md border-b border-surface-container pt-safe">
+  <div class="h-12 px-3 flex items-center justify-between">
+    <h1 class="text-base text-primary font-bold tracking-tight">미트포앤 유통시스템</h1>
+    <div class="flex items-center gap-0.5">
+      <label class="w-9 h-9 flex items-center justify-center rounded text-secondary active:bg-surface-container-low cursor-pointer" title="카톡 TXT 불러오기">
+        <span class="material-symbols-outlined text-[22px]">upload_file</span>
+        <input type="file" id="fileInput" accept=".txt,text/plain" class="hidden" onchange="onFile(event)">
+      </label>
+      <button type="button" class="w-9 h-9 flex items-center justify-center rounded text-on-surface-variant" onclick="location.reload()" aria-label="새로고침">
+        <span class="material-symbols-outlined text-[20px]">refresh</span>
+      </button>
     </div>
-  </header>
-  <div class="tabs">
-    <div class="tab active" data-tab="regions" onclick="switchTab('regions')">거래처목록</div>
-    <div class="tab" data-tab="byClient" onclick="switchTab('byClient')">거래처별</div>
-    <div class="tab" data-tab="byMeat" onclick="switchTab('byMeat')">고기별</div>
-    <div class="tab" data-tab="loose" onclick="switchTab('loose')">낱개</div>
-    <div class="tab" data-tab="weight" onclick="switchTab('weight')">계근</div>
-    <div class="tab" data-tab="dispatch" onclick="switchTab('dispatch')">배차</div>
-    <div class="tab" data-tab="stock" onclick="switchTab('stock')">재고</div>
-    <div class="tab" data-tab="summary" onclick="switchTab('summary')">문자</div>
-    <div class="tab" data-tab="raw" onclick="switchTab('raw')">원본</div>
   </div>
-  </div>
-  <div class="content">
-    <div id="progressWrap" class="progress-wrap"><div class="progress-label" id="progressLabel">분석 중...</div><div class="progress-bar"><i id="progressBar"></i></div></div>
-    <div id="uploadHint" class="upload-hint" style="display:none"></div>
-    <div id="stats" class="stats" style="display:none"></div>
-    <div id="mainView"></div>
-    <div id="detailView"></div>
-  </div>
-</div>
+</header>
 
-<!-- 홈: 파일 / 날짜 / 인쇄 / 관리 -->
-<div class="home-panel" id="homePanel" onclick="if(event.target===this)closeHome()">
-  <div class="home-sheet" onclick="event.stopPropagation()">
-    <h2>홈 <button type="button" class="home-close" onclick="closeHome()">×</button></h2>
-    <div class="home-row">
-      <span class="lbl">1. 카카오톡 내보내기 파일</span>
-      <div class="home-actions">
-        <label class="btn-dark">파일 불러오기
-          <input type="file" id="chatFile" accept=".txt,text/plain" onchange="loadChatFile(event)">
-        </label>
-        <button type="button" class="btn-dark secondary" onclick="window.print()">인쇄</button>
+<main class="flex flex-col w-full pt-12 pb-safe min-h-screen">
+
+  <!-- ===== 발주추출 ===== -->
+  <section id="panel-order" class="tab-panel active">
+    <div class="sticky top-12 z-40 bg-surface/95 backdrop-blur-md px-3 py-2 border-b border-surface-container flex flex-col gap-1.5">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="material-symbols-outlined text-secondary text-[17px]">description</span>
+          <span id="fileStatus" class="text-xs font-semibold text-on-surface truncate">파일 없음 · 업로드 아이콘으로 로드</span>
+        </div>
+        <div class="flex items-center gap-1 bg-white border border-outline-variant/60 rounded px-1.5 py-1">
+          <span class="material-symbols-outlined text-on-surface-variant text-[15px]">sort</span>
+          <select id="sortSelect" class="text-xs font-medium bg-transparent border-0 p-0 pr-5 focus:ring-0" onchange="renderVouchers()">
+            <option value="time">정렬: 접수시간순</option>
+            <option value="name">정렬: 거래처 가나다순</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <select id="dateSelect" class="text-xs border border-outline-variant rounded px-2 py-1 bg-white max-w-[55%]" disabled onchange="reparseOrders()">
+          <option value="">날짜 선택</option>
+        </select>
+        <div class="flex items-center gap-2 text-xs text-on-surface-variant font-medium">
+          <span>총 <strong id="mClients" class="text-primary font-mono">0</strong>곳</span>
+          <span class="text-outline-variant">·</span>
+          <span>총 <strong id="mBoxes" class="text-secondary font-mono">0</strong> Box</span>
+          <span class="text-outline-variant">·</span>
+          <span>낱개 <strong id="mLoose" class="text-on-surface font-mono">0</strong></span>
+        </div>
       </div>
     </div>
-    <div class="home-row">
-      <span class="lbl">2. 배송/작업일</span>
-      <select class="date-select" id="dateSelect" onchange="onDateChange(); updateHeaderStatus();" disabled>
-        <option value="">날짜 선택</option>
-      </select>
-    </div>
-    <div class="home-row">
-      <div class="home-actions">
-        <button type="button" class="btn-dark secondary" onclick="closeHome(); openAdmin();">관리</button>
-        <button type="button" class="btn-dark" onclick="closeHome()">결과 보기</button>
+    <div class="p-3 flex flex-col gap-2.5" id="voucherContainer">
+      <div class="text-center text-on-surface-variant text-sm py-16 px-4">
+        상단 <span class="material-symbols-outlined text-secondary text-[18px] align-middle">upload_file</span> 아이콘으로<br>카카오톡 내보내기(TXT)를 불러오세요
       </div>
     </div>
-    <div class="home-hint" id="homeHint">
-      브라우저 보안상 페이지를 새로고침하면 파일은 다시 선택해야 합니다.<br>
-      같은 화면 안에서는 파일·날짜가 유지됩니다.
-    </div>
-  </div>
-</div>
+  </section>
 
+  <!-- ===== 재고관리 ===== -->
+  <section id="panel-stock" class="tab-panel">
+    <div class="p-3 flex flex-col gap-2">
+      <div class="bg-white rounded-lg border border-slate-200 p-3">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-sm font-bold text-slate-800">일일 재고 입력</h2>
+          <button type="button" id="btnParseStock" class="text-xs px-2.5 py-1.5 bg-blue-900 text-white rounded font-medium">표 반영</button>
+        </div>
+        <textarea id="stockInput" class="w-full h-24 text-xs border border-slate-200 rounded p-2 font-mono" placeholder="재고 카톡 텍스트 붙여넣기&#10;예: 삼겹 (대산) 7박 5"></textarea>
+      </div>
+      <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div class="px-3 py-2 border-b border-slate-100 flex justify-between items-center">
+          <span class="text-sm font-bold text-slate-800">재고 현황</span>
+          <span class="text-[11px] text-slate-500" id="stockMeta">—</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-600">
+              <tr>
+                <th class="py-2 px-2.5">품목</th>
+                <th class="py-2 px-2">메이커</th>
+                <th class="py-2 px-2.5">수량</th>
+                <th class="py-2 px-2 text-right pr-3">비고</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-tbody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg border border-slate-200 p-3">
+        <h2 class="text-sm font-bold text-slate-800 mb-2">재고 − 발주 잔여</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-600">
+              <tr><th class="py-2 px-2">품목</th><th class="py-2 px-2 text-right">재고</th><th class="py-2 px-2 text-right">발주</th><th class="py-2 px-2 text-right">잔여</th></tr>
+            </thead>
+            <tbody id="remain-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 배차 ===== -->
+  <section id="panel-dispatch" class="tab-panel">
+    <div class="p-3">
+      <div class="bg-white rounded-lg border border-slate-200 p-3 mb-2">
+        <p class="text-xs text-slate-600 mb-2">발주 거래처를 차량에 배정하세요. (기기에 저장)</p>
+        <div class="flex gap-2 mb-2">
+          <input id="newVehicle" class="flex-1 text-xs border rounded px-2 py-1.5" placeholder="차량/기사 추가">
+          <button type="button" class="text-xs px-3 py-1.5 bg-primary text-white rounded" onclick="addVehicle()">추가</button>
+        </div>
+        <div id="dispatchList" class="flex flex-col gap-2"></div>
+      </div>
+      <div id="dispatchSummary" class="flex flex-col gap-2"></div>
+    </div>
+  </section>
+
+  <!-- ===== 기타 탭 플레이스홀더 ===== -->
+  <section id="panel-stats" class="tab-panel">
+    <div class="p-8 text-center text-on-surface-variant text-sm">판매통계 · 준비 중</div>
+  </section>
+  <section id="panel-driver" class="tab-panel">
+    <div class="p-8 text-center text-on-surface-variant text-sm">기사실적 · 준비 중</div>
+  </section>
+</main>
+
+<nav class="fixed bottom-0 w-full z-50 bg-white border-t border-slate-200 pb-[env(safe-area-inset-bottom,0px)]">
+  <div class="h-14 px-1 flex items-center justify-around">
+    <button type="button" data-tab="order" class="nav-btn nav-active flex flex-col items-center justify-center min-w-[54px] h-11 gap-0.5 text-slate-500" onclick="switchTab('order')">
+      <span class="material-symbols-outlined text-[20px]">chat_paste_go</span>
+      <span class="text-[11px] leading-none">발주추출</span>
+    </button>
+    <button type="button" data-tab="stock" class="nav-btn flex flex-col items-center justify-center min-w-[54px] h-11 gap-0.5 text-slate-500" onclick="switchTab('stock')">
+      <span class="material-symbols-outlined text-[20px]">inventory_2</span>
+      <span class="text-[11px] leading-none">재고관리</span>
+    </button>
+    <button type="button" data-tab="dispatch" class="nav-btn flex flex-col items-center justify-center min-w-[54px] h-11 gap-0.5 text-slate-500" onclick="switchTab('dispatch')">
+      <span class="material-symbols-outlined text-[20px]">local_shipping</span>
+      <span class="text-[11px] leading-none">배차동선</span>
+    </button>
+    <button type="button" data-tab="stats" class="nav-btn flex flex-col items-center justify-center min-w-[54px] h-11 gap-0.5 text-slate-500" onclick="switchTab('stats')">
+      <span class="material-symbols-outlined text-[20px]">query_stats</span>
+      <span class="text-[11px] leading-none">판매통계</span>
+    </button>
+    <button type="button" data-tab="driver" class="nav-btn flex flex-col items-center justify-center min-w-[54px] h-11 gap-0.5 text-slate-500" onclick="switchTab('driver')">
+      <span class="material-symbols-outlined text-[20px]">military_tech</span>
+      <span class="text-[11px] leading-none">기사실적</span>
+    </button>
+  </div>
+</nav>
 
 <script>
-const PASSWORD = '7421';
-
-// ---------- 마지막 결과 유지 ----------
-const SESSION_KEY = 'meatpoan_last_session';
-function saveSessionState() {
-  try {
-    const payload = {
-      currentDate,
-      availableDates,
-      currentOrders,
-      currentWeightLogs,
-      currentTab,
-      shipFilter,
-      savedAt: Date.now()
-    };
-    // 채팅 원문은 용량 크면 제외
-    let withChat = Object.assign({}, payload, { chatText: chatText || '' });
-    try {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(withChat));
-    } catch (e) {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
-    }
-  } catch (e) {}
-}
-function restoreSessionState() {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return false;
-    const d = JSON.parse(raw);
-    if (!d || !d.currentDate || !(d.currentOrders && d.currentOrders.length)) return false;
-    currentDate = d.currentDate;
-    availableDates = d.availableDates || [];
-    currentOrders = d.currentOrders || [];
-    currentWeightLogs = d.weightLogs || d.currentWeightLogs || [];
-    currentTab = d.currentTab || 'regions';
-    shipFilter = d.shipFilter || 'all';
-    if (d.chatText) chatText = d.chatText;
-
-    const sel = document.getElementById('dateSelect');
-    if (sel) {
-      sel.innerHTML = '<option value="">배송/작업일 선택</option>';
-      (availableDates || []).forEach(dd => {
-        const opt = document.createElement('option');
-        opt.value = dd.key;
-        opt.textContent = dd.label;
-        if (dd.key === currentDate) opt.selected = true;
-        sel.appendChild(opt);
-      });
-      // 목록에 없어도 현재 날짜 옵션 유지
-      if (currentDate && !availableDates.some(x => x.key === currentDate)) {
-        const opt = document.createElement('option');
-        opt.value = currentDate;
-        opt.textContent = currentDate;
-        opt.selected = true;
-        sel.appendChild(opt);
-      }
-      sel.disabled = false;
-    }
-    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === currentTab));
-    updateHeaderStatus();
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-
-
-function openHome() {
-  const p = document.getElementById('homePanel');
-  if (p) p.classList.add('show');
-  updateHeaderStatus();
-  const hint = document.getElementById('homeHint');
-  const uh = document.getElementById('uploadHint');
-  if (hint && uh && uh.textContent) {
-    // keep home hint + file status
-  }
-}
-function closeHome() {
-  const p = document.getElementById('homePanel');
-  if (p) p.classList.remove('show');
-}
-function updateHeaderStatus() {
-  const el = document.getElementById('headerStatus');
-  if (!el) return;
-  if (!chatText) {
-    el.textContent = '파일 없음 · 홈에서 불러오기';
-    return;
-  }
-  if (!currentDate) {
-    el.textContent = '날짜 선택 필요';
-    return;
-  }
-  const short = currentDate.replace(/^20\d{2}년\s*/, '').replace(/\s*요일/, '');
-  el.textContent = short + ' · 발주 ' + (currentOrders || []).length;
-}
-
-
-const CLIENTS = [{"name":"(주)굿모닝유통지마트","address":"충북 음성군 맹동면 두성리 1486","alias":""},{"name":"(주)다온마트(10/1부터)","address":"경기도 안산시 상록구 시낭로 25 (월피동)","alias":""},{"name":"(주)대산에프앤비(육가공)","address":"대전시 유성구 교촌대정로 198(대정로)","alias":""},{"name":"(주)도니아","address":"충북 음성군 음성읍 음성로367번길 24,씨동","alias":""},{"name":"(주)신선에프엔비","address":"경기도 화성시 봉담읍 최루백로 198(분천리96-13)","alias":""},{"name":"(주)신선채","address":"충북 음성군 삼성면 대청로 155,가동 1,2층","alias":""},{"name":"(주)아이유팜","address":"경기 광명시 일직로 72, 에이동12층 에이-1215호(일직동)","alias":""},{"name":"(주)올바른한우","address":"서울 강북구 도봉로67길 18(엠마트)","alias":""},{"name":"(주)우경인터내셔널","address":"경기도 수원시 영통구 신원로 192","alias":""},{"name":"(주)원신산업-보미마트","address":"경기도 고양시 덕양구 백양로 107-1,1층(화정동)","alias":""},{"name":"(주)조이건설","address":"경기도 군포시 송부로96번길 12 A동 1304호","alias":""},{"name":"(주)좋은축산유통","address":"경기도 시흥시 군자로 387번길 21-1(거모동)","alias":""},{"name":"(주)지노미트","address":"경기도 광명시 가락골길23(노은사동)","alias":""},{"name":"(주)진흥미트유통","address":"경기도 안산시 상록구 수암4길 17,1층102호(수암동)","alias":""},{"name":"(주)참좋은미트","address":"경기도 성남시 수정구 성남대로 1270,2층(태평동)","alias":""},{"name":"(주)초이스에프엔비","address":"경기도 시흥시 금화로 550번길 36-2","alias":""},{"name":"(주)캐틀팜","address":"경기도 수원시 권선구 호매실로90번길39,6층(호매실동,성지빌딩)","alias":""},{"name":"(주)코리아푸드","address":"경기도 용인시 기흥구 공세로 126-1(공세동)","alias":""},{"name":"(주)큐엔씨육가공","address":"경기도 안산시 단원구 초지2로 59-18(초지동)","alias":""},{"name":"(주)태광푸드","address":"경기도 화성시 매송면 송라길39번길23,1동(송라리) 607-3","alias":""},{"name":"(주)태호미트","address":"경기도 포천시 내촌면 내진로 258번길75","alias":""},{"name":"(주)판교1등축산(구-푸른 대장동","address":"경기도 성남시 분당구 판교대장로6길 10, 108호(대장동)","alias":""},{"name":"(주)푸드백서 농업회사법인","address":"대전광역시 중구 산서로62번길 10, 2층(사정동)","alias":""},{"name":"(주)하나에프에스","address":"경기도 군포시 당정로27번길 42,1층","alias":""},{"name":"(주)하나프라임","address":"경기도 용인시 수지구 신수로 767, A동 1605호(동천동, 분당수지 U-TOWER)","alias":""},{"name":"(주)한마음마트(일동)=>정육으로","address":"경기도 안산시 상록구 일동로20 (일동120-3)","alias":""},{"name":"(주)황금비앤피","address":"경기도 안산시 상록구 청곡길36(부곡동)","alias":""},{"name":"갈비면옥(갈비나라2호점)","address":"경기도 안산시 단원구 선삼로22,1층(선부동)","alias":""},{"name":"거시기 함흥냉면","address":"경기도 군포시 삼성로20번길 16-12, 1층(부곡동)","alias":""},{"name":"고기공장바름(주)","address":"경기도 안산시 상록구 세류로2안길 2,1층(본오동)","alias":""},{"name":"고기바보푸주간(부곡)","address":"경기도 군포시 송부로291번길 16,1층 103호(부곡동)","alias":""},{"name":"고기바보푸주간(송정점)","address":"경기도 군포시 송부로34번길 35, 103호(도마교동,센프럴프라자)","alias":""},{"name":"고기바보푸줏간(장안점)","address":"경기도 의왕시 장안중앙로7, 101.102호(삼동)","alias":""},{"name":"골목대장삼겹살","address":"경기도 시흥시 시흥대로 1073번길 29,1층(신천동)","alias":""},{"name":"곱창연가","address":"경기도 시흥시 하상로4번길 7(하상동,1층)","alias":""},{"name":"구들짱황소곱창삼겹살(인계동)","address":"경기도 수원시 팔달구 권광로 180번길 53-26,1층(인계동)","alias":""},{"name":"구워랑","address":"경기도 화성시 꽃내음2길 12-2 118,119호(새솔동)","alias":""},{"name":"국민생고기(장곡동)","address":"경기도 시흥시 장곡로37번길 5-3,101호(장곡동)","alias":""},{"name":"기둥병원","address":"경기도 안산시 상록구 상록수로34(본오동,3층)","alias":""},{"name":"길산업","address":"경기도 안산시 상록구 삼리1길 30,1층101호","alias":""},{"name":"김치왕뚜껑삼겹살","address":"경기도 부천시 역곡로 37(역곡동)","alias":""},{"name":"김치왕뚜껑삼겹살(2호점)","address":"서울특별시 구로구 고척로 127,1층(개봉동)","alias":""},{"name":"김치왕뚜껑삼겹살(3호점부천)","address":"경기 부천시 부일로 446번길 10-1,1층(심곡동)","alias":""},{"name":"김치찌개전문점(사동)","address":"경기도 안산시 상록구 석호로 178,1층 101호(사동)","alias":""},{"name":"까만돼지","address":"경기도 시흥시 군자로534번안길 7, 나동 지1층 B101호(거모동)","alias":""},{"name":"꿀돼지꿀한우(가리봉)","address":"서울 금천구 가산로 106,상가동 1층104호(가산동,주상복합두산아파트)","alias":""},{"name":"꿀돼지꿀한우(금천)","address":"서울 금천구 금하로697 101호(시흥동)","alias":""},{"name":"꿀돼지꿀한우정육점(광명)","address":"경기도 광명시 광명로 848번길 32-2,1층 103호(광명동,펠리스필)","alias":""},{"name":"노무법인 이엘(EL)","address":"경기도 안산시 상록구 광덕1로385,204호(이동,엔타운)","alias":""},{"name":"농민마트 고잔점","address":"경기도 안산시 단원구 광덕4로88, 106호 외55개(고잔동)","alias":""},{"name":"농법(주)대산축산유통","address":"경기도 안산시 상록구 조구나리길 20(이동,1층)","alias":""},{"name":"농업법인(유)둔포축산","address":"충청남도 아산시 둔포면 아산밸리북로11","alias":""},{"name":"농업회사법인(주)거산미트","address":"인천시 미추홀구 독배로 446번길 15(숭의동)","alias":""},{"name":"농우축산","address":"서울 용산구 효창원로 40길-3, 1층(용문동)","alias":""},{"name":"누리소(비품)","address":"경기도 안산시 상록구 조구나리1길49(이동,1층상가)","alias":""},{"name":"다연홈마트","address":"경기도 시흥시 하중로128(하중동)","alias":""},{"name":"다온마트(월피동)","address":"경기도 안산시 상록구 시낭로25(월피동)","alias":""},{"name":"다온축산(주안)","address":"인천광역시 미추홀구 미추홀대로 510, 117호(주안동,한덕주상복합아파트)","alias":""},{"name":"대박마포숯불갈비","address":"경기도 광명시 광명로 848번길 5(광명동,1층)","alias":""},{"name":"대박축산(금천)하늘소","address":"서울 금천구 시흥대로62길 53(시흥동)","alias":""},{"name":"대반전","address":"서울특별시 양천구 오목로 148, 1층(신정동)","alias":""},{"name":"대부지마트(주)","address":"경기도 안산시 단원구 대부황금로 1295(대부북동)","alias":""},{"name":"대진오토포밍","address":"경기도 시흥시 마유로42번길 111,시화공단 3바 403-1호(정왕동)","alias":""},{"name":"더갈비(거모)","address":"경기도 시흥시 도일로 111-1, 1층(거모동)","alias":""},{"name":"더보플러스(거래명세서)","address":"서울 마포구 마포대교 195 T202동 101호","alias":""},{"name":"덕이네쌈밥","address":"경기도 시흥시 군자로477번길5,1층 일부호(거모동)","alias":""},{"name":"도담(은행)","address":"경기도 시흥시 대은로 16-14,1층(은행동)","alias":""},{"name":"동탄식자재마트","address":"경기도 오산시 외삼미로 162-54(외삼미동)","alias":""},{"name":"두근반세근반","address":"경기도 시흥시 정왕동1624-7번지 106호","alias":""},{"name":"두루치기김치찌개전문점","address":"경기도 시흥시 정왕대로 64, 118호(정왕동)","alias":""},{"name":"린이네축산(본점-영통)","address":"경기도 수원시 영통구 봉영로1770번길 21,상가동 지층 1호(영통동,신명.한","alias":""},{"name":"린이네축산동탄점(구미래)","address":"경기도 화성시 동탄중심상가1길 28,1층 미래마켓내정육코너(반송동)","alias":""},{"name":"막뚱이정육점","address":"인천시 부평구 마장로220번길 13, 106동(상가동)113호(산곡동,한신휴아파트","alias":""},{"name":"맛닭꼬치","address":"경기도 시흥시 호현로22번길 18,1층(신천동)","alias":""},{"name":"맛있는한우(부천상동)","address":"경기도 부천시 원미구 도약로13,1층102호","alias":""},{"name":"매일정육점(신규)","address":"경기도 의정부시 추동로9,1층 103호 (신곡동,휴먼시티)","alias":""},{"name":"바다포차(신규)","address":"경기도 시흥시 함송로 38, 상가동 107호(정왕동,모아아파트)","alias":""},{"name":"바른정육점(사동)","address":"경기도 안산시 상록구 해양5로11, 1층 142호 일부(사동)","alias":""},{"name":"바를정육류연구소","address":"경기도 하남시 미사강변한강로 409번 18, 3층","alias":""},{"name":"백년손두부(백암)","address":"경기도 용인시 처인구 백암면 삼백로 599-1,1층 101호","alias":""},{"name":"백봉(선부동)","address":"경기도 안산시 단원구 선부광장1로 82,115호(선부동, 서림프라자)","alias":""},{"name":"복덩이정육점1호점","address":"서울 은평구 연서로 252,1층(불광동)","alias":""},{"name":"복덩이정육점2호점","address":"서울 은평구 은평로 95 1층 102호","alias":""},{"name":"봉군미트","address":"경기도 화성시 남양읍 시청로160번길 52,1층105호","alias":""},{"name":"삼겹연구소","address":"경기도 안산시 상록구 본오로79,1층 (본오동)","alias":""},{"name":"삼대축산정육점양평점","address":"서울 영등포구 영등포로33,1층 104호(양평동2가,목동비즈타워)","alias":""},{"name":"삼부자돌판골","address":"경기도 안산시 단원구 선부광장1로 30,203,204호(선부동,단원프라자)","alias":""},{"name":"삼사오","address":"경기 안산시 상록구 이동 공원로 53(이동,1층)","alias":""},{"name":"상미왕할인마트(식자재)","address":"경기도 군포시 금산로 9,지층 101-1호,101-2호(금정동)","alias":""},{"name":"샛터돌왕구이","address":"경기 안산시 단원구 신길로 20 (신길동,101호)","alias":""},{"name":"서창별빛정육점","address":"인천시 남동구 서창남로 45,1층 105호(서창동,로데오프라자)","alias":""},{"name":"성대지마트(주)","address":"서울 동작구 상도로 102(상도동)","alias":""},{"name":"섹시포크거성(주)","address":"경기도 화성서 남양읍 남양서로69","alias":""},{"name":"셀프정육점(포동)","address":"경기도 시흥시 신현로38번길26,1층 103호(포동)","alias":""},{"name":"셰프앤백정(배곧)","address":"경기도 시흥시 서울대학로278번길 19-13,108동 비-19호","alias":""},{"name":"소매(명장한우)","address":"경기도 안산시 단원구 안산천남로211 보네르빌리지 110동 1702호","alias":""},{"name":"소매(정영호변호사)","address":"서울시 서초구 신반포로 20 반포래미안트리니원 104동 2505호","alias":""},{"name":"소문난정육점","address":"서울특별시 금천구 시흥대로 143, 1층108호(시흥동, 신라상가)","alias":""},{"name":"소하축산(광명)","address":"경기도 광명시 소하로82,108호(소하동,한빛프라자)","alias":""},{"name":"송명숯불갈비","address":"경기도 안산시 상록구 안산천동로 252,1층(월피동)","alias":""},{"name":"슈퍼킹(사동)","address":"경기도 안산시 상록구 감골1로 33,728동 지하층 1호(사동,상록수타운월드아","alias":""},{"name":"신박축산","address":"인천시 부평구 십정동 486-15 1층일부(3호)","alias":""},{"name":"신풍푸줏간(신길점)","address":"서울시 영등포구 신풍로 77.상가동 b105호(신길동, 래미안에스티움)","alias":""},{"name":"쌈앤쌈(사동)","address":"경기도 안산시 상록구 성안2길5,2층(사동)","alias":""},{"name":"아이비유통","address":"경기도 성남시 중원구 황송로 77, 비01~04호(금광동","alias":""},{"name":"안심한우(광명)","address":"경기도 광명시 오리로 964번길7(광명동)","alias":""},{"name":"에스농축수산마트(율전)","address":"경기도 수원시 장안구 덕영대로425번길 58-2(율전동)","alias":""},{"name":"에스에이치미트(음성)","address":"충북 음성군 음성읍 시장로50번길5","alias":""},{"name":"에이스미트(주안)","address":"인천시 미추홀구 주안로56번길3,에이스미트내정육코너(주안동)","alias":""},{"name":"에이스축산(상일동)신규","address":"서울특별시 강동구 상일로74,상가2동 1층104호(상일동,고덕리엔파크3단지","alias":""},{"name":"여기식당","address":"경기도 시흥시 하중로 130-1, 1층(하중동)","alias":""},{"name":"연성담소골감자탕","address":"경기도 시흥시 하상로4번길 17.1층(하상동)","alias":""},{"name":"영남식당(정왕)","address":"경기도 시흥시 서촌상가2길30-1,104호,105호(정왕동)","alias":""},{"name":"예서감자탕","address":"경기도 안산시 상록구 매화로2길 21, 1층 일부호(이동)","alias":""},{"name":"오늘은고기다(일동)","address":"경기도 안산시 상록구 도매시장로93,1층 102호(일동)","alias":""},{"name":"오늘은냉삼(구-이구집)","address":"경기도 시흥시 진말로 17,1층(장곡동)","alias":""},{"name":"오복정육(옥련점)베스트식자재정","address":"인천광역시 연수구 한나루로79번길 53,1층(옥련동)","alias":""},{"name":"오빠막창","address":"경기도 시흥시 한우물로7 1층 102호(거모동)","alias":""},{"name":"오소돈","address":"경기도 안산시 상록구 댕이길 80,1층(사동)","alias":""},{"name":"옥이네양평해장국(신길동)","address":"경기도 안산시 단원구 신길로 9-3, 109호(신길동)","alias":""},{"name":"옥이네주물럭","address":"경기도 시흥시 함송로13번길 6-7, 101,102호(정왕동)","alias":""},{"name":"올인베이커리하중점(다영이네)","address":"경기도 시흥시 하중로 205, 102호(하중동)","alias":""},{"name":"우도락(스타마트)","address":"경기도 안산시 상록구 화랑로513,지층38호(성포동,스타프라자)","alias":""},{"name":"우리축산정육점(수암동)","address":"경기도 안산시 상록구 원당골길11,104호(수암동,이림지오팰리스)","alias":""},{"name":"우신유통(주)-농민와동","address":"경기도 안산시 단원구 와동공원로 162,1층 일부(와동)","alias":""},{"name":"울트라분식","address":"경기도 시흥시 상직길3-1,101(하상동)","alias":""},{"name":"원대성정육점","address":"경기도 부천시 오정구 성오로124번길47(원종동,49호)","alias":""},{"name":"원산면옥","address":"경기도 안산시 상록구 본오로70, 1층(본오동)","alias":""},{"name":"월드마트(성남)","address":"경기도 성남시 수정구 수정남로 10,113호(수진동,제일프라자)","alias":""},{"name":"유포리바베큐장","address":"경기도 화성시 비봉면 유포길10-29","alias":""},{"name":"으뜸장어(본오)","address":"경기도 안산시 상록구 오목로60, 1층(본오동)","alias":""},{"name":"이나미트(주)","address":"경기도 양주시 옥정동로7다길 74,6층 6997호(옥정동)","alias":""},{"name":"이모네민물매운탕","address":"경기도 시흥시 신천3길27-7,101호(신천동)","alias":""},{"name":"인화숯불갈비","address":"경기도 시흥시 하상로8번길 1,1층일부호(하상동)","alias":""},{"name":"일등축산(안산일동)","address":"경기도 안산시 상록구 구룡로 22, 1층 101호(일동)","alias":""},{"name":"일신할인마트(정육점)","address":"인천광역시 부평구 경인로 1104번길 13-14 1층(일신동,대한빌딩)","alias":""},{"name":"임가네갈비","address":"경기도 시흥시 정왕대로28번길3,상가동105호(정왕동)","alias":""},{"name":"장터국밥","address":"경기도 시흥시 정왕동1738-1번지 103호","alias":""},{"name":"장터식자재마트","address":"경기도 구리시 동구릉로 64, 101동 지층비115호(인창동,인창e-편한세상)","alias":""},{"name":"재수보는통돼지","address":"경기도 오산시 경기대로 636번길 126-2, 지하1층(외삼미동)","alias":""},{"name":"전라도연탄구이","address":"경기도 시흥시 서촌상가2길 29,1층 110호(정왕동 명동프라자)","alias":""},{"name":"전설갈비은행점","address":"경기도 시흥시 대은로 16-4,1층(은행동)","alias":""},{"name":"정성가득집밥","address":"경기도 안산시 상록구 네고지길 2,1층 일부호(사동)","alias":""},{"name":"정성마트정육코너(아차산)","address":"서울특별시 광진구 천호대로661,지하1층(구의동,정성빌딩)","alias":""},{"name":"정은한우(두산홈마트)","address":"경기 시흥시 소래산길 67, 1층 두산홈마트 내(대야동)","alias":""},{"name":"제3글라스(주)","address":"경기도 화성시 남양읍 신남리 1018-12","alias":""},{"name":"제3스틸","address":"경기도 안산시 상록구 사동 1489-7","alias":""},{"name":"주곰감자탕(폐업)","address":"경기도 안산시 단원구 광덕3로 145-7 ,106호,107호(고잔동,한솔프라자)","alias":""},{"name":"주식회사 농민(본오)","address":"경기도 안산시 상록구 선암로 44,1층2층(본오동)","alias":""},{"name":"주식회사 더상상","address":"경기도 용인시 수지구 현암로148,202호 분할내부 205(죽전동,죽전스카이프","alias":""},{"name":"주식회사 두둑","address":"경기도 시흥시 동서로 1198번길 33(목감동)","alias":""},{"name":"주식회사 람다푸드","address":"인천광역시 남동구 논고개로 123번길 35, 901호 일부3호(논현동)","alias":""},{"name":"주식회사 삼정푸드","address":"전북 정읍시 정신로 22-12,2층 (하북동)","alias":""},{"name":"주식회사 씨와이푸드","address":"경기 시흥시 광석동 101-1","alias":""},{"name":"주식회사 정육점","address":"경기도 용인시 기흥구 평촌1로2번길 10,103호(동백동)","alias":""},{"name":"주식회사 축산법인팜","address":"경기도 안산시 단원구 해안로91(목내동)","alias":""},{"name":"주식회사에스할인마트(지점)평택","address":"경기도 평택시 모산영신2길34,1동1층101호 스타주차타워(동삭동)","alias":""},{"name":"주식회사토레인","address":"경기도 남양주시 진건읍 고재로 177,1층","alias":""},{"name":"진안축산","address":"경기도 화성시 병점중앙로195, 진안식자재마트 내정육코너(진안동)","alias":""},{"name":"찌그러진주전자","address":"경기도 시흥시 봉우재로57(정왕동)","alias":""},{"name":"찐하오마라탕 그랑시티시그니처","address":"경기도 안산시 상록구 해양3로 15, 1층 118호(사동)","alias":""},{"name":"차이나감자탕","address":"경기도 수원시 장안구 수성로370번길32,1층 일부호(영화동)","alias":""},{"name":"착한정육점(산현동)","address":"경기도 시흥시 목감둘레로 80,120동 110호(산현동,호반베르디움더숲","alias":""},{"name":"참새방앗간","address":"서울 금천구 범안로 1138, 108호(가산동,고려테크온)","alias":""},{"name":"참예소(포동)","address":"경기도 시흥시 신현로 38번길 23-1. 13동 101호(포동,태산아파트상가)","alias":""},{"name":"창신동매운족발앤얼음막걸리","address":"경기도시흥시 승지로60번길 101,102호(능곡동,다우빌딩)","alias":""},{"name":"천하제일정육점(배곧동)","address":"경기도 시흥시 서울대학로278번길 19-13,108동 제비-103호(배곧동)","alias":""},{"name":"청정맛집(하중동)","address":"경기도 시흥시 연성로29번길12(하중동)","alias":""},{"name":"총각네정육점(소사본동)","address":"경기도 부천시 은성로76번길56, 1층 일부호(소사본동)","alias":""},{"name":"케이마트 정육코너(청주)","address":"충북 청주시 서원구 매봉로 134(모충동)","alias":""},{"name":"큰언니포차(또바기)","address":"경기도 안산시 단원구 와동공원로161 1층 (122612*)","alias":""},{"name":"키큰정육점","address":"경기도 안산시 단원구 북촌길 18, 1층 101호(선부동)","alias":""},{"name":"태랑미트","address":"충남 천안시 동남구 목천읍 종합휴양지로60","alias":""},{"name":"태양축산(능곡동)","address":"경기도 시흥시 승지로60번길 25, 107호(능곡동,송죽센타프라자)","alias":""},{"name":"패밀리포차","address":"경기도 시흥시 하상로13,1층 일부호(하상동)","alias":""},{"name":"푸른목장(삼평동)","address":"경기도 성남시 분당구 판교로 376,1층 105호(삼평동,마크시티 퍼플)","alias":""},{"name":"푸른목장(판교)","address":"경기도 성남시 분당구 운중로 242, 1층 110호(판교동,리버스토리)","alias":""},{"name":"푸줏단(동춘)","address":"인천광역시 연수구 봉재산로48, 1층101호(동춘동)","alias":""},{"name":"풍년돼지양념구이(상미네곱창집)","address":"경기도 안산시 단원구 화랑로 160, 상가동 125,126호(초지동,초지역 메이","alias":""},{"name":"프리미엄정육점(구리)","address":"경기도 구리시 체육관로 73 지하층(제이식자재마트)","alias":""},{"name":"하늘소(광명점)","address":"경기도 광명시 오리로964번길 23-1(광명동)","alias":""},{"name":"하늘소(역곡점)","address":"경기도 부천시 역곡로26번길 25,1층 101호(역곡동,대화빌딩)","alias":""},{"name":"하늘소(화곡점)","address":"서울 강서구 강서로18길 8-10,103호.104호(화곡동)","alias":""},{"name":"한결축산","address":"경기도 시흥시 은계남로 12,상가동 1층147호(은행동,시흥은계 호반써밋플레","alias":""},{"name":"한돈미트(N마트)기흥","address":"경기도 용인시 기흥구 공세로 236(공세동)","alias":""},{"name":"한마음정육(일동)","address":"경기도 안산시 상록구 일동로 20(일동)","alias":""},{"name":"한상궁한식주점","address":"경기도 안산시 상록구 초당로20, 1층(사동)","alias":""},{"name":"한수조경건설","address":"서울 중구 만리재로37길 42, 2층 203호(중림동,미디어센터)","alias":""},{"name":"한양축산도매센타(봉천동)","address":"서울 관악구 봉천동 66-163","alias":""},{"name":"한우세상(부천상동)","address":"경기도 부천시 원미구 송내대로 239, 1F10호(상동,소풍(부천터미널","alias":""},{"name":"행복한 숯불돌쇠구이","address":"경기도 군포시 공단로 356-54(산본동,금정삼성쉐르빌상가143호,144호)","alias":""},{"name":"현대축산(금천)","address":"서울특별시 금천구 금하로23길4,1층1호(시흥동,신영빌딩)","alias":""},{"name":"형제정육점(평촌)","address":"경기도 안양시 동안구 흥안대로456번길42,지상1층일부호(평촌동,동광빌딩)","alias":""},{"name":"홍성축산","address":"경기도 시흥시 호현로9번길6, 108호(신천동,아도니스의꿈)","alias":""},{"name":"횡성생고기","address":"경기도 안산시 단원구 신길로 13-16, 1층(원곡동)","alias":""},{"name":"횡성생고기(인천점)","address":"인천 동구 송화로20번길 11 (화평동,1층)","alias":""},{"name":"효자축산(일산)","address":"경기도 고양시 일산서구 중앙로 1406,110호(주엽동,한솔코아)","alias":""},{"name":"SK축산물도소매","address":"인천시 남동구 논고개로118,104(논현동,양진타워)","alias":""}];
-const ALIASES = {"사동쌈엔쌈":"쌈앤쌈(사동)","태광":"(주)태광푸드","푸른목장 판교점":"푸른목장(판교)","푸른목장판교":"푸른목장(판교)","푸른목장 삼평점":"푸른목장(삼평동)","참새방앗간":"참새방앗간","농민마트와동":"우신유통(주)-농민와동","와동":"우신유통(주)-농민와동","삼부자":"삼부자돌판골","삼부자돈판골":"삼부자돌판골","봉천":"한양축산도매센타(봉천동)","한양봉천":"한양축산도매센타(봉천동)","유포리":"유포리바베큐장","유포리바베큐장":"유포리바베큐장","음성":"에스에이치미트(음성)","에스에이치마트 음성":"에스에이치미트(음성)","린본점":"린이네축산(본점-영통)","린이네축산 본점":"린이네축산(본점-영통)","린이네축산 동탄":"린이네축산동탄점(구미래)","린동탄":"린이네축산동탄점(구미래)","참예소":"참예소(포동)","삼사오":"삼사오","광명꿀":"꿀돼지꿀한우정육점(광명)","횡성본점":"횡성생고기","횡성생고기 인천점":"횡성생고기(인천점)","덕이네":"덕이네쌈밥","덕이네쌈밥":"덕이네쌈밥","청정맛집":"청정맛집(하중동)","천하제일정육점":"천하제일정육점(배곧동)","동탄식자재마트":"동탄식자재마트","원대성정육점":"원대성정육점","오늘은냉삼":"오늘은냉삼(구-이구집)","효자축산":"효자축산(일산)","에스할인마트 (평택)":"주식회사에스할인마트(지점)평택","에스할인마트 평택":"주식회사에스할인마트(지점)평택","큐엔씨육가공":"(주)큐엔씨육가공","정성마트":"정성마트정육코너(아차산)","성대g마트":"성대지마트(주)","풍년돼지양념구이":"풍년돼지양념구이(상미네곱창집)","김치왕뚜껑삼겹살1호점":"김치왕뚜껑삼겹살","김치왕뚜껑삼겹살 1호점":"김치왕뚜껑삼겹살","김치왕뚜껑삼겹살2호점":"김치왕뚜껑삼겹살(2호점)","김치왕뚜껑삼겹살 2호점":"김치왕뚜껑삼겹살(2호점)","김치왕뚜껑삼겹살3호점":"김치왕뚜껑삼겹살(3호점부천)","도담(은행동) 식당":"도담(은행)","도담":"도담(은행)","오소돈":"오소돈","국민생고기 장곡":"국민생고기(장곡동)","전라도연탄구이":"전라도연탄구이","고기바보부곡":"고기바보푸주간(부곡)","고기바보장안":"고기바보푸줏간(장안점)","고기바보송정":"고기바보푸주간(송정점)","갈비면옥":"갈비면옥(갈비나라2호점)","에이스미트 주안":"에이스미트(주안)","에이스미트주안":"에이스미트(주안)","에스농축산마트 율전":"에스농축수산마트(율전)","율전":"에스농축수산마트(율전)","샛터":"샛터돌왕구이","농민마트고잔":"농민마트 고잔점","고잔":"농민마트 고잔점","일신할인마트":"일신할인마트(정육점)","한마음마트":"(주)한마음마트(일동)=>정육으로","대반전":"대반전","하늘소역곡":"하늘소(역곡점)","하늘소광명":"하늘소(광명점)","하늘소 화곡":"하늘소(화곡점)","하늘소화곡":"하늘소(화곡점)","신풍푸줏간":"신풍푸줏간(신길점)","신풍푸줏간 신길":"신풍푸줏간(신길점)","다온마트":"(주)다온마트(10/1부터)","동춘동푸줏단":"푸줏단(동춘)","별빛정육점":"서창별빛정육점","소문난정육점":"소문난정육점","거시기함흥냉면":"거시기 함흥냉면","거시기":"거시기 함흥냉면","원산면옥":"원산면옥","스타마트":"우도락(스타마트)","까만돼지":"까만돼지","금천꿀돼지꿀한우":"꿀돼지꿀한우(금천)","가리봉꿀돼지꿀한우":"꿀돼지꿀한우(가리봉)","신박축산":"신박축산","오복정육":"오복정육(옥련점)베스트식자재정","오빠막창":"오빠막창","한우세상":"한우세상(부천상동)","본오농민마트":"주식회사 농민(본오)","전설은행":"전설갈비은행점","원신산업":"(주)원신산업-보미마트","착한정육점 산현":"착한정육점(산현동)","대부g마트":"대부지마트(주)","좋은축산유통":"(주)좋은축산유통","바른정육점":"바른정육점(사동)","삼겹연구소":"삼겹연구소","백봉":"백봉(선부동)","한돈미트":"한돈미트(N마트)기흥","구들장":"구들짱황소곱창삼겹살(인계동)","프리미엄정육점":"프리미엄정육점(구리)","신길양평해장국":"옥이네양평해장국(신길동)","찐하오마라탕":"찐하오마라탕 그랑시티시그니처","대박마포":"대박마포숯불갈비","차이나감자탕":"차이나감자탕","오늘은고기다":"오늘은고기다(일동)","한결축산":"한결축산","상미마트":"상미왕할인마트(식자재)","소하축산광명":"소하축산(광명)","시흥대박축산":"대박축산(금천)하늘소","충북g마트":"(주)굿모닝유통지마트","진안축산":"진안축산","sk축산":"SK축산물도소매","막뚱이정육점":"막뚱이정육점","예서감자탕":"예서감자탕","더갈비":"더갈비(거모)","우리축산정육점":"우리축산정육점(수암동)","맛있는한우(상동)":"맛있는한우(부천상동)","골목대장":"골목대장삼겹살","김치찌개집":"김치찌개전문점(사동)","정성가득집밥":"정성가득집밥","울트라":"울트라분식","곱창연가":"곱창연가"};
+const SAVE_KEY = 'meatpoan_dash_v1';
+const POLITE = /부탁|주세요|보내주|이상입니다|감사|수고|입니다|합니다|드립니다|입고|다음주|발주체크/;
+const DEFAULT_VEHICLES = ['승호', '진', '한', '명', '진우'];
 
 let chatText = '';
 let availableDates = [];
-let currentDate = '';
-let currentOrders = []; // { client, address, items, raw, time, ship, shipExplicit }
-let currentWeightLogs = []; // 계근/로트 기록
-let currentTab = 'regions';
+let orders = []; // { client, address, time, items:[{name,qty,unit,note}], raw }
+let stockRows = [];
+let currentTab = 'order';
 
-
-// ===== 관리자 설정 (localStorage) =====
-const CFG_KEY = 'meatpoan_admin_cfg_v1';
-const DEFAULT_BRANDS = ['포크','대산','정담','황금','토레인','두메코','테니쉬','올리멜','알레한','고원돈','바텔','셀렉타','농협','신짜','정담한돈'];
-const DEFAULT_LOOSE = ['팩','Pack','키로','kg','Kg','봉지','봉'];
-const DEFAULT_MEATS = [
-  ['특삼겹','특삼겹'],['특미삼','특미삼'],['특목','특목살'],['암삼겹','암삼겹'],
-  ['암미삼','암미삼'],['암오겹','암오겹'],['미박삼겹','미박삼겹'],['빵삼','빵삼겹'],
-  ['수삼','수삼'],['모돈','모돈삼겹'],['우삼','우삼겹'],['A삼','A삼겹'],['A지방','A지방'],
-  ['삼겹','삼겹'],['미삼','미삼'],['오겹','오겹'],['목살','목살'],['B목살','B목살'],
-  ['미전지','미전지'],['목전지','목전지'],['전지','전지'],['등뼈','등뼈'],['등갈비','등갈비'],
-  ['갈비','갈비'],['등심','등심'],['안심','안심'],['항정','항정'],['가브리','가브리'],
-  ['갈매기','갈매기'],['미후지','미후지'],['후지','후지'],['사태','사태'],['앞미사태','앞미사태'],
-  ['늑간','늑간'],['볼라','볼라전각'],['홍두깨','홍두깨'],['차돌','차돌'],['LA갈비','LA갈비'],
-  ['프렌치','프렌치렉'],['장족','장족'],['돈피','돈피'],['잡육','잡육'],['설도','설도'],
-  ['살치','살치'],['민찌','민찌'],['등잡','등잡'],['B지방','B지방']
-];
-
-let customClients = []; // {name, address, alias}
-let customAliases = {}; // short -> real name
-let customBrands = [];
-let customMeats = []; // [keyword, normalized]
-let customLoose = [];
-let adminTab = 'alias';
-
-function loadAdminConfig() {
-  try {
-    const raw = localStorage.getItem(CFG_KEY);
-    if (!raw) {
-      customBrands = DEFAULT_BRANDS.slice();
-      customLoose = DEFAULT_LOOSE.slice();
-      customMeats = DEFAULT_MEATS.map(x => x.slice());
-      customAliases = {};
-      customClients = [];
-      return;
-    }
-    const cfg = JSON.parse(raw);
-    customBrands = Array.isArray(cfg.brands) && cfg.brands.length ? cfg.brands : DEFAULT_BRANDS.slice();
-    customLoose = Array.isArray(cfg.loose) && cfg.loose.length ? cfg.loose : DEFAULT_LOOSE.slice();
-    customMeats = Array.isArray(cfg.meats) && cfg.meats.length ? cfg.meats : DEFAULT_MEATS.map(x => x.slice());
-    customAliases = cfg.aliases && typeof cfg.aliases === 'object' ? cfg.aliases : {};
-    customClients = Array.isArray(cfg.clients) ? cfg.clients : [];
-  } catch (e) {
-    customBrands = DEFAULT_BRANDS.slice();
-    customLoose = DEFAULT_LOOSE.slice();
-    customMeats = DEFAULT_MEATS.map(x => x.slice());
-    customAliases = {};
-    customClients = [];
-  }
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-function saveAdminConfig() {
-  const cfg = {
-    brands: customBrands,
-    loose: customLoose,
-    meats: customMeats,
-    aliases: customAliases,
-    clients: customClients
-  };
-  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
-}
-loadAdminConfig();
-
-
-function getAllClients() {
-  return CLIENTS.concat(customClients);
-}
-function getAllAliases() {
-  return Object.assign({}, ALIASES, customAliases);
-}
-function getBrandPattern() {
-  const list = (customBrands && customBrands.length) ? customBrands : DEFAULT_BRANDS;
-  return list.map(b => b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-}
-function getLooseUnits() {
-  return (customLoose && customLoose.length) ? customLoose : DEFAULT_LOOSE;
-}
-
-
-// ---------- 화면 글자 크기 (관리자) ----------
-function getFontScale() {
-  try {
-    const v = parseInt(localStorage.getItem('meatpoan_font_scale') || '100', 10);
-    if (v >= 90 && v <= 150) return v;
-  } catch (e) {}
-  return 100;
-}
-function setFontScale(pct) {
-  pct = Math.max(90, Math.min(150, parseInt(pct, 10) || 100));
-  try { localStorage.setItem('meatpoan_font_scale', String(pct)); } catch (e) {}
-  applyFontScale(pct);
-  return pct;
-}
-function applyFontScale(pct) {
-  pct = pct || getFontScale();
-  // 기준 17px * scale
-  const base = 17 * (pct / 100);
-  document.documentElement.style.fontSize = base + 'px';
-  const label = document.getElementById('fontScaleLabel');
-  if (label) label.textContent = pct + '%';
-  const range = document.getElementById('fontScaleRange');
-  if (range && String(range.value) !== String(pct)) range.value = pct;
-}
-function renderAdminDisplay(body) {
-  const pct = getFontScale();
-  body.innerHTML = `
-    <div class="admin-hint">스마트폰에서 글자가 작으면 크게 조절하세요. 이 기기에만 저장됩니다.</div>
-    <div class="card" style="margin:.5rem 0">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
-        <b style="font-size:1.05rem">글자 크기</b>
-        <span id="fontScaleLabel" style="font-size:1.15rem;font-weight:800;color:var(--primary)">${pct}%</span>
-      </div>
-      <input id="fontScaleRange" type="range" min="90" max="150" step="5" value="${pct}"
-        style="width:100%;height:36px"
-        oninput="setFontScale(this.value)">
-      <div style="display:flex;justify-content:space-between;font-size:.9rem;color:#666;margin-top:.25rem">
-        <span>작게 90%</span><span>기본 100%</span><span>크게 150%</span>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.35rem;margin-top:.65rem">
-        <button type="button" class="btn-dark secondary" style="min-height:44px" onclick="setFontScale(100);renderAdmin()">100%</button>
-        <button type="button" class="btn-dark secondary" style="min-height:44px" onclick="setFontScale(110);renderAdmin()">110%</button>
-        <button type="button" class="btn-dark secondary" style="min-height:44px" onclick="setFontScale(125);renderAdmin()">125%</button>
-        <button type="button" class="btn-dark secondary" style="min-height:44px" onclick="setFontScale(140);renderAdmin()">140%</button>
-      </div>
-    </div>
-    <div class="card">
-      <div style="font-size:1rem;line-height:1.5">미리보기</div>
-      <div style="font-size:1.1rem;font-weight:700;color:var(--primary);margin:.35rem 0">거래처명 예시</div>
-      <div style="font-size:.95rem">삼겹 3 Box · 미전지 5 · 항정 2 Pack</div>
-    </div>`;
-}
-// 시작 시 적용
-try { applyFontScale(getFontScale()); } catch (e) {}
-
-
-function openAdmin() {
-  document.getElementById('adminPanel').classList.add('open');
-  renderAdmin();
-}
-function closeAdmin() {
-  document.getElementById('adminPanel').classList.remove('open');
-  // 설정 반영 위해 현재 날짜 다시 파싱
-  if (currentDate && chatText) {
-    const _parsed = parseOrdersForDeliveryDate(chatText, currentDate);
-        currentOrders = _parsed.orders || _parsed || [];
-        currentWeightLogs = _parsed.weightLogs || [];
-    render();
-  }
-}
-function switchAdminTab(t) {
-  adminTab = t;
-  document.querySelectorAll('.admin-tab').forEach(el => el.classList.toggle('on', el.dataset.atab === t));
-  renderAdmin();
-}
-function renderAdmin() {
-  const body = document.getElementById('adminBody');
-  if (adminTab === 'alias') renderAdminAlias(body);
-  else if (adminTab === 'client') renderAdminClient(body);
-  else if (adminTab === 'brand') renderAdminList(body, '메이커(브랜드)', customBrands, 'brand');
-  else if (adminTab === 'meat') renderAdminMeat(body);
-  else if (adminTab === 'loose') renderAdminList(body, '낱개 단위 키워드', customLoose, 'loose');
-  else if (adminTab === 'display') renderAdminDisplay(body);
-}
-function renderAdminList(body, title, arr, kind) {
-  let html = `<div class="admin-hint">${title} — 추가/삭제 후 자동 저장됩니다.</div>`;
-  html += `<div class="admin-form">
-    <input id="adminNewItem" placeholder="추가할 항목">
-    <button type="button" onclick="adminAddItem('${kind}')">추가</button>
-  </div><div class="admin-list">`;
-  arr.forEach((v, i) => {
-    html += `<div class="admin-row"><span>${esc(v)}</span><button type="button" onclick="adminDelItem('${kind}',${i})">삭제</button></div>`;
-  });
-  html += '</div>';
-  body.innerHTML = html;
-}
-function adminAddItem(kind) {
-  const input = document.getElementById('adminNewItem');
-  const v = (input.value || '').trim();
-  if (!v) return;
-  if (kind === 'brand') {
-    if (!customBrands.includes(v)) customBrands.push(v);
-  } else if (kind === 'loose') {
-    if (!customLoose.includes(v)) customLoose.push(v);
-  }
-  saveAdminConfig();
-  renderAdmin();
-}
-function adminDelItem(kind, i) {
-  if (kind === 'brand') customBrands.splice(i, 1);
-  else if (kind === 'loose') customLoose.splice(i, 1);
-  saveAdminConfig();
-  renderAdmin();
-}
-function renderAdminAlias(body) {
-  const merged = getAllAliases();
-  const keys = Object.keys(merged).sort((a,b) => a.localeCompare(b,'ko'));
-  let html = `<div class="admin-hint">카톡에 쓰는 짧은 이름 → 정식 거래처명. 추가분은 이 기기에 저장됩니다.</div>
-  <div class="admin-form">
-    <input id="aliasFrom" placeholder="별명 (예: 태광)">
-    <input id="aliasTo" placeholder="정식명 (예: (주)태광푸드)">
-    <button type="button" onclick="adminAddAlias()">별명 추가/수정</button>
-  </div><div class="admin-list">`;
-  keys.forEach(k => {
-    const isCustom = Object.prototype.hasOwnProperty.call(customAliases, k);
-    html += `<div class="admin-row"><span><b>${esc(k)}</b> → ${esc(merged[k]||'')}${isCustom?' <small>(추가)</small>':''}</span>`;
-    if (isCustom) html += `<button type="button" onclick="adminDelAlias('${k.replace(/'/g,"\\'")}')">삭제</button>`;
-    html += `</div>`;
-  });
-  html += '</div>';
-  body.innerHTML = html;
-}
-function adminAddAlias() {
-  const from = (document.getElementById('aliasFrom').value || '').trim();
-  const to = (document.getElementById('aliasTo').value || '').trim();
-  if (!from || !to) return alert('별명과 정식명을 입력하세요');
-  customAliases[from] = to;
-  saveAdminConfig();
-  renderAdmin();
-}
-function adminDelAlias(k) {
-  delete customAliases[k];
-  saveAdminConfig();
-  renderAdmin();
-}
-function renderAdminClient(body) {
-  let html = `<div class="admin-hint">신규 거래처를 추가합니다. (이름·주소)</div>
-  <div class="admin-form">
-    <input id="cliName" placeholder="거래처명">
-    <input id="cliAddr" placeholder="주소 (선택)">
-    <input id="cliAlias" placeholder="별명 (선택, 카톡에 쓰는 이름)">
-    <button type="button" onclick="adminAddClient()">거래처 추가</button>
-  </div><div class="admin-list">`;
-  customClients.forEach((c, i) => {
-    html += `<div class="admin-row"><span><b>${esc(c.name)}</b><br><small>${esc(c.address||'')}</small></span>
-      <button type="button" onclick="adminDelClient(${i})">삭제</button></div>`;
-  });
-  if (!customClients.length) html += `<div class="admin-hint">추가된 거래처 없음 (기본 ${CLIENTS.length}곳은 내장)</div>`;
-  html += '</div>';
-  body.innerHTML = html;
-}
-function adminAddClient() {
-  const name = (document.getElementById('cliName').value || '').trim();
-  const address = (document.getElementById('cliAddr').value || '').trim();
-  const alias = (document.getElementById('cliAlias').value || '').trim();
-  if (!name) return alert('거래처명을 입력하세요');
-  customClients.push({ name, address, alias: alias || '' });
-  if (alias) customAliases[alias] = name;
-  saveAdminConfig();
-  renderAdmin();
-}
-function adminDelClient(i) {
-  const c = customClients[i];
-  if (c && c.alias && customAliases[c.alias] === c.name) delete customAliases[c.alias];
-  customClients.splice(i, 1);
-  saveAdminConfig();
-  renderAdmin();
-}
-function renderAdminMeat(body) {
-  let html = `<div class="admin-hint">카톡 키워드 → 표준 고기명 (예: 빵삼 → 빵삼겹)</div>
-  <div class="admin-form">
-    <input id="meatKey" placeholder="키워드 (예: 빵삼)">
-    <input id="meatVal" placeholder="표준명 (예: 빵삼겹)">
-    <button type="button" onclick="adminAddMeat()">고기명 추가</button>
-  </div><div class="admin-list">`;
-  customMeats.forEach((pair, i) => {
-    html += `<div class="admin-row"><span><b>${esc(pair[0])}</b> → ${esc(pair[1])}</span>
-      <button type="button" onclick="adminDelMeat(${i})">삭제</button></div>`;
-  });
-  html += '</div>';
-  body.innerHTML = html;
-}
-function adminAddMeat() {
-  const k = (document.getElementById('meatKey').value || '').trim();
-  const v = (document.getElementById('meatVal').value || '').trim();
-  if (!k || !v) return alert('키워드와 표준명을 입력하세요');
-  const idx = customMeats.findIndex(p => p[0] === k);
-  if (idx >= 0) customMeats[idx] = [k, v];
-  else customMeats.push([k, v]);
-  saveAdminConfig();
-  renderAdmin();
-}
-function adminDelMeat(i) {
-  customMeats.splice(i, 1);
-  saveAdminConfig();
-  renderAdmin();
-}
-function exportAdminConfig() {
-  const cfg = localStorage.getItem(CFG_KEY) || JSON.stringify({
-    brands: customBrands, loose: customLoose, meats: customMeats,
-    aliases: customAliases, clients: customClients
-  });
-  const blob = new Blob([cfg], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'meatpoan_admin_config.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-function importAdminConfig() {
-  document.getElementById('adminImportFile').click();
-}
-function onAdminImportFile(e) {
-  const f = e.target.files[0];
-  if (!f) return;
-  const r = new FileReader();
-  r.onload = ev => {
-    try {
-      const cfg = JSON.parse(ev.target.result);
-      localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
-      loadAdminConfig();
-
-      alert('설정을 가져왔습니다');
-      renderAdmin();
-    } catch (err) {
-      alert('JSON 형식이 올바르지 않습니다');
-    }
-  };
-  r.readAsText(f, 'UTF-8');
-  e.target.value = '';
-}
-function resetAdminConfig() {
-  if (!confirm('추가/수정한 관리자 설정을 모두 초기화할까요?')) return;
-  localStorage.removeItem(CFG_KEY);
-  loadAdminConfig();
-
-  renderAdmin();
-}
-
-
 function closeNotice() {
   const m = document.getElementById('noticeModal');
-  if (m) m.style.display = 'none';
+  m.classList.add('hidden');
+  m.classList.remove('flex');
 }
 function showNotice(msg) {
+  document.getElementById('noticeText').textContent = msg;
   const m = document.getElementById('noticeModal');
-  const t = document.getElementById('noticeText');
-  if (t) t.textContent = msg;
-  if (m) m.style.display = 'flex';
-}
-function bootApp() {
-  try { applyFontScale(getFontScale()); } catch (e) {}
-  const restored = typeof restoreSessionState === 'function' && restoreSessionState();
-  try { updateHeaderStatus(); } catch (e) {}
-  if (restored) {
-    try { closeHome(); } catch (e) {}
-    try { render(); } catch (e) {}
-    const n = (currentOrders || []).length;
-    const w = (currentWeightLogs || []).length;
-    const d = currentDate || '(날짜 없음)';
-    showNotice(
-      '저장된 마지막 결과입니다.\n\n' +
-      '• 작업일: ' + d + '\n' +
-      '• 발주: ' + n + '건\n' +
-      '• 계근: ' + w + '건\n\n' +
-      '다른 날짜는 홈(🏠)에서 파일을 다시 불러오세요.'
-    );
-  } else {
-    try { openHome(); } catch (e) {}
-    showNotice(
-      '미트포앤 발주\n\n' +
-      '현재 저장된 결과가 없습니다.\n' +
-      '홈에서 카톡 TXT를 불러오고 날짜를 선택하세요.'
-    );
-  }
-}
-// 로그인 없이 즉시 시작
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', bootApp);
-} else {
-  bootApp();
-}
-
-let shipFilter = 'all'; // all | today | next
-
-function loadChatFile(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const hint = document.getElementById('uploadHint');
-  hint.style.display = 'block';
-  hint.textContent = '파일 읽는 중...';
-  if (typeof showProgress === 'function') showProgress(5, '파일 읽는 중...');
-
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const buf = ev.target.result;
-    const best = pickBestDecode(buf);
-    let text = best.text;
-    let dates = extractDates(text);
-
-    chatText = text;
-    if (chatText.charCodeAt(0) === 0xFEFF) chatText = chatText.slice(1);
-    availableDates = dates;
-    if (typeof showProgress === 'function') showProgress(80, '날짜 목록 구성 중...');
-
-    const sel = document.getElementById('dateSelect');
-    sel.innerHTML = '<option value="">배송/작업일 선택</option>';
-    availableDates.forEach(d => {
-      const opt = document.createElement('option');
-      opt.value = d.key;
-      opt.textContent = d.label;
-      sel.appendChild(opt);
-    });
-    sel.disabled = availableDates.length === 0;
-
-    if (availableDates.length === 0) {
-      const sample = (chatText || '').slice(0, 200).replace(/\s+/g, ' ');
-      updateHeaderStatus();
-      hint.textContent =
-        '날짜를 찾지 못했습니다. (감지 인코딩: ' + best.enc + ')\n' +
-        '카카오톡 → 채팅방 → 메뉴 → 대화 내용 내보내기 → TXT 로 저장한 파일인지 확인해 주세요.\n' +
-        '파일 미리보기: ' + sample;
-    } else {
-      updateHeaderStatus();
-      hint.textContent =
-        `파일 로드 완료 · 날짜 ${availableDates.length}개 · ${best.enc}\n` +
-        `배송/작업일을 선택하세요. (월: 금12시~월12시 / 그 외: 전날12시~당일14시)`;
-    }
-    currentDate = '';
-    currentOrders = [];
-    currentWeightLogs = [];
-    if (typeof showProgress === 'function') {
-      showProgress(100, '파일 로드 완료');
-      setTimeout(hideProgress, 300);
-    }
-    render();
-  };
-  reader.onerror = () => {
-    hint.textContent = '파일을 읽지 못했습니다. 다시 시도해 주세요.';
-    if (typeof hideProgress === 'function') hideProgress();
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function decodeBuffer(buf, enc) {
-  try {
-    return new TextDecoder(enc, { fatal: false }).decode(buf);
-  } catch (e) {
-    return '';
-  }
-}
-
-// 한글·날짜 패턴 점수로 최적 인코딩 선택 (폰 카톡 TXT 깨짐 대응)
-function scoreDecodedText(t) {
-  if (!t) return -1;
-  let score = 0;
-  // 정상 한글
-  const hangul = t.match(/[가-힣]/g);
-  score += hangul ? hangul.length * 2 : 0;
-  // 날짜 헤더
-  const dates = t.match(/20\d{2}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일/g);
-  score += dates ? dates.length * 200 : 0;
-  // 카톡 메시지 형식
-  if (/\[오전|\[오후/.test(t)) score += 80;
-  if (/오전\s*\d{1,2}:\d{2}\s*,/.test(t) || /오후\s*\d{1,2}:\d{2}\s*,/.test(t)) score += 100;
-  if (/한재호|미트포앤|매출방/.test(t)) score += 120;
-  if (/---------------/.test(t) || /[-–—]{5,}/.test(t)) score += 60;
-  // 깨짐 문자 감점
-  const bad = t.match(/\uFFFD|�/g);
-  score -= bad ? bad.length * 5 : 0;
-  // 한자 과다(오인코딩 증상) 감점
-  const hanja = t.match(/[\u4e00-\u9fff]/g);
-  if (hanja && hangul) {
-    if (hanja.length > hangul.length) score -= 100;
-  } else if (hanja && !hangul) {
-    score -= 50;
-  }
-  return score;
-}
-
-function pickBestDecode(buf) {
-  const u8 = new Uint8Array(buf);
-  // BOM 우선
-  if (u8.length >= 2 && u8[0] === 0xFF && u8[1] === 0xFE) {
-    return { text: decodeBuffer(buf, 'utf-16le'), enc: 'utf-16le(BOM)' };
-  }
-  if (u8.length >= 2 && u8[0] === 0xFE && u8[1] === 0xFF) {
-    return { text: decodeBuffer(buf, 'utf-16be'), enc: 'utf-16be(BOM)' };
-  }
-  if (u8.length >= 3 && u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF) {
-    return { text: decodeBuffer(buf, 'utf-8'), enc: 'utf-8(BOM)' };
-  }
-  // UTF-16LE 추정: 많은 위치에서 0x00이 홀수 인덱스에
-  let nullOdd = 0, nullEven = 0;
-  const sampleLen = Math.min(u8.length, 400);
-  for (let i = 0; i < sampleLen; i++) {
-    if (u8[i] === 0) {
-      if (i % 2 === 1) nullOdd++;
-      else nullEven++;
-    }
-  }
-  const candidates = [];
-  const tryEnc = ['utf-8', 'euc-kr', 'utf-16le', 'utf-16be'];
-  if (nullOdd > sampleLen / 8) {
-    // UTF-16LE 가능성 높음 → 먼저
-    tryEnc.unshift('utf-16le');
-  }
-  for (const enc of tryEnc) {
-    const text = decodeBuffer(buf, enc);
-    const score = scoreDecodedText(text);
-    candidates.push({ text, enc, score });
-  }
-  candidates.sort((a, b) => b.score - a.score);
-  const best = candidates[0];
-  // 날짜가 하나도 없으면 차선 중 날짜 있는 것
-  for (const c of candidates) {
-    if (extractDates(c.text).length > 0) return c;
-  }
-  return best || { text: '', enc: 'none', score: -1 };
-}
-
-function tryRepairKakaoText(t) { return t || ''; }
-
-function extractDates(text) {
-  const dates = [];
-  const seen = new Set();
-  function addRaw(raw) {
-    raw = (raw || '').replace(/\s+/g, ' ').trim();
-    if (!raw) return;
-    const parsed = parseKoreanDate(raw);
-    if (!parsed) return;
-    const key = formatKey(toDateObj(parsed.y, parsed.mo, parsed.d));
-    if (seen.has(key)) return;
-    seen.add(key);
-    dates.push({
-      key,
-      label: key.replace(/^(20\d{2})년\s*/, ''),
-      y: parsed.y, mo: parsed.mo, d: parsed.d,
-      dow: parsed.dow
-    });
-  }
-  // 1) 카카오 기본: --------------- 2026년 10월 14일 수요일 ---------------
-  const re1 = /[-–—－]{3,}\s*((?:20\d{2})\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일(?:\s*[가-힣]+)?)\s*[-–—－]{3,}/g;
-  let m;
-  while ((m = re1.exec(text)) !== null) addRaw(m[1]);
-  // 2) 줄 단위 날짜 헤더 (구분선 약하거나 없음)
-  const re2 = /(?:^|\n)\s*((?:20\d{2})\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일(?:\s*[월화수목금토일]요일)?)\s*(?:\n|$)/g;
-  while ((m = re2.exec(text)) !== null) addRaw(m[1]);
-  // 3) 2026.10.14 / 2026-10-14 형태
-  const re3 = /(?:^|\n)\s*(20\d{2})[.\-\/](\d{1,2})[.\-\/](\d{1,2})(?:\s*[월화수목금토일]요일)?/g;
-  while ((m = re3.exec(text)) !== null) {
-    addRaw(`${m[1]}년 ${+m[2]}월 ${+m[3]}일`);
-  }
-  // 4) 안드로이드/인라인: 2026년 10월 13일 오전 9:48, 이름 : 내용
-  if (!dates.length) {
-    const re4 = /(20\d{2})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/g;
-    while ((m = re4.exec(text)) !== null) {
-      addRaw(`${m[1]}년 ${+m[2]}월 ${+m[3]}일`);
-    }
-  } else {
-    // 있어도 인라인 날짜 보강 (구분선 형식 + 인라인 혼용)
-    const re4b = /(20\d{2})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/g;
-    while ((m = re4b.exec(text)) !== null) {
-      addRaw(`${m[1]}년 ${+m[2]}월 ${+m[3]}일`);
-    }
-  }
-  // 금·토·일 있으면 다음 월요일 배송일 추가
-  const extra = [];
-  dates.forEach(d => {
-    if (!d.y) return;
-    const dt = toDateObj(d.y, d.mo, d.d);
-    const day = dt.getDay();
-    if (day === 5 || day === 6 || day === 0) {
-      const mon = new Date(dt);
-      if (day === 5) mon.setDate(mon.getDate() + 3);
-      else if (day === 6) mon.setDate(mon.getDate() + 2);
-      else mon.setDate(mon.getDate() + 1);
-      const key = formatKey(mon);
-      if (!seen.has(key)) {
-        seen.add(key);
-        extra.push({
-          key,
-          label: key.replace(/^(20\d{2})년\s*/, '') + ' (금토일 발주)',
-          y: mon.getFullYear(), mo: mon.getMonth() + 1, d: mon.getDate(),
-          dow: '월요일'
-        });
-      }
-    }
-  });
-  const all = dates.concat(extra);
-  // 파일 마지막 날짜의 다음 날도 배송일 후보 (26일 대화 → 27일 선택)
-  if (dates.length) {
-    const last = dates.slice().sort((a, b) => toDateObj(a.y, a.mo, a.d) - toDateObj(b.y, b.mo, b.d)).pop();
-    if (last && last.y) {
-      const nxt = toDateObj(last.y, last.mo, last.d);
-      nxt.setDate(nxt.getDate() + 1);
-      const key = formatKey(nxt);
-      if (!seen.has(key)) {
-        seen.add(key);
-        all.push({
-          key,
-          label: key.replace(/^(20\d{2})년\s*/, '') + ' (다음날)',
-          y: nxt.getFullYear(), mo: nxt.getMonth() + 1, d: nxt.getDate(),
-          dow: ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'][nxt.getDay()]
-        });
-      }
-    }
-  }
-  all.sort((a, b) => toDateObj(a.y||0, a.mo||0, a.d||0) - toDateObj(b.y||0, b.mo||0, b.d||0));
-  return all;
-}
-
-function parseKoreanDate(str) {
-  const m = String(str || '').match(/(20\d{2})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일(?:\s*([가-힣]+일))?/);
-  if (!m) return null;
-  return { y: +m[1], mo: +m[2], d: +m[3], dow: m[4] || '' };
-}
-
-function toDateObj(y, mo, d) {
-  return new Date(y, mo - 1, d);
-}
-
-function formatKey(dt) {
-  const days = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
-  return `${dt.getFullYear()}년 ${dt.getMonth()+1}월 ${dt.getDate()}일 ${days[dt.getDay()]}`;
-}
-
-function parseMsgTime(timeStr) {
-  // 오전 7:09 / 오후 2:00 / 오후 12:30
-  const m = (timeStr || '').match(/(오전|오후)\s*(\d{1,2}):(\d{2})/);
-  if (!m) return { h: 0, mi: 0 };
-  let h = parseInt(m[2], 10);
-  const mi = parseInt(m[3], 10);
-  if (m[1] === '오후' && h < 12) h += 12;
-  if (m[1] === '오전' && h === 12) h = 0;
-  return { h, mi };
-}
-
-function onDateChange() {
-  currentDate = document.getElementById('dateSelect').value;
-  if (!currentDate) { currentOrders = []; currentWeightLogs = []; hideProgress(); render(); return; }
-  showProgress(0, '발주 분석 중...');
-  // 큰 파일도 UI 멈추지 않게 다음 프레임에서 실행
-  requestAnimationFrame(() => {
-    setTimeout(() => {
-      try {
-        showProgress(30, '메시지 수집 중...');
-        const _parsed = parseOrdersForDeliveryDate(chatText, currentDate, pct => {
-          showProgress(30 + Math.round(pct * 0.6), '발주 분석 중 ' + Math.round(pct) + '%');
-        });
-        currentOrders = _parsed.orders || [];
-        currentWeightLogs = _parsed.weightLogs || [];
-        showProgress(95, '화면 구성 중...');
-        const range = getWindowRange(currentDate);
-        const hint = document.getElementById('uploadHint');
-        hint.style.display = 'block';
-        updateHeaderStatus();
-        try { saveSessionState(); } catch (e) {}
-        hint.textContent = formatWindowLabel(range) + ` · 발주 ${currentOrders.length}건 · 계근 ${(currentWeightLogs||[]).length}건` +
-          (range && range.isMonday ? ' (월요일부: 금12시~월12시)' : '');
-        document.getElementById('stats').style.display = 'flex';
-        shipFilter = 'all';
-        render();
-        showProgress(100, '완료');
-        setTimeout(hideProgress, 400);
-      } catch (err) {
-        hideProgress();
-        document.getElementById('uploadHint').textContent = '분석 오류: ' + (err.message || err);
-        console.error(err);
-      }
-    }, 20);
-  });
-}
-function showProgress(pct, label) {
-  const w = document.getElementById('progressWrap');
-  const b = document.getElementById('progressBar');
-  const l = document.getElementById('progressLabel');
-  if (!w) return;
-  w.classList.add('show');
-  if (b) b.style.width = Math.min(100, Math.max(0, pct)) + '%';
-  if (l) l.textContent = label || ('분석 중 ' + Math.round(pct) + '%');
-}
-function hideProgress() {
-  const w = document.getElementById('progressWrap');
-  if (w) w.classList.remove('show');
+  m.classList.remove('hidden');
+  m.classList.add('flex');
 }
 
 function switchTab(tab) {
   currentTab = tab;
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  document.getElementById('detailView').style.display = 'none';
-  document.getElementById('mainView').style.display = 'block';
-  render();
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  const panel = document.getElementById('panel-' + tab);
+  if (panel) panel.classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.toggle('nav-active', b.getAttribute('data-tab') === tab);
+  });
+  if (tab === 'dispatch') renderDispatch();
+  if (tab === 'stock') renderRemain();
+  saveState();
 }
 
-// ---------- Parsing (시간창 기준) ----------
-// 일반: 전날 12:00 ~ 당일 14:00
-// 월요일: 금요일 13:00 ~ 월요일 12:00
-// 대화 내용의 오늘/내일 키워드로 당일·다음날 출고 구분
+/* ----- persist ----- */
+function saveState() {
+  try {
+    const payload = {
+      orders, stockRows, availableDates, currentTab,
+      dateSelect: document.getElementById('dateSelect').value,
+      stockInput: document.getElementById('stockInput').value,
+      fileStatus: document.getElementById('fileStatus').textContent,
+      savedAt: Date.now()
+    };
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(Object.assign({}, payload, {
+        chatText: chatText.length < 1500000 ? chatText : ''
+      })));
+    } catch (e) {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+    }
+  } catch (e) {}
+}
 
-function getAllDatedMessages(text, rangeStart, rangeEnd) {
-  text = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-');
-  const msgs = [];
+function loadState() {
+  try {
+    const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    if (!d) return false;
+    orders = d.orders || [];
+    stockRows = d.stockRows || [];
+    availableDates = d.availableDates || [];
+    currentTab = d.currentTab || 'order';
+    if (d.chatText) chatText = d.chatText;
+    if (d.stockInput != null) document.getElementById('stockInput').value = d.stockInput;
+    if (d.fileStatus) document.getElementById('fileStatus').textContent = d.fileStatus;
+    const sel = document.getElementById('dateSelect');
+    sel.innerHTML = '<option value="">날짜 선택</option>';
+    availableDates.forEach(x => {
+      const o = document.createElement('option');
+      o.value = x.key; o.textContent = x.label;
+      sel.appendChild(o);
+    });
+    if (d.dateSelect) sel.value = d.dateSelect;
+    sel.disabled = !availableDates.length;
+    return orders.length > 0 || stockRows.length > 0;
+  } catch (e) { return false; }
+}
 
-  // ===== 형식 A: --------------- 날짜 --------------- + [보낸이] [오전 7:09] 내용
-  const dateRe = /-{2,}\s*((?:20\d{2})\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일(?:\s*[가-힣]+일)?)\s*-{2,}/g;
+/* ----- parse dates / orders ----- */
+function extractDates(text) {
+  const re = /20(\d{2})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/g;
+  const map = new Map();
+  let m;
+  while ((m = re.exec(text))) {
+    const y = 2000 + parseInt(m[1], 10);
+    const mo = parseInt(m[2], 10), d = parseInt(m[3], 10);
+    const key = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if (!map.has(key)) map.set(key, `${mo}월 ${d}일`);
+  }
+  return [...map.entries()].map(([key, label]) => ({ key, label })).sort((a, b) => a.key.localeCompare(b.key));
+}
+
+function sliceByDate(text, dateKey) {
+  if (!dateKey) return text;
+  const [y, mo, d] = dateKey.split('-').map(Number);
+  const prev = new Date(y, mo - 1, d); prev.setDate(prev.getDate() - 1);
+  const dayRe = /20\d{2}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일[^\n]*/g;
   const headers = [];
   let m;
-  while ((m = dateRe.exec(text)) !== null) {
-    const raw = m[1].replace(/\s+/g, ' ').trim();
-    const p = parseKoreanDate(raw);
-    if (!p) continue;
-    headers.push({ index: m.index, end: m.index + m[0].length, raw, ...p });
-  }
-  if (headers.length) {
-    const msgRe = /\[([^\]]+)\]\s*\[([^\]]+)\]\s*([\s\S]*?)(?=\n\[|\n-{2,}|$)/g;
-    for (let i = 0; i < headers.length; i++) {
-      const dayStart = new Date(headers[i].y, headers[i].mo - 1, headers[i].d, 0, 0, 0);
-      const dayEnd = new Date(headers[i].y, headers[i].mo - 1, headers[i].d, 23, 59, 59);
-      if (rangeStart && rangeEnd) {
-        if (dayEnd < rangeStart || dayStart > rangeEnd) continue;
-      }
-      const start = headers[i].end;
+  while ((m = dayRe.exec(text))) headers.push({ index: m.index, raw: m[0] });
+  if (!headers.length) return text;
+  const parts = [];
+  for (let i = 0; i < headers.length; i++) {
+    const hm = headers[i].raw.match(/20(\d{2})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+    if (!hm) continue;
+    const hy = 2000 + parseInt(hm[1], 10), hmo = parseInt(hm[2], 10), hd = parseInt(hm[3], 10);
+    const ok = (hy === y && hmo === mo && hd === d) ||
+      (hy === prev.getFullYear() && hmo === prev.getMonth() + 1 && hd === prev.getDate());
+    if (ok) {
       const end = i + 1 < headers.length ? headers[i + 1].index : text.length;
-      const chunk = text.slice(start, end);
-      let mm;
-      msgRe.lastIndex = 0;
-      while ((mm = msgRe.exec(chunk)) !== null) {
-        const { h, mi } = parseMsgTime(mm[2]);
-        const dt = new Date(headers[i].y, headers[i].mo - 1, headers[i].d, h, mi, 0);
-        if (rangeStart && dt < rangeStart) continue;
-        if (rangeEnd && dt > rangeEnd) continue;
-        msgs.push({
-          sender: mm[1],
-          time: mm[2],
-          text: mm[3].trim(),
-          dt,
-          dayKey: headers[i].raw
-        });
-      }
+      parts.push(text.slice(headers[i].index, end));
     }
-    if (msgs.length) return msgs;
   }
-
-  // ===== 형식 B: 안드로이드 내보내기
-  // 2026년 10월 13일 오전 10:00, 영민 : 참새방앗간 미전지2덩어리
-  // 2026년 10월 13일 오전 9:48, 이명석 이사님이 최규진님을 초대했습니다.
-  const reB = /(20\d{2})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일\s*(오전|오후)\s*(\d{1,2}):(\d{2})\s*,\s*([^:\n]+?)\s*:\s*/g;
-  const hits = [];
-  while ((m = reB.exec(text)) !== null) {
-    hits.push({
-      index: m.index,
-      end: m.index + m[0].length,
-      y: +m[1], mo: +m[2], d: +m[3],
-      ap: m[4], hh: +m[5], mi: +m[6],
-      sender: m[7].trim()
-    });
-  }
-  for (let i = 0; i < hits.length; i++) {
-    const h = hits[i];
-    let hour = h.hh;
-    if (h.ap === '오후' && hour < 12) hour += 12;
-    if (h.ap === '오전' && hour === 12) hour = 0;
-    const dt = new Date(h.y, h.mo - 1, h.d, hour, h.mi, 0);
-    if (rangeStart && dt < rangeStart) continue;
-    if (rangeEnd && dt > rangeEnd) continue;
-    const textEnd = i + 1 < hits.length ? hits[i + 1].index : text.length;
-    let body = text.slice(h.end, textEnd).trim();
-    // 다음 메시지 직전 공백/초대 문구 정리
-    body = body.replace(/\n+$/, '').trim();
-    // 시스템 메시지 스킵
-    if (/을 초대했습니다|나갔습니다|들어왔습니다|삭제된 메시지/.test(body) && body.length < 80 && !/\d+\s*(박스|팩|키로)/.test(body)) {
-      continue;
-    }
-    msgs.push({
-      sender: h.sender,
-      time: `${h.ap} ${h.hh}:${String(h.mi).padStart(2,'0')}`,
-      text: body,
-      dt,
-      dayKey: formatKey(new Date(h.y, h.mo - 1, h.d))
-    });
-  }
-  return msgs;
+  return parts.length ? parts.join('\n') : text;
 }
 
-
-function getWindowRange(deliveryKey) {
-  const p = parseKoreanDate(deliveryKey);
-  if (!p) return null;
-  const delivery = toDateObj(p.y, p.mo, p.d);
-  const dow = delivery.getDay(); // 0 Sun ... 1 Mon ... 5 Fri
-  let start, end;
-  if (dow === 1) {
-    // 월요일 발주: 금요일 12:00 ~ 월요일 12:00 (금 오후 + 토 + 일 + 월 오전)
-    start = new Date(delivery);
-    start.setDate(start.getDate() - 3); // Friday
-    start.setHours(12, 0, 0, 0);
-    end = new Date(delivery);
-    end.setHours(12, 0, 0, 0);
-  } else if (dow === 0 || dow === 6) {
-    // 토/일 선택 시 → 다음 월요일 구간과 동일하게
-    const mon = new Date(delivery);
-    if (dow === 6) mon.setDate(mon.getDate() + 2);
-    else mon.setDate(mon.getDate() + 1);
-    start = new Date(mon);
-    start.setDate(start.getDate() - 3);
-    start.setHours(12, 0, 0, 0);
-    end = new Date(mon);
-    end.setHours(12, 0, 0, 0);
-    return { start, end, delivery: mon, isMonday: true, mappedFromWeekend: true };
-  } else {
-    // 화~금: 전날 12:00 ~ 당일 14:00
-    start = new Date(delivery);
-    start.setDate(start.getDate() - 1);
-    start.setHours(12, 0, 0, 0);
-    end = new Date(delivery);
-    end.setHours(14, 0, 0, 0);
-  }
-  return { start, end, delivery, isMonday: dow === 1 };
-}
-
-function formatWindowLabel(range) {
-  if (!range) return '';
-  const f = (dt) => {
-    const days = ['일','월','화','수','목','금','토'];
-    return `${dt.getMonth()+1}/${dt.getDate()}(${days[dt.getDay()]}) ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-  };
-  return `수집구간: ${f(range.start)} ~ ${f(range.end)}`;
-}
-
-function detectShipSide(rawText, msgDt, deliveryDt) {
-  const t = rawText || '';
-  if (/다음날|명일/.test(t)) return { ship: 'next', explicit: true };
-  if (/내일/.test(t)) {
-    const msgDay = new Date(msgDt.getFullYear(), msgDt.getMonth(), msgDt.getDate());
-    const delDay = new Date(deliveryDt.getFullYear(), deliveryDt.getMonth(), deliveryDt.getDate());
-    // 전날 창에서 "내일" → 선택 배송일(당일) 출고
-    // 배송일 당일 메시지에서 "내일" → 다음날 출고
-    if (msgDay.getTime() >= delDay.getTime()) return { ship: 'next', explicit: true };
-    return { ship: 'today', explicit: true };
-  }
-  if (/오늘|금일/.test(t)) return { ship: 'today', explicit: true };
-  // 표기 없음 → 선택 배송일(당일)로 간주
-  return { ship: 'today', explicit: false };
-}
-
-function parseOrdersForDeliveryDate(text, deliveryKey, onProgress) {
-  const range = getWindowRange(deliveryKey);
-  if (!range) return { orders: [], weightLogs: [] };
-  if (onProgress) onProgress(5);
-  const allMsgs = getAllDatedMessages(text, range.start, range.end);
-  if (onProgress) onProgress(25);
-  const msgs = allMsgs.filter(m => m.dt >= range.start && m.dt <= range.end);
-  if (onProgress) onProgress(35);
-
-  const orders = [];
-  const weightLogs = [];
-  let cur = null;
-  const total = Math.max(msgs.length, 1);
-  let processed = 0;
+function parseOrdersFromText(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const result = [];
+  let client = '', time = '', rawBuf = [];
+  const itemRe = /^(.+?)\s+(\d+(?:\.\d+)?)\s*(박스|박|팩|봉지|봉|키로|kg|Kg|판|개|Pack|Box)?(.*)$/i;
 
   function flush() {
-    if (cur && (cur.items.length || cur.rawLines.length)) {
-      // 거래처명이 날짜어면 저장하지 않음
-      if (/^(내일|오늘|모레)$/.test((cur.client || '').trim())) {
-        cur = null;
-        return;
-      }
-      const raw = cur.rawLines.join('\n');
-      let det = detectShipSide(raw, cur.msgDt || range.start, range.delivery);
-      let ship = det.ship;
-      let shipExplicit = det.explicit;
-      if (cur.forceShip === 'next') { ship = 'next'; shipExplicit = true; }
-      // 유효 발주 품목만 (고기명 + 숫자). 숫자만 있으면 Box
-      cur.items = (cur.items || []).filter(isValidOrderItem).map(it => {
-        if (it.qty && !it.unit) it.unit = 'Box';
-        return it;
-      });
-      if (isJunkClientName(cur.client)) {
-        cur = null;
-        return;
-      }
-      if (!cur.items.length) {
-        cur = null;
-        return;
-      }
-      orders.push({
-        client: cur.client,
-        address: cur.address,
-        items: cur.items,
-        raw,
-        time: cur.time,
-        ship,
-        shipExplicit,
-        msgDt: cur.msgDt
-      });
+    if (!client || !rawBuf.length) { rawBuf = []; return; }
+    const items = [];
+    rawBuf.forEach(line => {
+      const im = line.match(itemRe);
+      if (!im) return;
+      let name = im[1].replace(/[●■☆★]/g, '').trim();
+      let qty = im[2], unit = (im[3] || '').trim(), note = (im[4] || '').trim();
+      if (!unit && /^\d{3,4}$/.test(qty)) return;
+      if (/\d+\.\d+/.test(qty) && !unit) return;
+      if (/^(대|포)$/.test(unit)) return;
+      if (POLITE.test(name) && name.length < 12) return;
+      if (!unit) unit = 'Box';
+      if (/박/.test(unit)) unit = 'Box';
+      if (/팩|Pack/i.test(unit)) unit = 'Pack';
+      if (/키로|kg/i.test(unit)) unit = 'Kg';
+      if (/봉/.test(unit)) unit = '봉';
+      items.push({ name, qty: parseFloat(qty), unit, note });
+    });
+    if (items.length) {
+      result.push({ client, address: '', time, items, raw: rawBuf.join('\n') });
     }
-    cur = null;
+    rawBuf = [];
   }
 
-  // 메시지 → 블록(빈 줄 구분) → 거래처 발주
-  for (const msg of msgs) {
-    processed++;
-    if (onProgress && processed % 20 === 0) onProgress(35 + (processed / total) * 55);
-    if (!msg.text || msg.text.includes('메시지가 삭제되었습니다')) continue;
-    if (/^사진|^이모티콘|^동영상/.test(msg.text.trim())) continue;
-    if (!isLikelyOrderSender(msg.sender, msg.text)) continue;
+  for (const line of lines) {
+    if (/메시지가 삭제|사진|이모티콘|동영상|발주체크|여기까지|Web발신/.test(line)) continue;
+    if (/^20\d{2}\s*년/.test(line)) continue;
+    if (POLITE.test(line) && !/\d/.test(line)) continue;
+    if (/^(내일|오늘|모레|냉장|냉동)$/.test(line)) continue;
 
-    const body = msg.text.replace(/\r/g, '');
-    // 한 메시지 안 여러 거래처 (빈 줄로 구분)
-    const blocks = body.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+    const tm = line.match(/(오전|오후)\s*(\d{1,2}):(\d{2})/);
+    if (tm && /\[|,/.test(line)) {
+      let h = parseInt(tm[2], 10);
+      if (tm[1] === '오후' && h < 12) h += 12;
+      if (tm[1] === '오전' && h === 12) h = 0;
+      time = String(h).padStart(2,'0') + ':' + tm[3];
+      continue;
+    }
 
-    for (const block of blocks) {
-      const lines = block.split('\n').map(l => l.trim()).filter(l => l && !l.includes('메시지가 삭제'));
-      if (!lines.length) continue;
+    const im = line.match(itemRe);
+    if (im) {
+      rawBuf.push(line);
+      continue;
+    }
 
-      // 발주체크 = 당일 출고 요약 (고객 발주 아님) — 줄 수와 관계없이 제외
-      const head = lines[0].replace(/\s+/g, '');
-      if (/발주체크/.test(lines[0]) || /^발주체크/.test(head)) {
-        flush();
-        continue;
-      }
-      if (/^(여기까지|작성|최종수정)/.test(lines[0]) && lines.length <= 2) {
-        flush();
-        continue;
-      }
-      // 발주 요약형: 첫 줄이 발주체크 없이 고기+박스만 잔뜩 (거래처명 아님)
-      if (isOrderSummaryBlock(lines)) {
-        flush();
-        continue;
-      }
-      if (/Web발신|경매가격|도축|등급별|탕박|전국\d/.test(block)) continue;
-      // 계근/로트 로그 → 발주 제외, 계근 탭에 수집
-      if (isWeightLogOnly(lines)) {
-        flush();
-        const w = parseWeightLogBlock(lines, msg);
-        if (w) weightLogs.push(w);
-        continue;
-      }
-      // 내부 지시 (고객 요청 아님)
-      if (/^(남는건|다주게|처리하였|정정해|잘못 눌렀)/.test(lines[0]) && lines.length <= 3) continue;
-
-      const first = lines[0].replace(/[●■☆★♥❤️⭐️*~]/g, '').trim();
-      // 첫 줄이 품목이면 이전 거래처에 이어붙이기
-      const firstIsItem = looksLikeItemLine(first);
-      if (firstIsItem && cur) {
-        for (const line of lines) {
-          if (/여기까지|발주체크/.test(line)) continue;
-          cur.rawLines.push(line);
-          const parsed = parseItemLine(line);
-          if (parsed && isValidOrderItem(parsed)) cur.items.push(parsed);
-          // 수량 없는 말머리 줄은 품목으로 넣지 않음
-        }
-        continue;
-      }
-      if (firstIsItem && !cur) continue;
-
-      // 날짜 표시어(내일/오늘 등)는 거래처명이 아님
-      const DAY_MARK_RE = /^(내일|오늘|모레|월요일|화요일|수요일|목요일|금요일|토요일|일요일)(\s|발주|입니다|꺼|$)/;
-      if (DAY_MARK_RE.test(first) || /^(내일|오늘|모레)$/.test(first.replace(/\s/g, ''))) {
-        // 이전 거래처에 다음날 표시 + 나머지 줄은 품목
-        if (cur && /^내일/.test(first)) {
-          cur.forceShip = 'next';
-          cur.rawLines.push(first);
-          for (let i = 1; i < lines.length; i++) {
-            if (/여기까지|발주체크/.test(lines[i])) continue;
-            if (/^(내일|오늘|모레)$/.test(lines[i].replace(/\s/g, ''))) {
-              if (/^내일/.test(lines[i])) cur.forceShip = 'next';
-              continue;
-            }
-            cur.rawLines.push(lines[i]);
-            const parsed = parseItemLine(lines[i]);
-            if (parsed) cur.items.push(parsed);
-            else if (lines[i].length > 1 && !isPoliteOnly(lines[i])) {
-              cur.items.push({ name: lines[i], qty: '', unit: '', note: '', extra: '' });
-            }
-          }
-        }
-        continue;
-      }
-
-      // 새 거래처
+    if (!/\d/.test(line) && line.length >= 2 && line.length <= 40 && !POLITE.test(line)) {
+      if (/^(네|예|알겠|수고|감사)/.test(line)) continue;
       flush();
-      let clientLine = first.replace(/추가|정정|급급|최종|예약분?|오전중|오후에?/g, '').trim();
-      // 앞에 붙은 내일/오늘 제거 (예: "내일 태광")
-      clientLine = clientLine.replace(/^(내일|오늘|모레)\s+/, '').trim();
-      if (!clientLine || clientLine.length > 60) continue;
-      if (/^(네|예|아니요|알겠|수고|감사|사진|이모티콘)/.test(clientLine)) continue;
-      if (/발주체크|여기까지/.test(clientLine)) continue;
-      if (/^(내일|오늘|모레)$/.test(clientLine)) continue;
-      if (isJunkClientName(clientLine)) continue;
-      // 냉장/냉동 = 고기 구분 (거래처명 아님)
-      if (/^(냉장|냉동|국내산|수입)(산|육)?$/.test(clientLine.replace(/\s/g, ''))) {
-        if (cur) {
-          cur.category = clientLine.replace(/\s/g, '');
-          cur.rawLines.push(first);
-        }
-        continue;
-      }
-      // 앞에 붙은 냉장/냉동 제거 후 거래처 매칭 (예: 냉장 한마음)
-      let categoryPrefix = '';
-      const catM = clientLine.match(/^(냉장|냉동)\s+(.+)$/);
-      if (catM) { categoryPrefix = catM[1]; clientLine = catM[2].trim(); }
-
-      const matched = matchClient(clientLine);
-      // 매칭 결과가 날짜어·구분어면 버림
-      if (/^(내일|오늘|모레|냉장|냉동)$/.test((matched.name || '').trim())) continue;
-      if (!matched.name || isJunkClientName(matched.name)) continue;
-
-      let forceShip = null;
-      if (/내일/.test(first) || lines.some(l => /^내일\b/.test(l.trim()))) forceShip = 'next';
-
-      cur = {
-        client: matched.name,
-        address: matched.address,
-        items: [],
-        rawLines: lines.slice(),
-        time: msg.time,
-        msgDt: msg.dt,
-        forceShip,
-        category: categoryPrefix || ''
-      };
-      for (let i = 1; i < lines.length; i++) {
-        if (/여기까지|발주체크/.test(lines[i])) continue;
-        // 내일/오늘 단독 줄은 품목 아님
-        if (/^(내일|오늘|모레)(\s*발주.*)?$/.test(lines[i].trim())) {
-          if (/^내일/.test(lines[i].trim())) cur.forceShip = 'next';
-          continue;
-        }
-        const parsed = parseItemLine(lines[i]);
-        if (parsed) {
-          // 고기명이 내일인 경우 제외
-          if (/^(내일|오늘|모레)$/.test((parsed.name || '').trim())) continue;
-          cur.items.push(parsed);
-        } else if (lines[i].length > 1 && !isPoliteOnly(lines[i])) {
-          if (/^(내일|오늘|모레)$/.test(lines[i].trim())) continue;
-          cur.items.push({ name: lines[i], qty: '', unit: '', note: '', extra: '' });
-        }
-      }
+      client = line.replace(/[●■☆★]/g, '').replace(/추가|정정|급급/g, '').trim();
+      rawBuf = [];
     }
   }
   flush();
-  return { orders, weightLogs };
+  return result;
 }
 
-function parseWeightLogBlock(lines, msg) {
-  if (!lines || !lines.length) return null;
-  // 첫 줄이 거래처 추정, 나머지 계근 줄
-  let client = '';
-  let start = 0;
-  const first = lines[0];
-  if (!/\d{3,4}/.test(first) && !/\d+\.\d+/.test(first) && first.length < 25) {
-    client = first.replace(/[●■☆★]/g, '').trim();
-    start = 1;
+function reparseOrders() {
+  if (!chatText) return;
+  const key = document.getElementById('dateSelect').value;
+  const slice = sliceByDate(chatText, key);
+  orders = parseOrdersFromText(slice);
+  renderVouchers();
+  renderRemain();
+  saveState();
+}
+
+async function onFile(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const buf = await file.arrayBuffer();
+  let text = new TextDecoder('utf-8').decode(buf);
+  if (!/[가-힣]/.test(text)) {
+    try { text = new TextDecoder('euc-kr').decode(buf); } catch (err) {}
   }
-  const rows = [];
-  for (let i = start; i < lines.length; i++) {
-    const l = lines[i];
-    // 고기명 + 로트들 + 무게
-    let m = l.match(/^(.+?)\s+((?:\d{3,4}\s*)+)(?:\s+(\d+\.\d+))?\s*$/);
-    if (m) {
-      rows.push({
-        meat: m[1].trim(),
-        lot: m[2].replace(/\s+/g, ' ').trim(),
-        weight: m[3] || '',
-        raw: l
-      });
-      continue;
-    }
-    // 고기 8포 19.3 / 13대 10.7 / 8대 49.0 17.8
-    m = l.match(/^(.+?)\s+(\d+)\s*(포|대)\s+(\d+\.\d+)(?:\s+(\d+\.\d+))?\s*$/);
-    if (m) {
-      rows.push({
-        meat: m[1].trim(),
-        lot: '',
-        weight: m[4] + (m[5] ? ' / ' + m[5] : ''),
-        pack: m[2] + m[3],
-        raw: l
-      });
-      continue;
-    }
-    m = l.match(/^(\d+)\s*(포|대)\s+(\d+\.\d+)(?:\s+(\d+\.\d+))?\s*$/);
-    if (m) {
-      rows.push({
-        meat: '',
-        lot: '',
-        weight: m[3] + (m[4] ? ' / ' + m[4] : ''),
-        pack: m[1] + m[2],
-        raw: l
-      });
-      continue;
-    }
-    // 숫자만
-    if (/^[\d.\s]+$/.test(l)) {
-      rows.push({ meat: '', lot: l.trim(), weight: '', raw: l });
-      continue;
-    }
-    rows.push({ meat: l, lot: '', weight: '', raw: l });
-  }
-  if (!rows.length && !client) return null;
-  return {
-    client: client || '(미상)',
-    sender: msg.sender || '',
-    time: msg.time || '',
-    rows,
-    raw: lines.join('\n')
-  };
+  chatText = text;
+  availableDates = extractDates(text);
+  const sel = document.getElementById('dateSelect');
+  sel.innerHTML = '<option value="">전체</option>';
+  availableDates.forEach(d => {
+    const o = document.createElement('option');
+    o.value = d.key; o.textContent = d.label;
+    sel.appendChild(o);
+  });
+  sel.disabled = false;
+  if (availableDates.length) sel.value = availableDates[availableDates.length - 1].key;
+  document.getElementById('fileStatus').textContent = file.name + ' 로드 완료';
+  reparseOrders();
+  showNotice('발주 파일을 불러왔습니다.\n\n• 파일: ' + file.name + '\n• 날짜: ' + (sel.selectedOptions[0]?.textContent || '전체') + '\n• 거래처: ' + orders.length + '곳');
 }
 
-function isLikelyOrderSender(sender, text) {
-  const s = sender || '';
-  // 2023: 미트포앤 XXX / 2026: 한재호(주)미트포앤 / 기타 직원
-  if (/미트포앤|한재호|김석민|표혜영|김태호|조남식|신동현|양주용|이명수|김성은|오민환|엔젤|김영복|윤상호|김석민/.test(s)) return true;
-  if (/한재호|미트포앤/.test(s)) return true;
-  // 다른 이름도 발주 형태면 허용
-  if (looksLikeOrderText(text)) return true;
-  return false;
-}
-function looksLikeOrderText(text) {
-  const t = text || '';
-  if (t.length < 4) return false;
-  if (/박스|팩|키로|kg|봉지|봉|판|벌|마리|덩이|미전지|삼겹|목살|등뼈|항정|가브리/.test(t) && /\d/.test(t)) return true;
-  return false;
-}
-function looksLikeItemLine(line) {
-  const t = (line || '').trim();
-  if (!t) return false;
-  if (/\d+\s*(박스|박|팩|키로|kg|봉지|봉|벌|판|마리|덩이|개|p|P|b|B)/i.test(t)) return true;
-  if (/(박스|박|팩|키로|kg|봉지)\s*\d+/i.test(t)) return true;
-  if (/\d+\s*(포크|대산|정담|황금|신짜|죽향)/i.test(t)) return true;
-  // 고기명 + 숫자
-  if (/^(특|암|미|생|냉동|냉장|수입)?\s*(삼겹|미삼|목살|전지|미전지|갈비|등갈비|등심|안심|사태|항정|가브리|갈매기|등뼈|후지|돈피|왕구이)/.test(t) && /\d/.test(t)) return true;
-  return false;
-}
+function renderVouchers() {
+  const box = document.getElementById('voucherContainer');
+  let list = orders.slice();
+  const sort = document.getElementById('sortSelect').value;
+  if (sort === 'name') list.sort((a, b) => a.client.localeCompare(b.client, 'ko'));
+  else list.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 
-function isOrderSummaryBlock(lines) {
-  if (!lines || lines.length < 6) return false;
-  // 첫 줄이 거래처처럼 보이지 않고, 대부분 "고기 숫자박스" 나열이면 요약
-  const first = (lines[0] || '').trim();
-  if (/발주체크/.test(first)) return true;
-  let itemish = 0;
-  for (const l of lines) {
-    if (/^(삼겹|특삼|암삼|미삼|암미|특미|목살|특목|B목|미전지|전지|갈비|등갈비|등심|안심|사태|앞미|항정|가브리|갈매기|미후지|3mm|등뼈|잡육)/.test(l.replace(/\s/g,''))) itemish++;
-  }
-  // 8개 이상 품목 나열 + 첫 줄도 품목형이면 요약으로 간주
-  if (itemish >= 8 && /박스|팩|키로/.test(lines[0])) return true;
-  if (itemish >= 10) return true;
-  return false;
-}
-
-function isWeightLogOnly(lines) {
-  // 계근: 업체 + 고기 + 로트/대/포 + kg (발주 아님)
-  // 예: 특삼 8포 19.3 / 수입차돌 451 15.3 / 8대 49.0
-  const joined = lines.join(' ');
-  if (/개체/.test(joined) && !/박스|팩/.test(joined)) return true;
-
-  let numLines = 0;
-  let lotStyle = 0;
-  let packWeightStyle = 0; // N포/N대 + 소수점kg
-  let orderStyle = 0;
-
-  for (const l of lines) {
-    const t = l.trim();
-    if (/^[\d.\s]+$/.test(t) || /\d{3,4}\s+\d{3,4}/.test(t)) numLines++;
-    // 고기 + 3~4자리 로트 + (무게)
-    if (/[가-힣A-Za-z]+\s+\d{3,4}(\s+\d{3,4})*(\s+\d+\.\d+)?\s*$/.test(t)) lotStyle++;
-    // 고기? + 숫자 + 포/대 + 소수점 무게  (계근 출고)
-    if (/\d+\s*(포|대)\s+\d+\.\d+/.test(t)) packWeightStyle++;
-    if (/^\d+\s*(포|대)\s*$/.test(t)) packWeightStyle++;
-    // 발주 단위
-    if (/\d+\s*(박스|박|팩|봉지|키로|kg|판|벌|마리|Pack|Box)/i.test(t)) orderStyle++;
-  }
-
-  if (lines.length >= 2 && numLines >= lines.length - 1) return true;
-  // 포/대 + kg 계근이 있으면 발주 제외
-  if (packWeightStyle >= 1 && orderStyle === 0) return true;
-  if (packWeightStyle >= 2) return true;
-  if (lotStyle >= 2 && orderStyle === 0) return true;
-  if (lotStyle >= 3 && orderStyle <= 1) return true;
-  // 한 블록에 소수점 kg 여러 개 + 박스 발주 없음
-  const kgHits = (joined.match(/\d+\.\d+/g) || []).length;
-  if (kgHits >= 2 && orderStyle === 0 && (lotStyle + packWeightStyle) >= 1) return true;
-  return false;
-}
-
-function filteredOrders() {
-  if (shipFilter === 'today') return currentOrders.filter(o => o.ship !== 'next');
-  if (shipFilter === 'next') return currentOrders.filter(o => o.ship === 'next');
-  return currentOrders;
-}
-
-function matchClient(text) {
-  text = text.replace(/[●■☆★]/g, '').replace(/추가|정정|급급/g, '').trim();
-  text = text.replace(/^(내일|오늘|모레)\s+/, '').trim();
-  if (/^(내일|오늘|모레)$/.test(text)) return { name: '', address: '' };
-  const aliasMap = getAllAliases();
-  const clients = getAllClients();
-  for (const [alias, real] of Object.entries(aliasMap)) {
-    if (text.startsWith(alias) || (alias.length > 2 && text.includes(alias))) {
-      if (!real) return { name: alias, address: '' };
-      const c = clients.find(x => x.name === real);
-      return c ? { name: c.name, address: c.address } : { name: real, address: '' };
-    }
-  }
-  let best = null, bestScore = 0;
-  const t = text.slice(0, 20);
-  for (const c of clients) {
-    const score = similarity(t, c.name.slice(0, 20));
-    if (score > bestScore && score > 0.35) { bestScore = score; best = c; }
-  }
-  if (best) return { name: best.name, address: best.address };
-  return { name: text.split(/[\s●]/)[0] || text, address: '' };
-}
-
-function similarity(a, b) {
-  if (!a || !b) return 0;
-  const longer = a.length > b.length ? a : b;
-  const shorter = a.length > b.length ? b : a;
-  if (longer.length === 0) return 1;
-  let matches = 0;
-  for (let i = 0; i < shorter.length; i++) if (longer.includes(shorter[i])) matches++;
-  return matches / longer.length;
-}
-
-// 인사말/안내 문구 (고기명·거래처명으로 쓰지 않음)
-const POLITE_RE = /부탁|주세요|보내주|보내세|이상입니다|발주|감사|수고|안녕하|문자드립|급급|정정|추가분|입고|이렇게|네요|해요|합니다|드립니다|입니다|오늘|내일|오후에|아침에|수정\s*했|홀에|놔주|되세|만이요|대표님|비번|월요일|화요일|수요일|목요일|금요일|토요일|일요일|다음주|이번주|보내주세|드리겠습니다/;
-
-function isPoliteOnly(text) {
-  const t = (text || '').trim();
-  if (!t) return true;
-  if (!/\d/.test(t) && POLITE_RE.test(t)) return true;
-  if (POLITE_RE.test(t) && t.length < 24 && !/\d+\s*(박스|팩|키로|kg|봉지|봉)/i.test(t)) return true;
-  // 문장 끝 존댓말만
-  if (/^(입니다|합니다|세요|습니다|해요|예요|이에요)[\.\!\?]?$/.test(t)) return true;
-  return false;
-}
-
-/** 거래처명으로 쓰면 안 되는 말머리/인사 */
-function isJunkClientName(text) {
-  const t = (text || '').replace(/\s+/g, ' ').trim();
-  if (!t || t.length < 2) return true;
-  if (isPoliteOnly(t)) return true;
-  if (/^(내일|오늘|모레|다음주|이번주|냉장|냉동|국내산|수입)$/.test(t)) return true;
-  if (/^(발주가|발주|입고|입니다|합니다|세요|습니다)[\.\!\?]?$/.test(t)) return true;
-  if (/부탁|주세요|보내주|보내세|드리겠습니다|드립니다|이상입니다/.test(t) && t.length < 20) return true;
-  if (/(습니다|세요|해요|입니다|드립니다)[\.\!\?]?$/.test(t) && t.length < 16 && !/[가-힣]{2,}(축산|정육|마트|축산|푸드|유통|반점|식당|고기)/.test(t)) return true;
-  // 숫자만 / 단위만
-  if (/^[\d\s\.]+$/.test(t)) return true;
-  return false;
-}
-
-/** 발주 품목으로 인정: 고기명 + 숫자(단위 없으면 Box) */
-function isValidOrderItem(it) {
-  if (!it || !it.name) return false;
-  const n = String(it.name).trim();
-  if (!n || isPoliteOnly(n) || isJunkClientName(n)) return false;
-  if (/^(내일|오늘|모레|냉장|냉동)$/.test(n)) return false;
-  const q = String(it.qty || '').trim();
-  if (!q || !/^\d+(\.\d+)?$/.test(q)) return false;
-  // 로트 번호
-  if (!it.unit && /^\d{3,4}$/.test(q)) return false;
-  if (it.lot && !it.unit && /^\d{3,4}$/.test(q)) return false;
-  // 계근: 무게(소수점)만 있거나 포/대 출고
-  if (it.weight && !it.unit) return false;
-  if (/\d+\.\d+/.test(q) && !it.unit) return false; // 15.3 단독 → 무게
-  const u = String(it.unit || '');
-  // 대/포 는 계근 포장 단위로 보고 발주 합계에서 제외 (박스/팩만 발주)
-  if (/^(대|포)$/.test(u)) return false;
-  return true;
-}
-
-
-function parseItemLine(line) {
-  line = line.replace(/^[\-•·]\s*/, '').trim();
-  if (!line || isPoliteOnly(line)) return null;
-  // 구분 표기만 있는 줄
-  if (/^(냉장|냉동|국내산|수입)$/.test(line.replace(/\s/g, ''))) return null;
-
-  const BRANDS = getBrandPattern();
-  let name = '', qty = '', unit = '', note = '', extra = '';
-  let lot = '', weight = '';
-
-  // 1) 고기명 + 숫자 + (단위) + 나머지
-  let m = line.match(/^(.+?)\s*(\d+(?:\.\d+)?)\s*(박스|박|팩|키로|kg|Kg|KG|봉지|봉|대|포|벌|판|마리|덩이|개|Pack|pack|Box|box)?(.*)$/i);
-  if (m) {
-    name = m[1].replace(/[ㅡ\-–]/g, ' ').replace(/\s+/g, ' ').trim();
-    let num = m[2];
-    unit = (m[3] || '').trim();
-    let rest = (m[4] || '').trim();
-
-    if (!unit && rest) {
-      const um = rest.match(/^(박스|박|팩|키로|kg|Kg|봉지|봉|대|포|벌|판|마리|덩이|개|Pack|Box)\s*(.*)$/i);
-      if (um) { unit = um[1]; rest = um[2].trim(); }
-    }
-
-    // 숫자 분류:
-    // - 단위 있음 → 수량
-    // - 소수점(12.34, 5.5) → 무게 (수량 아님)
-    // - 정수 3~4자리 (또는 앞에 0) → 로트/일련번호 (수량 아님)
-    // - 그 외 정수 1~2자리 → 수량(박스 등)
-    if (unit) {
-      qty = num;
-    } else if (/\d+\.\d+/.test(num)) {
-      weight = num;
-      qty = '';
-    } else if (/^\d{3,4}$/.test(num) || /^0\d+$/.test(num)) {
-      lot = num;
-      qty = '';
-    } else {
-      qty = num;
-    }
-
-    // rest 에 추가 숫자들 (로트·무게 나열)
-    if (rest) {
-      rest = rest.replace(/부탁\S*|보내\S*|주세요|감사합니다?/g, '').trim();
-      // rest 안 무게/로트 추출
-      const nums = rest.match(/\d+(?:\.\d+)?/g) || [];
-      const restNoNum = rest.replace(/\d+(?:\.\d+)?/g, ' ').replace(/\s+/g, ' ').trim();
-      nums.forEach(n => {
-        if (/\d+\.\d+/.test(n)) {
-          if (!weight) weight = n;
-          else extra = (extra + ' ' + n).trim();
-        } else if (/^\d{3,4}$/.test(n) || /^0\d+$/.test(n)) {
-          if (!lot) lot = n;
-          else extra = (extra + ' lot:' + n).trim();
-        } else if (!qty && !unit && n.length <= 2) {
-          qty = n;
-        } else {
-          extra = (extra + ' ' + n).trim();
-        }
-      });
-      const brandRe = new RegExp('(' + BRANDS + ')', 'i');
-      const bm = restNoNum.match(brandRe);
-      if (bm) {
-        note = bm[1];
-        const left = restNoNum.replace(bm[0], '').replace(/^[,\s]+/, '').trim();
-        if (left) extra = (extra + ' ' + left).trim();
-      } else if (restNoNum) {
-        note = (note ? note + ' ' : '') + restNoNum;
-      }
-    }
-  } else {
-    if (isPoliteOnly(line)) return null;
-    name = line;
-  }
-
-  name = name.replace(/부탁\S*|주세요|보내세\S*|보내주\S*|감사합니다?|수정\S*|홀에\S*|놔주\S*/g, '').trim();
-  // 이름 앞 냉장/냉동은 구분 → 이름에 유지(냉장3mm후지 등)하되 단독 제거
-  if (!name || isPoliteOnly(name)) return null;
-  if (/^(냉장|냉동)$/.test(name)) return null;
-  if (/요$|세요$|습니다$|해요$/.test(name) && name.length > 6) return null;
-
-  unit = normalizeUnit(unit);
-  if (!unit && /박스/.test(note)) { unit = 'Box'; note = note.replace(/박스/g, '').trim(); }
-
-  // 로트·무게는 비고에 표시
-  if (lot) note = (note ? note + ' ' : '') + 'lot:' + lot;
-  if (weight) note = (note ? note + ' ' : '') + weight + 'kg';
-
-  name = name.replace(/\s+/g, ' ').trim();
-  if (!name) return null;
-
-  // 수량·단위·로트만 있고 발주 수량이 없으면 null 대신 note-only 품목 (발주 합계에서 제외되도록 qty 빈값)
-  return { name, qty, unit, note: note.trim(), extra: extra.trim(), lot, weight };
-}
-
-
-function normalizeUnit(u) {
-  if (!u) return '';
-  const s = String(u).toLowerCase();
-  if (s === '팩' || s === 'pack') return 'Pack';
-  if (s === '키로' || s === 'kg' || s === '킬로') return 'Kg';
-  // 봉/봉지 = 봉지 (낱개). 박 = 박스 줄임말 (Bag 아님!)
-  if (s === '봉지' || s === '봉') return '봉지';
-  if (s === '박스' || s === '박' || s === 'box') return 'Box';
-  if (s === '판') return 'Pan';
-  if (s === '덩이') return 'Chunk';
-  if (s === '벌' || s === '마리') return 'Set';
-  if (s === '개') return 'Pcs';
-  if (s === '대' || s === '포') return 'Box';
-  return u;
-}
-
-// ---------- Render ----------
-function render() {
-  const el = document.getElementById('mainView');
-  const statsEl = document.getElementById('stats');
-  if (!currentDate) {
-    statsEl.style.display = 'none';
-    el.innerHTML = '<div class="empty">채팅 파일을 불러오고<br>배송/작업일을 선택하세요</div>';
-    return;
-  }
-  if (!currentOrders.length && !(currentWeightLogs && currentWeightLogs.length)) {
-    statsEl.style.display = 'none';
-    el.innerHTML = '<div class="empty">선택 구간에 발주·계근이 없습니다<br><small>전날 12시~당일 14시 / 월요일: 금12시~월12시</small></div>';
-    return;
-  }
-
-  const orders = filteredOrders();
-  const todayCnt = currentOrders.filter(o => o.ship !== 'next').length;
-  const nextCnt = currentOrders.filter(o => o.ship === 'next').length;
-  const implicitCnt = currentOrders.filter(o => !o.shipExplicit).length;
-
-  const clientsSet = new Set(orders.map(o => o.client));
-  let boxCnt = 0, looseCnt = 0;
-  orders.forEach(o => o.items.forEach(it => {
-    if (isLoose(it)) looseCnt += parseFloat(it.qty) || 1;
-    else if (it.qty) boxCnt += parseFloat(it.qty) || 1;
+  let totalBox = 0, totalLoose = 0;
+  list.forEach(o => o.items.forEach(it => {
+    if (/Box|박스/i.test(it.unit)) totalBox += it.qty;
+    else totalLoose += it.qty;
   }));
-  statsEl.style.display = 'flex';
-  statsEl.innerHTML = `
-    <div class="stat"><div class="num">${orders.length}</div><div class="label">발주 건수</div></div>
-    <div class="stat"><div class="num">${clientsSet.size}</div><div class="label">거래처</div></div>
-    <div class="stat"><div class="num">${Math.round(boxCnt)}</div><div class="label">박스 합계</div></div>
-    <div class="stat"><div class="num">${Math.round(looseCnt)}</div><div class="label">낱개 합계</div></div>`;
+  document.getElementById('mClients').textContent = list.length;
+  document.getElementById('mBoxes').textContent = totalBox;
+  document.getElementById('mLoose').textContent = totalLoose;
 
-  // 출고 구분 필터
-  let filterBar = `<div class="ship-filter">
-    <button class="ship-btn ${shipFilter==='all'?'on':''}" onclick="setShipFilter('all')">전체 ${currentOrders.length}</button>
-    <button class="ship-btn ${shipFilter==='today'?'on':''}" onclick="setShipFilter('today')">당일 ${todayCnt}</button>
-    <button class="ship-btn ${shipFilter==='next'?'on':''}" onclick="setShipFilter('next')">다음날 ${nextCnt}</button>
-  </div>`;
-  if (implicitCnt > 0 && currentTab !== 'weight') {
-    filterBar += `<div class="admin-hint">오늘/내일 미표기 ${implicitCnt}건 → 선택 배송일(당일)로 간주</div>`;
-  }
-  if (currentTab === 'weight') {
-    filterBar = `<div class="admin-hint">계근·로트·무게 기록 (발주 아님) · ${(currentWeightLogs||[]).length}건</div>`;
+  if (!list.length) {
+    box.innerHTML = '<div class="text-center text-on-surface-variant text-sm py-16">추출된 발주가 없습니다</div>';
+    return;
   }
 
-  if (currentTab === 'regions') { el.innerHTML = filterBar; renderRegions(el, orders); }
-  else if (currentTab === 'byClient') renderByClient(el, orders, filterBar);
-  else if (currentTab === 'byMeat') { el.innerHTML = filterBar; renderByMeat(el, orders); }
-  else if (currentTab === 'loose') { el.innerHTML = filterBar; renderLoose(el, orders); }
-  else if (currentTab === 'weight') { el.innerHTML = filterBar; renderWeightLogs(el); }
-  else if (currentTab === 'dispatch') { el.innerHTML = filterBar; renderDispatch(el, orders); }
-  else if (currentTab === 'stock') { el.innerHTML = filterBar; renderStock(el, orders); }
-  else if (currentTab === 'summary') { el.innerHTML = filterBar; renderSummary(el, orders); }
-  else if (currentTab === 'raw') { el.innerHTML = filterBar; renderRaw(el, orders); }
+  box.innerHTML = list.map((o, idx) => {
+    const rows = o.items.map(it => {
+      const noteCls = it.note ? 'text-error font-medium' : 'text-on-surface-variant';
+      return `<tr>
+        <td class="py-1">${esc(it.name)}</td>
+        <td class="py-1 text-right font-mono font-semibold text-secondary">${it.qty}</td>
+        <td class="py-1 text-center text-on-surface-variant">${esc(it.unit)}</td>
+        <td class="py-1 pl-2 ${noteCls}">${esc(it.note || '-')}</td>
+      </tr>`;
+    }).join('');
+    const tlabel = o.time ? o.time : '--:--';
+    return `<article class="voucher-card bg-white rounded border border-outline-variant/40 p-2.5 shadow-sm">
+      <div class="flex items-center justify-between text-xs pb-1.5 border-b border-surface-container-low">
+        <div class="flex items-center gap-1.5 min-w-0 flex-1 mr-2">
+          <span class="font-mono text-secondary font-bold flex-shrink-0">#${String(idx + 1).padStart(2, '0')}</span>
+          <span class="font-semibold text-on-surface truncate">${esc(o.client)}</span>
+          <button type="button" class="p-0.5 text-on-surface-variant" onclick="this.closest('article').querySelector('.raw-preview').classList.toggle('hidden')" title="원문">
+            <span class="material-symbols-outlined text-[16px] leading-none">article</span>
+          </button>
+        </div>
+        <span class="font-mono text-on-surface-variant text-[11px] flex-shrink-0">${esc(tlabel)}</span>
+      </div>
+      <div class="raw-preview hidden mt-1.5 p-1.5 bg-surface-container-low rounded text-[11px] font-mono text-on-surface-variant border border-outline-variant/30 whitespace-pre-wrap">${esc(o.raw)}</div>
+      <div class="mt-1.5 overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead><tr class="text-[11px] text-on-surface-variant/80 border-b border-surface-container">
+            <th class="py-1 font-medium">품목명</th>
+            <th class="py-1 text-right font-medium">수량</th>
+            <th class="py-1 text-center font-medium">단위</th>
+            <th class="py-1 pl-2 font-medium">비고</th>
+          </tr></thead>
+          <tbody class="divide-y divide-surface-container/60">${rows}</tbody>
+        </table>
+      </div>
+    </article>`;
+  }).join('');
 }
 
-function setShipFilter(f) {
-  shipFilter = f;
-  render();
-}
+/* ----- stock ----- */
+function parseStock(text) {
+  const makers = ['대산', '포크', '황금', 'IBP', '엑셀', 'NBP', '올리멜', '토레인', '정담'];
+  const lines = text.split('\n');
+  const rows = [];
+  let curProd = '', curBrand = '기본';
 
-// 낱개 = Pack / Kg / 봉지
-// 박·박스·Box = 박스 단위 (박 ≠ Bag)
-function isLoose(it) {
-  const u = (it.unit || '').toLowerCase();
-  const combined = (it.name + ' ' + it.unit + ' ' + it.note).toLowerCase();
-  if (/^(box|박스|박)$/.test(u) || /박스/.test(u)) return false;
-  const looseList = getLooseUnits().map(x => String(x).toLowerCase());
-  if (looseList.includes(u)) return true;
-  for (const lu of looseList) {
-    if (!lu) continue;
-    if (u === lu || u.includes(lu)) {
-      if (/(box|박스|박)/.test(u)) return false;
-      return true;
-    }
-  }
-  // 기본 낱개
-  if (/^(pack|kg|팩|키로|봉지|봉)$/.test(u)) return true;
-  if (/\d+\s*(pack|kg|팩|키로|봉지)/i.test(combined) && !/(box|박스)/.test(combined)) return true;
-  return false;
-}
-function isBox(it) {
-  const u = (it.unit || '') + ' ' + (it.note || '');
-  if (/box|박스|\b박\b|대|포/i.test(u)) return true;
-  return !isLoose(it) && !!it.qty;
-}
-
-
-function parseRegion(address) {
-  if (!address) return '주소미상';
-  const a = address.replace(/\s+/g, ' ').trim();
-  let m = a.match(/^(서울|부산|대구|인천|광주|대전|울산|세종)(?:특별시|광역시)?\s*([가-힣]+[구군])?/);
-  if (m) {
-    const gu = m[2] || '';
-    if (gu) return m[1] + ' ' + gu;
-    return m[1];
-  }
-  m = a.match(/^(경기|강원|충북|충남|전북|전남|경북|경남|제주)(?:도)?\s*([가-힣]+[시군])/);
-  if (m) {
-    const si = m[2];
-    const m2 = a.match(/[시군]\s*([가-힣]+[구읍면동])/);
-    if (m2) return si + ' ' + m2[1];
-    return si;
-  }
-  const parts = a.split(' ');
-  if (parts.length >= 2) return parts[0].replace(/(특별시|광역시|도)$/, '') + ' ' + parts[1];
-  return parts[0] || '주소미상';
-}
-
-/** 시·읍·면·동 위주 짧은 주소 */
-function shortAddress(address) {
-  if (!address) return '-';
-  const a = address.replace(/\s+/g, ' ').trim();
-  // 시/군 + 구/읍/면/동 까지
-  let m = a.match(/((?:서울|부산|대구|인천|광주|대전|울산|세종)[^\s]*\s*[가-힣]+[구군](?:\s*[가-힣0-9]+[동로가])?)/);
-  if (m) return m[1].trim();
-  m = a.match(/([가-힣]+시\s*[가-힣]+[구군읍면](?:\s*[가-힣0-9]+[동리가])?)/);
-  if (m) return m[1].trim();
-  m = a.match(/([가-힣]+[시군]\s*[가-힣]+[읍면동])/);
-  if (m) return m[1].trim();
-  const parts = a.split(' ').filter(Boolean);
-  // 도 빼고 시·구·동 정도
-  const filtered = parts.filter((p, i) => !(i === 0 && /도$|특별시$|광역시$/.test(p)));
-  return filtered.slice(0, 3).join(' ') || a;
-}
-
-function extractClientRemark(rawText) {
-  const t = rawText || '';
-  const notes = [];
-  if (/급급|완전급|■+급|급\s*배송|급배/.test(t)) notes.push('급급');
-  else if (/■?\s*급\b|급해요|급합니다|급히/.test(t)) notes.push('급');
-  if (/점심/.test(t)) notes.push('점심');
-  if (/오후에|오후\s*배송|오후중/.test(t)) notes.push('오후');
-  if (/아침에|아침\s*배송|오전중|오전에/.test(t)) notes.push('아침');
-  if (/내일/.test(t)) notes.push('내일');
-  if (/키\s*[는은]|비번|비밀번호|냉장고|문\s*열|우편함/.test(t)) notes.push('위치/키');
-  return notes;
-}
-
-// 기점: 하상동 미트포앤 (시작·종점)
-const DEPOT_NAME = '미트포앤';
-const DEPOT_ADDR = '경기도 시흥시 하상로8번길 7';
-const DEPOT_QUERY = '경기도 시흥시 하상로8번길 7 미트포앤';
-
-function collectOrderClients(orders) {
-  const map = {};
-  orders.forEach(o => {
-    if (!map[o.client]) {
-      map[o.client] = { name: o.client, address: o.address || '', remarks: new Set() };
-    } else if (!map[o.client].address && o.address) {
-      map[o.client].address = o.address;
-    }
-    extractClientRemark(o.raw || '').forEach(r => map[o.client].remarks.add(r));
-    (o.items || []).forEach(it => {
-      const n = ((it.note || '') + ' ' + (it.extra || '')).trim();
-      if (/급급/.test(n)) map[o.client].remarks.add('급급');
-      else if (/\b급\b|급/.test(n) && /급/.test(n)) map[o.client].remarks.add('급');
-      if (/점심/.test(n)) map[o.client].remarks.add('점심');
+  function add(prod, brand, detail) {
+    prod = prod.replace(/\s+/g, ' ').trim();
+    if (!prod) return;
+    let qty = 0;
+    const cleaned = detail.replace(/박/g, ' ').trim();
+    const nums = cleaned.match(/\d+/g);
+    if (nums) qty = parseInt(nums[0], 10) || 0;
+    const noteM = detail.match(/~[^\s]+/);
+    rows.push({
+      product: prod,
+      brand,
+      qty,
+      detail: cleaned,
+      note: noteM ? noteM[0] : ''
     });
-  });
-  const all = getAllClients();
-  Object.keys(map).forEach(name => {
-    if (!map[name].address) {
-      const c = all.find(x => x.name === name);
-      if (c && c.address) map[name].address = c.address;
+  }
+
+  lines.forEach(line => {
+    const t = line.trim();
+    if (!t) return;
+    if (t.startsWith('토레인 삼겹')) {
+      curProd = '삼겹'; curBrand = '토레인';
+      const r = t.replace('토레인 삼겹', '').trim();
+      if (r) add(curProd, curBrand, r);
+      return;
     }
+    const mm = t.match(/\(([^)]+)\)/);
+    const first = t.split(/\s+/)[0];
+    const isNew = !first.startsWith('(') && !/^\d/.test(first);
+    if (isNew) {
+      curProd = t.split(/\s*\(/)[0].trim();
+      curBrand = mm ? mm[1] : '기본';
+      for (const m of makers) {
+        if (curProd.includes(m)) { curBrand = m; curProd = curProd.replace(m, '').trim(); break; }
+      }
+      const rest = t.replace(curProd, '').replace(`(${curBrand})`, '').trim();
+      if (rest) add(curProd, curBrand, rest);
+    } else if (mm) {
+      curBrand = mm[1];
+      const rest = t.replace(`(${curBrand})`, '').trim();
+      if (rest) add(curProd, curBrand, rest);
+    } else if (curProd) add(curProd, curBrand, t);
   });
-  return Object.values(map);
+  return rows;
 }
 
+function renderStock() {
+  const tb = document.getElementById('inventory-tbody');
+  if (!stockRows.length) {
+    tb.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-slate-400">재고 없음</td></tr>';
+    document.getElementById('stockMeta').textContent = '—';
+    return;
+  }
+  document.getElementById('stockMeta').textContent = stockRows.length + '줄';
+  tb.innerHTML = stockRows.map(r => `<tr class="hover:bg-slate-50">
+    <td class="py-2 px-2.5 font-bold whitespace-nowrap">${esc(r.product)}</td>
+    <td class="py-2 px-2"><span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px]">${esc(r.brand)}</span></td>
+    <td class="py-2 px-2.5 font-mono font-bold">${r.qty ? r.qty + '박스' : esc(r.detail)}</td>
+    <td class="py-2 px-2 text-right pr-3 font-mono text-[11px] text-slate-600">${esc(r.note || '—')}</td>
+  </tr>`).join('');
+}
 
-// ---------- 배차 (차량별 행선지) ----------
-const VEHICLE_COLORS = ['#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00acc1', '#6d4c41', '#546e7a', '#c0ca33'];
-const DEFAULT_VEHICLES = ['승호', '진', '한', '명', '진우'];
+function renderRemain() {
+  const orderSum = {};
+  orders.forEach(o => o.items.forEach(it => {
+    if (!/Box|박스/i.test(it.unit)) return;
+    const k = it.name.replace(/냉장|냉동|수입|국내산|\s/g, '');
+    orderSum[k] = (orderSum[k] || 0) + it.qty;
+  }));
+  const stockSum = {};
+  stockRows.forEach(r => {
+    const k = r.product.replace(/냉장|냉동|수입|국내산|\s/g, '');
+    stockSum[k] = (stockSum[k] || 0) + (r.qty || 0);
+  });
+  const keys = [...new Set([...Object.keys(stockSum), ...Object.keys(orderSum)])].sort((a, b) => a.localeCompare(b, 'ko'));
+  const tb = document.getElementById('remain-tbody');
+  if (!keys.length) {
+    tb.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-slate-400">—</td></tr>';
+    return;
+  }
+  tb.innerHTML = keys.map(k => {
+    const s = stockSum[k] || 0, o = orderSum[k] || 0, rem = s - o;
+    const cls = rem < 0 ? 'text-red-600 font-bold' : 'text-emerald-600 font-bold';
+    return `<tr><td class="py-1.5 px-2">${esc(k)}</td><td class="py-1.5 px-2 text-right font-mono">${s}</td>
+      <td class="py-1.5 px-2 text-right font-mono">${o}</td><td class="py-1.5 px-2 text-right font-mono ${cls}">${rem}</td></tr>`;
+  }).join('');
+}
 
+document.getElementById('btnParseStock').onclick = () => {
+  stockRows = parseStock(document.getElementById('stockInput').value);
+  renderStock();
+  renderRemain();
+  saveState();
+};
+
+/* ----- dispatch ----- */
 function getVehicles() {
   try {
     const v = JSON.parse(localStorage.getItem('meatpoan_vehicles') || 'null');
@@ -2640,955 +1038,71 @@ function getVehicles() {
   } catch (e) {}
   return DEFAULT_VEHICLES.slice();
 }
-function setVehicles(list) {
-  try { localStorage.setItem('meatpoan_vehicles', JSON.stringify(list)); } catch (e) {}
+function setVehicles(v) { try { localStorage.setItem('meatpoan_vehicles', JSON.stringify(v)); } catch (e) {} }
+function getDispatch() {
+  try { return JSON.parse(localStorage.getItem('meatpoan_dispatch') || '{}'); } catch (e) { return {}; }
 }
-/** clientName -> vehicleName */
-function getDispatchMap() {
-  try {
-    return JSON.parse(localStorage.getItem('meatpoan_dispatch') || '{}') || {};
-  } catch (e) { return {}; }
-}
-function setDispatchMap(map) {
-  try { localStorage.setItem('meatpoan_dispatch', JSON.stringify(map)); } catch (e) {}
-}
-function setClientVehicle(client, vehicle) {
-  const m = getDispatchMap();
-  if (!vehicle) delete m[client];
-  else m[client] = vehicle;
-  setDispatchMap(m);
-}
-function vehicleColor(name) {
+function setDispatch(m) { try { localStorage.setItem('meatpoan_dispatch', JSON.stringify(m)); } catch (e) {} }
+
+function addVehicle() {
+  const n = (document.getElementById('newVehicle').value || '').trim();
+  if (!n) return;
   const vs = getVehicles();
-  const i = vs.indexOf(name);
-  if (i < 0) return '#9e9e9e';
-  return VEHICLE_COLORS[i % VEHICLE_COLORS.length];
+  if (!vs.includes(n)) { vs.push(n); setVehicles(vs); }
+  document.getElementById('newVehicle').value = '';
+  renderDispatch();
 }
 
-function renderDispatch(el, orders) {
-  const prev = el.innerHTML;
-  const clients = collectOrderClients(orders).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-  const vehicles = getVehicles();
-  const dmap = getDispatchMap();
-
-  let html = prev;
-  html += `<div class="section-title">배차 · 차량별 행선지 (${clients.length}곳)</div>`;
-  html += `<div class="card" style="margin-bottom:.4rem">
-    <div style="font-size:.95rem;color:#555;margin-bottom:.35rem">화이트보드처럼 거래처를 차량에 배정하세요. 지도에 차량 색으로 표시됩니다.</div>
-    <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.4rem">`;
-  vehicles.forEach(v => {
-    html += `<span class="badge" style="background:${vehicleColor(v)};color:#fff">${esc(v)}</span>`;
-  });
-  html += `</div>
-    <div style="display:flex;gap:.35rem;flex-wrap:wrap">
-      <input id="newVehicleName" class="search-box" style="margin:0;flex:1;min-width:120px" placeholder="차량/기사 추가">
-      <button type="button" class="map-btn" style="flex:0;min-width:70px" onclick="addVehicleFromInput()">추가</button>
-      <button type="button" class="map-btn secondary" style="flex:0;min-width:90px" onclick="showOrderMap()">지도</button>
-    </div>
-  </div>`;
-
-  // 차량별 요약
-  const byV = {};
-  vehicles.forEach(v => { byV[v] = []; });
-  byV['(미배정)'] = [];
-  clients.forEach(c => {
-    const v = dmap[c.name] || '(미배정)';
-    if (!byV[v]) byV[v] = [];
-    byV[v].push(c);
-  });
-
-  html += `<div class="card"><div class="matrix-wrap"><table>
-    <thead><tr><th>거래처</th><th>권역</th><th>차량</th></tr></thead><tbody>`;
-  clients.forEach(c => {
-    const reg = parseRegion(c.address);
-    const cur = dmap[c.name] || '';
-    html += `<tr>
-      <td>${esc(c.name)}</td>
-      <td style="font-size:.9rem">${esc(reg)}</td>
-      <td><select data-client="${esc(c.name)}" onchange="onDispatchChange(this)" style="width:100%;padding:.4rem;border-radius:8px;border:1px solid #ddd;font-size:1rem;min-height:40px">
-        <option value="">미배정</option>`;
-    vehicles.forEach(v => {
-      html += `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(v)}</option>`;
-    });
-    html += `</select></td></tr>`;
-  });
-  html += `</tbody></table></div></div>`;
-
-  // 차량별 목록 (화이트보드 형태)
-  html += `<div class="section-title">차량별 행선지</div>`;
-  vehicles.forEach(v => {
-    const list = byV[v] || [];
-    html += `<div class="card" style="border-left:4px solid ${vehicleColor(v)}">
-      <h3 style="color:${vehicleColor(v)}">${esc(v)} <span class="badge">${list.length}</span></h3>
-      <div style="font-size:.95rem;line-height:1.5">${list.length ? list.map(c => esc(c.name)).join(' · ') : '<span style="color:#aaa">없음</span>'}</div>
-    </div>`;
-  });
-  if ((byV['(미배정)'] || []).length) {
-    html += `<div class="card" style="border-left:4px solid #9e9e9e">
-      <h3 style="color:#666">미배정 <span class="badge">${byV['(미배정)'].length}</span></h3>
-      <div style="font-size:.95rem;line-height:1.5">${byV['(미배정)'].map(c => esc(c.name)).join(' · ')}</div>
-    </div>`;
-  }
-
-  el.innerHTML = html;
-}
-
-function onDispatchChange(sel) {
-  const client = sel.getAttribute('data-client');
-  setClientVehicle(client, sel.value || '');
-  // 차량별 요약만 다시 그리면 좋지만 간단히 전체 재렌더
-  render();
-}
-
-function addVehicleFromInput() {
-  const inp = document.getElementById('newVehicleName');
-  const name = (inp && inp.value || '').trim();
-  if (!name) return;
+function renderDispatch() {
+  const clients = [...new Set(orders.map(o => o.client))].sort((a, b) => a.localeCompare(b, 'ko'));
   const vs = getVehicles();
-  if (!vs.includes(name)) {
-    vs.push(name);
-    setVehicles(vs);
-  }
-  if (inp) inp.value = '';
-  render();
-}
-
-
-function renderRegions(el, orders) {
-  const prev = el.innerHTML;
-  const clients = collectOrderClients(orders).map(c => {
-    const reg = parseRegion(c.address);
-    return Object.assign({}, c, { reg: reg || '주소미상' });
-  });
-
-  // 주소미상은 맨 아래, 나머지는 권역→이름 순
-  clients.sort((a, b) => {
-    const aUnk = (!a.address || a.reg === '주소미상') ? 1 : 0;
-    const bUnk = (!b.address || b.reg === '주소미상') ? 1 : 0;
-    if (aUnk !== bUnk) return aUnk - bUnk;
-    const cr = (a.reg || '').localeCompare(b.reg || '', 'ko');
-    if (cr) return cr;
-    return a.name.localeCompare(b.name, 'ko');
-  });
-
-  window.__mapClients = clients.filter(c => c.address).slice();
-  // 좌표 미리 받기 → 지도 보기 즉시
-  try { preloadMapCoords(window.__mapClients); } catch (e) {}
-
-  let html = prev;
-  html += `<div class="section-title">발주 거래처 · ${clients.length}곳</div>`;
-  html += `<div class="map-actions">
-    <button type="button" class="map-btn" onclick="showOrderMap()">지도 보기</button>
-    <button type="button" class="map-btn secondary" onclick="downloadMyMapsCsv()">마이맵 CSV</button>
-  </div>`;
-  html += `<div class="map-pin-legend"><span><i class="pin-dot depot"></i> 미트포앤(빨간 별)</span><span><i class="pin-dot client"></i> 발주 거래처(파랑)</span>
-    <button type="button" class="map-btn secondary" style="flex:0;padding:.25rem .5rem;min-height:28px;font-size:.7rem" onclick="showMapHelp()">지도안내</button></div>`;
-
-  html += `<div id="orderMap" style="display:none"></div>`; /* 전체화면은 mapFsOverlay */
-  html += `<input class="search-box" placeholder="거래처·권역·주소 검색..." oninput="filterClientTable(this.value)">`;
-
+  const dm = getDispatch();
+  const list = document.getElementById('dispatchList');
   if (!clients.length) {
-    html += `<div class="empty">발주 거래처 없음</div>`;
-    el.innerHTML = html;
+    list.innerHTML = '<p class="text-xs text-slate-400">발주 거래처 없음</p>';
+    document.getElementById('dispatchSummary').innerHTML = '';
     return;
   }
-
-  html += `<div class="card"><div class="matrix-wrap"><table id="clientListTable" class="compact-merge">
-    <thead><tr><th>권역</th><th>거래처명</th><th>주소</th><th>비고</th></tr></thead>
-    <tbody>`;
-  // 같은 권역 셀 통합
-  const regSpans = {};
-  for (let i = 0; i < clients.length; ) {
-    let j = i + 1;
-    while (j < clients.length && clients[j].reg === clients[i].reg) j++;
-    regSpans[i] = j - i;
-    i = j;
-  }
-  clients.forEach((c, i) => {
-    const remarkStr = [...(c.remarks || [])].join(', ');
-    const isUnk = !c.address || c.reg === '주소미상';
-    const isStart = regSpans[i] != null;
-    html += `<tr class="${isUnk ? 'addr-unknown' : ''} ${isStart ? 'group-start' : ''}" data-search="${esc((c.reg + ' ' + c.name + ' ' + (c.address || '') + ' ' + remarkStr).toLowerCase())}">`;
-    if (isStart) {
-      html += `<td class="group-cell" rowspan="${regSpans[i]}" style="white-space:nowrap;font-size:.9rem">${esc(c.reg)}</td>`;
-    }
-    html += `<td>${esc(c.name)}</td>
-      <td style="font-size:.9rem;color:#555">${esc(isUnk ? '주소미상' : shortAddress(c.address))}</td>
-      <td style="font-size:.9rem">${esc(remarkStr)}</td>
-    </tr>`;
-  });
-  html += `</tbody></table></div></div>`;
-  el.innerHTML = html;
-}
-
-function filterClientTable(q) {
-  q = (q || '').toLowerCase().trim();
-  const rows = document.querySelectorAll('#clientListTable tbody tr');
-  rows.forEach(tr => {
-    const hay = (tr.getAttribute('data-search') || tr.textContent || '').toLowerCase();
-    tr.style.display = (!q || hay.includes(q)) ? '' : 'none';
-  });
-}
-
-
-
-
-
-// --- 브이월드(vWorld) 주소검색 + Leaflet 지도 ---
-const VWORLD_KEY = '3351CCD7-07E8-40AB-97D0-243A592B74C3';
-
-function geoCacheGet(addr) {
-  try {
-    const p = JSON.parse(localStorage.getItem('vgeo:' + addr) || 'null');
-    if (p && p.lat != null && p.lng != null) return p;
-  } catch (e) {}
-  return null;
-}
-function geoCacheSet(addr, pos) {
-  try { localStorage.setItem('vgeo:' + addr, JSON.stringify(pos)); } catch (e) {}
-}
-
-/** JSONP — 브이월드가 CORS 헤더를 안 줘서 fetch 불가, script 태그로 우회 */
-function jsonpRequest(url, timeoutMs) {
-  timeoutMs = timeoutMs || 8000;
-  return new Promise((resolve, reject) => {
-    const cb = 'vw_cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(new Error('timeout'));
-    }, timeoutMs);
-    function cleanup() {
-      clearTimeout(timer);
-      try { delete window[cb]; } catch (e) { window[cb] = undefined; }
-      if (script && script.parentNode) script.parentNode.removeChild(script);
-    }
-    window[cb] = function (data) {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      resolve(data);
-    };
-    const script = document.createElement('script');
-    script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + cb;
-    script.onerror = function () {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(new Error('script error'));
-    };
-    document.head.appendChild(script);
-  });
-}
-
-function parseVworldPoint(data) {
-  if (!data || !data.response) return null;
-  const r = data.response;
-  if (r.status === 'OK' && r.result && r.result.point) {
-    const lat = parseFloat(r.result.point.y);
-    const lng = parseFloat(r.result.point.x);
-    if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
-  }
-  const items = r.result && r.result.items;
-  if (items && items[0] && items[0].point) {
-    const lat = parseFloat(items[0].point.y);
-    const lng = parseFloat(items[0].point.x);
-    if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
-  }
-  return null;
-}
-
-/** Photon (키 없음, CORS 허용) — 브이월드 실패 시 */
-async function photonGeocode(addr) {
-  try {
-    const url = 'https://photon.komoot.io/api/?' + new URLSearchParams({
-      q: addr,
-      limit: '1',
-      lang: 'ko'
-    }).toString();
-    const res = await fetch(url);
-    const data = await res.json();
-    const f = data && data.features && data.features[0];
-    if (f && f.geometry && f.geometry.coordinates) {
-      return { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] };
-    }
-  } catch (e) {}
-  return null;
-}
-
-/** 주소 → 좌표: 브이월드(JSONP) → Photon 순 */
-async function vworldGeocode(addr) {
-  if (!addr) return null;
-  const cached = geoCacheGet(addr);
-  if (cached) return cached;
-
-  const tryTypes = ['road', 'parcel'];
-  for (const typ of tryTypes) {
-    const params = new URLSearchParams({
-      service: 'address',
-      request: 'getCoord',
-      version: '2.0',
-      crs: 'epsg:4326',
-      address: addr,
-      refine: 'true',
-      simple: 'false',
-      format: 'json',
-      type: typ,
-      key: VWORLD_KEY
-    });
-    try {
-      const data = await jsonpRequest('https://api.vworld.kr/req/address?' + params.toString());
-      const pos = parseVworldPoint(data);
-      if (pos) { geoCacheSet(addr, pos); return pos; }
-    } catch (e) {}
-  }
-
-  // 검색 API JSONP
-  try {
-    const params2 = new URLSearchParams({
-      service: 'search',
-      request: 'search',
-      version: '2.0',
-      crs: 'EPSG:4326',
-      size: '1',
-      page: '1',
-      query: addr,
-      type: 'address',
-      category: 'road',
-      format: 'json',
-      errorformat: 'json',
-      key: VWORLD_KEY
-    });
-    const data2 = await jsonpRequest('https://api.vworld.kr/req/search?' + params2.toString());
-    const pos2 = parseVworldPoint(data2);
-    if (pos2) { geoCacheSet(addr, pos2); return pos2; }
-  } catch (e) {}
-
-  // Photon 폴백 (CORS 없음, 키 없음)
-  const ph = await photonGeocode(addr + ' 대한민국');
-  if (ph) { geoCacheSet(addr, ph); return ph; }
-  const ph2 = await photonGeocode(addr);
-  if (ph2) { geoCacheSet(addr, ph2); return ph2; }
-
-  return null;
-}
-
-
-let _orderMap = null;
-let _orderMapLayer = null;
-
-function makePinIcon(color) {
-  const svg = encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">
-      <path fill="${color}" stroke="#fff" stroke-width="2"
-        d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.3 21.7 0 14 0z"/>
-      <circle cx="14" cy="14" r="5" fill="#fff"/>
-    </svg>`
-  );
-  return L.icon({
-    iconUrl: 'data:image/svg+xml;charset=UTF-8,' + svg,
-    iconSize: [28, 40],
-    iconAnchor: [14, 40],
-    popupAnchor: [0, -36]
-  });
-}
-
-async function preloadMapCoords(clients) {
-  const addrs = [DEPOT_ADDR];
-  (clients || []).forEach(c => { if (c.address) addrs.push(c.address); });
-  for (const a of addrs) {
-    if (!geoCacheGet(a)) {
-      await vworldGeocode(a);
-      await new Promise(r => setTimeout(r, 80));
-    }
-  }
-}
-
-async function showOrderMap() {
-  if (typeof L === 'undefined') {
-    alert('지도 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');
-    return;
-  }
-
-  // 전체화면 오버레이
-  let overlay = document.getElementById('mapFsOverlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'mapFsOverlay';
-    overlay.className = 'map-fs-overlay';
-    overlay.innerHTML = `
-      <div class="map-fs-bar">
-        <h2>발주 거래처 지도</h2>
-        <button type="button" id="mapFsShare">공유</button>
-        <button type="button" id="mapFsCsv">CSV</button>
-        <button type="button" id="mapFsClose">닫기</button>
-      </div>
-      <div id="orderMapFs"></div>
-      <div class="map-fs-legend" id="mapFsLegend">
-        <span><i class="pin-dot depot"></i> 기점</span>
-        <span id="mapFsStatus" style="margin-left:auto;color:#888"></span>
-      </div>`;
-    document.body.appendChild(overlay);
-    document.getElementById('mapFsClose').onclick = closeOrderMapFs;
-    document.getElementById('mapFsShare').onclick = shareOrderMap;
-    document.getElementById('mapFsCsv').onclick = () => downloadMyMapsCsv();
-  }
-  overlay.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-
-  const status = document.getElementById('mapFsStatus');
-  status.textContent = '주소 검색 중...';
-
-  const mapEl = document.getElementById('orderMapFs');
-  mapEl.innerHTML = '';
-
-  if (_orderMap) {
-    try { _orderMap.remove(); } catch (e) {}
-    _orderMap = null;
-  }
-
-  _orderMap = L.map('orderMapFs').setView([37.38, 126.8], 11);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap | 주소 브이월드/Photon'
-  }).addTo(_orderMap);
-  _orderMapLayer = L.featureGroup().addTo(_orderMap);
-
-  const depotIcon = makePinIcon('#e53935');
-  const clientIcon = makePinIcon('#1e88e5');
-  const list = (window.__mapClients || []).filter(c => c.address);
-
-  let depot = geoCacheGet(DEPOT_ADDR) || await vworldGeocode(DEPOT_ADDR);
-  if (!depot) depot = await vworldGeocode(DEPOT_QUERY);
-  if (depot) {
-    L.marker([depot.lat, depot.lng], { icon: depotIcon })
-      .bindPopup('<b style="color:#e53935">' + DEPOT_NAME + '</b><br>' + DEPOT_ADDR + '<br><small>기점</small>')
-      .addTo(_orderMapLayer);
-  }
-
-  let ok = 0, fail = 0;
-  for (let i = 0; i < list.length; i++) {
-    const c = list[i];
-    status.textContent = '검색 ' + (i + 1) + '/' + list.length;
-    let pos = geoCacheGet(c.address) || await vworldGeocode(c.address);
-    if (!pos) { fail++; continue; }
-    ok++;
-    const dmap = getDispatchMap();
-    const veh = dmap[c.name] || '';
-    const col = veh ? vehicleColor(veh) : '#1e88e5';
-    const label = veh ? (c.name + ' [' + veh + ']') : c.name;
-    L.marker([pos.lat, pos.lng], { icon: makePinIcon(col) })
-      .bindPopup('<b>' + (c.name || '') + '</b>' + (veh ? ' <span style="color:' + col + '">[' + veh + ']</span>' : '') + '<br>' + (c.address || ''))
-      .addTo(_orderMapLayer);
-  }
-
-  const layers = _orderMapLayer.getLayers();
-  if (layers.length) {
-    _orderMap.fitBounds(_orderMapLayer.getBounds().pad(0.12));
-  } else if (depot) {
-    _orderMap.setView([depot.lat, depot.lng], 13);
-  }
-  setTimeout(() => { try { _orderMap.invalidateSize(); } catch (e) {} }, 200);
-
-  status.textContent = '표시 ' + ok + '곳' + (fail ? ' · 실패 ' + fail : '');
-  // 차량 색 범례
-  const leg = document.getElementById('mapFsLegend');
-  if (leg) {
-    const vs = getVehicles();
-    let legHtml = '<span><i class="pin-dot depot"></i> 기점</span>';
-    vs.forEach(v => {
-      legHtml += ' <span><i class="pin-dot" style="background:' + vehicleColor(v) + '"></i> ' + v + '</span>';
-    });
-    legHtml += '<span id="mapFsStatus" style="margin-left:auto;color:#888">' + status.textContent + '</span>';
-    leg.innerHTML = legHtml;
-  }
-}
-
-
-function closeOrderMapFs() {
-  const overlay = document.getElementById('mapFsOverlay');
-  if (overlay) overlay.style.display = 'none';
-  document.body.style.overflow = '';
-}
-
-async function shareOrderMap() {
-  const list = (window.__mapClients || []).filter(c => c.address);
-  const lines = [];
-  lines.push('[' + (currentDate || '발주') + ' 거래처 분포]');
-  lines.push('기점: ' + DEPOT_NAME + ' / ' + DEPOT_ADDR);
-  lines.push('---');
-  list.forEach((c, i) => {
-    lines.push((i + 1) + '. ' + c.name + ' — ' + c.address);
-  });
-  lines.push('---');
-  lines.push('총 ' + list.length + '곳');
-  const text = lines.join('\n');
-
-  // 모바일 공유 시트
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: '발주 거래처 지도',
-        text: text
-      });
-      return;
-    } catch (e) {
-      if (e && e.name === 'AbortError') return;
-    }
-  }
-  // 클립보드 복사
-  try {
-    await navigator.clipboard.writeText(text);
-    alert('거래처 목록이 클립보드에 복사되었습니다.\\n카톡 등에 붙여넣기 하세요.\\n\\n(지도 이미지 공유는 CSV→마이맵 권장)');
-  } catch (e) {
-    prompt('아래 내용을 복사하세요', text);
-  }
-}
-
-function promptKakaoKey() {
-  alert('현재 지도는 브이월드 키를 사용합니다.\\n키: ' + VWORLD_KEY.slice(0, 8) + '…');
-}
-
-function showMapHelp() {
-  alert(
-    '【브이월드 지도】\\n\\n' +
-    '· 주소검색: 국토부 브이월드 (개발키)\\n' +
-    '· 지도화면: OpenStreetMap\\n' +
-    '· 미트포앤 = 빨간 핀 / 거래처 = 파란 핀\\n' +
-    '· 좌표는 한 번 찾으면 저장되어 다음엔 바로 표시\\n\\n' +
-    '키 만료: 2027-04-29\\n' +
-    '도메인에 gongbyoung.github.io 등록되어 있어야 합니다.'
-  );
-}
-
-function downloadMyMapsCsv() {
-  const list = window.__mapClients || [];
-  if (!list.length) return alert('표시할 거래처가 없습니다');
-  // 마이맵 가져오기용: 이름, 주소, 권역, 비고 (분포 확인용 · 경로 아님)
-  const rows = [['이름', '주소', '권역', '비고']];
-  rows.push([DEPOT_NAME + '(기점)', DEPOT_ADDR, parseRegion(DEPOT_ADDR), '기점']);
-  list.forEach(c => {
-    const remark = [...(c.remarks || [])].join(' ');
-    const reg = parseRegion(c.address || '');
-    rows.push([c.name, c.address || c.name, reg, remark]);
-  });
-  const bom = '\uFEFF';
-  const csv = bom + rows.map(r => r.map(cell => {
-    const s = String(cell ?? '');
-    if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
-    return s;
-  }).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  const day = (currentDate || '').replace(/^20\d{2}년\s*/, '').replace(/\s+/g, '') || '발주';
-  a.download = '발주분포_' + day + '.csv';
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-function filterRegionCards(q) {
-  q = (q || '').toLowerCase();
-  document.querySelectorAll('.region-card').forEach(card => {
-    const reg = (card.dataset.region || '').toLowerCase();
-    const text = card.textContent.toLowerCase();
-    card.style.display = (!q || reg.includes(q) || text.includes(q)) ? '' : 'none';
-  });
-}
-
-
-function renderByClient(el, orders, filterBar) {
-  const map = {};
-  orders.forEach(o => {
-    if (!map[o.client]) map[o.client] = { address: o.address, items: [], ships: new Set(), times: [] };
-    map[o.client].items.push(...o.items);
-    map[o.client].ships.add(o.ship === 'next' ? '다음날' : (o.shipExplicit ? '당일' : '당일(기본)'));
-    map[o.client].times.push(o.time);
-    if (!map[o.client].address && o.address) map[o.client].address = o.address;
-  });
-  const names = Object.keys(map).sort();
-
-  let html = (filterBar || '') + `<input class="search-box" placeholder="거래처 검색..." oninput="filterCards(this.value)">`;
-  html += '<div id="cards">';
-  names.forEach(name => {
-    const g = map[name];
-    const shipLabel = [...g.ships].join('·');
-    html += `<div class="card client-card" data-name="${esc(name)}">
-      <h3>${esc(name)} <span class="badge">${g.items.length}품목</span> <span class="badge ship-${shipLabel.includes('다음')?'next':'today'}">${esc(shipLabel)}</span></h3>
-      ${g.address ? `<div class="addr">${esc(g.address)}</div>` : ''}
-      <div class="matrix-wrap"><table>
-        <thead><tr><th>고기명</th><th>갯수</th><th>단위</th><th>비고</th><th>추가비고</th></tr></thead>
-        <tbody>`;
-    g.items.forEach(it => {
-      html += `<tr>
-        <td>${esc(it.name)}</td>
-        <td class="num">${esc(it.qty)}</td>
-        <td class="center">${esc(it.unit)}</td>
-        <td>${esc(it.note)}</td>
-        <td>${esc(it.extra)}</td>
-      </tr>`;
-    });
-    html += `</tbody></table></div></div>`;
-  });
-  html += '</div>';
-  el.innerHTML = html;
-}
-
-function filterCards(q) {
-  q = q.toLowerCase();
-  document.querySelectorAll('.client-card').forEach(c => {
-    c.style.display = c.dataset.name.toLowerCase().includes(q) ? '' : 'none';
-  });
-}
-
-function renderByMeat(el, orders) {
-  const meatSet = new Set();
-  const clientSet = new Set();
-  const matrix = {};
-  const colTotal = {};
-
-  orders.forEach(o => {
-    clientSet.add(o.client);
-    o.items.forEach(it => {
-      if (isLoose(it)) return;
-      const key = meatColumnKey(it);
-      if (!key) return;
-      meatSet.add(key);
-      if (!matrix[o.client]) matrix[o.client] = {};
-      const q = parseFloat(it.qty) || 1;
-      matrix[o.client][key] = (matrix[o.client][key] || 0) + q;
-      colTotal[key] = (colTotal[key] || 0) + q;
-    });
-  });
-
-  // 출고량 많은 순 (동률이면 이름순)
-  const meats = [...meatSet].sort((a, b) => {
-    const da = colTotal[b] - colTotal[a];
-    if (da !== 0) return da;
-    return a.localeCompare(b, 'ko');
-  });
-  const clients = [...clientSet].sort((a, b) => a.localeCompare(b, 'ko'));
-  const prev = el.innerHTML;
-
-  if (!meats.length) {
-    el.innerHTML = prev + '<div class="empty">박스 단위 발주가 없습니다</div>';
-    return;
-  }
-
-  let html = prev + '<div class="section-title">거래처 × 고기 (박스 수 · 출고량순 · 메이커 구분)</div><div class="matrix-wrap"><table class="matrix"><thead><tr><th>거래처</th>';
-  meats.forEach(m => html += `<th>${esc(m)}</th>`);
-  html += '<th class="total-col">합계</th></tr></thead><tbody>';
-
-  clients.forEach(c => {
-    let rowSum = 0;
-    html += `<tr><td>${esc(c)}</td>`;
-    meats.forEach(m => {
-      const v = matrix[c]?.[m] || 0;
-      rowSum += v;
-      html += `<td class="num">${v || ''}</td>`;
-    });
-    html += `<td class="num total-col">${rowSum || ''}</td></tr>`;
-  });
-
-  let grand = 0;
-  html += '<tr class="total-row"><td>합계</td>';
-  meats.forEach(m => {
-    grand += colTotal[m] || 0;
-    html += `<td class="num">${colTotal[m] || ''}</td>`;
-  });
-  html += `<td class="num total-col">${grand}</td></tr>`;
-  html += '</tbody></table></div>';
-  el.innerHTML = html;
-}
-
-function normalizeMeat(name) {
-  if (!name || isPoliteOnly(name)) return null;
-  const raw = String(name).trim();
-  // 안내/문장/거래처성 단어면 제외 (고기 키워드 없어도)
-  if (/부탁|주세요|보내|내일|오늘|오후|아침|발주|문자|안녕|급급|정정|수정|홀에|놔주|되세|만이요|대표님|비번|월요일|화요일|수요일|목요일|금요일|동탄점|성대g|마트|g마트|점\s*$/i.test(raw)
-      && !/(삼겹|목살|전지|등뼈|갈비|항정|후지|사태|안심|등심|미삼|오겹|가브리|갈매기|늑간|설도|잡육|돈피|볼라|홍두깨|차돌|족|지방|냉삼|대패|수삼)/.test(raw)) {
-    return null;
-  }
-  // 문장처럼 긴 것 제외
-  if (raw.length > 18 && !/\d/.test(raw) && /요|세요|습니다|해요/.test(raw)) return null;
-
-  const n = raw.replace(/\s+/g, '');
-  if (/냉장?3mm|3mm냉장|3mm후지|냉장3mm후지|3mm냉장후지/i.test(n)) return '냉장3mm후지';
-  if (/냉동3mm|3mm냉동/i.test(n)) return '냉동3mm후지';
-
-  const map = (customMeats && customMeats.length) ? customMeats : DEFAULT_MEATS;
-  // 긴 키워드 우선 매칭
-  const sorted = map.slice().sort((a, b) => String(b[0]).length - String(a[0]).length);
-  for (const [k, v] of sorted) {
-    if (n.includes(k) || raw.includes(k)) return v;
-  }
-
-  // 알려진 고기 키워드가 전혀 없으면 제외 (잡문장 방지)
-  const MEAT_HINT = /삼겹|미삼|오겹|목살|전지|등뼈|갈비|등갈비|등심|안심|항정|가브리|갈매기|후지|사태|늑간|볼라|홍두깨|차돌|설도|잡육|돈피|살치|민찌|등잡|지방|냉삼|대패|수삼|모돈|미니족|장족|프렌치|LA/;
-  if (!MEAT_HINT.test(n) && !MEAT_HINT.test(raw)) return null;
-
-  const cleaned = raw.replace(/부탁\S*|주세요|보내\S*|수정\S*/g, '').trim();
-  if (!cleaned || cleaned.length > 14 || isPoliteOnly(cleaned)) return null;
-  return cleaned;
-}
-
-// 고기명 + 메이커(비고) 를 컬럼 키로
-function meatColumnKey(it) {
-  const meat = normalizeMeat(it.name);
-  if (!meat) return null;
-  const brand = extractBrand(it);
-  return brand ? (meat + '·' + brand) : meat;
-}
-function extractBrand(it) {
-  const brands = (typeof customBrands !== 'undefined' && customBrands.length) ? customBrands : DEFAULT_BRANDS;
-  const blob = [it.note, it.extra, it.name].filter(Boolean).join(' ');
-  for (const b of brands) {
-    if (b && blob.includes(b)) return b;
-  }
-  return '';
-}
-
-
-function renderLoose(el, orders) {
-  const prev = el.innerHTML;
-  const rows = [];
-  orders.forEach(o => {
-    (o.items || []).forEach(it => {
-      if (!isLoose(it)) return;
-      const note = [it.note, it.extra].filter(Boolean).join(' ');
-      rows.push({ client: o.client, name: it.name, qty: it.qty, unit: it.unit, note });
-    });
-  });
-  rows.sort((a, b) => a.client.localeCompare(b.client, 'ko') || (a.name || '').localeCompare(b.name || '', 'ko'));
-  if (!rows.length) {
-    el.innerHTML = prev + '<div class="empty">낱개 없음</div>';
-    return;
-  }
-  // 같은 거래처 rowspan
-  const spans = [];
-  for (let i = 0; i < rows.length; ) {
-    let j = i + 1;
-    while (j < rows.length && rows[j].client === rows[i].client) j++;
-    spans.push({ start: i, len: j - i });
-    i = j;
-  }
-  const spanAt = {};
-  spans.forEach(s => { spanAt[s.start] = s.len; });
-
-  let html = prev + `<div class="section-title">낱개 · ${rows.length}건</div>`;
-  html += `<div class="card"><div class="matrix-wrap"><table class="compact-merge">
-    <thead><tr><th>거래처명</th><th>고기명</th><th>숫자</th><th>단위</th><th>비고</th></tr></thead>
-    <tbody>`;
-  rows.forEach((r, i) => {
-    const isStart = spanAt[i] != null;
-    html += `<tr class="${isStart ? 'group-start' : ''}">`;
-    if (isStart) {
-      html += `<td class="group-cell" rowspan="${spanAt[i]}">${esc(r.client)}</td>`;
-    }
-    html += `<td>${esc(r.name)}</td>
-      <td class="num">${esc(r.qty)}</td>
-      <td class="center">${esc(r.unit)}</td>
-      <td style="font-size:.9rem">${esc(r.note)}</td>
-    </tr>`;
-  });
-  html += `</tbody></table></div></div>`;
-  el.innerHTML = html;
-}
-
-
-function renderWeightLogs(el) {
-  const prev = el.innerHTML;
-  const logs = currentWeightLogs || [];
-  if (!logs.length) {
-    el.innerHTML = prev + '<div class="empty">계근 기록이 없습니다<br><small>로트·무게 위주 메시지가 여기 모입니다</small></div>';
-    return;
-  }
-  let html = prev + `<div class="section-title">계근 확인 · ${logs.length}건</div>`;
-  logs.forEach(w => {
-    html += `<div class="card">
-      <h3>${esc(w.client)} <span class="badge">${esc(w.time || '')}</span>
-        <span class="badge" style="background:#eee;color:#555">${esc((w.sender||'').slice(0,12))}</span></h3>
-      <div class="matrix-wrap"><table>
-        <thead><tr><th>고기</th><th>로트</th><th>무게/포대</th></tr></thead>
-        <tbody>`;
-    (w.rows || []).forEach(r => {
-      const wstr = r.weight ? (r.weight + (r.pack ? ' / ' + r.pack : '')) : (r.pack || '');
-      html += `<tr>
-        <td>${esc(r.meat)}</td>
-        <td class="num" style="font-size:.9rem">${esc(r.lot)}</td>
-        <td class="num">${esc(wstr)}</td>
-      </tr>`;
-    });
-    html += `</tbody></table></div></div>`;
-  });
-  el.innerHTML = html;
-}
-
-function renderStock(el, orders) {
-  const prev = el.innerHTML;
-  let html = prev + `<div class="section-title">재고 (준비 중)</div>
-    <div class="card">
-      <p style="font-size:.95rem;line-height:1.5;color:#555">
-        재고 수량을 입력하면 발주와 연계해 <b>가능 수량</b>을 표시할 예정입니다.<br>
-        · 고기별 재고 등록<br>
-        · 당일 발주 차감 / 잔여 표시<br>
-        다음 업데이트에서 사용 가능합니다.
-      </p>
+  list.innerHTML = clients.map(c => {
+    const opts = vs.map(v => `<option value="${esc(v)}" ${dm[c] === v ? 'selected' : ''}>${esc(v)}</option>`).join('');
+    return `<div class="flex items-center gap-2 text-xs">
+      <span class="flex-1 font-medium truncate">${esc(c)}</span>
+      <select class="border rounded px-1 py-1" data-c="${esc(c)}" onchange="(function(s){const m=getDispatch();if(s.value)m[s.dataset.c]=s.value;else delete m[s.dataset.c];setDispatch(m);renderDispatch();})(this)">
+        <option value="">미배정</option>${opts}
+      </select>
     </div>`;
-  el.innerHTML = html;
+  }).join('');
+
+  const byV = {};
+  vs.forEach(v => { byV[v] = []; });
+  clients.forEach(c => { const v = dm[c]; if (v && byV[v]) byV[v].push(c); });
+  document.getElementById('dispatchSummary').innerHTML = vs.map(v =>
+    `<div class="bg-white border border-slate-200 rounded p-2.5">
+      <div class="text-sm font-bold text-primary mb-1">${esc(v)} <span class="text-xs font-normal text-slate-500">${(byV[v]||[]).length}</span></div>
+      <div class="text-xs text-slate-700 leading-relaxed">${(byV[v]||[]).length ? byV[v].map(esc).join(' · ') : '<span class="text-slate-400">없음</span>'}</div>
+    </div>`
+  ).join('');
 }
 
-
-function renderRaw(el, orders) {
-  const prev = el.innerHTML;
-  let html = prev;
-  orders.forEach(o => {
-    const shipLabel = o.ship === 'next' ? '다음날' : '당일';
-    html += `<div class="card">
-      <h3>${esc(o.client)} <span class="badge">${esc(o.time || '')}</span> <span class="badge ship-${o.ship === 'next' ? 'next' : 'today'}">${shipLabel}</span></h3>
-      ${o.address ? `<div class="addr">${esc(o.address)}</div>` : ''}
-      <pre>${esc(o.raw)}</pre>
-    </div>`;
-  });
-  el.innerHTML = html || prev + '<div class="empty">없음</div>';
-}
-
-
-function renderSummary(el, orders) {
-  const prev = el.innerHTML;
-  // 고기명별 합산 (박스/낱개 구분)
-  const boxMap = {};  // name -> { qty, unit, notes:Set }
-  const looseMap = {};
-
-  orders.forEach(o => {
-    o.items.forEach(it => {
-      const meat = normalizeMeat(it.name) || (it.name || '').trim();
-      if (!meat || isPoliteOnly(meat)) return;
-      const q = parseFloat(it.qty);
-      if (!q && q !== 0) return;
-      const unit = it.unit || (isLoose(it) ? 'Pack' : 'Box');
-      const target = isLoose(it) ? looseMap : boxMap;
-      if (!target[meat]) target[meat] = { qty: 0, unit: unit, notes: new Set() };
-      target[meat].qty += q;
-      if (it.note) target[meat].notes.add(it.note);
-      if (it.extra) target[meat].notes.add(it.extra);
-      // 단위 우선순위: 이미 있으면 유지
-      if (!target[meat].unit) target[meat].unit = unit;
-    });
-  });
-
-  // 정렬: 자주 쓰는 고기 순서 우선
-  const orderPref = ['특삼겹','삼겹','암삼겹','특미삼','미삼','암미삼','특목살','목살','B목살','미전지','목전지','전지','갈비','등갈비','등심','안심','사태','앞미사태','항정','가브리','갈매기','등뼈','미후지','냉장3mm후지','냉동3mm후지','돈피','B지방','잡육','설도','살치'];
-  function sortKeys(map) {
-    return Object.keys(map).sort((a, b) => {
-      const ia = orderPref.indexOf(a); const ib = orderPref.indexOf(b);
-      if (ia === -1 && ib === -1) return a.localeCompare(b, 'ko');
-      if (ia === -1) return 1;
-      if (ib === -1) return -1;
-      return ia - ib;
-    });
+/* ----- boot ----- */
+(function boot() {
+  const ok = loadState();
+  renderVouchers();
+  renderStock();
+  renderRemain();
+  switchTab(currentTab || 'order');
+  if (ok) {
+    showNotice(
+      '저장된 마지막 결과입니다.\n\n' +
+      '• 발주 거래처: ' + orders.length + '곳\n' +
+      '• 재고 줄: ' + stockRows.length + '\n' +
+      '• 날짜: ' + (document.getElementById('dateSelect').selectedOptions[0]?.textContent || '—') +
+      '\n\n지금 보고 있는 화면이 마지막 추출 결과입니다.'
+    );
+  } else {
+    showNotice('미트포앤 유통시스템\n\n저장된 결과가 없습니다.\n상단 📁 아이콘으로 카톡 TXT를 불러오세요.');
   }
-
-  const dateLabel = (currentDate || '').replace(/^(20\d{2})년\s*/, '');
-  let lines = [];
-  lines.push(`[${dateLabel}] 전체 발주 합계`);
-  lines.push('');
-
-  const boxKeys = sortKeys(boxMap);
-  if (boxKeys.length) {
-    lines.push('■ 박스');
-    boxKeys.forEach(k => {
-      const x = boxMap[k];
-      const note = [...x.notes].filter(Boolean).join(' ');
-      const unitLabel = x.unit === 'Box' || !x.unit ? '박스' : x.unit;
-      lines.push(`${k} ${Math.round(x.qty * 10) / 10}${unitLabel}${note ? ' ' + note : ''}`);
-    });
-  }
-
-  const looseKeys = sortKeys(looseMap);
-  if (looseKeys.length) {
-    lines.push('');
-    lines.push('■ 낱개');
-    looseKeys.forEach(k => {
-      const x = looseMap[k];
-      const note = [...x.notes].filter(Boolean).join(' ');
-      let unitLabel = x.unit || 'Pack';
-      if (unitLabel === 'Pack') unitLabel = '팩';
-      if (unitLabel === 'Kg') unitLabel = 'Kg';
-      if (unitLabel === '봉지' || unitLabel === '봉지') unitLabel = '봉지';
-      lines.push(`${k} ${Math.round(x.qty * 10) / 10}${unitLabel}${note ? ' ' + note : ''}`);
-    });
-  }
-
-  if (!boxKeys.length && !looseKeys.length) {
-    el.innerHTML = prev + '<div class="empty">합산할 발주가 없습니다</div>';
-    return;
-  }
-
-  const text = lines.join('\n');
-  // store for copy
-  window.__summaryText = text;
-
-  let html = prev;
-  html += `<div class="section-title">해당일 전체 발주 (문자식)</div>`;
-  html += `<div class="summary-box" id="summaryText">${esc(text)}</div>`;
-  html += `<div class="summary-actions">
-    <button type="button" onclick="copySummary()">복사하기</button>
-    <button type="button" class="secondary" onclick="shareSummary()">공유</button>
-  </div>`;
-  el.innerHTML = html;
-}
-
-function copySummary() {
-  const t = window.__summaryText || '';
-  if (!t) return;
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(t).then(() => alert('복사되었습니다')).catch(() => fallbackCopy(t));
-  } else fallbackCopy(t);
-}
-function fallbackCopy(t) {
-  const ta = document.createElement('textarea');
-  ta.value = t; document.body.appendChild(ta); ta.select();
-  try { document.execCommand('copy'); alert('복사되었습니다'); } catch(e) { alert('복사 실패'); }
-  document.body.removeChild(ta);
-}
-function shareSummary() {
-  const t = window.__summaryText || '';
-  if (navigator.share) {
-    navigator.share({ text: t }).catch(() => copySummary());
-  } else copySummary();
-}
-
-
-function esc(s) {
-  if (s == null) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+})();
 </script>
-
-<div class="admin-panel" id="adminPanel">
-  <div class="admin-sheet">
-    <h2>관리자 모드</h2>
-    <div class="admin-tabs">
-      <div class="admin-tab on" data-atab="alias" onclick="switchAdminTab('alias')">거래처별명</div>
-      <div class="admin-tab" data-atab="client" onclick="switchAdminTab('client')">거래처추가</div>
-      <div class="admin-tab" data-atab="brand" onclick="switchAdminTab('brand')">메이커</div>
-      <div class="admin-tab" data-atab="meat" onclick="switchAdminTab('meat')">고기명</div>
-      <div class="admin-tab" data-atab="loose" onclick="switchAdminTab('loose')">낱개단위</div>
-      <div class="admin-tab" data-atab="display" onclick="switchAdminTab('display')">화면글자</div>
-    </div>
-    <div id="adminBody"></div>
-    <div class="admin-actions" style="margin-top:1rem">
-      <button type="button" class="secondary" onclick="closeAdmin()">닫기</button>
-      <button type="button" class="secondary" onclick="exportAdminConfig()">내보내기</button>
-      <button type="button" class="secondary" onclick="importAdminConfig()">가져오기</button>
-      <button type="button" class="danger" onclick="resetAdminConfig()">초기화</button>
-    </div>
-    <input type="file" id="adminImportFile" accept="application/json,.json" style="display:none" onchange="onAdminImportFile(event)">
-  </div>
-</div>
-
 </body>
 </html>
