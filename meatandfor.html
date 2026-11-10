@@ -3,146 +3,192 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미트포앤 카톡 순수 발주 추출기</title>
+    <title>미트포앤 스마트 발주 분류기</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f6; color: #333; }
-        .container { max-width: 900px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        h2 { margin-top: 0; color: #1f4e79; }
-        p { color: #666; font-size: 14px; }
-        .upload-box { border: 2px dashed #b0c4de; padding: 25px; text-align: center; border-radius: 8px; background: #fafbfc; margin-bottom: 20px; cursor: pointer; }
+        :root { --primary: #1f4e79; --bg: #f4f7f6; --card: #ffffff; --text: #333; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 15px; background-color: var(--bg); color: var(--text); }
+        .container { max-width: 100%; margin: 0 auto; background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; color: var(--primary); font-size: 20px; }
+        p { color: #666; font-size: 13px; line-height: 1.4; }
+        .upload-box { border: 2px dashed #b0c4de; padding: 20px; text-align: center; border-radius: 8px; background: #fafbfc; margin-bottom: 15px; cursor: pointer; }
         .upload-box input { display: none; }
-        button { background-color: #1f4e79; color: white; border: none; padding: 10px 20px; font-size: 14px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        button:hover { background-color: #153556; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background-color: #1f4e79; color: white; }
+        .btn-group { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        button { background-color: var(--primary); color: white; border: none; padding: 10px 16px; font-size: 14px; border-radius: 6px; cursor: pointer; font-weight: bold; flex: 1; min-width: 120px; }
+        button.download { background-color: #2e7d32; }
+        button:active { opacity: 0.8; }
+        .stats { margin-bottom: 15px; font-weight: bold; color: #444; font-size: 14px; }
+        .table-responsive { overflow-x: auto; max-height: 600px; border: 1px solid #ddd; border-radius: 6px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+        th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+        th { background-color: var(--primary); color: white; position: sticky; top: 0; z-index: 10; }
         tr:nth-child(even) { background-color: #f9fbfd; }
-        .stats { margin-top: 15px; font-weight: bold; color: #444; }
-        .btn-download { background-color: #2e7d32; margin-bottom: 15px; display: none; }
-        .btn-download:hover { background-color: #1b5e20; }
+        .badge { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; color: white; background: #00897b; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📦 미트포앤 카카오톡 순수 발주 추출기</h2>
-    <p>카카오톡 텍스트 대화 파일(<code>.txt</code>)을 선택하면, 일상 대화와 재고 현황을 제외하고 <b>오직 순수 발주 내용만</b> 날짜별로 깔끔하게 추출해 표로 보여줍니다.</p>
+    <h2>🥩 미트포앤 지능형 순수 발주 분류기</h2>
+    <p>카카오톡 텍스트 대화 파일(<code>.txt</code>)을 업로드하면, 중구난방인 발주 형식을 파싱하고 <b>계근 데이터(무게 나열), 재고보고, 일상대화를 완벽히 걸러내어</b> 순수 발주만 표로 추출합니다.</p>
 
     <div class="upload-box" onclick="document.getElementById('fileInput').click()">
-        <p>📁 이곳을 터치하여 카카오톡 텍스트 파일(.txt)을 선택하세요</p>
-        <input type="file" id="fileInput" accept=".txt" onchange="processFile(event)">
+        <p>📁 <b>여기를 터치하여 카톡 .txt 파일 선택</b></p>
+        <input type="file" id="fileInput" accept=".txt" onchange="handleFileUpload(event)">
     </div>
 
-    <button id="downloadBtn" class="btn-download" onclick="downloadCSV()">엑셀(CSV) 다운로드</button>
+    <div class="btn-group">
+        <button id="downloadBtn" class="download" onclick="downloadExcel()" style="display:none;">📥 엑셀(CSV) 다운로드</button>
+    </div>
     
     <div id="stats" class="stats"></div>
 
-    <div style="overflow-x: auto;">
+    <div class="table-responsive">
         <table id="resultTable">
             <thead>
                 <tr>
-                    <th style="width: 25%;">날짜</th>
-                    <th style="width: 25%;">발신자 / 거래처</th>
-                    <th style="width: 50%;">발주 내용</th>
+                    <th>날짜</th>
+                    <th>거래처명 / 발신자</th>
+                    <th>분류 상태</th>
+                    <th>정제된 발주 내용</th>
                 </tr>
             </thead>
             <tbody>
-                <tr><td colspan="3" style="text-align: center; color: #888;">파일을 업로드하면 발주 내역이 여기에 표시됩니다.</td></tr>
+                <tr><td colspan="4" style="text-align: center; color: #888; padding: 20px;">대화 파일을 업로드해주세요.</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
 <script>
-let extractedOrders = [];
+let parsedOrders = [];
 
-function processFile(event) {
+function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = function(e) {
-        const text = e.target.result;
-        parseKakao(text);
+        analyzeChat(e.target.result);
     };
     reader.readAsText(file, 'utf-8');
 }
 
-function parseKakao(text) {
+function analyzeChat(text) {
     const lines = text.split('\n');
-    extractedOrders = [];
+    parsedOrders = [];
     let currentDate = "날짜 미상";
     
-    // 제외할 시스템 메시지 및 키워드
-    const excludeKeywords = [
-        '사진', '동영상', '이모티콘', '삭제되었습니다', '보낸 사람', 
-        '저장한 날짜', '카카오톡 대화', '참여했습니다', '나갔습니다',
-        '발주체크', '재고현황', '분류전', '사진 2장', '사진 3장', '사진장'
-    ];
-
-    // 카톡 메시지 패턴 매칭 (예: [이름] [오후 2:35] 내용)
+    // 카톡 메시지 패턴: [발신자] [시간] 메시지
     const pattern = /^\[(.*?)\] \[(오전|오후 \d{1,2}:\d{2})\] (.*)$/;
 
-    for (let line of lines) {
-        line = line.trim();
+    // 제외할 시스템/일상 키워드
+    const ignoreKeywords = [
+        '사진', '동영상', '이모티콘', '삭제되었습니다', '보낸 사람', 
+        '저장한 날짜', '카카오톡 대화', '참여했습니다', '나갔습니다',
+        '발주체크', '재고현황', '분류전', '사진 2장', '사진 3장', '공지', '투표', '일정'
+    ];
+
+    let currentOrder = null;
+
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
         if (!line) continue;
 
-        // 1. 날짜선 감지 (예: --------------- 2026년 10월 17일 토요일 ---------------)
+        // 날짜 감지
         if (line.includes('---------------') && line.includes('년')) {
             currentDate = line.replace(/[-]/g, '').trim();
             continue;
         }
 
-        // 2. 메시지 라인 파싱
         const match = line.match(pattern);
         if (match) {
+            // 이전 발주 저장
+            if (currentOrder) {
+                if (isValidOrder(currentOrder)) {
+                    parsedOrders.push(currentOrder);
+                }
+            }
+
             const sender = match[1];
             const message = match[3];
 
-            // 제외 키워드가 포함된 경우 무시
-            if (excludeKeywords.some(keyword => message.includes(keyword))) {
-                continue;
-            }
-
-            // 발주 느낌이 있는 데이터 누적 (내용이 너무 짧거나 시스템 성격인 것 제외)
-            extractedOrders.push({
+            currentOrder = {
                 date: currentDate,
                 sender: sender,
-                content: message
-            });
+                rawContent: message,
+                isWeighIn: false
+            };
         } else {
-            // 줄바꿈된 멀티라인 발주 내용 이어붙이기
-            if (extractedOrders.length > 0 && !line.includes('님과 카카오톡 대화')) {
-                if (!line.includes('---------------')) {
-                    extractedOrders[extractedOrders.length - 1].content += " " + line;
-                }
+            // 멀티라인 이어붙이기
+            if (currentOrder && !line.includes('님과 카카오톡 대화') && !line.includes('---------------')) {
+                currentOrder.rawContent += "\n" + line;
             }
         }
     }
+    // 마지막 건 처리
+    if (currentOrder && isValidOrder(currentOrder)) {
+        parsedOrders.push(currentOrder);
+    }
 
-    displayResults();
+    renderTable();
 }
 
-function displayResults() {
+// 계근 데이터 및 불필요한 로그를 정밀하게 판별하여 거르는 로직
+function isValidOrder(order) {
+    const text = order.rawContent;
+
+    // 1. 일상/시스템 키워드 포함 시 제외
+    const ignoreKeywords = ['사진', '삭제되었습니다', '재고현황', '발주체크', '분류전', '입금', '출고', '반품장'];
+    if (ignoreKeywords.some(kw => text.includes(kw))) return false;
+
+    // 2. 계근(무게 측정) 내용 판별 
+    // 예: "12.09", "9.06 9.25 8.51 8.18", "1652 1583" 처럼 숫자가 연속해서 여러 개 나오거나 바코드/중량 형태인 경우
+    // 예: "거시기 삼겹 5포 12.09" 또는 "알레한듀록 목살 9.06 9.25"
+    const numberTokens = text.match(/\b\d+\.\d+|\b\d{3,4}\b/g);
+    if (numberTokens && numberTokens.length >= 3) {
+        // 숫자가 3개 이상 대량으로 나열되면 계근 기록일 확률이 매우 높음
+        return false;
+    }
+
+    // "특목 21대 15박", "19대 20.4 20.4" 같은 직원방 계근/작업 로그 제외
+    if (text.includes('대 ') || text.includes('포 ') || text.includes('박스') == false) {
+        // Fleisch/Meat order usually contains item names and quantities (박스, 팩, 판, kg, 키로, 덩이 등)
+    }
+
+    // 3. 최소한 고기 관련 품목이나 수량 단위 단어가 포함되어야 발주로 인정
+    const meatKeywords = [
+        '삼겹', '목살', '미전지', '전지', '미삼', '등갈비', '등뼈', '갈비', '등심', '안심', 
+        '사태', '앞사태', '항정', '가브리', '갈매기', '미후지', '후지', '오겹', '우삼겹', 
+        '차돌', '스지', 'LA', '살치', '부채', '토시', '안창', '족', '껍데기', '잡육', '박스', '팩', '판', '키로', 'kg', '덩이'
+    ];
+    
+    const hasMeatKeyword = meatKeywords.some(kw => text.includes(kw));
+    if (!hasMeatKeyword) return false;
+
+    return true;
+}
+
+function renderTable() {
     const tbody = document.querySelector("#resultTable tbody");
     tbody.innerHTML = "";
 
-    if (extractedOrders.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: red;">추출된 발주 내역이 없습니다.</td></tr>`;
+    if (parsedOrders.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: red; padding: 20px;">조건에 맞는 순수 발주 내역이 없습니다.</td></tr>`;
         document.getElementById("stats").innerText = "";
         document.getElementById("downloadBtn").style.display = "none";
         return;
     }
 
-    document.getElementById("stats").innerText = `총 추출된 발주 건수: ${extractedOrders.length}건`;
+    document.getElementById("stats").innerText = `✨ 정제된 순수 발주 총 ${parsedOrders.length}건`;
     document.getElementById("downloadBtn").style.display = "inline-block";
 
-    extractedOrders.forEach(order => {
+    parsedOrders.forEach((order, idx) => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${escapeHtml(order.date)}</td>
-            <td><strong>${escapeHtml(order.sender)}</strong></td>
-            <td>${escapeHtml(order.content)}</td>
+            <td><b>${escapeHtml(order.sender)}</b></td>
+            <td><span class="badge">발주확정</span></td>
+            <td style="white-space: pre-line;">${escapeHtml(order.rawContent)}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -152,18 +198,18 @@ function escapeHtml(str) {
     return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function downloadCSV() {
-    let csv = "\uFEFF날짜,발신자/거래처,발주내용\n";
-    extractedOrders.forEach(o => {
-        const cleanContent = o.content.replace(/"/g, '""');
-        csv += `"${o.date}","${o.sender}","${cleanContent}"\n`;
+function downloadExcel() {
+    let csv = "\uFEFF날짜,거래처/발신자,발주내용\n";
+    parsedOrders.forEach(o => {
+        const cleanText = o.rawContent.replace(/"/g, '""').replace(/\n/g, ' ');
+        csv += `"${o.date}","${o.sender}","${cleanText}"\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "순수발주목록_추출.csv";
+    a.download = "미트포앤_정제된순수발주.csv";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
