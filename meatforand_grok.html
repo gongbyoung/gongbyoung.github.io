@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -171,6 +170,7 @@ tailwind.config = {
         <select id="dateSelect" class="text-xs border border-outline-variant rounded px-2 py-1 bg-white max-w-[55%]" disabled onchange="reparseOrders()">
           <option value="">날짜 선택</option>
         </select>
+        <span class="text-[10px] text-slate-400">창: 전날10시~당일14시</span>
         <div class="flex items-center gap-2 text-xs text-on-surface-variant font-medium">
           <span>총 <strong id="mClients" class="text-primary font-mono">0</strong>곳</span>
           <span class="text-outline-variant">·</span>
@@ -820,26 +820,18 @@ function parseOrdersFromText(text, deliveryDateKey) {
     // - D-1 메시지 중 ship=내일 → D 납품
     // - D 메시지 중 ship=내일 → 제외(다음날)
     if (deliveryDateKey) {
+      // 추출 창: 전날 10:00 ~ 발주일 14:00
       const msgDate = new Date(msg.y, msg.mo - 1, msg.d, Math.floor(msg.minutes / 60), msg.minutes % 60);
-      const dayStart = new Date(y, mo - 1, d, 0, 0, 0);
-      const prevNoon = new Date(y, mo - 1, d - 1, 12, 0, 0);
-      const day2pm = new Date(y, mo - 1, d, 14, 0, 0);
+      const windowStart = new Date(y, mo - 1, d - 1, 10, 0, 0); // 전날 10시
+      const windowEnd = new Date(y, mo - 1, d, 14, 0, 0);       // 당일 14시
       const ship = detectShipSide(msg.body);
-      const onPrev = msg.y === prevNoon.getFullYear() && msg.mo === (prevNoon.getMonth() + 1) && msg.d === prevNoon.getDate();
       const onDay = msg.y === y && msg.mo === mo && msg.d === d;
 
+      if (msgDate < windowStart || msgDate > windowEnd) continue;
+
+      // 당일 작성인데 내일/예약 납품 → 이 배송일에서 제외
       if (onDay && (ship === '내일' || ship === '모레' || ship === '예약')) {
-        // 당일 작성·다음날 납품 → 이 배송일 목록에서 제외
         continue;
-      }
-      if (onPrev) {
-        // 전날: 12시 이후 또는 내일 표시
-        if (msgDate < prevNoon && ship === '당일') continue;
-        // 전날 '당일'만 있고 오전 이른 시간이면 전전 배송일 잔여일 수 있음 → 12시 이후만
-      } else if (onDay) {
-        if (msgDate > day2pm) continue;
-      } else {
-        continue; // 다른 날짜
       }
     }
 
