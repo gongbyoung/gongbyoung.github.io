@@ -1,664 +1,455 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>미트포앤 모바일 발주 집계 v2.016</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-    body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; background-color: #f1f5f9; padding-bottom: 80px; }
-    .hide-scrollbar::-webkit-scrollbar { display: none; }
-    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    details > summary { list-style: none; outline: none; }
-    details > summary::-webkit-details-marker { display: none; }
-    details[open] summary .arrow { transform: rotate(180deg); }
-  </style>
-</head>
-<body class="text-slate-800">
-
-  <div id="toastBanner" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden bg-indigo-600 text-white px-4 py-2.5 rounded-full shadow-xl font-bold text-xs flex items-center gap-2 transition-all">
-    <span id="toastMsg">✅ 분석 완료!</span>
-  </div>
-
-  <header class="fixed top-0 w-full z-50 bg-slate-900 text-white shadow-md">
-    <div class="px-3 py-2 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span class="bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded text-[10px]">미트포앤</span>
-        <h1 class="text-sm font-bold truncate text-emerald-400">모바일 발주 집계 (v2.016)</h1>
-      </div>
-      <div class="flex items-center gap-2">
-        <button onclick="openInputSection()" class="text-[10px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded shadow transition">⚙️ 설정/재입력</button>
-        <div class="text-[10px] font-medium bg-slate-800 px-2 py-1 rounded border border-slate-700">
-          <span id="dbStatusBadge" class="text-rose-400 font-bold">CSV 미등록</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="bg-slate-800 border-t border-slate-700 grid grid-cols-4 text-center divide-x divide-slate-700">
-      <div class="py-1.5">
-        <div class="text-[9px] text-slate-400 mb-0.5">납품처</div>
-        <div class="text-sm font-bold text-white leading-tight"><span id="kpiStores">0</span><span class="text-[9px] font-normal ml-0.5">곳</span></div>
-      </div>
-      <div class="py-1.5">
-        <div class="text-[9px] text-slate-400 mb-0.5">총 박스</div>
-        <div class="text-sm font-bold text-indigo-400 leading-tight"><span id="kpiTotalBoxes">0.0</span><span class="text-[9px] font-normal ml-0.5">박</span></div>
-      </div>
-      <div class="py-1.5">
-        <div class="text-[9px] text-slate-400 mb-0.5">추가/정정</div>
-        <div class="text-sm font-bold text-rose-400 leading-tight"><span id="kpiDelta">0</span><span class="text-[9px] font-normal ml-0.5">건</span></div>
-      </div>
-      <div class="py-1.5">
-        <div class="text-[9px] text-slate-400 mb-0.5">특수(팩/kg)</div>
-        <div class="text-sm font-bold text-amber-400 leading-tight"><span id="kpiSpecials">0</span><span class="text-[9px] font-normal ml-0.5">건</span></div>
-      </div>
-    </div>
-  </header>
-
-  <div class="h-[90px]"></div>
-
-  <main class="p-3 flex flex-col gap-3">
-
-    <details class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" open id="inputDetails">
-      <summary class="p-3 bg-slate-50 flex justify-between items-center font-bold text-sm text-slate-700 cursor-pointer">
-        <div class="flex items-center gap-2">
-          <span>⚙️ 데이터 입력 및 AI 설정</span>
-        </div>
-        <span class="arrow text-slate-400 text-xs transition-transform duration-200">▼</span>
-      </summary>
-      
-      <div class="p-3 flex flex-col gap-3 text-xs">
-        
-        <div class="bg-indigo-50 p-2.5 rounded-lg border border-indigo-100 flex flex-col gap-1">
-          <label class="font-bold text-indigo-800 flex justify-between">
-            <span>🔑 Google Gemini API Key</span>
-          </label>
-          <input type="password" id="geminiApiKey" placeholder="AI Studio에서 발급받은 API 키 입력" class="w-full bg-white border border-indigo-200 rounded px-2 py-1.5 font-mono text-slate-800 focus:ring-1 focus:ring-indigo-500" />
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 py-8 w-full">
+        <!-- Controls / Filters -->
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div class="relative w-full md:w-96">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <i class="fa-solid fa-search"></i>
+                </span>
+                <input type="text" id="searchInput" placeholder="거래처명 또는 품목 검색..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
+            </div>
+            <div class="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                <button onclick="filterByDate('all')" class="date-btn px-4 py-2 text-sm font-medium rounded-lg bg-slate-900 text-white transition-all whitespace-nowrap">전체 기간</button>
+                <button onclick="filterByDate('10-17')" class="date-btn px-4 py-2 text-sm font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all whitespace-nowrap">10월 17일~18일</button>
+                <button onclick="filterByDate('10-19')" class="date-btn px-4 py-2 text-sm font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all whitespace-nowrap">10월 19일</button>
+            </div>
         </div>
 
-        <label class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 p-2.5 rounded-lg text-center font-bold flex flex-col items-center justify-center transition active:scale-[0.98] cursor-pointer">
-          <span class="text-base mb-0.5">📂</span>
-          <span>1. 거래처 주소록(CSV) 먼저 업로드하기</span>
-          <input type="file" id="csvFileInput" accept=".csv" class="hidden" />
-        </label>
-
-        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-          <label class="font-bold text-slate-700 block mb-1">📅 출고(배송) 기준일 선택</label>
-          <input type="date" id="targetDate" class="w-full bg-white border border-slate-300 rounded px-2 py-1.5 font-bold text-slate-800" />
-          <div class="text-[10px] text-slate-500 mt-1.5 leading-tight">
-            ※ 파일을 올리면 <b>[전날 아침 8시 ~ 당일 오후 2시]</b> 대화만 자동 추출됩니다.
-          </div>
+        <!-- Orders Table / List Container -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-700 text-xs uppercase tracking-wider border-b border-slate-200">
+                            <th class="py-3 px-4 font-semibold">날짜</th>
+                            <th class="py-3 px-4 font-semibold">거래처명</th>
+                            <th class="py-3 px-4 font-semibold">발주 품목 및 요청사항</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderTableBody" class="divide-y divide-slate-200 text-sm">
+                        <!-- JS will inject rows here -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="noResults" class="hidden p-12 text-center text-slate-400">
+                <i class="fa-regular fa-folder-open text-4xl mb-2"></i>
+                <p>검색 결과가 없습니다.</p>
+            </div>
         </div>
+    </main>
 
-        <label class="w-full bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 p-2.5 rounded-lg text-center font-bold flex flex-col items-center justify-center transition active:scale-[0.98] cursor-pointer">
-          <span class="text-base mb-0.5">📄</span>
-          <span>2. 카카오톡 내보내기(.txt) 파일 업로드</span>
-          <input type="file" id="txtFileInput" accept=".txt,text/plain" class="hidden" />
-        </label>
-
-        <div>
-          <div class="flex justify-between items-end mb-1">
-            <label class="font-bold text-slate-700 block">💬 추출된 알맹이 대화 내용 (수동 수정 가능)</label>
-            <button onclick="document.getElementById('kakaoInput').value=''" class="text-[10px] text-rose-500 font-bold bg-rose-50 px-2 py-1 rounded">지우기</button>
-          </div>
-          <textarea id="kakaoInput" class="w-full h-32 border border-slate-300 rounded-lg p-2 font-mono text-[11px] leading-tight bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-y" placeholder="파일을 올리면 여기에 해당 시간대 대화만 압축되어 들어갑니다."></textarea>
-        </div>
-
-        <button id="btnRunAnalyze" onclick="runAiAnalysis()" class="w-full bg-indigo-600 text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md active:scale-[0.98] transition flex items-center justify-center gap-1.5">
-          <span id="btnRunText">🚀 AI 추출 및 집계 실행 (v2.016)</span>
-        </button>
-      </div>
-    </details>
-
-    <div class="flex gap-1.5 overflow-x-auto hide-scrollbar text-xs font-bold whitespace-nowrap mt-1">
-      <button onclick="setTab('destinations')" id="tab_destinations" class="flex-1 min-w-[100px] py-2.5 px-2 rounded-lg bg-indigo-500 text-white shadow transition-all">📍 1. 배송지</button>
-      <button onclick="setTab('items')" id="tab_items" class="flex-1 min-w-[110px] py-2.5 px-2 rounded-lg bg-slate-200 text-slate-600 transition-all">🥩 2. 전체품목</button>
-      <button onclick="setTab('specials')" id="tab_specials" class="flex-1 min-w-[110px] py-2.5 px-2 rounded-lg bg-slate-200 text-slate-600 transition-all">🔪 3. 팩/Kg 소분</button>
-    </div>
-
-    <div id="outputContainer" class="bg-white rounded-xl shadow-sm border border-slate-200 min-h-[300px] overflow-hidden">
-      <div class="p-8 text-center text-slate-400 font-medium text-xs leading-relaxed">
-        위쪽 박스에서 파일을 업로드하거나<br>텍스트를 넣고 <b class="text-indigo-500">[실행]</b>을 누르세요.
-      </div>
-    </div>
-
-  </main>
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400">
+        &copy; 2026 미트포앤 Order Management System. All rights reserved.
+    </footer>
+</div>
 
 <script>
-let CLIENT_DB = [];
-let parsedOrders = [];
-let currentTab = 'destinations';
-
-const MEAT_CATEGORIES = ['삼겹', '오겹', '특목살', '목살', 'B목살', '미전지', '전지', '미후지', '냉장3mm후지', '후지', '등뼈', '등심', '안심', '갈비', '등갈비', '항정', '가브리', '갈매기', '사태', '우삼겹', '차돌', '돈피', '장족', '모돈', '민찌', '살치', '홍두깨', '늑간'];
-
-const today = new Date();
-const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-document.getElementById('targetDate').value = todayStr;
-
-window.addEventListener('DOMContentLoaded', () => {
-  const savedKey = localStorage.getItem('geminiApiKey');
-  if (savedKey) document.getElementById('geminiApiKey').value = savedKey;
-});
-document.getElementById('geminiApiKey').addEventListener('change', function() {
-  localStorage.setItem('geminiApiKey', this.value.trim());
-});
-
-function openInputSection() {
-  const details = document.getElementById('inputDetails');
-  details.open = true;
-  details.scrollIntoView({ behavior: 'smooth' });
-  showToast("⚙️ 설정창이 열렸습니다. 날짜나 텍스트 변경 후 다시 실행하세요.");
-}
-
-function showToast(msg, isError = false) {
-  const banner = document.getElementById('toastBanner');
-  document.getElementById('toastMsg').innerText = msg;
-  banner.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full shadow-xl font-bold text-xs flex items-center gap-2 transition-all ${isError ? 'bg-rose-600 text-white' : 'bg-indigo-600 text-white'}`;
-  banner.classList.remove('hidden');
-  setTimeout(() => banner.classList.add('hidden'), 3000);
-}
-
-const DEPOT = { lat: 37.305, lon: 126.855 };
-function calcDistKm(lat1, lon1, lat2, lon2) {
-  const R = 6371.0;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.35;
-}
-
-function getApproxGeo(addr) {
-  if (addr.includes('대부')) return { region: '안산 대부', lat: 37.24, lon: 126.58 };
-  if (addr.includes('단원구') || addr.includes('정왕') || addr.includes('배곧')) return { region: '안산/시흥 서부', lat: 37.33, lon: 126.75 };
-  if (addr.includes('상록구') || addr.includes('매송')) return { region: '안산/화성 내륙', lat: 37.30, lon: 126.85 };
-  if (addr.includes('서울')) return { region: '서울권', lat: 37.5, lon: 126.9 };
-  if (addr.includes('인천')) return { region: '인천권', lat: 37.45, lon: 126.70 };
-  if (addr.includes('부천') || addr.includes('광명')) return { region: '부천/광명', lat: 37.49, lon: 126.82 };
-  if (addr.includes('수원') || addr.includes('동탄') || addr.includes('오산') || addr.includes('용인')) return { region: '경기 동남부', lat: 37.26, lon: 127.05 };
-  return { region: '기타/지방', lat: 37.38, lon: 126.80 };
-}
-
-document.getElementById('csvFileInput').addEventListener('change', function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(evt) {
-    CLIENT_DB = [];
-    const lines = evt.target.result.split(/\r?\n/);
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',');
-      if (cols.length >= 2 && cols[0].trim()) {
-        const name = cols[0].trim();
-        const addr = cols[1].trim();
-        const customAlias = cols[2] ? cols[2].trim() : '';
-        const baseClean = name.replace(/\([^\)]*\)/g, '').replace(/(주식회사|농업회사법인|\(주\))/g, '').trim();
-        
-        let aliases = [];
-        if (customAlias) aliases.push(customAlias);
-        if (baseClean && baseClean !== name && baseClean.length > 1) aliases.push(baseClean);
-        
-        const geo = getApproxGeo(addr);
-        CLIENT_DB.push({ name, addr, aliases, region: geo.region, lat: geo.lat, lon: geo.lon });
-      }
-    }
-    document.getElementById('dbStatusBadge').innerText = `${CLIENT_DB.length}곳 등록완료`;
-    document.getElementById('dbStatusBadge').className = "text-emerald-400 font-bold";
-    showToast(`✅ 주소록 ${CLIENT_DB.length}곳 로드 완료`);
-  };
-  reader.readAsText(file, 'utf-8');
-});
-
-function extractTargetTimeMessages(rawText) {
-  const targetDateStr = document.getElementById('targetDate').value;
-  const tDt = new Date(targetDateStr + "T00:00:00");
-  const winStart = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate() - 1, 8, 0);
-  const winEnd = new Date(tDt.getFullYear(), tDt.getMonth(), tDt.getDate(), 14, 0);
-
-  let lines = rawText.split(/\r?\n/);
-  let resultText = "";
-  let currentExtractDate = tDt;
-
-  const reMobileDot = /^\s*[·\.\-]?\s*(\d{1,2})[\/\.](\d{1,2})\.?\s+(오전|오후)\s+(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
-  const reExport = /^(\d{4})[년\.\-\/]\s*(\d{1,2})[월\.\-\/]\s*(\d{1,2})[일\.]?\s*(오전|오후)?\s*(\d{1,2}):(\d{2}),\s*([^:]+)\s*:\s*(.*)$/;
-  const rePc = /^\[([^\]]+)\]\s*\[(오전|오후)?\s*(\d{1,2}):(\d{2})\]\s*(.*)$/;
-  const reDateDiv = /^-*\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
-
-  let matchedAny = false;
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line || line.includes('저장한 날짜') || line.includes('카카오톡 대화')) continue;
-
-    const mDateDiv = line.match(reDateDiv);
-    if (mDateDiv) {
-      currentExtractDate = new Date(parseInt(mDateDiv[1]), parseInt(mDateDiv[2]) - 1, parseInt(mDateDiv[3]));
-      continue;
-    }
-
-    const mDot = line.match(reMobileDot);
-    const mExp = line.match(reExport);
-    const mPc = line.match(rePc);
-
-    let dt = null;
-    if (mDot) {
-      let mo = parseInt(mDot[1]), dy = parseInt(mDot[2]), ampm = mDot[3];
-      let hr = parseInt(mDot[4]), mn = parseInt(mDot[5]);
-      if (ampm === '오후' && hr !== 12) hr += 12;
-      if (ampm === '오전' && hr === 12) hr = 0;
-      dt = new Date(tDt.getFullYear(), mo - 1, dy, hr, mn);
-      if (dt > tDt && mo === 1 && tDt.getMonth() === 11) dt.setFullYear(tDt.getFullYear() + 1);
-      else if (dt < tDt && mo === 12 && tDt.getMonth() === 0) dt.setFullYear(tDt.getFullYear() - 1);
-    } else if (mExp) {
-      let yr = parseInt(mExp[1]), mo = parseInt(mExp[2]), dy = parseInt(mExp[3]), ampm = mExp[4] || '';
-      let hr = parseInt(mExp[5]), mn = parseInt(mExp[6]);
-      if (ampm === '오후' && hr !== 12) hr += 12;
-      if (ampm === '오전' && hr === 12) hr = 0;
-      dt = new Date(yr, mo - 1, dy, hr, mn);
-    } else if (mPc) {
-      let ampm = mPc[2] || '', hr = parseInt(mPc[3]), mn = parseInt(mPc[4]);
-      if (ampm === '오후' && hr !== 12) hr += 12;
-      if (ampm === '오전' && hr === 12) hr = 0;
-      dt = new Date(currentExtractDate.getFullYear(), currentExtractDate.getMonth(), currentExtractDate.getDate(), hr, mn);
-      if (hr >= 14) dt = new Date(currentExtractDate.getFullYear(), currentExtractDate.getMonth(), currentExtractDate.getDate() - 1, hr, mn);
-    }
-
-    if (dt && dt >= winStart && dt <= winEnd) {
-      matchedAny = true;
-      resultText += line + "\n";
-    }
-  }
-
-  if (!matchedAny || !resultText.trim()) {
-    resultText = lines.slice(-400).join('\n');
-  }
-
-  return resultText;
-}
-
-document.getElementById('txtFileInput').addEventListener('change', function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(evt) {
-    const extracted = extractTargetTimeMessages(evt.target.result);
-    document.getElementById('kakaoInput').value = extracted;
-    showToast(`📄 파일 로딩 및 해당 시간대 추출 완료!`);
-  };
-  reader.readAsText(file, 'utf-8');
-});
-
-async function fetchWithRetry(url, options, maxRetries = 3) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const response = await fetch(url, options);
-    if (response.status === 503 && attempt < maxRetries) {
-      await new Promise(r => setTimeout(r, 3000 * attempt));
-      continue;
-    }
-    return response;
-  }
-}
-
-async function runAiAnalysis() {
-  const apiKey = document.getElementById('geminiApiKey').value.trim();
-  if (!apiKey) {
-    alert("⚠️ Google Gemini API 키를 먼저 입력해주세요.");
-    return;
-  }
-  if (CLIENT_DB.length === 0) {
-    alert("⚠️ 거래처 주소록(CSV)을 먼저 업로드해 주세요.");
-    return;
-  }
-
-  const cleanText = document.getElementById('kakaoInput').value.trim();
-  if (!cleanText) {
-    alert("분석할 대화 내용이 없습니다. 파일을 업로드하거나 텍스트를 입력해 주세요.");
-    return;
-  }
-
-  const btn = document.getElementById('btnRunAnalyze');
-  const btnText = document.getElementById('btnRunText');
-  btn.disabled = true;
-  btn.classList.add('opacity-75');
-  btnText.innerText = "⏳ 1단계: AI 모델 탐지 중...";
-
-  try {
-    const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-    const listRes = await fetch(listUrl);
-    if (!listRes.ok) throw new Error("API 키 확인 또는 권한 오류입니다.");
-    
-    const listData = await listRes.json();
-    const availableModels = listData.models
-        .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
-        .map(m => m.name.replace('models/', ''));
-    
-    let targetModel = "";
-    const priorityModels = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-flash-latest", "gemini-3.5-pro", "gemini-2.5-pro", "gemini-1.5-flash"];
-    
-    for (const pm of priorityModels) {
-      if (availableModels.includes(pm)) {
-        targetModel = pm;
-        break;
-      }
-    }
-    
-    if (!targetModel) targetModel = availableModels.find(m => m.includes("flash") && !m.includes("preview"));
-    if (!targetModel && availableModels.length > 0) targetModel = availableModels.[0] || availableModels[0];
-    if (!targetModel) throw new Error("API 키 권한 오류: 텍스트 생성 모델이 목록에 없습니다.");
-    
-    btnText.innerText = `⏳ 2단계: 정제된 발주 데이터 분석 중...`;
-
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
-
-    // 🔥 오타나 특수 문자(or, 괄호 등)가 섞여 있어도 AI가 튕기지 않고 유연하게 정제하도록 지시 강화 🔥
-    const prompt = `
-너는 육가공 도매업체 '미트포앤'의 카톡 발주 데이터를 정리하는 AI야.
-아래 입력된 카카오톡 대화 내용에서 '실제 발주(주문)' 내역만 빠짐없이 추출해서 순수 JSON 배열로 반환해.
-
-[발주 패턴 및 오타 처리 특징]
-- 메시지는 주로 '한재호' 대표가 올리며, 발주 내용은 **대부분 거래처(상호명) 이름으로 시작**합니다.
-- 현장 카톡 특성상 오타, 줄임말, 괄호 표현(예: "육(or 목전지제)")이 섞여 있을 수 있습니다. 의미를 유추하여 정상적인 품목명과 수량으로 보정해 주세요. 만약 알아볼 수 없는 낙서나 단순 잡담이면 무시하세요.
-
-[절대 주의사항 - 계근 기록 및 요약본 제외]
-1. 현장 직원이 고기 무게를 잰 '계근 기록' (예: "암삼 21대 16.9 16.9", "19대 6.10")은 절대 발주가 아니니 무조건 버려! 숫자에 소수점(16.9)이 있거나 단위가 '대', '포', '개'이면 100% 버릴 것.
-2. 메시지 첫 줄이 "발주체크"로 시작하는 전체 요약본은 이중 집계되므로 무조건 버려.
-
-[수량 및 단위 추출 규칙]
-- 단위는 '박스', '팩', '봉', 'kg', '마리', '판' 등으로 정확히 구분해.
-- 만약 품목명 뒤에 숫자만 달랑 적혀있다면 (예: "삼겹 2"), 현장 관행상 '박스'로 간주해.
-- "패스", "취소" 단어가 포함된 품목은 발주에서 제외해.
-
-[출력 형식]
-반드시 순수 JSON 배열 구조로만 대답해. 마크다운(\`\`\`json 등)이나 설명문은 절대 붙이지 마세요.
-[
-  {
-    "client_name": "상호명(거래처 이름 정확히 추출)",
-    "original_text": "발주 원문 1줄",
-    "category": "대표 품목 (예: 삼겹, 목살, 미전지, 등뼈 등)",
-    "qty": 2.0,
-    "unit": "박스",
-    "is_special_unit": false,
-    "is_delta": false
-  }
-]
-
-[카카오톡 대화 내용]
-${cleanText}
-    `;
-    
-    const response = await fetchWithRetry(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { 
-            temperature: 0.1,
-            maxOutputTokens: 8192, 
-            responseMimeType: "application/json" 
-        } 
-      })
-    });
-
-    if (!response || !response.ok) {
-      const errText = response ? await response.text() : "네트워크 응답 없음";
-      throw new Error(`[구글 서버 에러]\n서버가 혼잡합니다. 잠시 후 다시 시도해주세요.\n\n${errText}`);
-    }
-
-    const data = await response.json();
-    let jsonStr = data.candidates[0].content.parts[0].text;
-    
-    // 🔥 JSON 파싱 방어막 대폭 강화 (마크다운 백틱 및 깨진 따옴표 자동 정돈) 🔥
-    jsonStr = jsonStr.replace(/```json/g, '').replace(/```/g, '').trim();
-
-    let aiOrders = [];
-    try {
-        aiOrders = JSON.parse(jsonStr);
-    } catch (parseError) {
-        console.warn("JSON 기본 파싱 실패, 정밀 복구 시도...", parseError);
-        // 쌍따옴표나 제어문자 충돌 해결 시도
-        try {
-            const sanitized = jsonStr.replace(/[\n\r\t]/g, ' ');
-            const lastBrace = sanitized.lastIndexOf('}');
-            if (lastBrace !== -1 && !sanitized.trim().endsWith(']')) {
-                jsonStr = sanitized.substring(0, lastBrace + 1) + ']';
-            } else {
-                jsonStr = sanitized;
-            }
-            aiOrders = JSON.parse(jsonStr);
-        } catch (e2) {
-            throw new Error("AI가 반환한 데이터 포맷이 오타나 특수문자로 인해 깨졌습니다.\n입력창의 텍스트 중 문제가 되는 특수문자나 깨진 줄을 살짝 수정 후 다시 실행해 주세요.\n\n상세 에러: " + parseError.message);
+    const ordersData = [
+        {
+            date: "2026-10-17",
+            client: "아이비유통 (신규)",
+            items: "우겹살 1박스 (10,500), 수입삼겹 2박스 (테니쉬, 6,800), LA갈비 엑셀 RRA 1박스 (28,500), 레쇼날 차돌 1박스 (31,000), 냉장늑간 1박스 (24,800), 등뼈 1박스 (2,200)"
+        },
+        {
+            date: "2026-10-17",
+            client: "진안축산",
+            items: "삼겹 4박스, 미삼 1박스(재고), 목살 2박스(대산재고), 미전지 5박스(대산재고), 미후지 2박스, 갈비 2박스(재고), 등갈비 2박스(재고), 등심 1박스, 등뼈 2박스, 냉동돈피 1박스, B지방 2봉지"
+        },
+        {
+            date: "2026-10-17",
+            client: "덕이네쌈밥",
+            items: "삼겹살 1판 (작업 때 습지 넣어서), 목전지제육 1팩, 미전지김치찌개용 1팩"
+        },
+        {
+            date: "2026-10-17",
+            client: "프리미엄정육점 (신규)",
+            items: "삼겹 5박스 (14일포크 재고3, 14일암삼 재고2), 미삼 4박스(대산), 목살 5박스(대산 재고), 미전지 6박스(대산 재고), 속사태 1박스(재고), 등심 1박스(재고), 가브리 2팩, 항정 2팩, 냉장 3mm후지 1박스, 냉동돈피 1박스, 목전지 2박스"
+        },
+        {
+            date: "2026-10-17",
+            client: "충북G마트",
+            items: "등갈비 5(포크재고), 등뼈 5, 냉장 3mm후지 4, 앞미사태 2(재고1, 신짜1), 가브리 1, 항정 1, 갈매기 1, 삼겹 10(포크), 미전지 10(대산재고)"
+        },
+        {
+            date: "2026-10-17",
+            client: "성대G마트",
+            items: "항정살 5kg, 앞미사태 1박스(대산 재고), 삼겹살 4박스(암삼 대산 작은거로), 미박삼겹살 2박스(대산 작은거 재고), 등심 1박스, 냉동갈비 4박스 (삼겹·오겹 기름 적은거 요청)"
+        },
+        {
+            date: "2026-10-17",
+            client: "정성마트 (아차산점)",
+            items: "[국내산] 생삼겹살 3박스(대산 암삼 재고로), 생목살 2박스(대산 재고), 미전지 5박스(대산 재고), 생등심 2박스, 생미후지 2박스, 생갈비 1박스, 모돈삼겹 1박스 / [수입육] 냉장수입삼겹 1박스, 냉장수입목살 2박스, 프라임냉장알목심 1박스, 티스볼라전각 1박스, 목전지 5박스, 우삼겹 1박스"
+        },
+        {
+            date: "2026-10-17",
+            client: "천하제일정육점",
+            items: "미전지 2(포크), 등뼈 1, 오돌뼈 1박스, 돈A지방 낱개 (2,700)"
+        },
+        {
+            date: "2026-10-17",
+            client: "대박축산 (금천)",
+            items: "농협안심 1, 농협등심 2, 농협앞미사태 2, 농협속사태 2, 미니족 10마리분"
+        },
+        {
+            date: "2026-10-17",
+            client: "판교1등축산",
+            items: "삼겹 6(포크), 미삼 1(포크재고), 목살 5(포크), 미전지 3(포크), 항정 12kg, 가브리 8kg, 갈매기 4kg, 등심 3두, 안심 2팩(포크), 목전지 1, 냉장 네셔널 늑간 1"
+        },
+        {
+            date: "2026-10-17",
+            client: "한돈미트",
+            items: "등뼈 2, 안심 1, 삼겹 2, 모돈삼겹 2"
+        },
+        {
+            date: "2026-10-17",
+            client: "전라도연탄구이",
+            items: "토레인삼겹 1박스"
+        },
+        {
+            date: "2026-10-17",
+            client: "농민마트 (와동)",
+            items: "미전지 3(대산재고 큰거), 암삼겹 1, 등뼈 1, 항정 2팩, 냉동 3mm후지 2"
+        },
+        {
+            date: "2026-10-17",
+            client: "금천꿀돼지꿀한우",
+            items: "데니쉬 수입삼겹 2, 항정 1박스, 돼지갈비 1, 등뼈 3"
+        },
+        {
+            date: "2026-10-17",
+            client: "사동쌈엔쌈",
+            items: "수입삼겹 두메코 보쌈용 1박스"
+        },
+        {
+            date: "2026-10-17",
+            client: "정성가득집밥",
+            items: "삼겹 1팩, 미전지찌개 1팩, 돈지방 2kg"
+        },
+        {
+            date: "2026-10-17",
+            client: "청정맛집",
+            items: "목전지 제육 2팩"
+        },
+        {
+            date: "2026-10-17",
+            client: "오소돈",
+            items: "암미삼 1판"
+        },
+        {
+            date: "2026-10-17",
+            client: "인화숯불갈비",
+            items: "갈비살 10kg (26,500원), 특목살 3덩어리 (17,500원)"
+        },
+        {
+            date: "2026-10-17",
+            client: "본오농민마트",
+            items: "미후지 1박스, 등뼈 2박스, 미전지 5박스(포크 행사 -200), 미니족 5벌"
+        },
+        {
+            date: "2026-10-17",
+            client: "고기바보 (부곡점)",
+            items: "암삼겹 1박스(포크), 목살 1박스(대산), 냉장갈비 1박스, 항정 1팩, 가브리 1팩, 갈매기 1팩"
+        },
+        {
+            date: "2026-10-17",
+            client: "하늘소 (광명점)",
+            items: "농협 미전지 3박스, 농협 생갈비 1박스, 농협 항정살 약 3kg, 농협 가브리살 약 3kg (육질 단단하고 좋은 것)"
+        },
+        {
+            date: "2026-10-17",
+            client: "에스농축산마트 (율전점)",
+            items: "수입냉동삼겹살(독일) 2박스, 삼겹살 2박스, 미전지 4박스, 등뼈 2박스, 올리멜목살(반품장 같이)"
+        },
+        {
+            date: "2026-10-17",
+            client: "형제정육점 (1호점)",
+            items: "삼겹 2박스 17kg대(포크), 미삼겹 3박스(대산), 가브리 1박스 (지방 적은 것으로 체크 요청)"
+        },
+        {
+            date: "2026-10-17",
+            client: "가리봉꿀돼지꿀한우",
+            items: "등갈비 1, 돼지갈비 1, 미전지 2"
+        },
+        {
+            date: "2026-10-17",
+            client: "동탄식자재마트",
+            items: "갈비 1, 목살 3, 삼겹 3"
+        },
+        {
+            date: "2026-10-17",
+            client: "막뚱이정육점",
+            items: "삼겹 3(포크 17~18kg대), 등뼈 1(대산), 등갈비 2(꼭 대산재로)"
+        },
+        {
+            date: "2026-10-17",
+            client: "에스에이치마트 (음성)",
+            items: "등뼈 3, 티스볼라전각 3, 우삼겹 3, 미삼 3, 삼겹 3, 목살 6, 미전지 5, 항정 1팩, 가브리 1팩, 수입냉장삼겹 2박스, 수입냉장목살 3박스, 미니족 6벌, 국내산냉동목살 1덩이(서비스)"
+        },
+        {
+            date: "2026-10-17",
+            client: "한마음마트",
+            items: "갈비 1, 등뼈 2, 모돈 1, 냉동수삼 2(테니쉬), 살치 반박스, 수입설도 4, 앞미사태 1, 냉장수입삼겹 3박스, 냉장수입목살 4박스"
+        },
+        {
+            date: "2026-10-17",
+            client: "삼사오",
+            items: "항정 2kg, 덧살 4kg, 갈매기 2kg"
+        },
+        {
+            date: "2026-10-17",
+            client: "원신산업",
+            items: "수입 목전지 5, 티스볼라전각 3, 미전지 5, 미삼겹 1, 삼겹살 1"
+        },
+        {
+            date: "2026-10-17",
+            client: "으뜸장어",
+            items: "LA갈비 1cm 2팩, 바텔등갈비 1박스"
+        },
+        {
+            date: "2026-10-17",
+            client: "스타마트",
+            items: "미전지 3, 등심 1, 등뼈 2"
+        },
+        {
+            date: "2026-10-17",
+            client: "별빛정육점",
+            items: "삼겹 1박스(포크), 목살 1박스(포크), 전지 1박스, 등뼈 1박스(무게 적은 것), 항정 1팩, 가브리 1팩"
+        },
+        {
+            date: "2026-10-17",
+            client: "삼대축산",
+            items: "등뼈 1, 등심 2, 앞사태 2팩, 돼지갈비 1, 등갈비 1"
+        },
+        {
+            date: "2026-10-17",
+            client: "광명꿀",
+            items: "등심 2, 등뼈 1, 냉동후지 3mm 2, 등갈비 1, 암삼겹 1, 미전지 1"
+        },
+        {
+            date: "2026-10-17",
+            client: "풍년돼지양념구이",
+            items: "돈왕구이(고) 6박스"
+        },
+        {
+            date: "2026-10-17",
+            client: "예서감자탕",
+            items: "프레칸 등목뼈 6박스"
+        },
+        {
+            date: "2026-10-19",
+            client: "횡성본점",
+            items: "특미삼 1박스, 특목살 2덩이"
+        },
+        {
+            date: "2026-10-19",
+            client: "오늘은고기다",
+            items: "미전지 1, 등갈비 1, 냉동 3mm후지 1, 항정 2팩(추가)"
+        },
+        {
+            date: "2026-10-19",
+            client: "프리미엄정육점",
+            items: "등뼈 2박스 추가"
+        },
+        {
+            date: "2026-10-19",
+            client: "신길양평해장국",
+            items: "미전지 1박스 (큰거)"
+        },
+        {
+            date: "2026-10-19",
+            client: "태광",
+            items: "삼겹 15, 미전지 5, 전지 1, 특목 3, 미삼 18kg 2, 갈매기 2, 항정 3(1박스로만), 국내산냉동삼겹 1박스 (15,200원)"
+        },
+        {
+            date: "2026-10-19",
+            client: "찐하오마라탕",
+            items: "등심 작업된 것 반박스"
+        },
+        {
+            date: "2026-10-19",
+            client: "대박마포",
+            items: "알목심엑셀 1박스, 수삼 1박스, 돈목뼈 1박스"
+        },
+        {
+            date: "2026-10-19",
+            client: "차이나감자탕",
+            items: "돈갈비 10kg (포갈비 뜰 것, 마지막 뼈 하나만 남기고 절반 갈라 가공)"
+        },
+        {
+            date: "2026-10-19",
+            client: "좋은축산유통",
+            items: "일반전지 1박스 (8,700원), 목전지 중량 체크"
+        },
+        {
+            date: "2026-10-19",
+            client: "바른정육점",
+            items: "암삼겹 2박스(17kg대), 일반전지 2박스"
+        },
+        {
+            date: "2026-10-19",
+            client: "갈비면옥",
+            items: "뼈삼겹 2판 (작업 여부 확인 중)"
+        },
+        {
+            date: "2026-10-19",
+            client: "한양봉천",
+            items: "특미삼 3박스, 스켄전지 3박스, 돈피 1봉지"
+        },
+        {
+            date: "2026-10-19",
+            client: "금천꿀돼지꿀한우",
+            items: "미전지 2박스(포크), 삼겹 1박스(포크), 목살 1박스(포크)"
+        },
+        {
+            date: "2026-10-19",
+            client: "성대G마트",
+            items: "미박삼겹살 4박스(대산 작은거), 삼겹살 4박스(대산 작은거), 갈비 6박스"
+        },
+        {
+            date: "2026-10-19",
+            client: "여기식당",
+            items: "냉장 삼겹 1팩, 냉동 삼겹 1팩(0.5cm), 냉동 삼겹 1팩(1cm)"
+        },
+        {
+            date: "2026-10-19",
+            client: "한결축산 (은계)",
+            items: "삼겹 2박스 (대산 17kg대)"
+        },
+        {
+            date: "2026-10-19",
+            client: "오소돈",
+            items: "암오삼겹 1팩, 갈매기살 2팩"
+        },
+        {
+            date: "2026-10-19",
+            client: "한돈미트",
+            items: "삼겹 2, 미삼 2, 목살 3, 갈비 2, 미전지 5, 등갈비 1, 등심 1, 항정 1, 가브리 1, 미후지 1"
+        },
+        {
+            date: "2026-10-19",
+            client: "삼부자돈판골",
+            items: "특삼겹살 4박스, 특목살 2덩이, 가브리 7kg(소분), 냉동삼겹살 1박스(두메코), 수입차돌박이 1박스, 한우냉장홍두깨 2덩이"
+        },
+        {
+            date: "2026-10-19",
+            client: "원대성정육점",
+            items: "목살 1(대산), 미삼 1(대산), 미후지 1, 돼지갈비 1, 미전지 1(대산), 수입설도 1, 냉장수입삼겹 1"
+        },
+        {
+            date: "2026-10-19",
+            client: "김치왕뚜껑삼겹살 (1호점)",
+            items: "지방 덜한 특삼겹 2판, 지방 덜한 특미삼 1판 (대산 것)"
+        },
+        {
+            date: "2026-10-19",
+            client: "상미마트",
+            items: "암미삼 1(포크 신짜), 등심 1(포크 신짜), 등갈비 1(포크 신짜)"
+        },
+        {
+            date: "2026-10-19",
+            client: "제소매",
+            items: "목살 1팩(제육), 목살 1팩(제육 반 수육 반), 수삼테니쉬 1판"
+        },
+        {
+            date: "2026-10-19",
+            client: "소문난정육점",
+            items: "삼겹 3, 미삼 1, 특목 3, 앞사태 1봉, 갈매기 1봉, 냉동등심 2"
+        },
+        {
+            date: "2026-10-19",
+            client: "고기바보 (장안점)",
+            items: "암삼겹 3(대산), 미전지 1(대산), 앞미사태 1팩, 갈비 4팩"
+        },
+        {
+            date: "2026-10-19",
+            client: "린이네축산 (본점)",
+            items: "냉장 대산등뼈 2박스, 냉동 AMH우목심 2박스"
+        },
+        {
+            date: "2026-10-19",
+            client: "신풍푸줏간 (신길)",
+            items: "삼겹 3(대산), 미전지 2(대산 큰거), 특목 2, 안심 3팩, 등갈비 2팩, 등뼈 1, 앞미사태 1팩"
+        },
+        {
+            date: "2026-10-19",
+            client: "참예소",
+            items: "앞다리사태 1박스, 돼지등뼈 1박스"
+        },
+        {
+            date: "2026-10-19",
+            client: "별빛정육점",
+            items: "냉동 미전지 1박스, 등심 2마리분, 장족 1마리분"
+        },
+        {
+            date: "2026-10-19",
+            client: "신박축산",
+            items: "포크오겹 1, 포크목살 1, 등심 1마리반, 사태 1팩, 앞사태 1팩, 등뼈(큰거) 1, 미니족 8벌, 안심 작은거 1팩, 오돌뼈 1, 모돈삼겹 1, 껍데기"
+        },
+        {
+            date: "2026-10-19",
+            client: "한상궁",
+            items: "목전지제육 1팩"
+        },
+        {
+            date: "2026-10-19",
+            client: "우리축산정육점",
+            items: "돈미전지 1박스, 돈등뼈 1박스"
         }
-    }
+    ];
 
-    const orderMap = new Map();
-    
-    for (const item of aiOrders) {
-      if (!item.client_name) continue;
-      let matchedClient = null;
-      let bestLen = 0;
-      const cNoSpace = item.client_name.replace(/[●■☆★\[\]\(\)\.\,]/g, ' ').replace(/\s+/g, '');
-      
-      for (const c of CLIENT_DB) {
-        for (const k of [c.name, ...c.aliases]) {
-          const kNo = k.replace(/\s+/g, '');
-          if (kNo.length >= 2 && cNoSpace.includes(kNo)) {
-            if (kNo.length > bestLen) {
-              bestLen = kNo.length;
-              matchedClient = c;
-            }
-          }
-        }
-      }
+    let currentDateFilter = 'all';
 
-      if (!matchedClient) continue; 
+    function renderTable(filter = 'all', searchQuery = '') {
+        const tbody = document.getElementById('orderTableBody');
+        const noResults = document.getElementById('noResults');
+        tbody.innerHTML = '';
 
-      if (!orderMap.has(matchedClient.name)) {
-        orderMap.set(matchedClient.name, { 
-            client: matchedClient, 
-            distKm: calcDistKm(DEPOT.lat, DEPOT.lon, matchedClient.lat, matchedClient.lon), 
-            items: [],
-            isDelta: false
+        const filtered = ordersData.filter(order => {
+            const matchesDate = (filter === 'all') || (order.date.includes(filter));
+            const matchesSearch = order.client.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                  order.items.toLowerCase().includes(searchQuery.toLowerCase());
+            return matchesDate && matchesSearch;
         });
-      }
 
-      const entry = orderMap.get(matchedClient.name);
-      if (item.is_delta) entry.isDelta = true;
-      
-      entry.items.push({
-        originalText: item.original_text || '',
-        category: item.category || '기타',
-        qty: parseFloat(item.qty) || 1.0,
-        unit: item.unit || '박스',
-        isSpecialUnit: !!item.is_special_unit,
-        isDeltaItem: !!item.is_delta
-      });
-    }
+        document.getElementById('totalCount').innerText = `총 ${filtered.length}건`;
 
-    parsedOrders = Array.from(orderMap.values());
-    
-    if (parsedOrders.length > 0) {
-      showToast(`✨ AI 분석 완료! ${parsedOrders.length}곳 추출 성공`);
-      document.getElementById('inputDetails').open = false; 
-    } else {
-      showToast(`⚠️ AI 분석 결과 유효한 발주가 없습니다.`, true);
-    }
-
-    let specialUnitsCount = 0;
-    let deltaCount = 0;
-    let totalBoxes = 0;
-    
-    parsedOrders.forEach(o => {
-      if (o.isDelta) deltaCount++;
-      o.items.forEach(it => {
-        if (it.unit.includes('박스')) totalBoxes += it.qty;
-        else if (it.isSpecialUnit) {
-          specialUnitsCount++;
-          totalBoxes += (it.qty * 0.35); 
+        if (filtered.length === 0) {
+            noResults.classList.remove('hidden');
+            return;
+        } else {
+            noResults.classList.add('hidden');
         }
-      });
-    });
 
-    document.getElementById('kpiStores').innerText = parsedOrders.length;
-    document.getElementById('kpiTotalBoxes').innerText = Math.round(totalBoxes*10)/10;
-    document.getElementById('kpiDelta').innerText = deltaCount;
-    document.getElementById('kpiSpecials').innerText = specialUnitsCount;
-
-    setTab('destinations');
-
-  } catch (err) {
-    console.error(err);
-    alert("오류 원인 상세:\n\n" + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.classList.remove('opacity-75');
-    btnText.innerText = "🚀 AI 추출 및 집계 실행 (v2.016)";
-  }
-}
-
-// ==========================================================
-// 4. 모바일 스와이프 탭별 렌더링
-// ==========================================================
-function setTab(tabId) {
-  currentTab = tabId;
-  const tabs = ['destinations', 'items', 'specials'];
-  tabs.forEach(t => {
-    const btn = document.getElementById('tab_' + t);
-    if (t === tabId) {
-      btn.className = "flex-1 min-w-[100px] py-2.5 px-2 rounded-lg text-white font-bold transition-all shadow bg-indigo-500";
-    } else {
-      btn.className = "flex-1 min-w-[100px] py-2.5 px-2 rounded-lg text-slate-600 font-bold transition-all bg-slate-200 hover:bg-slate-300";
+        filtered.forEach(order => {
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-slate-50 transition-colors border-b border-slate-100";
+            tr.innerHTML = `
+                <td class="py-3 px-4 text-xs font-semibold text-slate-500 whitespace-nowrap">${order.date}</td>
+                <td class="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">${order.client}</td>
+                <td class="py-3 px-4 text-slate-700 leading-relaxed">${order.items}</td>
+            `;
+            tbody.appendChild(tr);
+        });
     }
-  });
 
-  const container = document.getElementById('outputContainer');
+    function filterByDate(dateCode) {
+        currentDateFilter = dateCode;
+        document.querySelectorAll('.date-btn').forEach(btn => {
+            btn.classList.remove('bg-slate-900', 'text-white');
+            btn.classList.add('bg-slate-100', 'text-slate-600');
+        });
+        event.target.classList.remove('bg-slate-100', 'text-slate-600');
+        event.target.classList.add('bg-slate-900', 'text-white');
+        
+        const query = document.getElementById('searchInput').value;
+        renderTable(currentDateFilter, query);
+    }
 
-  if (tabId === 'destinations') {
-    const sorted = [...parsedOrders].sort((a, b) => a.distKm - b.distKm);
-    let html = `<div class="p-2">`;
-    sorted.forEach((o, i) => {
-      let bSum = o.items.filter(it => it.unit.includes('박스')).reduce((s,it) => s+it.qty, 0);
-      let sSum = o.items.filter(it => it.isSpecialUnit).length;
-      html += `
-        <details class="bg-slate-50 border border-slate-200 rounded-xl mb-2.5 overflow-hidden group">
-          <summary class="p-3 bg-white flex justify-between items-center active:bg-slate-50 border-b border-transparent group-open:border-slate-200 cursor-pointer">
-            <div class="flex items-center gap-2.5 truncate">
-              <span class="bg-indigo-100 text-indigo-700 font-extrabold w-6 h-6 flex items-center justify-center rounded-full text-[10px] flex-shrink-0">${i+1}</span>
-              <div class="truncate">
-                <div class="font-extrabold text-slate-900 text-sm flex items-center gap-1.5 truncate">
-                  <span class="truncate">${o.client.name}</span>
-                  ${o.isDelta ? '<span class="bg-rose-100 text-rose-600 px-1 py-0.5 rounded text-[8px] flex-shrink-0">추가/수정</span>' : ''}
-                </div>
-                <div class="text-[10px] text-slate-500 mt-0.5 truncate">${o.client.region} <span class="text-slate-300">|</span> 약 ${o.distKm.toFixed(1)}km</div>
-              </div>
-            </div>
-            <div class="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
-              <span class="text-xs font-extrabold text-indigo-600">${bSum > 0 ? bSum+'박' : ''}${sSum > 0 ? ' +특수' : ''}</span>
-              <span class="text-[9px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded arrow inline-block">▼ 열기</span>
-            </div>
-          </summary>
-          <div class="p-3 bg-slate-50 text-xs">
-            <table class="w-full text-left">
-              <tbody>
-                ${o.items.map(it => `
-                  <tr class="border-b border-slate-200/50 last:border-0">
-                    <td class="py-2 text-slate-700">${it.originalText}</td>
-                    <td class="py-2 text-right font-bold whitespace-nowrap ${it.isSpecialUnit ? 'text-rose-600' : 'text-indigo-600'}">${it.qty}<span class="text-[9px] font-normal ml-0.5">${it.unit}</span></td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </details>
-      `;
-    });
-    html += `</div>`;
-    container.innerHTML = html;
-  }
-
-  else if (tabId === 'items') {
-    const catMap = {};
-    parsedOrders.forEach(o => {
-      o.items.forEach(it => {
-        if (!catMap[it.category]) catMap[it.category] = [];
-        catMap[it.category].push({ client: o.client.name, item: it });
-      });
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+        renderTable(currentDateFilter, e.target.value);
     });
 
-    const sortedCats = Object.keys(catMap).sort((a, b) => {
-      const cats = ['삼겹', '오겹', '목살', '특목살', '미전지', '전지', '미후지', '냉장3mm후지', '후지', '등뼈', '갈비', '등심', '항정', '가브리', '갈매기', '사태', '우삼겹', '차돌', '돈피', '장족', '모돈', '민찌', '살치', '홍두깨', '늑간'];
-      const idxA = cats.indexOf(a); const idxB = cats.indexOf(b);
-      return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
-    });
-
-    let html = `<div class="p-2 flex flex-col gap-2">`;
-    sortedCats.forEach(cat => {
-      const items = catMap[cat];
-      const tBox = items.filter(x => x.item.unit.includes('박스')).reduce((s, x) => s + x.item.qty, 0);
-      const tSpc = items.filter(x => x.item.isSpecialUnit).length;
-      html += `
-        <details class="bg-white border border-slate-300 rounded-xl shadow-sm group">
-          <summary class="p-3 bg-slate-50 hover:bg-slate-100 flex justify-between items-center border-b border-transparent group-open:border-slate-300 cursor-pointer">
-            <div class="font-extrabold text-slate-800 text-sm flex items-center gap-2">
-              ${cat}
-              ${tBox > 0 ? `<span class="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-bold">${tBox}박</span>` : ''}
-              ${tSpc > 0 ? `<span class="bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded text-[10px] font-bold">특수 ${tSpc}</span>` : ''}
-            </div>
-            <div class="text-slate-400 text-[10px] font-bold arrow">▼ 열기</div>
-          </summary>
-          <div class="p-1">
-            <table class="w-full text-[11px] text-left">
-              <tbody>
-                ${items.map(x => `
-                  <tr class="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                    <td class="py-2 px-2 font-bold text-slate-700 w-[35%] truncate leading-tight">${x.client}</td>
-                    <td class="py-2 px-1 text-slate-600 leading-tight">${x.item.originalText}</td>
-                    <td class="py-2 px-2 text-right font-extrabold whitespace-nowrap ${x.item.isSpecialUnit ? 'text-rose-600' : 'text-slate-800'}">${x.item.qty}<span class="text-[9px] font-normal ml-0.5">${x.item.unit}</span></td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </details>
-      `;
-    });
-    html += `</div>`;
-    container.innerHTML = html;
-  }
-
-  else if (tabId === 'specials') {
-    const specialItems = [];
-    parsedOrders.forEach(o => {
-      o.items.filter(it => it.isSpecialUnit).forEach(it => {
-        specialItems.push({ client: o.client.name, item: it });
-      });
-    });
-
-    let html = `
-    <div class="p-2">
-      <div class="bg-rose-50 border border-rose-200 rounded-xl overflow-hidden shadow-sm">
-        <table class="w-full text-[11px] text-left">
-          <thead class="bg-rose-100 text-rose-900 border-b border-rose-200">
-            <tr>
-              <th class="p-2 w-[40%] font-extrabold">거래처명</th>
-              <th class="p-2 font-extrabold">품목/작업 지시 원문</th>
-              <th class="p-2 w-[18%] text-right font-extrabold">수량</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-rose-100 bg-white">
-            ${specialItems.length === 0 ? '<tr><td colspan="3" class="p-6 text-center text-slate-400">특수 단위 발주가 없습니다.</td></tr>' : ''}
-            ${specialItems.map(x => `
-              <tr class="active:bg-rose-50">
-                <td class="p-2 font-bold text-slate-800 leading-tight">${x.client}</td>
-                <td class="p-2 text-slate-600 leading-tight">${x.item.originalText}</td>
-                <td class="p-2 text-right font-extrabold text-rose-600 whitespace-nowrap text-xs">${x.item.qty}<span class="text-[9px] font-normal ml-0.5">${x.item.unit}</span></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>`;
-    container.innerHTML = html;
-  }
-}
+    // Initial render
+    renderTable();
 </script>
-</body>
-</html>
