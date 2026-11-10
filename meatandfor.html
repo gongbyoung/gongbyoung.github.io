@@ -1,455 +1,174 @@
-    <!-- Main Content -->
-    <main class="flex-grow max-w-7xl mx-auto px-4 py-8 w-full">
-        <!-- Controls / Filters -->
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div class="relative w-full md:w-96">
-                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-                    <i class="fa-solid fa-search"></i>
-                </span>
-                <input type="text" id="searchInput" placeholder="거래처명 또는 품목 검색..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
-            </div>
-            <div class="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-                <button onclick="filterByDate('all')" class="date-btn px-4 py-2 text-sm font-medium rounded-lg bg-slate-900 text-white transition-all whitespace-nowrap">전체 기간</button>
-                <button onclick="filterByDate('10-17')" class="date-btn px-4 py-2 text-sm font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all whitespace-nowrap">10월 17일~18일</button>
-                <button onclick="filterByDate('10-19')" class="date-btn px-4 py-2 text-sm font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all whitespace-nowrap">10월 19일</button>
-            </div>
-        </div>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>미트포앤 카톡 순수 발주 추출기</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f6; color: #333; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; color: #1f4e79; }
+        p { color: #666; font-size: 14px; }
+        .upload-box { border: 2px dashed #b0c4de; padding: 25px; text-align: center; border-radius: 8px; background: #fafbfc; margin-bottom: 20px; cursor: pointer; }
+        .upload-box input { display: none; }
+        button { background-color: #1f4e79; color: white; border: none; padding: 10px 20px; font-size: 14px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #153556; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #1f4e79; color: white; }
+        tr:nth-child(even) { background-color: #f9fbfd; }
+        .stats { margin-top: 15px; font-weight: bold; color: #444; }
+        .btn-download { background-color: #2e7d32; margin-bottom: 15px; display: none; }
+        .btn-download:hover { background-color: #1b5e20; }
+    </style>
+</head>
+<body>
 
-        <!-- Orders Table / List Container -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-100 text-slate-700 text-xs uppercase tracking-wider border-b border-slate-200">
-                            <th class="py-3 px-4 font-semibold">날짜</th>
-                            <th class="py-3 px-4 font-semibold">거래처명</th>
-                            <th class="py-3 px-4 font-semibold">발주 품목 및 요청사항</th>
-                        </tr>
-                    </thead>
-                    <tbody id="orderTableBody" class="divide-y divide-slate-200 text-sm">
-                        <!-- JS will inject rows here -->
-                    </tbody>
-                </table>
-            </div>
-            <div id="noResults" class="hidden p-12 text-center text-slate-400">
-                <i class="fa-regular fa-folder-open text-4xl mb-2"></i>
-                <p>검색 결과가 없습니다.</p>
-            </div>
-        </div>
-    </main>
+<div class="container">
+    <h2>📦 미트포앤 카카오톡 순수 발주 추출기</h2>
+    <p>카카오톡 텍스트 대화 파일(<code>.txt</code>)을 선택하면, 일상 대화와 재고 현황을 제외하고 <b>오직 순수 발주 내용만</b> 날짜별로 깔끔하게 추출해 표로 보여줍니다.</p>
 
-    <!-- Footer -->
-    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400">
-        &copy; 2026 미트포앤 Order Management System. All rights reserved.
-    </footer>
+    <div class="upload-box" onclick="document.getElementById('fileInput').click()">
+        <p>📁 이곳을 터치하여 카카오톡 텍스트 파일(.txt)을 선택하세요</p>
+        <input type="file" id="fileInput" accept=".txt" onchange="processFile(event)">
+    </div>
+
+    <button id="downloadBtn" class="btn-download" onclick="downloadCSV()">엑셀(CSV) 다운로드</button>
+    
+    <div id="stats" class="stats"></div>
+
+    <div style="overflow-x: auto;">
+        <table id="resultTable">
+            <thead>
+                <tr>
+                    <th style="width: 25%;">날짜</th>
+                    <th style="width: 25%;">발신자 / 거래처</th>
+                    <th style="width: 50%;">발주 내용</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="3" style="text-align: center; color: #888;">파일을 업로드하면 발주 내역이 여기에 표시됩니다.</td></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <script>
-    const ordersData = [
-        {
-            date: "2026-10-17",
-            client: "아이비유통 (신규)",
-            items: "우겹살 1박스 (10,500), 수입삼겹 2박스 (테니쉬, 6,800), LA갈비 엑셀 RRA 1박스 (28,500), 레쇼날 차돌 1박스 (31,000), 냉장늑간 1박스 (24,800), 등뼈 1박스 (2,200)"
-        },
-        {
-            date: "2026-10-17",
-            client: "진안축산",
-            items: "삼겹 4박스, 미삼 1박스(재고), 목살 2박스(대산재고), 미전지 5박스(대산재고), 미후지 2박스, 갈비 2박스(재고), 등갈비 2박스(재고), 등심 1박스, 등뼈 2박스, 냉동돈피 1박스, B지방 2봉지"
-        },
-        {
-            date: "2026-10-17",
-            client: "덕이네쌈밥",
-            items: "삼겹살 1판 (작업 때 습지 넣어서), 목전지제육 1팩, 미전지김치찌개용 1팩"
-        },
-        {
-            date: "2026-10-17",
-            client: "프리미엄정육점 (신규)",
-            items: "삼겹 5박스 (14일포크 재고3, 14일암삼 재고2), 미삼 4박스(대산), 목살 5박스(대산 재고), 미전지 6박스(대산 재고), 속사태 1박스(재고), 등심 1박스(재고), 가브리 2팩, 항정 2팩, 냉장 3mm후지 1박스, 냉동돈피 1박스, 목전지 2박스"
-        },
-        {
-            date: "2026-10-17",
-            client: "충북G마트",
-            items: "등갈비 5(포크재고), 등뼈 5, 냉장 3mm후지 4, 앞미사태 2(재고1, 신짜1), 가브리 1, 항정 1, 갈매기 1, 삼겹 10(포크), 미전지 10(대산재고)"
-        },
-        {
-            date: "2026-10-17",
-            client: "성대G마트",
-            items: "항정살 5kg, 앞미사태 1박스(대산 재고), 삼겹살 4박스(암삼 대산 작은거로), 미박삼겹살 2박스(대산 작은거 재고), 등심 1박스, 냉동갈비 4박스 (삼겹·오겹 기름 적은거 요청)"
-        },
-        {
-            date: "2026-10-17",
-            client: "정성마트 (아차산점)",
-            items: "[국내산] 생삼겹살 3박스(대산 암삼 재고로), 생목살 2박스(대산 재고), 미전지 5박스(대산 재고), 생등심 2박스, 생미후지 2박스, 생갈비 1박스, 모돈삼겹 1박스 / [수입육] 냉장수입삼겹 1박스, 냉장수입목살 2박스, 프라임냉장알목심 1박스, 티스볼라전각 1박스, 목전지 5박스, 우삼겹 1박스"
-        },
-        {
-            date: "2026-10-17",
-            client: "천하제일정육점",
-            items: "미전지 2(포크), 등뼈 1, 오돌뼈 1박스, 돈A지방 낱개 (2,700)"
-        },
-        {
-            date: "2026-10-17",
-            client: "대박축산 (금천)",
-            items: "농협안심 1, 농협등심 2, 농협앞미사태 2, 농협속사태 2, 미니족 10마리분"
-        },
-        {
-            date: "2026-10-17",
-            client: "판교1등축산",
-            items: "삼겹 6(포크), 미삼 1(포크재고), 목살 5(포크), 미전지 3(포크), 항정 12kg, 가브리 8kg, 갈매기 4kg, 등심 3두, 안심 2팩(포크), 목전지 1, 냉장 네셔널 늑간 1"
-        },
-        {
-            date: "2026-10-17",
-            client: "한돈미트",
-            items: "등뼈 2, 안심 1, 삼겹 2, 모돈삼겹 2"
-        },
-        {
-            date: "2026-10-17",
-            client: "전라도연탄구이",
-            items: "토레인삼겹 1박스"
-        },
-        {
-            date: "2026-10-17",
-            client: "농민마트 (와동)",
-            items: "미전지 3(대산재고 큰거), 암삼겹 1, 등뼈 1, 항정 2팩, 냉동 3mm후지 2"
-        },
-        {
-            date: "2026-10-17",
-            client: "금천꿀돼지꿀한우",
-            items: "데니쉬 수입삼겹 2, 항정 1박스, 돼지갈비 1, 등뼈 3"
-        },
-        {
-            date: "2026-10-17",
-            client: "사동쌈엔쌈",
-            items: "수입삼겹 두메코 보쌈용 1박스"
-        },
-        {
-            date: "2026-10-17",
-            client: "정성가득집밥",
-            items: "삼겹 1팩, 미전지찌개 1팩, 돈지방 2kg"
-        },
-        {
-            date: "2026-10-17",
-            client: "청정맛집",
-            items: "목전지 제육 2팩"
-        },
-        {
-            date: "2026-10-17",
-            client: "오소돈",
-            items: "암미삼 1판"
-        },
-        {
-            date: "2026-10-17",
-            client: "인화숯불갈비",
-            items: "갈비살 10kg (26,500원), 특목살 3덩어리 (17,500원)"
-        },
-        {
-            date: "2026-10-17",
-            client: "본오농민마트",
-            items: "미후지 1박스, 등뼈 2박스, 미전지 5박스(포크 행사 -200), 미니족 5벌"
-        },
-        {
-            date: "2026-10-17",
-            client: "고기바보 (부곡점)",
-            items: "암삼겹 1박스(포크), 목살 1박스(대산), 냉장갈비 1박스, 항정 1팩, 가브리 1팩, 갈매기 1팩"
-        },
-        {
-            date: "2026-10-17",
-            client: "하늘소 (광명점)",
-            items: "농협 미전지 3박스, 농협 생갈비 1박스, 농협 항정살 약 3kg, 농협 가브리살 약 3kg (육질 단단하고 좋은 것)"
-        },
-        {
-            date: "2026-10-17",
-            client: "에스농축산마트 (율전점)",
-            items: "수입냉동삼겹살(독일) 2박스, 삼겹살 2박스, 미전지 4박스, 등뼈 2박스, 올리멜목살(반품장 같이)"
-        },
-        {
-            date: "2026-10-17",
-            client: "형제정육점 (1호점)",
-            items: "삼겹 2박스 17kg대(포크), 미삼겹 3박스(대산), 가브리 1박스 (지방 적은 것으로 체크 요청)"
-        },
-        {
-            date: "2026-10-17",
-            client: "가리봉꿀돼지꿀한우",
-            items: "등갈비 1, 돼지갈비 1, 미전지 2"
-        },
-        {
-            date: "2026-10-17",
-            client: "동탄식자재마트",
-            items: "갈비 1, 목살 3, 삼겹 3"
-        },
-        {
-            date: "2026-10-17",
-            client: "막뚱이정육점",
-            items: "삼겹 3(포크 17~18kg대), 등뼈 1(대산), 등갈비 2(꼭 대산재로)"
-        },
-        {
-            date: "2026-10-17",
-            client: "에스에이치마트 (음성)",
-            items: "등뼈 3, 티스볼라전각 3, 우삼겹 3, 미삼 3, 삼겹 3, 목살 6, 미전지 5, 항정 1팩, 가브리 1팩, 수입냉장삼겹 2박스, 수입냉장목살 3박스, 미니족 6벌, 국내산냉동목살 1덩이(서비스)"
-        },
-        {
-            date: "2026-10-17",
-            client: "한마음마트",
-            items: "갈비 1, 등뼈 2, 모돈 1, 냉동수삼 2(테니쉬), 살치 반박스, 수입설도 4, 앞미사태 1, 냉장수입삼겹 3박스, 냉장수입목살 4박스"
-        },
-        {
-            date: "2026-10-17",
-            client: "삼사오",
-            items: "항정 2kg, 덧살 4kg, 갈매기 2kg"
-        },
-        {
-            date: "2026-10-17",
-            client: "원신산업",
-            items: "수입 목전지 5, 티스볼라전각 3, 미전지 5, 미삼겹 1, 삼겹살 1"
-        },
-        {
-            date: "2026-10-17",
-            client: "으뜸장어",
-            items: "LA갈비 1cm 2팩, 바텔등갈비 1박스"
-        },
-        {
-            date: "2026-10-17",
-            client: "스타마트",
-            items: "미전지 3, 등심 1, 등뼈 2"
-        },
-        {
-            date: "2026-10-17",
-            client: "별빛정육점",
-            items: "삼겹 1박스(포크), 목살 1박스(포크), 전지 1박스, 등뼈 1박스(무게 적은 것), 항정 1팩, 가브리 1팩"
-        },
-        {
-            date: "2026-10-17",
-            client: "삼대축산",
-            items: "등뼈 1, 등심 2, 앞사태 2팩, 돼지갈비 1, 등갈비 1"
-        },
-        {
-            date: "2026-10-17",
-            client: "광명꿀",
-            items: "등심 2, 등뼈 1, 냉동후지 3mm 2, 등갈비 1, 암삼겹 1, 미전지 1"
-        },
-        {
-            date: "2026-10-17",
-            client: "풍년돼지양념구이",
-            items: "돈왕구이(고) 6박스"
-        },
-        {
-            date: "2026-10-17",
-            client: "예서감자탕",
-            items: "프레칸 등목뼈 6박스"
-        },
-        {
-            date: "2026-10-19",
-            client: "횡성본점",
-            items: "특미삼 1박스, 특목살 2덩이"
-        },
-        {
-            date: "2026-10-19",
-            client: "오늘은고기다",
-            items: "미전지 1, 등갈비 1, 냉동 3mm후지 1, 항정 2팩(추가)"
-        },
-        {
-            date: "2026-10-19",
-            client: "프리미엄정육점",
-            items: "등뼈 2박스 추가"
-        },
-        {
-            date: "2026-10-19",
-            client: "신길양평해장국",
-            items: "미전지 1박스 (큰거)"
-        },
-        {
-            date: "2026-10-19",
-            client: "태광",
-            items: "삼겹 15, 미전지 5, 전지 1, 특목 3, 미삼 18kg 2, 갈매기 2, 항정 3(1박스로만), 국내산냉동삼겹 1박스 (15,200원)"
-        },
-        {
-            date: "2026-10-19",
-            client: "찐하오마라탕",
-            items: "등심 작업된 것 반박스"
-        },
-        {
-            date: "2026-10-19",
-            client: "대박마포",
-            items: "알목심엑셀 1박스, 수삼 1박스, 돈목뼈 1박스"
-        },
-        {
-            date: "2026-10-19",
-            client: "차이나감자탕",
-            items: "돈갈비 10kg (포갈비 뜰 것, 마지막 뼈 하나만 남기고 절반 갈라 가공)"
-        },
-        {
-            date: "2026-10-19",
-            client: "좋은축산유통",
-            items: "일반전지 1박스 (8,700원), 목전지 중량 체크"
-        },
-        {
-            date: "2026-10-19",
-            client: "바른정육점",
-            items: "암삼겹 2박스(17kg대), 일반전지 2박스"
-        },
-        {
-            date: "2026-10-19",
-            client: "갈비면옥",
-            items: "뼈삼겹 2판 (작업 여부 확인 중)"
-        },
-        {
-            date: "2026-10-19",
-            client: "한양봉천",
-            items: "특미삼 3박스, 스켄전지 3박스, 돈피 1봉지"
-        },
-        {
-            date: "2026-10-19",
-            client: "금천꿀돼지꿀한우",
-            items: "미전지 2박스(포크), 삼겹 1박스(포크), 목살 1박스(포크)"
-        },
-        {
-            date: "2026-10-19",
-            client: "성대G마트",
-            items: "미박삼겹살 4박스(대산 작은거), 삼겹살 4박스(대산 작은거), 갈비 6박스"
-        },
-        {
-            date: "2026-10-19",
-            client: "여기식당",
-            items: "냉장 삼겹 1팩, 냉동 삼겹 1팩(0.5cm), 냉동 삼겹 1팩(1cm)"
-        },
-        {
-            date: "2026-10-19",
-            client: "한결축산 (은계)",
-            items: "삼겹 2박스 (대산 17kg대)"
-        },
-        {
-            date: "2026-10-19",
-            client: "오소돈",
-            items: "암오삼겹 1팩, 갈매기살 2팩"
-        },
-        {
-            date: "2026-10-19",
-            client: "한돈미트",
-            items: "삼겹 2, 미삼 2, 목살 3, 갈비 2, 미전지 5, 등갈비 1, 등심 1, 항정 1, 가브리 1, 미후지 1"
-        },
-        {
-            date: "2026-10-19",
-            client: "삼부자돈판골",
-            items: "특삼겹살 4박스, 특목살 2덩이, 가브리 7kg(소분), 냉동삼겹살 1박스(두메코), 수입차돌박이 1박스, 한우냉장홍두깨 2덩이"
-        },
-        {
-            date: "2026-10-19",
-            client: "원대성정육점",
-            items: "목살 1(대산), 미삼 1(대산), 미후지 1, 돼지갈비 1, 미전지 1(대산), 수입설도 1, 냉장수입삼겹 1"
-        },
-        {
-            date: "2026-10-19",
-            client: "김치왕뚜껑삼겹살 (1호점)",
-            items: "지방 덜한 특삼겹 2판, 지방 덜한 특미삼 1판 (대산 것)"
-        },
-        {
-            date: "2026-10-19",
-            client: "상미마트",
-            items: "암미삼 1(포크 신짜), 등심 1(포크 신짜), 등갈비 1(포크 신짜)"
-        },
-        {
-            date: "2026-10-19",
-            client: "제소매",
-            items: "목살 1팩(제육), 목살 1팩(제육 반 수육 반), 수삼테니쉬 1판"
-        },
-        {
-            date: "2026-10-19",
-            client: "소문난정육점",
-            items: "삼겹 3, 미삼 1, 특목 3, 앞사태 1봉, 갈매기 1봉, 냉동등심 2"
-        },
-        {
-            date: "2026-10-19",
-            client: "고기바보 (장안점)",
-            items: "암삼겹 3(대산), 미전지 1(대산), 앞미사태 1팩, 갈비 4팩"
-        },
-        {
-            date: "2026-10-19",
-            client: "린이네축산 (본점)",
-            items: "냉장 대산등뼈 2박스, 냉동 AMH우목심 2박스"
-        },
-        {
-            date: "2026-10-19",
-            client: "신풍푸줏간 (신길)",
-            items: "삼겹 3(대산), 미전지 2(대산 큰거), 특목 2, 안심 3팩, 등갈비 2팩, 등뼈 1, 앞미사태 1팩"
-        },
-        {
-            date: "2026-10-19",
-            client: "참예소",
-            items: "앞다리사태 1박스, 돼지등뼈 1박스"
-        },
-        {
-            date: "2026-10-19",
-            client: "별빛정육점",
-            items: "냉동 미전지 1박스, 등심 2마리분, 장족 1마리분"
-        },
-        {
-            date: "2026-10-19",
-            client: "신박축산",
-            items: "포크오겹 1, 포크목살 1, 등심 1마리반, 사태 1팩, 앞사태 1팩, 등뼈(큰거) 1, 미니족 8벌, 안심 작은거 1팩, 오돌뼈 1, 모돈삼겹 1, 껍데기"
-        },
-        {
-            date: "2026-10-19",
-            client: "한상궁",
-            items: "목전지제육 1팩"
-        },
-        {
-            date: "2026-10-19",
-            client: "우리축산정육점",
-            items: "돈미전지 1박스, 돈등뼈 1박스"
-        }
+let extractedOrders = [];
+
+function processFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        parseKakao(text);
+    };
+    reader.readAsText(file, 'utf-8');
+}
+
+function parseKakao(text) {
+    const lines = text.split('\n');
+    extractedOrders = [];
+    let currentDate = "날짜 미상";
+    
+    // 제외할 시스템 메시지 및 키워드
+    const excludeKeywords = [
+        '사진', '동영상', '이모티콘', '삭제되었습니다', '보낸 사람', 
+        '저장한 날짜', '카카오톡 대화', '참여했습니다', '나갔습니다',
+        '발주체크', '재고현황', '분류전', '사진 2장', '사진 3장', '사진장'
     ];
 
-    let currentDateFilter = 'all';
+    // 카톡 메시지 패턴 매칭 (예: [이름] [오후 2:35] 내용)
+    const pattern = /^\[(.*?)\] \[(오전|오후 \d{1,2}:\d{2})\] (.*)$/;
 
-    function renderTable(filter = 'all', searchQuery = '') {
-        const tbody = document.getElementById('orderTableBody');
-        const noResults = document.getElementById('noResults');
-        tbody.innerHTML = '';
+    for (let line of lines) {
+        line = line.trim();
+        if (!line) continue;
 
-        const filtered = ordersData.filter(order => {
-            const matchesDate = (filter === 'all') || (order.date.includes(filter));
-            const matchesSearch = order.client.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                  order.items.toLowerCase().includes(searchQuery.toLowerCase());
-            return matchesDate && matchesSearch;
-        });
-
-        document.getElementById('totalCount').innerText = `총 ${filtered.length}건`;
-
-        if (filtered.length === 0) {
-            noResults.classList.remove('hidden');
-            return;
-        } else {
-            noResults.classList.add('hidden');
+        // 1. 날짜선 감지 (예: --------------- 2026년 10월 17일 토요일 ---------------)
+        if (line.includes('---------------') && line.includes('년')) {
+            currentDate = line.replace(/[-]/g, '').trim();
+            continue;
         }
 
-        filtered.forEach(order => {
-            const tr = document.createElement('tr');
-            tr.className = "hover:bg-slate-50 transition-colors border-b border-slate-100";
-            tr.innerHTML = `
-                <td class="py-3 px-4 text-xs font-semibold text-slate-500 whitespace-nowrap">${order.date}</td>
-                <td class="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">${order.client}</td>
-                <td class="py-3 px-4 text-slate-700 leading-relaxed">${order.items}</td>
-            `;
-            tbody.appendChild(tr);
-        });
+        // 2. 메시지 라인 파싱
+        const match = line.match(pattern);
+        if (match) {
+            const sender = match[1];
+            const message = match[3];
+
+            // 제외 키워드가 포함된 경우 무시
+            if (excludeKeywords.some(keyword => message.includes(keyword))) {
+                continue;
+            }
+
+            // 발주 느낌이 있는 데이터 누적 (내용이 너무 짧거나 시스템 성격인 것 제외)
+            extractedOrders.push({
+                date: currentDate,
+                sender: sender,
+                content: message
+            });
+        } else {
+            // 줄바꿈된 멀티라인 발주 내용 이어붙이기
+            if (extractedOrders.length > 0 && !line.includes('님과 카카오톡 대화')) {
+                if (!line.includes('---------------')) {
+                    extractedOrders[extractedOrders.length - 1].content += " " + line;
+                }
+            }
+        }
     }
 
-    function filterByDate(dateCode) {
-        currentDateFilter = dateCode;
-        document.querySelectorAll('.date-btn').forEach(btn => {
-            btn.classList.remove('bg-slate-900', 'text-white');
-            btn.classList.add('bg-slate-100', 'text-slate-600');
-        });
-        event.target.classList.remove('bg-slate-100', 'text-slate-600');
-        event.target.classList.add('bg-slate-900', 'text-white');
-        
-        const query = document.getElementById('searchInput').value;
-        renderTable(currentDateFilter, query);
+    displayResults();
+}
+
+function displayResults() {
+    const tbody = document.querySelector("#resultTable tbody");
+    tbody.innerHTML = "";
+
+    if (extractedOrders.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: red;">추출된 발주 내역이 없습니다.</td></tr>`;
+        document.getElementById("stats").innerText = "";
+        document.getElementById("downloadBtn").style.display = "none";
+        return;
     }
 
-    document.getElementById('searchInput').addEventListener('input', (e) => {
-        renderTable(currentDateFilter, e.target.value);
+    document.getElementById("stats").innerText = `총 추출된 발주 건수: ${extractedOrders.length}건`;
+    document.getElementById("downloadBtn").style.display = "inline-block";
+
+    extractedOrders.forEach(order => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${escapeHtml(order.date)}</td>
+            <td><strong>${escapeHtml(order.sender)}</strong></td>
+            <td>${escapeHtml(order.content)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function downloadCSV() {
+    let csv = "\uFEFF날짜,발신자/거래처,발주내용\n";
+    extractedOrders.forEach(o => {
+        const cleanContent = o.content.replace(/"/g, '""');
+        csv += `"${o.date}","${o.sender}","${cleanContent}"\n`;
     });
 
-    // Initial render
-    renderTable();
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "순수발주목록_추출.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
 </script>
+
+</body>
+</html>
