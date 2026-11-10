@@ -1,10 +1,11 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>미트포앤Grok</title>
+<title>미트포앤 유통시스템</title>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -688,10 +689,12 @@ function parseKakaoMessages(text) {
 function detectShipSide(body) {
   const t = body || '';
   if (/모레/.test(t)) return '모레';
-  if (/내일|낼\s*주문|낼주문|내일주문/.test(t)) return '내일';
-  if (/수요일\s*예약|화요일\s*예약|목요일|월요일예약|예약/.test(t) && !/오늘/.test(t)) return '예약';
+  // 줄 시작 또는 명확한 내일
+  if (/(^|\n)\s*내일\b/.test(t) || /내일\s*(발주|주문|배송)|낼\s*주문|낼주문|내일주문/.test(t)) return '내일';
+  if (/\b내일\b/.test(t) && !/오늘.*내일/.test(t)) return '내일';
+  if (/(화요일|수요일|목요일|월요일)\s*예약|예약\s*$/.test(t) && !/오늘/.test(t)) return '예약';
   if (/오늘/.test(t)) return '당일';
-  return '당일'; // 표시 없으면 당일 발주로 봄
+  return '당일';
 }
 
 function isSystemOrSkipMessage(body, sender) {
@@ -723,43 +726,23 @@ function isLikelyWeightMessage(body, sender) {
 function parseItemsFromBody(body) {
   const lines = body.split(/\n/).map(l => l.trim()).filter(Boolean);
   const items = [];
-  const itemRe = /^(.+?)\s+(\d+(?:\.\d+)?)\s*(박스|박|빡스|팩|봉지|봉|키로|kg|Kg|k|판|개|벌|덩이|덩어리|Box|box|PACK|Pack|P)?(.*)$/i;
-  // 미전지5 / 삼겹3. 형태
-  const compactRe = /^([가-힣A-Za-z]+[가-힣A-Za-z0-9]*)\s*(\d+(?:\.\d+)?)[.\s]*(.*)$/;
+  // 가브리-2 / 등뼈- 1 / B목살-2 / 항정-2
+  const dashRe = /^([가-힣A-Za-z][가-힣A-Za-z0-9\s]{0,20}?)\s*[\-ㅡ–—]\s*(\d+(?:\.\d+)?)\s*(박스|박|팩|봉|키로|kg|Kg|k|판|벌|덩이|Box)?(.*)$/i;
+  // 미전지 5박스 / 삼겹살 3 박스
+  const spaceRe = /^(.+?)\s+(\d+(?:\.\d+)?)\s*(박스|박|빡스|팩|봉지|봉|키로|kg|Kg|k|판|개|벌|덩이|덩어리|Box|box|PACK|Pack)?(.*)$/i;
+  // 미전지5 / 등뼈2 / 삼겹3.
+  const compactRe = /^([가-힣A-Za-z][가-힣A-Za-z0-9]*)\s*(\d+(?:\.\d+)?)[.\s]*(.*)$/;
 
-  for (let line of lines) {
-    if (/^냉장\s*$|^냉동\s*$|^발주|^주문|^부탁|^이상|^안녕|^이렇게|^정리가|^혹시나|^컴퓨터|^위 발주|^제 코스/.test(line)) continue;
-    if (POLITE.test(line) && !/\d/.test(line)) continue;
-    if (/^●|^추가|^정정/.test(line) && !/\d/.test(line)) continue;
+  const skipLine = /^(냉장|냉동|발주|주문|부탁|이상|안녕|이렇게|정리가|혹시나|컴퓨터|위 발주|제 코스|여기까지|발주체크|사진)/;
 
-    // 단위 보정: 빡스 → 박스
-    line = line.replace(/빡스/g, '박스').replace(/펙/g, '팩');
-
-    let im = line.match(itemRe);
-    if (!im) {
-      // 미전지5 / 등뼈2
-      im = line.match(compactRe);
-      if (im && !/^\d/.test(im[1])) {
-        const rest = (im[3] || '').trim();
-        const unitFromRest = (rest.match(/^(박스|박|팩|봉|키로|kg|k|판|벌)/i) || [])[1] || '';
-        im = [null, im[1], im[2], unitFromRest, unitFromRest ? rest.replace(unitFromRest, '').trim() : rest];
-      } else {
-        continue;
-      }
-    }
-    let name = String(im[1]).replace(/[●■☆★~\-ㅡ]+/g, ' ').replace(/\s+/g, ' ').trim();
-    let qty = parseFloat(im[2]);
-    let unit = (im[3] || '').trim();
-    let note = (im[4] || '').trim();
-    if (!name || !qty) continue;
-    if (isStaffName(name)) continue;
-    if (/^(내일|오늘|모레|수요일|화요일|목요일|예약|오후에|아침에)$/.test(name)) continue;
-    if (!unit && /^\d{3,4}$/.test(String(im[2])) && !/박스|팩/.test(line)) continue;
-    if (/\d+\.\d+/.test(String(im[2])) && !unit && !/박스|팩|키로|kg/i.test(line)) {
-      // 무게만
-      continue;
-    }
-    if (/^(대|포)$/.test(unit)) continue;
+  function pushItem(name, qty, unit, note) {
+    name = String(name || '').replace(/[●■☆★~\-ㅡ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!name || !(qty > 0)) return;
+    if (isStaffName(name)) return;
+    if (/^(내일|오늘|모레|수요일|화요일|목요일|예약|오후에|아침에|추가|정정)$/.test(name)) return;
+    if (POLITE.test(name) && name.length < 10) return;
+    unit = (unit || '').trim();
+    if (/^(대|포)$/.test(unit)) return;
     if (!unit) unit = 'Box';
     if (/박|Box/i.test(unit)) unit = 'Box';
     if (/팩|Pack/i.test(unit)) unit = 'Pack';
@@ -768,8 +751,42 @@ function parseItemsFromBody(body) {
     if (/판/.test(unit)) unit = '판';
     if (/벌/.test(unit)) unit = '벌';
     if (/덩/.test(unit)) unit = '덩이';
-    // 이름에서 거래처형 긴 접두 제거는 상위 로직
-    items.push({ name, qty, unit, note });
+    items.push({ name, qty: parseFloat(qty), unit, note: (note || '').trim() });
+  }
+
+  for (let line of lines) {
+    if (skipLine.test(line)) continue;
+    if (POLITE.test(line) && !/\d/.test(line)) continue;
+    if (/^●|^추가|^정정/.test(line) && !/\d/.test(line)) continue;
+    line = line.replace(/빡스/g, '박스').replace(/펙/g, '팩');
+
+    // 1) 대시 형식
+    let m = line.match(dashRe);
+    if (m) {
+      pushItem(m[1], m[2], m[3], m[4]);
+      continue;
+    }
+    // 2) 공백+수량+단위
+    m = line.match(spaceRe);
+    if (m) {
+      const nm = m[1].trim();
+      // 거래처명만 있는 줄 스킵은 상위
+      if (!/^\d{3,4}$/.test(m[2]) || m[3]) {
+        if (!(/\d+\.\d+/.test(m[2]) && !m[3] && !/박스|팩|키로|kg/i.test(line))) {
+          pushItem(nm, m[2], m[3], m[4]);
+          continue;
+        }
+      }
+    }
+    // 3) 붙여쓴 수량
+    m = line.match(compactRe);
+    if (m && !/^\d/.test(m[1])) {
+      const rest = (m[3] || '').trim();
+      const unitFromRest = (rest.match(/^(박스|박|팩|봉|키로|kg|k|판|벌)/i) || [])[1] || '';
+      if (!/^\d{3,4}$/.test(m[2]) || unitFromRest) {
+        pushItem(m[1], m[2], unitFromRest, unitFromRest ? rest.replace(new RegExp('^' + unitFromRest), '').trim() : rest);
+      }
+    }
   }
   return items;
 }
@@ -777,28 +794,65 @@ function parseItemsFromBody(body) {
 function extractClientFromBody(body) {
   const lines = body.split(/\n/).map(l => l.trim()).filter(Boolean);
   if (!lines.length) return '';
-  let first = lines[0].replace(/●추가|●정정|●|/g, '').replace(/추가|정정/g, '').trim();
-  if (!first) return '';
-  if (isStaffName(first)) return '';
-  if (/^\d/.test(first)) return '';
-  // 날짜/예약만 있는 줄
-  if (/^(내일|오늘|모레|수요일|화요일|목요일|월요일|예약|화요일예약|수요일예약)/.test(first) && first.length < 12) return '';
-  if (/예약\s*$/.test(first) && first.length < 16) return '';
-  if (/\d+\s*(박스|박|팩|봉|키로|kg)/i.test(first) && first.length < 20) return '';
-  const itemLike = first.match(/^(.+?)\s+\d/);
-  if (!/\d/.test(first) && first.length >= 2 && first.length <= 45) {
-    if (/^(냉장|냉동|발주|주문|부탁|내일|오늘|오후에|아침에|여기까지|발주체크)/.test(first)) return '';
-    // 끝의 내일/오전 등 제거
-    first = first.replace(/\s*(내일|오늘|모레)\s*$/, '').trim();
-    return first.replace(/[●■☆★]/g, '').trim();
+
+  function cleanClient(s) {
+    return String(s || '')
+      .replace(/●\s*추가|●\s*정정|●추가|●정정/g, '')
+      .replace(/●/g, '')
+      .replace(/\s*(추가|정정)\s*$/g, '')
+      .replace(/\s*(내일|오늘|모레)\s*$/g, '')
+      .replace(/[☆★■]/g, '')
+      .trim();
   }
-  if (itemLike) {
-    const cand = itemLike[1].trim();
-    if (cand.length >= 2 && cand.length <= 30 && !/(삼겹|목살|전지|미전|항정|갈비|등심|안심|후지|등뼈|오겹)/.test(cand)) {
-      return cand.replace(/\s*(내일|오늘)\s*$/, '').trim();
+  function looksLikeMeat(s) {
+    return /(삼겹|목살|전지|미전|항정|갈비|등심|안심|후지|등뼈|오겹|미삼|가브리|갈매|사태|잡육|돈피|설도|우삼|늑간|알목)/.test(s);
+  }
+  function isBadClient(s) {
+    if (!s || s.length < 2 || s.length > 45) return true;
+    if (isStaffName(s)) return true;
+    if (/^(냉장|냉동|발주|주문|부탁|내일|오늘|모레|오후에|아침에|여기까지|발주체크|화요일|수요일|목요일|월요일|예약)/.test(s)) return true;
+    if (/예약/.test(s) && s.length < 16) return true;
+    if (looksLikeMeat(s) && s.length < 12) return true;
+    return false;
+  }
+
+  for (let i = 0; i < Math.min(lines.length, 6); i++) {
+    let line = lines[i];
+    // 화요일예약 / 내일 다음 줄에 거래처
+    if (/^(내일|오늘|모레|(월|화|수|목|금)요일\s*예약|예약)/.test(line) && !/\d/.test(line)) continue;
+
+    let cand = cleanClient(line);
+    // "진안축산●정정" 이미 clean
+    if (!/\d/.test(cand) && !isBadClient(cand)) {
+      return cand;
+    }
+    // "정성마트 아차산입니다" 
+    const greet = cand.match(/^(.{2,30}?)\s*(입니다|요|임)\s*$/);
+    if (greet && !isBadClient(greet[1])) return cleanClient(greet[1]);
+
+    // 줄 앞 거래처 + 품목
+    const mixed = line.match(/^([가-힣A-Za-z][가-힣A-Za-z0-9\s]{1,24}?)\s+(\d+|삼겹|목살|미전|등뼈|항정|갈비)/);
+    if (mixed) {
+      const c = cleanClient(mixed[1]);
+      if (!isBadClient(c) && !looksLikeMeat(c)) return c;
     }
   }
   return '';
+}
+
+/** 같은 날 이전 발주에서 짧은 이름 매칭 (푸른목장 ← 푸른목장 판교점) */
+function resolveClientName(name, existingOrders) {
+  if (!name || name === '(미지정)') return name;
+  const n = name.replace(/\s+/g, '');
+  // 이미 긴 이름이 있으면 유지
+  for (const o of existingOrders) {
+    if (!o.client || o.client === '(미지정)') continue;
+    const e = o.client.replace(/\s+/g, '');
+    if (e === n) return o.client;
+    if (e.startsWith(n) && e.length > n.length) return o.client; // 짧은 이름 → 긴 이름으로
+    if (n.startsWith(e) && n.length > e.length) return name; // 긴 이름이 신규면 그대로
+  }
+  return name;
 }
 
 function parseOrdersFromText(text, deliveryDateKey) {
@@ -821,18 +875,25 @@ function parseOrdersFromText(text, deliveryDateKey) {
     // - D 메시지 중 ship=내일 → 제외(다음날)
     if (deliveryDateKey) {
       // 추출 창: 전날 10:00 ~ 발주일 14:00
+      // 단, 전날 「내일」 메시지는 발주일 납품으로 포함
+      // 발주일 「내일」 메시지는 다음날 납품 → 제외
       const msgDate = new Date(msg.y, msg.mo - 1, msg.d, Math.floor(msg.minutes / 60), msg.minutes % 60);
-      const windowStart = new Date(y, mo - 1, d - 1, 10, 0, 0); // 전날 10시
-      const windowEnd = new Date(y, mo - 1, d, 14, 0, 0);       // 당일 14시
+      const windowStart = new Date(y, mo - 1, d - 1, 10, 0, 0);
+      const windowEnd = new Date(y, mo - 1, d, 14, 0, 0);
       const ship = detectShipSide(msg.body);
-      const onDay = msg.y === y && msg.mo === mo && msg.d === d;
+      const onDay = (msg.y === y && msg.mo === mo && msg.d === d);
+      const prev = new Date(y, mo - 1, d - 1);
+      const onPrev = (msg.y === prev.getFullYear() && msg.mo === (prev.getMonth() + 1) && msg.d === prev.getDate());
 
-      if (msgDate < windowStart || msgDate > windowEnd) continue;
+      // 발주일 당일 작성 + 내일/모레 → 이 배송일 제외
+      if (onDay && (ship === '내일' || ship === '모레')) continue;
 
-      // 당일 작성인데 내일/예약 납품 → 이 배송일에서 제외
-      if (onDay && (ship === '내일' || ship === '모레' || ship === '예약')) {
-        continue;
+      // 창 밖이어도 전날「내일」이면 포함
+      const prevTomorrow = onPrev && ship === '내일';
+      if (!prevTomorrow) {
+        if (msgDate < windowStart || msgDate > windowEnd) continue;
       }
+      // 전날인데 내일도 아니고 창 밖(전날 10시 전)이면 제외 — 위에서 처리됨
     }
 
     const ship = detectShipSide(msg.body);
@@ -840,24 +901,32 @@ function parseOrdersFromText(text, deliveryDateKey) {
     let client = extractClientFromBody(msg.body);
     let items = parseItemsFromBody(msg.body);
 
-    // 첫 줄이 거래처면 아이템 파싱에서 그 줄 제외된 상태일 수 있음 — body 재파싱 시 첫 줄 제거
+    // 거래처 줄은 품목에서 제외
     if (client) {
       const lines = msg.body.split(/\n/).map(l => l.trim()).filter(Boolean);
-      if (lines[0] && lines[0].replace(/●추가|●정정|추가|정정/g, '').trim().startsWith(client.split(/\s/)[0])) {
+      const head = (lines[0] || '').replace(/●\s*추가|●\s*정정|●추가|●정정|추가|정정/g, '').trim();
+      if (head && (head === client || head.startsWith(client) || client.startsWith(head.slice(0, 4)))) {
         const rest = lines.slice(1).join('\n');
         const items2 = parseItemsFromBody(rest);
-        if (items2.length) items = items2;
+        if (items2.length >= items.length) items = items2;
       }
     }
 
-    if (!client && items.length) {
-      // 본문에 상호가 없으면 미지정 (발신자를 거래처로 쓰지 않음)
-      client = '(미지정)';
-    }
+    // 줄여 쓴 상호 → 앞서 나온 전체 상호로
+    client = resolveClientName(client, result);
+
+    if (!client && items.length) client = '(미지정)';
     if (isStaffName(client)) client = '(미지정)';
 
+    // 미지정이면 본문에서 한번 더 (정정/추가 줄)
+    if (client === '(미지정)') {
+      const m = msg.body.match(/([가-힣][가-힣A-Za-z0-9]{1,20}(?:마트|축산|정육|푸드|고기|한우)?)\s*●?\s*(추가|정정)?/);
+      if (m && !isStaffName(m[1]) && !/(삼겹|목살|미전|등뼈)/.test(m[1])) {
+        client = resolveClientName(m[1], result);
+      }
+    }
+
     if (!items.length && !weight) {
-      // 품목 없는 메모성 — 기타로만 보관
       if (client && client !== '(미지정)' && msg.body.length > 8) {
         result.push({
           client, address: '', time: msg.time, sender: msg.sender,
@@ -869,10 +938,36 @@ function parseOrdersFromText(text, deliveryDateKey) {
       continue;
     }
 
-    // 전날 작성 + 내일 → 배송일 기준 당일 납품
     let shipLabel = ship;
     if (deliveryDateKey && ship === '내일') shipLabel = '당일';
     if (deliveryDateKey && ship === '당일' && msg.dateKey === deliveryDateKey) shipLabel = '당일';
+
+    // 같은 거래처 연속 추가/정정 → 기존 카드에 품목 합치기
+    const isAmend = /정정|●\s*정정|●정정/.test(msg.body);
+    const isAdd = /추가|●\s*추가|●추가/.test(msg.body);
+    if ((isAmend || isAdd) && client && client !== '(미지정)') {
+      const prev = [...result].reverse().find(r => r.client === client && r.kind === 'order');
+      if (prev && items.length) {
+        if (isAmend) {
+          // 정정: 같은 품명 있으면 교체
+          items.forEach(it => {
+            const ix = prev.items.findIndex(p => p.name.replace(/\s/g,'') === it.name.replace(/\s/g,''));
+            if (ix >= 0) prev.items[ix] = it;
+            else prev.items.push(it);
+          });
+          prev.raw += '\n---\n' + msg.body;
+          prev.time = msg.time;
+          continue;
+        }
+        if (isAdd) {
+          items.forEach(it => prev.items.push(it));
+          prev.raw += '\n---\n' + msg.body;
+          prev.time = msg.time;
+          continue;
+        }
+      }
+    }
+
     result.push({
       client: client || '(미지정)',
       address: '',
@@ -887,6 +982,7 @@ function parseOrdersFromText(text, deliveryDateKey) {
   }
   return result;
 }
+
 
 function sliceByDate(text, dateKey) {
   // 메시지 단위 필터는 parseOrdersFromText에서 처리. 여기선 원문 그대로.
