@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미트포앤 스마트 발주 분류기 v4</title>
+    <title>미트포앤 스마트 발주 분류기 v5 (멀티 파일 지원)</title>
     <style>
         :root { --primary: #1f4e79; --bg: #f4f7f6; --card: #ffffff; --text: #333; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 15px; background-color: var(--bg); color: var(--text); }
         .container { max-width: 100%; margin: 0 auto; background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         h2 { margin-top: 0; color: var(--primary); font-size: 20px; }
         p { color: #666; font-size: 13px; line-height: 1.4; }
-        .upload-box { border: 2px dashed #b0c4de; padding: 15px; text-align: center; border-radius: 8px; background: #fafbfc; margin-bottom: 12px; cursor: pointer; }
+        .upload-box { border: 2px dashed #b0c4de; padding: 18px; text-align: center; border-radius: 8px; background: #fafbfc; margin-bottom: 12px; cursor: pointer; }
         .upload-box input { display: none; }
         
         .control-panel { background: #f0f4f8; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; }
@@ -24,7 +24,6 @@
         button.toggle-btn { background-color: #d97706; }
         button.toggle-btn.active { background-color: #047857; }
         button.download { background-color: #2e7d32; }
-        button.action { background-color: #2563eb; }
         button:active { opacity: 0.8; }
         
         .stats { margin-bottom: 12px; font-weight: bold; color: #444; font-size: 14px; }
@@ -42,12 +41,12 @@
 <body>
 
 <div class="container">
-    <h2>🥩 미트포앤 발주 분류기 v4 (시간대 & 날짜별 필터)</h2>
-    <p>카톡 파일을 업로드한 뒤, 원하는 날짜와 추출 방식(전날 22시~당일 04시 또는 당일 하루 전체)을 선택하여 조회하세요.</p>
+    <h2>🥩 미트포앤 통합 발주 분류기 v5</h2>
+    <p>여러 개의 카카오톡 대화방 파일(<b>복수 선택 가능</b>)을 동시에 업로드하여 통합 분석할 수 있습니다.</p>
 
     <div class="upload-box" onclick="document.getElementById('fileInput').click()">
-        <p>📁 <b>여기를 터치하여 카카오톡 대화 텍스트(.txt) 파일 선택</b> <span id="fileStatus" style="color:green; font-weight:bold;"></span></p>
-        <input type="file" id="fileInput" accept=".txt" onchange="handleFileUpload(event)">
+        <p>📁 <b>여기를 터치하여 카카오톡 텍스트(.txt) 파일들 선택 (여러 개 선택 가능)</b> <span id="fileStatus" style="color:green; font-weight:bold;"></span></p>
+        <input type="file" id="fileInput" accept=".txt" multiple onchange="handleFileUpload(event)">
     </div>
 
     <div class="control-panel">
@@ -94,25 +93,52 @@
 let allParsedData = [];
 let onlyOrderMode = false;
 
-function handleFileUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    document.getElementById("fileStatus").innerText = " (파일 로드 완료!)";
+async function handleFileUpload(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        parseKakaoChat(e.target.result);
-    };
-    reader.readAsText(file, 'utf-8');
+    document.getElementById("fileStatus").innerText = ` (${files.length}개 파일 로드 중...)`;
+    allParsedData = [];
+
+    for (let i = 0; i < files.length; i++) {
+        const text = await readFileAsync(files[i]);
+        parseKakaoChat(text);
+    }
+
+    document.getElementById("fileStatus").innerText = ` (${files.length}개 파일 통합 완료!)`;
+
+    if (allParsedData.length > 0) {
+        // 날짜순 정렬
+        allParsedData.sort((a, b) => {
+            if (a.dateFull !== b.dateFull) return a.dateFull.localeCompare(b.dateFull);
+            return a.timeMins - b.timeMins;
+        });
+        
+        let lastDate = allParsedData[allParsedData.length - 1].dateFull;
+        document.getElementById("targetDate").value = lastDate;
+    }
+
+    applyFilters();
+    document.getElementById("downloadBtn").style.display = "inline-block";
+}
+
+function readFileAsync(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (e) => reject(e);
+        reader.readAsText(file, 'utf-8');
+    });
 }
 
 function parseKakaoChat(text) {
     const lines = text.split('\n');
-    allParsedData = [];
-    let currentDateStr = "2026-10-13"; // 표준 YYYY-MM-DD
+    let currentDateStr = "2026-10-13"; 
     let displayDateStr = "10/13";
     
+    // PC 버전: 2026년 10월 13일 오전 9:49, 이명석 이사 : 내용
     const pcPattern = /^(\d{4}년\s*\d{1,2}월\s*\d{1,2}일)\s+([오전|오후]+\s*\d{1,2}:\d{2}),\s*(.*?)\s*:\s*(.*)$/;
+    // 모바일 버전: [발신자] [오후 2:35] 내용
     const mobilePattern = /^\[(.*?)\] \[(오전|오후 \d{1,2}:\d{2})\] (.*)$/;
 
     let currentItem = null;
@@ -121,7 +147,6 @@ function parseKakaoChat(text) {
         let line = lines[i].trim();
         if (!line) continue;
 
-        // 모바일 날짜 줄 감지
         if (line.includes('---------------') && line.includes('년')) {
             const dateMatch = line.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
             if (dateMatch) {
@@ -195,18 +220,8 @@ function parseKakaoChat(text) {
         finalizeItem(currentItem);
         allParsedData.push(currentItem);
     }
-
-    // 기본 오늘 날짜(또는 데이터 속 가장 최근 날짜)를 date input에 세팅
-    if (allParsedData.length > 0) {
-        let lastDate = allParsedData[allParsedData.length - 1].dateFull;
-        document.getElementById("targetDate").value = lastDate;
-    }
-
-    applyFilters();
-    document.getElementById("downloadBtn").style.display = "inline-block";
 }
 
-// 시간 정제 및 24시간 분 단위 변환
 function parseMinutes(timeStr) {
     if (!timeStr) return 0;
     let cleaned = timeStr.replace('오전', 'AM').replace('오후', 'PM').replace(/\s+/g, ' ');
@@ -228,7 +243,6 @@ function convertTime(timeStr) {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-// 발주 vs 계근 판별
 function finalizeItem(item) {
     let text = item.content;
 
@@ -286,7 +300,6 @@ function toggleOrderFilter() {
     renderTable();
 }
 
-// 날짜 및 시간 범위 필터 적용 로직
 function applyFilters() {
     renderTable();
 }
@@ -295,30 +308,25 @@ function renderTable() {
     const tbody = document.querySelector("#resultTable tbody");
     tbody.innerHTML = "";
 
-    const selectedDateStr = document.getElementById("targetDate").value; // "YYYY-MM-DD"
-    const mode = document.getElementById("filterMode").value; // "range", "fullday", "all"
+    const selectedDateStr = document.getElementById("targetDate").value; 
+    const mode = document.getElementById("filterMode").value; 
 
     let filtered = allParsedData.filter(item => {
         if (mode === "all") return true;
         if (!selectedDateStr) return true;
 
         let targetDateObj = new Date(selectedDateStr);
-        let itemDateObj = new Date(item.dateFull);
 
         if (mode === "fullday") {
-            // 당일 하루 전체 (YYYY-MM-DD 일치)
             return item.dateFull === selectedDateStr;
         }
 
         if (mode === "range") {
-            // 전날 밤 10시(22:00 = 1320분) ~ 당일 새벽 4시(04:00 = 240분)
             let prevDateObj = new Date(targetDateObj);
             prevDateObj.setDate(prevDateObj.getDate() - 1);
             let prevDateStr = prevDateObj.toISOString().split('T');
 
-            // 1) 전날 날짜이면서 시간이 22:00 이후인 경우
             let isPrevNight = (item.dateFull === prevDateStr && item.timeMins >= 22 * 60);
-            // 2) 당일 날짜이면서 시간이 04:00 이전인 경우
             let isTargetDawn = (item.dateFull === selectedDateStr && item.timeMins <= 4 * 60);
 
             return isPrevNight || isTargetDawn;
@@ -369,7 +377,7 @@ function downloadCSV() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "미트포앤_전체정제발주.csv";
+    a.download = "미트포앤_통합정제발주.csv";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
