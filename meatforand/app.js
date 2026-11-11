@@ -10,7 +10,7 @@ let stockItems = [];
 let showOnlyOrder = true;
 let showOnlyKnownClient = false;
 
-// 6대 차량 기본 설정 및 배차 저장소
+// 6대 차량 기본 설정, 배차 저장소, 수동 납품일 지정 저장소
 const DEFAULT_VEHICLES = [
     "1호차 (이명석 이사)",
     "2호차 (김석민 부장)",
@@ -21,6 +21,7 @@ const DEFAULT_VEHICLES = [
 ];
 let vehicleNames = JSON.parse(localStorage.getItem('mf_vehicles') || 'null') || [...DEFAULT_VEHICLES];
 let dispatchMap = JSON.parse(localStorage.getItem('mf_dispatch') || '{}');
+let manualDelivMap = JSON.parse(localStorage.getItem('mf_manual_deliv_dates') || '{}');
 let selectedVehicleFilter = 'ALL';
 
 // 초기 샘플 재고 데이터 세팅 (11월 10일 재고현황)
@@ -175,7 +176,7 @@ function saveStateToBrowser(actionLabel) {
     try {
         const settings = {
             targetDate: document.getElementById('orderTargetDate').value || '',
-            timeMode: document.getElementById('orderTimeMode').value || 'prev10_to_16',
+            timeMode: document.getElementById('orderTimeMode').value || 'smart',
             showOnlyOrder: showOnlyOrder,
             showOnlyKnownClient: showOnlyKnownClient
         };
@@ -187,7 +188,6 @@ function saveStateToBrowser(actionLabel) {
         }
 
         if (allChatItems.length > 0) {
-            // clientObj 참조를 제외한 경량 배열 저장
             const serializableChats = allChatItems.map(it => ({
                 dateFull: it.dateFull,
                 dateShort: it.dateShort,
@@ -205,7 +205,6 @@ function saveStateToBrowser(actionLabel) {
 }
 
 function restoreStateFromBrowser() {
-    // 1. 설정 복원
     try {
         const savedSettings = JSON.parse(localStorage.getItem('mf_saved_settings') || 'null');
         if (savedSettings) {
@@ -226,17 +225,19 @@ function restoreStateFromBrowser() {
 
     updateHeaderToggleButtonsUI();
 
-    // 2. 재고 텍스트 복원
     const savedStock = localStorage.getItem('mf_saved_stock_text');
     document.getElementById('stockTextarea').value = savedStock && savedStock.trim() ? savedStock : INITIAL_STOCK_TEXT;
     parseAndApplyStock(false, true);
 
-    // 3. 카톡 대화 내역 복원
     try {
         const savedChats = JSON.parse(localStorage.getItem('mf_saved_chat_items') || 'null');
         if (savedChats && Array.isArray(savedChats) && savedChats.length > 0) {
             allChatItems = savedChats;
-            allChatItems.forEach(item => classifyChatItem(item));
+            allChatItems.forEach((item, idx) => {
+                item.idx = idx;
+                classifyChatItem(item);
+            });
+            inferDeliveryDatesForAllItems();
 
             if (!document.getElementById('orderTargetDate').value) {
                 const lastDate = allChatItems[allChatItems.length - 1].dateFull;
@@ -252,7 +253,6 @@ function restoreStateFromBrowser() {
         }
     } catch (e) {}
 
-    // 4. 마지막 업데이트 시간 복원
     const lastUpd = localStorage.getItem('mf_last_updated');
     if (lastUpd) {
         document.getElementById('pillUpdated').innerText = `🕒 업데이트: ${lastUpd}`;
@@ -264,12 +264,13 @@ function restoreStateFromBrowser() {
 }
 
 function clearSavedBrowserData() {
-    if (!confirm('브라우저에 자동 저장된 카톡 발주 내역, 재고 텍스트, 배차 기록을 모두 초기화할까요?')) return;
+    if (!confirm('브라우저에 자동 저장된 카톡 발주 내역, 수동 납품일 지정, 재고 텍스트, 배차 기록을 모두 초기화할까요?')) return;
     localStorage.removeItem('mf_saved_chat_items');
     localStorage.removeItem('mf_saved_stock_text');
     localStorage.removeItem('mf_saved_settings');
     localStorage.removeItem('mf_last_updated');
     localStorage.removeItem('mf_dispatch');
+    localStorage.removeItem('mf_manual_deliv_dates');
     location.reload();
 }
 
@@ -277,7 +278,6 @@ window.addEventListener('DOMContentLoaded', () => {
     renderVehicleConfigInputs();
     restoreStateFromBrowser();
 
-    // 같은 폴더에 clients.csv가 있으면(GitHub Pages 등) 자동 로드 시도
     fetch('./clients.csv')
         .then(res => {
             if (!res.ok) throw new Error('No local clients.csv');
@@ -288,9 +288,7 @@ window.addEventListener('DOMContentLoaded', () => {
             if (text.includes('\ufffd')) text = new TextDecoder('euc-kr').decode(buf);
             processClientCsvText(text, true);
         })
-        .catch(() => {
-            // 로컬 파일(file://) 환경이거나 clients.csv가 없을 때는 내장된 DEFAULT_CLIENTS 유지
-        });
+        .catch(() => {});
 });
 
 /* 탭 전환 함수 */
@@ -408,7 +406,11 @@ function processClientCsvText(csvText, isSilentAutoLoad) {
     document.getElementById('pillClient').innerText = `거래처: ${clientDB.length}곳`;
     document.getElementById('btnExportCleanCsv').style.display = 'inline-block';
     if (allChatItems.length > 0) {
-        allChatItems.forEach(item => classifyChatItem(item));
+        allChatItems.forEach((item, idx) => {
+            item.idx = idx;
+            classifyChatItem(item);
+        });
+        inferDeliveryDatesForAllItems();
         onFilterCriteriaChange(isSilentAutoLoad);
     }
 }
@@ -451,7 +453,7 @@ function matchClientFromText(text) {
 }
 
 /* =========================================================================
-   3. 카카오톡 대화 파일 파싱 (스마트폰 + PC 내보내기 동시 지원 & 계근 100% 분리)
+   3. 카카오톡 대화 파일 파싱 및 5단계 스마트 납품일 자동판별 알고리즘
    ========================================================================= */
 async function loadKakaoFiles(event) {
     const files = event.target.files;
@@ -473,6 +475,9 @@ async function loadKakaoFiles(event) {
         return a.timeMins - b.timeMins;
     });
 
+    allChatItems.forEach((item, idx) => { item.idx = idx; });
+    inferDeliveryDatesForAllItems();
+
     if (allChatItems.length > 0) {
         const lastDate = allChatItems[allChatItems.length - 1].dateFull;
         document.getElementById('orderTargetDate').value = lastDate;
@@ -480,7 +485,7 @@ async function loadKakaoFiles(event) {
 
     const orderCnt = allChatItems.filter(x => x.type === '발주').length;
     const weightCnt = allChatItems.filter(x => x.type === '계근').length;
-    document.getElementById('kakaoLoadMsg').innerText = `✅ 총 ${allChatItems.length}건 분석 및 자동저장 완료! (순수발주 ${orderCnt}건 / 계근 ${weightCnt}건 분리됨)`;
+    document.getElementById('kakaoLoadMsg').innerText = `✅ 총 ${allChatItems.length}건 분석 및 납품일 자동판별 완료! (순수발주 ${orderCnt}건 / 계근 ${weightCnt}건 분리됨)`;
     const pill = document.getElementById('pillKakao');
     pill.innerText = `카톡: 발주 ${orderCnt}건`;
     pill.classList.add('ok');
@@ -575,11 +580,13 @@ function classifyChatItem(item) {
     item.clientName = clientMatch.clientName;
     item.isKnownClient = clientMatch.matched;
     item.clientObj = clientMatch.clientObj;
+    item.itemKey = `${item.dateFull}_${item.timeStr}_${item.clientName}_${txt.substring(0, 18).replace(/\s+/g, '')}`;
 
     const ignoreKw = [
         '사진', '삭제되었습니다', '재고현황', '발주체크', '분류전', '입금', '반품장',
         '여기까지', '팩스 보냈습니다', '코드 잡았습니다', '단가표', '원가내역',
-        '자동차검사', '타이어', '어떤거 주문하신걸까요', '어떤걸로 할까요', '기존 재고 늑간'
+        '자동차검사', '타이어', '어떤거 주문하신걸까요', '어떤걸로 할까요', '기존 재고 늑간',
+        '정정 해두었습니다', '복사해서 했었는데', '그냥 박스로주시죠', '인사요'
     ];
     if (ignoreKw.some(k => txt.includes(k))) { item.type = '기타'; return; }
     if (/\(대산\)\s*\d+박|\(포크\)\s*\d+박|나눌꺼요/.test(txt)) { item.type = '기타'; return; }
@@ -615,7 +622,7 @@ function classifyChatItem(item) {
     const meatRegex = /삼겹|목살|미전지|전지|미삼|등갈비|등뼈|갈비|등심|안심|사태|앞사태|항정|가브리|갈매기|미후지|후지|오겹|우삼겹|차돌|스지|LA|엘에이|살치|부채|토시|안창|장족|미니족|껍데기|돈피|잡육|왕구이|목뼈|사골|오돌뼈|홍두깨|볼라|설도|늑간|알목|두메코|테니쉬|셀렉타|올리멜|박스|팩|판|키로|kg|덩이|봉/i;
 
     if (meatRegex.test(txtNoFax)) {
-        if (/납품$|반품$|교환인가요|삭제해야해요|단가표요|전체단가표|패스래요|패스요|바꿔달래요|보내야죠|갖고감요|뿐이 안됨|더찍어주세요|두메코입니다/.test(txt)) {
+        if (/납품$|반품$|교환인가요|삭제해야해요|단가표요|전체단가표|패스래요|패스요|바꿔달래요|보내야죠|갖고감요|뿐이 안됨|더찍어주세요|두메코입니다|인가요\?$/.test(txt)) {
             item.type = '기타'; return;
         }
         if (txt.length <= 10 && !/\d/.test(txt)) {
@@ -626,6 +633,166 @@ function classifyChatItem(item) {
     }
 
     item.type = '기타';
+}
+
+/* 날짜 더하기 유틸리티 ("YYYY-MM-DD" + days -> "YYYY-MM-DD") */
+function addDaysToDateStr(dateFullStr, days) {
+    const dt = new Date(dateFullStr + "T00:00:00");
+    dt.setDate(dt.getDate() + days);
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function toShortDate(dateFullStr) {
+    if (!dateFullStr || dateFullStr.length < 10) return dateFullStr;
+    return `${dateFullStr.substring(5, 7)}/${dateFullStr.substring(8, 10)}`;
+}
+
+/* =========================================================================
+   핵심: 5단계 스마트 납품일(targetDeliveryDate) 자동 추론 엔진
+   ========================================================================= */
+const JS_WEEKDAY_MAP = { '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
+
+function inferDeliveryDatesForAllItems() {
+    for (let i = 0; i < allChatItems.length; i++) {
+        const item = allChatItems[i];
+        if (item.type !== '발주') {
+            item.targetDeliveryDate = item.dateFull;
+            item.delivShort = item.dateShort;
+            item.delivReason = '-';
+            item.isManualDeliv = false;
+            continue;
+        }
+
+        // 0단계: 사용자가 수동으로 지정한 납품일이 있는 경우 최우선 적용
+        if (manualDelivMap[item.itemKey]) {
+            item.targetDeliveryDate = manualDelivMap[item.itemKey];
+            item.delivShort = toShortDate(item.targetDeliveryDate);
+            item.delivReason = '수동지정';
+            item.isManualDeliv = true;
+            continue;
+        }
+        item.isManualDeliv = false;
+
+        const txt = item.content;
+        const mins = item.timeMins;
+        const msgDt = new Date(item.dateFull + "T00:00:00");
+        const msgWd = msgDt.getDay(); // 0(일) ~ 6(토)
+
+        // 1단계-A: 명시적 특정 날짜/이월 (예: "10/20(화) 발주건", "11월1일자로", "11월2일자로 이월")
+        const mDate = txt.match(/(\d{1,2})\/(\d{1,2})\s*\([월화수목금토일]\)|(\d{1,2})월\s*(\d{1,2})일\s*(?:자로|이월)/);
+        if (mDate) {
+            const mo = String(mDate[1] || mDate[3]).padStart(2, '0');
+            const da = String(mDate[2] || mDate[4]).padStart(2, '0');
+            item.targetDeliveryDate = `${msgDt.getFullYear()}-${mo}-${da}`;
+            item.delivShort = `${mo}/${da}`;
+            item.delivReason = `명시날짜(${mo}/${da})`;
+            continue;
+        }
+
+        // 1단계-B: 명시적 요일 지정 (예: "월요일", "화요일예약", "수요일 보내달래요", "목요일", "금욜", "월주문=")
+        const mWd = txt.match(/(?:^|[^내금당명월화수목토일])(월|화|수|목|금|토|일)(?:요일|욜|주문=)|^\s*(월|화|수|목|금|토|일)\s*$/m);
+        if (mWd) {
+            const wdChar = mWd[1] || mWd[2];
+            const targetWd = JS_WEEKDAY_MAP[wdChar];
+            let daysAhead = (targetWd - msgWd + 7) % 7;
+            if (daysAhead === 0 && mins >= 12 * 60) daysAhead = 7;
+            item.targetDeliveryDate = addDaysToDateStr(item.dateFull, daysAhead);
+            item.delivShort = toShortDate(item.targetDeliveryDate);
+            item.delivReason = `요일지정(${wdChar}요일)`;
+            continue;
+        }
+
+        // 2단계-A: 명시적·암묵적 익일 키워드 ("내일", "낼", "낼주문", "아침에 들리겠습니다", "오전 급 배송", "10시 전에")
+        if (/내일|낼주문|(?:^|[^가-힣])낼(?:$|[^가-힣])|아침에\s*(?:들리|갖을러|가지러)|오전\s*급\s*배송|10시\s*전에/.test(txt)) {
+            item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
+            item.delivShort = toShortDate(item.targetDeliveryDate);
+            item.delivReason = '익일키워드(내일)';
+            continue;
+        }
+
+        // 2단계-B: 명시적·암묵적 당일 키워드 ("오늘", "당일", "금일", "지금", "조금있다", "퇴근길", "오후에", "11시쯤온데요", "방문예정", "즉납")
+        if (/오늘|당일|금일|지금\s*(?:가|갖|가지러)|조금\s*있다|퇴근\s*(?:길|때|하면서)|오후에|방문\s*예정|\d{1,2}시\s*(?:반\s*)?쯤?\s*(?:온데|방문|찾으러|들린데|갖으러)|즉납|전표\s*하나\s*바로|제\s*코스에서|엄과장님\s*편에/.test(txt)) {
+            item.targetDeliveryDate = item.dateFull;
+            item.delivShort = item.dateShort;
+            item.delivReason = '당일키워드(오늘/방문)';
+            continue;
+        }
+
+        // 3단계-A: '●추가' 시간대 판별 (15:00 이전은 당일 출고분 추가, 15:00 이후는 익일 본발주에 대한 추가)
+        if (/●\s*추가|●\s*더추가|●\s*또추가|추가요|추가할께요/.test(txt)) {
+            if (mins < 15 * 60) {
+                item.targetDeliveryDate = item.dateFull;
+                item.delivShort = item.dateShort;
+                item.delivReason = '오전추가→당일';
+            } else {
+                item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
+                item.delivShort = toShortDate(item.targetDeliveryDate);
+                item.delivReason = '저녁추가→익일';
+            }
+            continue;
+        }
+
+        // 3단계-B: 당일 후속 '계근(무게 측정)' 매칭 검증
+        // 발주 직후 같은 날(D)에 동일 거래처의 계근 기록이 올라왔다면 100% 당일 출고!
+        const token = item.clientName.replace(/\s+/g, '').substring(0, 3);
+        let weighedSameDay = false;
+        if (token.length >= 2) {
+            for (let j = i + 1; j < allChatItems.length; j++) {
+                const nxt = allChatItems[j];
+                if (nxt.dateFull !== item.dateFull) break;
+                if (nxt.type === '계근' && nxt.content.includes(token)) {
+                    weighedSameDay = true;
+                    break;
+                }
+            }
+        }
+        if (weighedSameDay) {
+            item.targetDeliveryDate = item.dateFull;
+            item.delivShort = item.dateShort;
+            item.delivReason = '당일계근확인';
+            continue;
+        }
+
+        // 4단계: 휴일(일요일) 발주 규칙 -> 일요일에 올라온 모든 발주는 월요일(D+1) 납품
+        if (msgWd === 0) {
+            item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
+            item.delivShort = toShortDate(item.targetDeliveryDate);
+            item.delivReason = '일요일→월요일';
+            continue;
+        }
+
+        // 5단계: 13:50 마감선 (한재호 대표의 14:00 정각 예약발송 및 오후 발주 = 익일 D+1 / 13:50 이전 = 당일 D)
+        if (mins < 13 * 60 + 50) {
+            item.targetDeliveryDate = item.dateFull;
+            item.delivShort = item.dateShort;
+            item.delivReason = '13:50이전→당일';
+        } else {
+            item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
+            item.delivShort = toShortDate(item.targetDeliveryDate);
+            item.delivReason = '14시예약/오후→익일';
+        }
+    }
+}
+
+/* 사용자가 2페이지 배지를 클릭해 당일(D) <-> 익일(D+1) 납품일을 수동 전환하는 함수 */
+function toggleItemDeliveryDate(itemIdx) {
+    const item = allChatItems[itemIdx];
+    if (!item || item.type !== '발주') return;
+
+    const sameDay = item.dateFull;
+    const nextDay = addDaysToDateStr(item.dateFull, 1);
+
+    // 현재 당일이면 익일로, 익일(또는 다른 날)이면 당일로 원클릭 토글
+    const newTarget = (item.targetDeliveryDate === sameDay) ? nextDay : sameDay;
+    manualDelivMap[item.itemKey] = newTarget;
+    localStorage.setItem('mf_manual_deliv_dates', JSON.stringify(manualDelivMap));
+
+    inferDeliveryDatesForAllItems();
+    recordLastUpdatedTime(`${item.clientName} 납품일 수동변경(${toShortDate(newTarget)})`);
+    onFilterCriteriaChange(true);
 }
 
 /* =========================================================================
@@ -640,14 +807,21 @@ function getFilteredOrderList(forceOnlyOrder = false) {
         if (showOnlyKnownClient && !item.isKnownClient) return false;
         if (mode === 'all' || !targetDateStr) return true;
 
+        // [추천] 5단계 스마트 납품일 자동판별 모드
+        if (mode === 'smart') {
+            if (item.type === '발주') {
+                return item.targetDeliveryDate === targetDateStr;
+            } else {
+                // 비발주(계근/기타) 함께 보기 상태일 때는 해당 날짜에 작성된 계근을 표시
+                return item.dateFull === targetDateStr;
+            }
+        }
+
         if (mode === 'fullday') {
             return item.dateFull === targetDateStr;
         }
 
-        const tDate = new Date(targetDateStr + "T00:00:00");
-        const pDate = new Date(tDate);
-        pDate.setDate(pDate.getDate() - 1);
-        const prevDateStr = `${pDate.getFullYear()}-${String(pDate.getMonth()+1).padStart(2,'0')}-${String(pDate.getDate()).padStart(2,'0')}`;
+        const prevDateStr = addDaysToDateStr(targetDateStr, -1);
 
         if (mode === 'prev10_to_16') {
             const isPrevFrom10 = (item.dateFull === prevDateStr && item.timeMins >= 10 * 60);
@@ -668,10 +842,13 @@ function renderOrdersTable() {
     tbody.innerHTML = '';
 
     const list = getFilteredOrderList(false);
-    document.getElementById('orderStats').innerText = `📋 조회된 내역: 총 ${list.length}건`;
+    const targetDateStr = document.getElementById('orderTargetDate').value;
+    const mode = document.getElementById('orderTimeMode').value;
+    const modeLabel = mode === 'smart' ? `스마트 납품일(${toShortDate(targetDateStr)}) 기준` : '선택 시간범위 기준';
+    document.getElementById('orderStats').innerText = `📋 조회된 내역: 총 ${list.length}건 (${modeLabel})`;
 
     if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; padding:20px; color:#dc2626;">선택하신 날짜/시간 조건에 해당하는 내역이 없습니다.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; padding:20px; color:#dc2626;">선택하신 납품 기준일(${escapeHtml(targetDateStr)})에 해당하는 발주 내역이 없습니다.</td></tr>`;
         return;
     }
 
@@ -682,12 +859,20 @@ function renderOrdersTable() {
 
         let clientBadge = item.isKnownClient ? `<span class="badge b-client">인증</span>` : '';
 
+        let delivBadgeHtml = '';
+        if (item.type === '발주') {
+            const isNextDay = item.targetDeliveryDate !== item.dateFull;
+            const extraCls = item.isManualDeliv ? 'manual' : (isNextDay ? 'next-day' : '');
+            delivBadgeHtml = `<br><button class="deliv-badge-btn ${extraCls}" onclick="toggleItemDeliveryDate(${item.idx})" title="클릭하면 당일(${item.dateShort}) ↔ 익일 납품일을 수동 전환합니다">🚚 납품:${escapeHtml(item.delivShort)} (${escapeHtml(item.delivReason)}) 🔄</button>`;
+        }
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td style="white-space:nowrap; line-height:1.65; vertical-align:middle;">
-                <span style="color:#4b5563;"><b>${escapeHtml(item.dateShort)}</b>, ${escapeHtml(item.timeStr)}</span><br>
+            <td style="white-space:nowrap; line-height:1.6; vertical-align:middle;">
+                <span style="color:#4b5563;">작성: <b>${escapeHtml(item.dateShort)}</b>, ${escapeHtml(item.timeStr)}</span><br>
                 <b style="color:var(--primary); font-size:13px;">${escapeHtml(item.clientName)}</b>${clientBadge}<br>
                 <span style="color:#374151;">${escapeHtml(item.sender)}</span> ${badge}
+                ${delivBadgeHtml}
             </td>
             <td style="white-space:pre-line; vertical-align:middle;">${escapeHtml(item.content)}</td>
         `;
@@ -964,7 +1149,7 @@ function renderOrderSummaryTable() {
     tbody.innerHTML = '';
 
     const tDate = document.getElementById('orderTargetDate').value || '전체';
-    document.getElementById('orderSummaryDateInfo').innerText = `[기준일: ${tDate}]`;
+    document.getElementById('orderSummaryDateInfo').innerText = `[납품 기준일: ${tDate}]`;
 
     const summaryMap = computeOrderAggregation();
 
@@ -1310,10 +1495,10 @@ function downloadBlob(csvContent, filename) {
 
 function downloadOrdersCsv() {
     const list = getFilteredOrderList(false);
-    let csv = "\uFEFF날짜,시간,거래처,발신자,판별구분,발주내용\n";
+    let csv = "\uFEFF작성날짜,작성시간,납품기준일,판별사유,거래처,발신자,판별구분,발주내용\n";
     list.forEach(o => {
         const clean = o.content.replace(/"/g, '""').replace(/\n/g, ' ');
-        csv += `"${o.dateShort}","${o.timeStr}","${o.clientName}","${o.sender}","${o.type}","${clean}"\n`;
+        csv += `"${o.dateShort}","${o.timeStr}","${o.delivShort||''}","${o.delivReason||''}","${o.clientName}","${o.sender}","${o.type}","${clean}"\n`;
     });
     downloadBlob(csv, "미트포앤_추출발주목록.csv");
 }
