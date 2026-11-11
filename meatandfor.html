@@ -3,23 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미트포앤geminiV01</title>
+    <title>미트포앤 스마트 발주 분류기 v4</title>
     <style>
         :root { --primary: #1f4e79; --bg: #f4f7f6; --card: #ffffff; --text: #333; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 15px; background-color: var(--bg); color: var(--text); }
         .container { max-width: 100%; margin: 0 auto; background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         h2 { margin-top: 0; color: var(--primary); font-size: 20px; }
         p { color: #666; font-size: 13px; line-height: 1.4; }
-        .upload-box { border: 2px dashed #b0c4de; padding: 20px; text-align: center; border-radius: 8px; background: #fafbfc; margin-bottom: 15px; cursor: pointer; }
+        .upload-box { border: 2px dashed #b0c4de; padding: 15px; text-align: center; border-radius: 8px; background: #fafbfc; margin-bottom: 12px; cursor: pointer; }
         .upload-box input { display: none; }
-        .btn-group { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
-        button { background-color: var(--primary); color: white; border: none; padding: 10px 16px; font-size: 14px; border-radius: 6px; cursor: pointer; font-weight: bold; flex: 1; min-width: 140px; }
+        
+        .control-panel { background: #f0f4f8; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .control-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        label { font-size: 13px; font-weight: bold; color: var(--primary); }
+        input[type="date"] { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+        select { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; background: white; }
+        
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        button { background-color: var(--primary); color: white; border: none; padding: 10px 16px; font-size: 14px; border-radius: 6px; cursor: pointer; font-weight: bold; flex: 1; min-width: 130px; }
         button.toggle-btn { background-color: #d97706; }
         button.toggle-btn.active { background-color: #047857; }
         button.download { background-color: #2e7d32; }
+        button.action { background-color: #2563eb; }
         button:active { opacity: 0.8; }
-        .stats { margin-bottom: 15px; font-weight: bold; color: #444; font-size: 14px; }
-        .table-responsive { overflow-x: auto; max-height: 600px; border: 1px solid #ddd; border-radius: 6px; }
+        
+        .stats { margin-bottom: 12px; font-weight: bold; color: #444; font-size: 14px; }
+        .table-responsive { overflow-x: auto; max-height: 550px; border: 1px solid #ddd; border-radius: 6px; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
         th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; vertical-align: top; }
         th { background-color: var(--primary); color: white; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
@@ -33,17 +42,33 @@
 <body>
 
 <div class="container">
-    <h2>🥩 미트포앤 통합 발주 분류기 v3.1</h2>
-    <p>스마트폰/PC 카톡 내보내기 파일을 모두 지원하며, 발주와 계근 내역을 똑똑하게 분리해 줍니다.</p>
+    <h2>🥩 미트포앤 발주 분류기 v4 (시간대 & 날짜별 필터)</h2>
+    <p>카톡 파일을 업로드한 뒤, 원하는 날짜와 추출 방식(전날 22시~당일 04시 또는 당일 하루 전체)을 선택하여 조회하세요.</p>
 
     <div class="upload-box" onclick="document.getElementById('fileInput').click()">
-        <p>📁 <b>여기를 터치하여 카카오톡 대화 텍스트(.txt) 파일 선택</b></p>
+        <p>📁 <b>여기를 터치하여 카카오톡 대화 텍스트(.txt) 파일 선택</b> <span id="fileStatus" style="color:green; font-weight:bold;"></span></p>
         <input type="file" id="fileInput" accept=".txt" onchange="handleFileUpload(event)">
     </div>
 
-    <div class="btn-group">
-        <button id="toggleBtn" class="toggle-btn" onclick="toggleOrderFilter()" style="display:none;">🔍 순수 발주만 보기: OFF</button>
-        <button id="downloadBtn" class="download" onclick="downloadCSV()" style="display:none;">📥 정제 목록 다운로드(CSV)</button>
+    <div class="control-panel">
+        <div class="control-row">
+            <div>
+                <label for="targetDate">기준 날짜:</label>
+                <input type="date" id="targetDate" onchange="applyFilters()">
+            </div>
+            <div>
+                <label for="filterMode">추출 방식:</label>
+                <select id="filterMode" onchange="applyFilters()">
+                    <option value="range">전날 밤 10시 ~ 당일 새벽 4시</option>
+                    <option value="fullday">선택한 날짜 하루 전체 (00:00 ~ 23:59)</option>
+                    <option value="all">전체 기간 보기 (날짜 무시)</option>
+                </select>
+            </div>
+        </div>
+        <div class="btn-group">
+            <button id="toggleBtn" class="toggle-btn" onclick="toggleOrderFilter()" active="false">🔍 순수 발주만 보기: OFF</button>
+            <button id="downloadBtn" class="download" onclick="downloadCSV()" style="display:none;">📥 정제 목록 다운로드(CSV)</button>
+        </div>
     </div>
     
     <div id="stats" class="stats"></div>
@@ -72,6 +97,7 @@ let onlyOrderMode = false;
 function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
+    document.getElementById("fileStatus").innerText = " (파일 로드 완료!)";
 
     const reader = new FileReader();
     reader.onload = function(e) {
@@ -83,24 +109,27 @@ function handleFileUpload(event) {
 function parseKakaoChat(text) {
     const lines = text.split('\n');
     allParsedData = [];
-    let currentDateStr = "10/13";
+    let currentDateStr = "2026-10-13"; // 표준 YYYY-MM-DD
+    let displayDateStr = "10/13";
     
-    // PC 버전 패턴: 2026년 10월 13일 오전 9:49, 이명석 이사 : 내용
     const pcPattern = /^(\d{4}년\s*\d{1,2}월\s*\d{1,2}일)\s+([오전|오후]+\s*\d{1,2}:\d{2}),\s*(.*?)\s*:\s*(.*)$/;
-    // 모바일 버전 패턴: [발신자] [오후 2:35] 내용
     const mobilePattern = /^\[(.*?)\] \[(오전|오후 \d{1,2}:\d{2})\] (.*)$/;
 
     let currentItem = null;
 
     for (let i = 0; i < lines.length; i++) {
-        let line = lines[i].trim(); // 수정 완료: lines[i]의 trim 함수 호출
+        let line = lines[i].trim();
         if (!line) continue;
 
-        // 모바일 날짜 줄 감지 (예: --------------- 2026년 10월 17일 토요일 ---------------)
+        // 모바일 날짜 줄 감지
         if (line.includes('---------------') && line.includes('년')) {
             const dateMatch = line.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
             if (dateMatch) {
-                currentDateStr = `${String(dateMatch[2]).padStart(2, '0')}/${String(dateMatch[3]).padStart(2, '0')}`;
+                let y = dateMatch[1];
+                let m = String(dateMatch[2]).padStart(2, '0');
+                let d = String(dateMatch[3]).padStart(2, '0');
+                currentDateStr = `${y}-${m}-${d}`;
+                displayDateStr = `${m}/${d}`;
             }
             continue;
         }
@@ -117,10 +146,17 @@ function parseKakaoChat(text) {
             const message = match[4];
 
             const dm = datePart.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
-            if (dm) currentDateStr = `${String(dm[2]).padStart(2, '0')}/${String(dm[3]).padStart(2, '0')}`;
+            if (dm) {
+                let y = dm[1];
+                let m = String(dm[2]).padStart(2, '0');
+                let d = String(dm[3]).padStart(2, '0');
+                currentDateStr = `${y}-${m}-${d}`;
+                displayDateStr = `${m}/${d}`;
+            }
 
             currentItem = {
-                dateRaw: currentDateStr,
+                dateFull: currentDateStr,
+                dateRaw: displayDateStr,
                 timeRaw: timePart,
                 sender: sender.trim(),
                 content: message,
@@ -141,7 +177,8 @@ function parseKakaoChat(text) {
             const message = match[3];
 
             currentItem = {
-                dateRaw: currentDateStr,
+                dateFull: currentDateStr,
+                dateRaw: displayDateStr,
                 timeRaw: timePart,
                 sender: sender.trim(),
                 content: message,
@@ -159,31 +196,42 @@ function parseKakaoChat(text) {
         allParsedData.push(currentItem);
     }
 
-    renderTable();
-    document.getElementById("toggleBtn").style.display = "inline-block";
+    // 기본 오늘 날짜(또는 데이터 속 가장 최근 날짜)를 date input에 세팅
+    if (allParsedData.length > 0) {
+        let lastDate = allParsedData[allParsedData.length - 1].dateFull;
+        document.getElementById("targetDate").value = lastDate;
+    }
+
+    applyFilters();
     document.getElementById("downloadBtn").style.display = "inline-block";
 }
 
-// 시간 정제 (오후 2:35 -> 14:35)
-function convertTime(timeStr) {
-    if (!timeStr) return "00:00";
+// 시간 정제 및 24시간 분 단위 변환
+function parseMinutes(timeStr) {
+    if (!timeStr) return 0;
     let cleaned = timeStr.replace('오전', 'AM').replace('오후', 'PM').replace(/\s+/g, ' ');
     let parts = cleaned.split(' ');
-    if (parts.length < 2) return timeStr;
+    if (parts.length < 2) return 0;
     let meridiem = parts[0];
     let hm = parts[1].split(':');
     let h = parseInt(hm[0]) || 0;
-    let m = hm[1] || "00";
+    let m = parseInt(hm[1]) || 0;
     if (meridiem === 'PM' && h < 12) h += 12;
     if (meridiem === 'AM' && h === 12) h = 0;
-    return `${String(h).padStart(2, '0')}:${m}`;
+    return h * 60 + m;
 }
 
-// 발주 vs 계근 지능형 판별
+function convertTime(timeStr) {
+    let mins = parseMinutes(timeStr);
+    let h = Math.floor(mins / 60);
+    let m = mins % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+// 발주 vs 계근 판별
 function finalizeItem(item) {
     let text = item.content;
 
-    // 계근 판별 (소수점 무게나 3~4자리 숫자가 3개 이상 연속 나열)
     const numberTokens = text.match(/\b\d+\.\d+|\b\d{3,4}\b/g);
     let isWeighIn = false;
     if (numberTokens && numberTokens.length >= 3) {
@@ -213,7 +261,6 @@ function finalizeItem(item) {
         item.type = "기타";
     }
 
-    // 거래처명 추출 (맨 앞 단어)
     let cleanedText = text.replace(/^[\[\(].*?[\]\)]\s*/, '').trim();
     let firstWord = cleanedText.split(/[\s\n\.\,\-\~]/)[0];
     if (firstWord && firstWord.length > 1 && firstWord.length < 15) {
@@ -222,6 +269,7 @@ function finalizeItem(item) {
         item.clientName = "미확인거래처";
     }
 
+    item.timeMins = parseMinutes(item.timeRaw);
     item.formattedTime = convertTime(item.timeRaw);
 }
 
@@ -238,24 +286,59 @@ function toggleOrderFilter() {
     renderTable();
 }
 
+// 날짜 및 시간 범위 필터 적용 로직
+function applyFilters() {
+    renderTable();
+}
+
 function renderTable() {
     const tbody = document.querySelector("#resultTable tbody");
     tbody.innerHTML = "";
 
-    let displayList = allParsedData;
+    const selectedDateStr = document.getElementById("targetDate").value; // "YYYY-MM-DD"
+    const mode = document.getElementById("filterMode").value; // "range", "fullday", "all"
+
+    let filtered = allParsedData.filter(item => {
+        if (mode === "all") return true;
+        if (!selectedDateStr) return true;
+
+        let targetDateObj = new Date(selectedDateStr);
+        let itemDateObj = new Date(item.dateFull);
+
+        if (mode === "fullday") {
+            // 당일 하루 전체 (YYYY-MM-DD 일치)
+            return item.dateFull === selectedDateStr;
+        }
+
+        if (mode === "range") {
+            // 전날 밤 10시(22:00 = 1320분) ~ 당일 새벽 4시(04:00 = 240분)
+            let prevDateObj = new Date(targetDateObj);
+            prevDateObj.setDate(prevDateObj.getDate() - 1);
+            let prevDateStr = prevDateObj.toISOString().split('T');
+
+            // 1) 전날 날짜이면서 시간이 22:00 이후인 경우
+            let isPrevNight = (item.dateFull === prevDateStr && item.timeMins >= 22 * 60);
+            // 2) 당일 날짜이면서 시간이 04:00 이전인 경우
+            let isTargetDawn = (item.dateFull === selectedDateStr && item.timeMins <= 4 * 60);
+
+            return isPrevNight || isTargetDawn;
+        }
+        return true;
+    });
+
     if (onlyOrderMode) {
-        displayList = allParsedData.filter(item => item.type === "발주");
+        filtered = filtered.filter(item => item.type === "발주");
     }
 
-    if (displayList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: red; padding: 20px;">표시할 내역이 없습니다.</td></tr>`;
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: red; padding: 20px;">조건에 맞는 발주 내역이 없습니다. (날짜나 추출 방식을 확인해주세요)</td></tr>`;
         document.getElementById("stats").innerText = `표시된 항목: 0건`;
         return;
     }
 
-    document.getElementById("stats").innerText = `📋 총 표시 항목: ${displayList.length}건 (전체 ${allParsedData.length}건 중)`;
+    document.getElementById("stats").innerText = `📋 필터된 항목: ${filtered.length}건`;
 
-    displayList.forEach(item => {
+    filtered.forEach(item => {
         let badgeHTML = `<span class="badge-other">기타</span>`;
         if (item.type === "발주") badgeHTML = `<span class="badge-order">발주</span>`;
         else if (item.type === "계근") badgeHTML = `<span class="badge-weight">계근</span>`;
@@ -276,9 +359,8 @@ function escapeHtml(str) {
 }
 
 function downloadCSV() {
-    let displayList = onlyOrderMode ? allParsedData.filter(item => item.type === "발주") : allParsedData;
     let csv = "\uFEFF날짜,시간,거래처명,발주내용,발신자,구분\n";
-    displayList.forEach(o => {
+    allParsedData.forEach(o => {
         const cleanText = o.content.replace(/"/g, '""').replace(/\n/g, ' ');
         csv += `"${o.dateRaw}","${o.formattedTime}","${o.clientName}","${cleanText}","${o.sender}","${o.type}"\n`;
     });
@@ -287,7 +369,7 @@ function downloadCSV() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "미트포앤_통합정제발주.csv";
+    a.download = "미트포앤_전체정제발주.csv";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
