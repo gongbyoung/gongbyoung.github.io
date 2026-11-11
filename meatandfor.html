@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미트포앤 스마트 발주 분류기 v2</title>
+    <title>미트포앤gemini</title>
     <style>
         :root { --primary: #1f4e79; --bg: #f4f7f6; --card: #ffffff; --text: #333; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 15px; background-color: var(--bg); color: var(--text); }
@@ -33,8 +33,8 @@
 <body>
 
 <div class="container">
-    <h2>🥩 미트포앤 스마트 발주 분류기 v2</h2>
-    <p>카톡 .txt 파일을 업로드하면 <b>[날짜 ➔ 거래처명 ➔ 발주내용 ➔ 발신자(발주/계근)]</b> 순서로 재정렬되며, 토글 버튼으로 순수 발주만 골라 볼 수 있습니다.</p>
+    <h2>🥩 미트포앤 통합 발주 분류기 v3 (PC/모바일 공용)</h2>
+    <p>스마트폰 또는 컴퓨터에서 내보낸 카톡 대화(.txt)를 모두 지원합니다. 컬럼 순서 [날짜 ➔ 거래처명 ➔ 발주내용 ➔ 발신자/구분] 및 토글 필터가 적용되어 있습니다.</p>
 
     <div class="upload-box" onclick="document.getElementById('fileInput').click()">
         <p>📁 <b>여기를 터치하여 카카오톡 대화 텍스트(.txt) 파일 선택</b></p>
@@ -42,7 +42,7 @@
     </div>
 
     <div class="btn-group">
-        <button id="toggleBtn" class="toggle-btn" onclick="toggleOrderFilter()" style="display:none;" active="false">🔍 순수 발주만 보기: OFF</button>
+        <button id="toggleBtn" class="toggle-btn" onclick="toggleOrderFilter()" style="display:none;">🔍 순수 발주만 보기: OFF</button>
         <button id="downloadBtn" class="download" onclick="downloadCSV()" style="display:none;">📥 정제 목록 다운로드(CSV)</button>
     </div>
     
@@ -83,47 +83,73 @@ function handleFileUpload(event) {
 function parseKakaoChat(text) {
     const lines = text.split('\n');
     allParsedData = [];
-    let currentDateStr = "10/17"; // 기본값
+    let currentDateStr = "10/13";
     
-    // 카톡 패턴: [발신자] [오후 2:35] 내용
-    const pattern = /^\[(.*?)\] \[(오전|오후 \d{1,2}:\d{2})\] (.*)$/;
+    // PC 버전 패턴: 2026년 10월 13일 오전 9:49, 이명석 이사 : 내용
+    const pcPattern = /^(\d{4}년\s*\d{1,2}월\s*\d{1,2}일)\s+([오전|오후]+\s*\d{1,2}:\d{2}),\s*(.*?)\s*:\s*(.*)$/;
+    // 모바일 버전 패턴: [발신자] [오후 2:35] 내용
+    const mobilePattern = /^\[(.*?)\] \[(오전|오후 \d{1,2}:\d{2})\] (.*)$/;
 
     let currentItem = null;
 
     for (let i = 0; i < lines.length; i++) {
-        let line = lines[i].trim();
+        let line = lines.trim();
         if (!line) continue;
 
-        // 날짜 추출 (예: --------------- 2026년 10월 17일 토요일 ---------------)
+        // 모바일 날짜 줄 감지 (예: --------------- 2026년 10월 17일 토요일 ---------------)
         if (line.includes('---------------') && line.includes('년')) {
             const dateMatch = line.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
             if (dateMatch) {
-                currentDateStr = `${String(dateMatch[2]).padStart(2, '0')}/${String(dateMatch[3]).padStart(2, '0')}`;
+                currentDateStr = `${String(dateMatch).padStart(2, '0')}/${String(dateMatch).padStart(2, '0')}`;
             }
             continue;
         }
 
-        const match = line.match(pattern);
+        let match = line.match(pcPattern);
         if (match) {
             if (currentItem) {
                 finalizeItem(currentItem);
                 allParsedData.push(currentItem);
             }
+            const datePart = match;
+            const timePart = match;
+            const sender = match;
+            const message = match;
 
-            const sender = match[1];
-            const timePart = match[2]; // "오후 2:35" 등
-            const message = match[3];
+            const dm = datePart.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
+            if (dm) currentDateStr = `${String(dm).padStart(2, '0')}/${String(dm).padStart(2, '0')}`;
 
             currentItem = {
                 dateRaw: currentDateStr,
                 timeRaw: timePart,
-                sender: sender,
+                sender: sender.trim(),
+                content: message,
+                clientName: "-",
+                type: "기타"
+            };
+            continue;
+        }
+
+        match = line.match(mobilePattern);
+        if (match) {
+            if (currentItem) {
+                finalizeItem(currentItem);
+                allParsedData.push(currentItem);
+            }
+            const sender = match;
+            const timePart = match; 
+            const message = match;
+
+            currentItem = {
+                dateRaw: currentDateStr,
+                timeRaw: timePart,
+                sender: sender.trim(),
                 content: message,
                 clientName: "-",
                 type: "기타"
             };
         } else {
-            if (currentItem && !line.includes('님과 카카오톡 대화') && !line.includes('---------------')) {
+            if (currentItem && !line.includes('님과 카카오톡 대화') && !line.includes('---------------') && !line.includes('저장한 날짜')) {
                 currentItem.content += "\n" + line;
             }
         }
@@ -133,48 +159,43 @@ function parseKakaoChat(text) {
         allParsedData.push(currentItem);
     }
 
-    // 날짜/시간 순으로 정렬 보장
     renderTable();
     document.getElementById("toggleBtn").style.display = "inline-block";
     document.getElementById("downloadBtn").style.display = "inline-block";
 }
 
-// 시간 문자열(오후 2:35)을 24시간 "14:35" 형태로 변환
-fnConvertTime = function(timeStr) {
+// 시간 정제 (오후 2:35 -> 14:35)
+function convertTime(timeStr) {
     if (!timeStr) return "00:00";
-    let parts = timeStr.replace('오전', 'AM').replace('오후', 'PM').split(' ');
-    if (parts.length < 2) return "00:00";
-    let meridiem = parts[0];
-    let hm = parts[1].split(':');
-    let h = parseInt(hm[0]) || 0;
-    let m = hm[1] || "00";
+    let cleaned = timeStr.replace('오전', 'AM').replace('오후', 'PM').replace(/\s+/g, ' ');
+    let parts = cleaned.split(' ');
+    if (parts.length < 2) return timeStr;
+    let meridiem = parts;
+    let hm = parts.split(':');
+    let h = parseInt(hm) || 0;
+    let m = hm || "00";
     if (meridiem === 'PM' && h < 12) h += 12;
     if (meridiem === 'AM' && h === 12) h = 0;
     return `${String(h).padStart(2, '0')}:${m}`;
-};
+}
 
-// 발주 내용 속에서 거래처명 추출 및 발주/계근 판별
+// 발주 vs 계근 지능형 판별
 function finalizeItem(item) {
     let text = item.content;
 
-    // 1. 계근 데이터 판별 (숫자 소수점 또는 3~4자리 숫자가 3개 이상 연속 나열: 예 12.09, 9.06, 1652 등)
+    // 계근 판별 (소수점 무게나 3~4자리 숫자가 3개 이상 연속 나열)
     const numberTokens = text.match(/\b\d+\.\d+|\b\d{3,4}\b/g);
     let isWeighIn = false;
     if (numberTokens && numberTokens.length >= 3) {
         isWeighIn = true;
     }
-    // "대 ", "포 " 뒤에 중량이 붙는 형태 (예: 삼겹 5포 12.09, 알레한듀록 목살 9.06)
-    if (text.includes("포 ") || text.includes("대 ") || text.includes("개 ")) {
-        if (/\d+\.\d+/.test(text)) {
-            isWeighIn = true;
-        }
+    if ((text.includes("포 ") || text.includes("대 ") || text.includes("개 ")) && /\d+\.\d+/.test(text)) {
+        isWeighIn = true;
     }
 
-    // 2. 시스템/제외 키워드
-    const ignoreKeywords = ['사진', '삭제되었습니다', '재고현황', '발주체크', '분류전', '입금', '출고', '반품장', '공지', '투표'];
+    const ignoreKeywords = ['사진', '삭제되었습니다', '재고현황', '발주체크', '분류전', '입금', '출고', '반품장', '공지', '투표', '장갑'];
     let hasIgnore = ignoreKeywords.some(kw => text.includes(kw));
 
-    // 3. 고기 품목 키워드 확인
     const meatKeywords = [
         '삼겹', '목살', '미전지', '전지', '미삼', '등갈비', '등뼈', '갈비', '등심', '안심', 
         '사태', '앞사태', '항정', '가브리', '갈매기', '미후지', '후지', '오겹', '우삼겹', 
@@ -192,17 +213,16 @@ function finalizeItem(item) {
         item.type = "기타";
     }
 
-    // 4. 거래처명 추출 (문장 맨 앞 단어 혹은 공백/특수문자 전까지의 단어)
+    // 거래처명 추출 (맨 앞 단어)
     let cleanedText = text.replace(/^[\[\(].*?[\]\)]\s*/, '').trim();
-    let firstWord = cleanedText.split(/[\s\n\.\,\-\~]/)[0];
+    let firstWord = cleanedText.split(/[\s\n\.\,\-\~]/);
     if (firstWord && firstWord.length > 1 && firstWord.length < 15) {
         item.clientName = firstWord;
     } else {
         item.clientName = "미확인거래처";
     }
 
-    // 시간 형식 정제
-    item.formattedTime = fnConvertTime(item.timeRaw);
+    item.formattedTime = convertTime(item.timeRaw);
 }
 
 function toggleOrderFilter() {
@@ -267,7 +287,7 @@ function downloadCSV() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "미트포앤_정제발주목록.csv";
+    a.download = "미트포앤_통합정제발주.csv";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
