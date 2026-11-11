@@ -1,508 +1,355 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1f6f43">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
-<title>발주 정리</title>
-<style>
-:root{
-  --bg:#f4f5f2; --card:#fff; --ink:#1c2420; --sub:#66716b; --line:#e2e6e1;
-  --brand:#1f6f43; --brand-ink:#fff; --soft:#e6f2ea;
-  --red:#c0392b; --red-bg:#fbe9e6; --amber:#8a6100; --amber-bg:#fdf1d3; --blue:#1d5fa8; --blue-bg:#e5effa; --gray-bg:#eceeea;
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    color-scheme:dark;
-    --bg:#121512; --card:#1b201c; --ink:#e8ece9; --sub:#9aa59e; --line:#2c332e;
-    --brand:#4fb87c; --brand-ink:#0c1a12; --soft:#1d3326;
-    --red:#ff8a7a; --red-bg:#3b1f1b; --amber:#f0c25a; --amber-bg:#3a2f12; --blue:#7fb4f0; --blue-bg:#17283d; --gray-bg:#262c28;
-  }
-}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-[hidden]{display:none!important}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Noto Sans KR","Malgun Gothic",sans-serif;padding-bottom:env(safe-area-inset-bottom)}
-header{background:var(--brand);color:var(--brand-ink);padding:max(12px,env(safe-area-inset-top)) 16px 12px;display:flex;align-items:center;justify-content:space-between}
-header h1{margin:0;font-size:19px}
-header button{background:transparent;border:0;color:inherit;font-size:22px;padding:4px 8px}
-main{max-width:720px;margin:0 auto;padding:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.grow{flex:1;min-width:0}
-.btn{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;font-size:15px;min-height:44px}
-.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
-.btn.small{min-height:36px;padding:6px 10px;font-size:14px}
-.btn.full{width:100%;text-align:left}
-.ok{color:var(--brand);font-weight:600}
-.sub{color:var(--sub);font-size:13px}
-input[type=date],input[type=datetime-local],input[type=search],textarea{font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card);color:var(--ink);width:100%}
-textarea{min-height:70px}
-.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 0}
-.chip{background:var(--gray-bg);border-radius:999px;padding:3px 10px;font-size:13px}
-.tabs{display:flex;gap:4px;overflow-x:auto;position:sticky;top:0;background:var(--bg);padding:6px 0;z-index:5;scrollbar-width:none}
-.tabs::-webkit-scrollbar{display:none}
-.tab{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 14px;font:inherit;font-size:15px;min-height:40px}
-.tab.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
-.tab .n{opacity:.75;font-size:12px;margin-left:4px}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.seg button{border:0;background:var(--card);color:var(--ink);padding:8px 14px;font:inherit;font-size:14px;min-height:36px}
-.seg button.on{background:var(--soft);color:var(--brand);font-weight:700}
-details{border-top:1px solid var(--line)}
-details:first-of-type{border-top:0}
-summary{list-style:none;cursor:pointer;padding:11px 2px;display:flex;align-items:center;gap:8px;min-height:44px}
-summary::-webkit-details-marker{display:none}
-summary .nm{flex:1;min-width:0;font-weight:600;word-break:keep-all}
-summary .tot{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
-summary::after{content:"▾";color:var(--sub);font-size:12px}
-details[open] summary::after{content:"▴"}
-.lines{padding:0 2px 10px 10px}
-.ln{display:flex;gap:8px;padding:5px 0;align-items:baseline;border-bottom:1px dashed var(--line)}
-.ln:last-child{border-bottom:0}
-.ln .l{flex:1;min-width:0;word-break:keep-all}
-.ln .q{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
-.ln .note{display:block;color:var(--sub);font-size:12px}
-.badge{display:inline-block;border-radius:6px;padding:0 6px;font-size:11.5px;font-weight:700;margin-left:4px;vertical-align:1px;white-space:nowrap}
-.b-red{background:var(--red-bg);color:var(--red)}
-.b-amber{background:var(--amber-bg);color:var(--amber)}
-.b-blue{background:var(--blue-bg);color:var(--blue)}
-.b-gray{background:var(--gray-bg);color:var(--sub)}
-.grp{margin:12px 0 4px;font-weight:700;color:var(--brand);font-size:14px}
-.addr{color:var(--sub);font-size:12.5px;padding:0 2px 6px 10px}
-.memo{color:var(--sub);font-size:12.5px;padding:0 2px 4px 10px}
-.empty{text-align:center;color:var(--sub);padding:28px 8px}
-h3{margin:14px 0 6px;font-size:15px}
-dialog{border:0;border-radius:16px;padding:0;width:min(560px,94vw);max-height:88vh;background:var(--card);color:var(--ink)}
-dialog::backdrop{background:rgba(0,0,0,.45)}
-.dlg{padding:14px;display:flex;flex-direction:column;gap:10px;max-height:88vh;overflow:auto}
-.pick{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:10px}
-.pick button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:10px;font:inherit;font-size:15px}
-.pick button small{display:block;color:var(--sub)}
-label.chk{display:flex;gap:8px;align-items:center;padding:6px 0}
-label.chk input{width:20px;height:20px}
-.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#222;color:#fff;border-radius:999px;padding:10px 16px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
-.toast.on{opacity:.95}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>미트포앤 발주·재고·배차 통합 시스템 v3</title>
+    <style>
+        :root {
+            --primary: #1f4e79;
+            --primary-light: #eef4fa;
+            --accent: #047857;
+            --warn: #d97706;
+            --danger: #dc2626;
+            --bg: #f3f6f9;
+            --card: #ffffff;
+            --text: #1f2937;
+            --border: #d1d5db;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "맑은 고딕", sans-serif;
+            margin: 0; padding: 10px; background-color: var(--bg); color: var(--text); font-size: 13px;
+        }
+        .app-container {
+            max-width: 1200px; margin: 0 auto; background: var(--card);
+            border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); overflow: hidden;
+        }
+        .app-header {
+            background: var(--primary); color: white; padding: 14px 18px;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+        }
+        .app-header h1 { margin: 0; font-size: 18px; }
+        .status-pills { display: flex; gap: 6px; font-size: 11px; flex-wrap: wrap; }
+        .pill { background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 20px; }
+        .pill.ok { background: #10b981; color: white; font-weight: bold; }
+
+        /* 상단 6개 탭 네비게이션 */
+        .tab-nav {
+            display: flex; background: #e5e7eb; border-bottom: 2px solid var(--primary); overflow-x: auto;
+        }
+        .tab-btn {
+            flex: 1; min-width: 115px; padding: 11px 8px; border: none; background: transparent;
+            font-size: 12.5px; font-weight: bold; color: #4b5563; cursor: pointer; white-space: nowrap;
+            border-bottom: 3px solid transparent; transition: all 0.15s;
+        }
+        .tab-btn.active {
+            background: var(--card); color: var(--primary); border-bottom: 3px solid var(--primary);
+        }
+
+        .tab-page { display: none; padding: 16px; }
+        .tab-page.active { display: block; }
+
+        /* 카드 & 폼 스타일 */
+        .section-card {
+            border: 1px solid var(--border); border-radius: 8px; padding: 14px;
+            margin-bottom: 16px; background: #fafbfc;
+        }
+        .section-card h3 { margin: 0 0 8px 0; color: var(--primary); font-size: 15px; }
+        .section-card p { margin: 0 0 10px 0; color: #555; font-size: 12px; line-height: 1.4; }
+
+        .upload-zone {
+            border: 2px dashed #93c5fd; background: var(--primary-light); padding: 16px;
+            text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 10px;
+        }
+        .upload-zone input { display: none; }
+
+        textarea {
+            width: 100%; height: 220px; padding: 10px; border: 1px solid var(--border);
+            border-radius: 6px; font-family: monospace; font-size: 12px; resize: vertical;
+        }
+        input[type="text"], input[type="date"], select {
+            padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white;
+        }
+
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+        .btn {
+            background: var(--primary); color: white; border: none; padding: 8px 13px;
+            border-radius: 6px; font-size: 12.5px; font-weight: bold; cursor: pointer;
+        }
+        .btn.green { background: var(--accent); }
+        .btn.orange { background: var(--warn); }
+        .btn.gray { background: #6b7280; }
+        .btn:active { opacity: 0.85; }
+
+        /* 컨트롤 바 */
+        .filter-bar {
+            background: var(--primary-light); padding: 12px; border-radius: 8px;
+            margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+        }
+        .filter-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .filter-group label { font-weight: bold; color: var(--primary); font-size: 12px; }
+
+        /* 테이블 스타일 */
+        .table-wrap { overflow-x: auto; max-height: 620px; border: 1px solid var(--border); border-radius: 6px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+        th { background: var(--primary); color: white; position: sticky; top: 0; z-index: 5; white-space: nowrap; }
+        tr:nth-child(even) { background: #f9fafb; }
+
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
+        .b-order { background: var(--accent); }
+        .b-weight { background: var(--warn); }
+        .b-other { background: #6b7280; }
+        .b-client { background: #2563eb; font-size: 10px; margin-left: 4px; }
+        .b-urgent { background: var(--danger); font-size: 10px; margin-left: 4px; }
+
+        .num-pos { color: var(--accent); font-weight: bold; }
+        .num-neg { color: var(--danger); font-weight: bold; background: #fee2e2; }
+        .num-zero { color: #6b7280; }
+
+        /* 6페이지 배차 콤보박스 및 차량 설정 */
+        .vehicle-config-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+            gap: 8px; margin-bottom: 12px; background: #f8fafc; padding: 10px;
+            border: 1px solid var(--border); border-radius: 8px;
+        }
+        .vehicle-config-item { display: flex; flex-direction: column; gap: 3px; }
+        .vehicle-config-item span { font-size: 11px; font-weight: bold; color: var(--primary); }
+        .vehicle-config-item input { padding: 5px 8px; font-size: 12px; }
+
+        .dispatch-select {
+            width: 100%; min-width: 155px; padding: 6px 8px; font-weight: bold;
+            border-radius: 6px; border: 2px solid #93c5fd; cursor: pointer;
+        }
+        .dispatch-select.assigned { border-color: var(--accent); background: #ecfdf5; color: #065f46; }
+        .vehicle-stat-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+        .v-stat-chip {
+            padding: 5px 10px; border-radius: 16px; background: #e2e8f0;
+            font-size: 12px; font-weight: bold; cursor: pointer; border: 2px solid transparent;
+        }
+        .v-stat-chip.active { background: var(--primary); color: white; }
+    </style>
 </head>
 <body>
-<header>
-  <h1>🥩 발주 정리</h1>
-  <button id="btnSettings" aria-label="설정">⚙</button>
-</header>
-<main>
-  <section class="card" id="setup">
-    <div class="row" style="margin-bottom:8px" id="rowCsv">
-      <button class="btn grow full" id="btnCsv"></button>
-      <input type="file" id="fileCsv" accept=".csv,text/csv,text/plain" hidden>
+
+<div class="app-container">
+    <div class="app-header">
+        <h1>🥩 (주)미트포앤 발주·재고·배차 통합 시스템 v3</h1>
+        <div class="status-pills">
+            <span id="pillKakao" class="pill">카톡: 미등록</span>
+            <span id="pillStock" class="pill">재고: 미등록</span>
+            <span id="pillClient" class="pill ok">거래처 DB: 123곳 내장됨</span>
+        </div>
     </div>
-    <div class="row" style="margin-bottom:8px">
-      <button class="btn primary grow full" id="btnChat"></button>
-      <input type="file" id="fileChat" accept=".txt,text/plain" hidden>
+
+    <!-- 상단 6개 페이지 탭 -->
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('page1', this)">1. 데이터 입력</button>
+        <button class="tab-btn" onclick="switchTab('page2', this)">2. 발주 추출 목록</button>
+        <button class="tab-btn" onclick="switchTab('page3', this)">3. 일일 재고 현황표</button>
+        <button class="tab-btn" onclick="switchTab('page4', this)">4. 일일 발주 현황표</button>
+        <button class="tab-btn" onclick="switchTab('page5', this)">5. 발주차감 잔여재고</button>
+        <button class="tab-btn" onclick="switchTab('page6', this)">6. 배송처 목록·배차</button>
     </div>
-    <div class="row">
-      <div style="width:150px"><input type="date" id="target" aria-label="발주일"></div>
-      <div class="sub grow" id="winLabel"></div>
+
+    <!-- ==================== [페이지 1: 데이터 입력] ==================== -->
+    <div id="page1" class="tab-page active">
+        <div class="section-card">
+            <h3>💬 1단계: 발주 카카오톡 대화 파일(.txt) 로딩</h3>
+            <p>스마트폰에서 내보낸 파일과 PC에서 내보낸 파일을 모두 자동 인식합니다. 여러 파일을 동시에 선택하셔도 됩니다.</p>
+            <div class="upload-zone" onclick="document.getElementById('kakaoFileInput').click()">
+                <b>📁 여기를 터치하여 카카오톡 대화 파일(.txt) 선택</b>
+                <div id="kakaoLoadMsg" style="margin-top:6px; color:#047857; font-weight:bold;"></div>
+                <input type="file" id="kakaoFileInput" accept=".txt" multiple onchange="loadKakaoFiles(event)">
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h3>📦 2단계: 일일 재고현황 텍스트 입력</h3>
+            <p>카톡방에 올리시는 '일일 재고현황' 텍스트를 아래 칸에 붙여넣고 <b>[재고표 생성 및 적용]</b> 버튼을 누르세요.</p>
+            <textarea id="stockTextarea" placeholder="여기에 '11월 10일 재고현황...' 텍스트를 붙여넣으세요."></textarea>
+            <div class="btn-row">
+                <button class="btn green" onclick="parseAndApplyStock(true)">✅ 재고표 생성 및 적용 (3페이지로 이동)</button>
+                <button class="btn gray" onclick="document.getElementById('stockTextarea').value=''">🗑️ 내용 비우기</button>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h3>🏢 3단계: 거래처 목록 CSV 관리 (GitHub 연동 & 원본 변환)</h3>
+            <p>
+                • 주요 거래처(주소·전화번호·출입비번·약칭 포함)는 이미 내장되어 있어 바로 2~6페이지를 사용하실 수 있습니다.<br>
+                • GitHub에 올린 <code>clients.csv</code> 주소를 불러오거나, 회계 원본 CSV(2줄 양식)를 업로드해 깔끔한 6열(<code>거래처,대표자,전화번호,주소,별명,비고</code>) CSV로 변환할 수 있습니다.
+            </p>
+            <div class="filter-group" style="margin-bottom:8px;">
+                <input type="text" id="githubCsvUrl" style="flex:1; min-width:220px;" placeholder="https://raw.githubusercontent.com/gongbyoung/.../clients.csv">
+                <button class="btn" onclick="loadCsvFromGithub()">🌐 GitHub CSV 불러오기</button>
+            </div>
+            <div class="btn-row">
+                <button class="btn orange" onclick="document.getElementById('clientCsvInput').click()">📂 로컬 거래처 CSV 파일 직접 선택 (원본/정리본 자동인식)</button>
+                <button class="btn green" id="btnExportCleanCsv" style="display:none;" onclick="exportCleanedClientsCsv()">📥 정리된 6열 거래처 CSV 다운로드 (GitHub 업로드용)</button>
+                <input type="file" id="clientCsvInput" accept=".csv" style="display:none;" onchange="loadClientCsvFile(event)">
+            </div>
+            <div id="clientLoadMsg" style="margin-top:8px; font-size:12px; color:#047857; font-weight:bold;"></div>
+        </div>
     </div>
-  </section>
- 
-  <div id="results" hidden>
-    <div class="chips" id="summary"></div>
-    <nav class="tabs" id="tabs"></nav>
-    <section class="card" id="view"></section>
-  </div>
-  <p class="sub" id="privacy" style="text-align:center">대화 내용은 이 기기 안에서만 처리되고 어디로도 전송되지 않아요.</p>
-</main>
- 
-<dialog id="dlgPick"><div class="dlg">
-  <div><b id="pickTitle">거래처 선택</b><div class="sub" id="pickSub"></div></div>
-  <input type="search" id="pickQ" placeholder="거래처 검색">
-  <div class="pick" id="pickList"></div>
-  <div class="row"><button class="btn grow" id="pickRaw">목록에 없음 (그대로 사용)</button><button class="btn" id="pickClose">닫기</button></div>
-</div></dialog>
- 
-<dialog id="dlgSet"><div class="dlg">
-  <b>설정</b>
-  <div>
-    <div class="sub">집계 기간 (기본: 전날 12:00 ~ 발주일 16:00, 월요일은 금요일부터)</div>
-    <div class="row"><input type="datetime-local" id="winStart" class="grow"><input type="datetime-local" id="winEnd" class="grow"></div>
-    <button class="btn small" id="winReset" style="margin-top:6px">기본 기간으로</button>
-  </div>
-  <div>
-    <div class="sub">메이커 단어 (쉼표로 구분) — 숫자 뒤나 품목 앞뒤에 있으면 "메이커"로 분리돼요</div>
-    <textarea id="makers"></textarea>
-  </div>
-  <label class="chk"><input type="checkbox" id="optOther"> 다른 날짜로 지정된 발주도 포함 (예: 수요일 예약)</label>
-  <label class="chk"><input type="checkbox" id="optDup"> 똑같이 다시 올라온 발주도 포함</label>
-  <div id="senders"></div>
-  <div class="row">
-    <button class="btn" id="btnCsv2">거래처 CSV 바꾸기</button>
-    <button class="btn" id="btnExport">별명 포함 거래처 CSV 저장</button>
-    <button class="btn" id="btnReset">저장된 데이터 지우기</button>
-  </div>
-  <div class="row"><button class="btn primary grow" id="setOk">적용</button></div>
-</div></dialog>
- 
-<div class="toast" id="toast"></div>
- 
-<script src="parser.js"></script>
-<script>
-(() => {
-'use strict';
-const P = OrderParser;
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const store = {
-  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
-  del(k) { try { localStorage.removeItem(k); } catch {} },
-};
- 
-const S = {
-  csvText: store.get('ord.csv', ''),
-  aliases: store.get('ord.alias', {}),
-  settings: Object.assign({ makers: P.DEFAULT_MAKERS.slice(), excludeSenders: [], includeOtherDays: false, includeDuplicates: false }, store.get('ord.set', {})),
-  customers: [], matcher: null,
-  messages: null, chatName: '',
-  target: null, win: null, customWin: false,
-  result: null, tab: 'box', sub: 'item',
-  openAll: false,
-};
- 
-/* ───────── 도우미 ───────── */
-function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 1800); }
-const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const dtl = (d) => `${ymd(d)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-const lbl = (d) => `${P.fmtDate(d)} ${P.fmtTime(d)}`;
-const qtyStr = (q, u) => `${P.fmtQty(q)}${u}`;
- 
-async function readText(file) {
-  const buf = await file.arrayBuffer();
-  const u8 = new Uint8Array(buf);
-  if (u8[0] === 0xFF && u8[1] === 0xFE) return new TextDecoder('utf-16le').decode(buf);
-  if (u8[0] === 0xFE && u8[1] === 0xFF) return new TextDecoder('utf-16be').decode(buf);
-  let t = new TextDecoder('utf-8').decode(buf);
-  if (t.includes('\uFFFD')) { try { t = new TextDecoder('euc-kr').decode(buf); } catch {} }
-  return t;
-}
- 
-/* ───────── 거래처 ───────── */
-function loadCustomers() {
-  S.customers = S.csvText ? P.parseCustomers(S.csvText) : [];
-  S.matcher = P.buildMatcher(S.customers, S.aliases);
-}
- 
-/* ───────── 실행 ───────── */
-function compute() {
-  if (!S.messages) return;
-  if (!S.customWin) S.win = P.defaultWindow(S.target);
-  S.matcher = P.buildMatcher(S.customers, S.aliases);
-  S.result = P.run({
-    messages: S.messages, window: S.win, target: S.target, matcher: S.matcher,
-    makers: S.settings.makers, excludeSenders: S.settings.excludeSenders,
-    includeOtherDays: S.settings.includeOtherDays, includeDuplicates: S.settings.includeDuplicates,
-  });
-  render();
-}
- 
-/* ───────── 화면 ───────── */
-function renderSetup() {
-  $('btnCsv').innerHTML = S.customers.length
-    ? `거래처 목록 <span class="ok">✓ ${S.customers.length}곳 저장됨</span> <span class="sub">(바꾸기)</span>`
-    : '① 거래처 CSV 선택 <span class="sub">(처음 한 번만)</span>';
-  $('rowCsv').hidden = !!(S.messages && S.customers.length);
-  $('btnChat').innerHTML = S.messages
-    ? `📂 ${esc(S.chatName)} <span style="opacity:.85">· 다시 선택</span>`
-    : '② 카톡 대화 txt 선택';
-  if (S.target) {
-    $('target').value = ymd(S.target);
-    $('winLabel').textContent = S.win ? `${lbl(S.win.start)} ~ ${lbl(S.win.end)}` : '';
-  }
-}
- 
-function badgesFor(c) {
-  let h = '';
-  if (c.flags.includes('급')) h += '<span class="badge b-red">급</span>';
-  if (c.flags.includes('추가')) h += '<span class="badge b-blue">추가</span>';
-  if (c.flags.includes('오후')) h += '<span class="badge b-gray">오후</span>';
-  if (c.status === 'maybe' || c.status === 'none') h += '<span class="badge b-amber">거래처 확인</span>';
-  return h;
-}
- 
-function lineHtml(it, withName = true) {
-  const mk = it.maker ? `<span class="badge b-gray">${esc(it.maker)}</span>` : '';
-  const ad = it.added ? '<span class="badge b-blue">추가</span>' : '';
-  const dl = it.dayLabel ? `<span class="badge b-amber">${esc(it.dayLabel)}</span>` : '';
-  const nt = it.note ? `<span class="note">${esc(it.note)}</span>` : '';
-  return `<div class="ln"><div class="l">${esc(it.name)}${mk}${ad}${dl}${nt}</div><div class="q">${esc(qtyStr(it.qty, it.unit))}</div></div>`;
-}
- 
-const CAT_LABEL = { box: '박스', piece: '낱개', maker: '메이커' };
- 
-function renderByItem(cat) {
-  let list = P.aggregate(S.result, cat);
-  if (!list.length) return '<div class="empty">해당 항목이 없어요</div>';
-  if (cat === 'maker') list = list.slice().sort((a, b) => a.maker.localeCompare(b.maker, 'ko'));
-  let html = '', lastMaker = null;
-  for (const p of list) {
-    if (cat === 'maker' && p.maker !== lastMaker) { html += `<div class="grp">${esc(p.maker || '메이커')}</div>`; lastMaker = p.maker; }
-    const title = cat === 'maker' ? p.name : p.name + (cat === 'piece' && p.maker ? ` <span class="badge b-gray">${esc(p.maker)}</span>` : '');
-    html += `<details${S.openAll ? ' open' : ''}><summary><span class="nm">${cat === 'maker' ? esc(p.name) : title}</span><span class="tot">${esc(qtyStr(p.total, p.unit))}</span></summary><div class="lines">`;
-    for (const r of p.rows) {
-      const ad = r.added ? '<span class="badge b-blue">추가</span>' : '';
-      const dl = r.dayLabel ? `<span class="badge b-amber">${esc(r.dayLabel)}</span>` : '';
-      const nt = r.note ? `<span class="note">${esc(r.note)}</span>` : '';
-      html += `<div class="ln"><div class="l">${esc(r.customer)}${ad}${dl}${nt}</div><div class="q">${esc(qtyStr(r.qty, p.unit))}</div></div>`;
-    }
-    html += '</div></details>';
-  }
-  return html;
-}
- 
-function renderByCustomer(cat) {
-  const list = P.itemsByCustomer(S.result, cat);
-  if (!list.length) return '<div class="empty">해당 항목이 없어요</div>';
-  let html = '';
-  for (const { customer: c, items } of list) {
-    const count = items.length;
-    html += `<details${S.openAll ? ' open' : ''}><summary><span class="nm">${esc(c.name)}${badgesFor(c)}</span><span class="tot">${count}품목</span></summary>`;
-    if (c.address) html += `<div class="addr">${esc(c.address)}</div>`;
-    for (const m of c.memos) html += `<div class="memo">📝 ${esc(m)}</div>`;
-    html += '<div class="lines">';
-    if (cat === 'all') {
-      for (const k of ['box', 'piece', 'maker']) {
-        const sub = items.filter((i) => i.cat === k);
-        if (sub.length) html += `<div class="grp">${CAT_LABEL[k]}</div>` + sub.map((i) => lineHtml(i)).join('');
-      }
-      if (c.noqty.length) html += `<div class="grp">수량 확인</div>` + c.noqty.map((n) => `<div class="ln"><div class="l">${esc(n.name)}</div><div class="q">?</div></div>`).join('');
-    } else html += items.map((i) => lineHtml(i)).join('');
-    if (c.status === 'maybe' || c.status === 'none') html += `<button class="btn small" data-fix="${esc(c.raws[0])}">거래처 지정</button>`;
-    html += '</div></details>';
-  }
-  return html;
-}
- 
-function renderReview() {
-  const r = S.result, rv = r.review;
-  let h = '';
-  const sec = (t, n) => `<h3>${t} <span class="sub">${n}건</span></h3>`;
- 
-  h += sec('수량을 확인해 주세요', rv.suspicious.length + rv.noqty.length);
-  if (!rv.suspicious.length && !rv.noqty.length) h += '<div class="sub">없음 👍</div>';
-  for (const s of rv.suspicious) h += `<div class="ln"><div class="l">${esc(s.customer)}<span class="note">${esc(s.line)} · ${esc(s.reason)} (${esc(s.sender)} ${P.fmtTime(s.ts)})</span></div></div>`;
-  for (const n of rv.noqty) h += `<div class="ln"><div class="l">${esc(n.customer)} · ${esc(n.name)}<span class="note">수량이 적혀 있지 않아요</span></div></div>`;
- 
-  const um = rv.unmatched;
-  h += sec('거래처 확인', um.length);
-  if (!um.length) h += '<div class="sub">모두 확인됨</div>';
-  for (const m of um) {
-    h += `<div class="ln"><div class="l">${esc(m.raw)}<span class="note">${m.status === 'none' ? '거래처 목록에서 못 찾았어요' : '→ ' + esc(m.official) + ' (맞는지 확인)'}</span></div><button class="btn small" data-fix="${esc(m.raw)}">지정</button></div>`;
-  }
- 
-  const sk = r.skipped;
-  h += sec('제외된 발주', sk.otherDay.length + sk.dup.length);
-  if (!sk.otherDay.length && !sk.dup.length) h += '<div class="sub">없음</div>';
-  const skLine = (o, why) => `<div class="ln"><div class="l">${esc(o.header)}<span class="note">${why} · ${o.items.map((i) => i.name + ' ' + qtyStr(i.qty, i.unit)).slice(0, 6).join(', ')}</span></div></div>`;
-  for (const o of sk.otherDay) h += skLine(o, `${o.dayRef ? P.fmtDate(o.dayRef) : ''} 지정`);
-  for (const o of sk.dup) h += skLine(o, '중복');
-  if (sk.otherDay.length || sk.dup.length) h += '<div class="sub" style="margin-top:6px">⚙ 설정에서 포함할 수 있어요</div>';
-  return h;
-}
- 
-function currentText() {
-  const r = S.result; const tag = P.fmtDate(S.target);
-  const cat = S.tab;
-  if (cat === 'all') {
-    const out = [`${tag} 발주 (배송지별)`];
-    for (const { customer: c, items } of P.itemsByCustomer(r, 'all')) {
-      out.push('', `■ ${c.name}`);
-      for (const i of items) out.push(`- ${i.name}${i.maker ? '(' + i.maker + ')' : ''} ${qtyStr(i.qty, i.unit)}${i.note ? ' [' + i.note + ']' : ''}`);
-      for (const n of c.noqty) out.push(`- ${n.name} ?`);
-    }
-    return out.join('\n');
-  }
-  const title = `${tag} ${CAT_LABEL[cat]}`;
-  const out = [];
-  if (S.sub === 'item') {
-    out.push(`${title} (물품별)`);
-    for (const p of P.aggregate(r, cat)) {
-      out.push('', `${p.name}${p.maker ? ' · ' + p.maker : ''} ${qtyStr(p.total, p.unit)}`);
-      for (const x of p.rows) out.push(`  - ${x.customer} ${qtyStr(x.qty, p.unit)}${x.note ? ' [' + x.note + ']' : ''}`);
-    }
-  } else {
-    out.push(`${title} (배송지별)`);
-    for (const { customer: c, items } of P.itemsByCustomer(r, cat)) {
-      out.push('', `■ ${c.name}`);
-      for (const i of items) out.push(`- ${i.name}${i.maker ? '(' + i.maker + ')' : ''} ${qtyStr(i.qty, i.unit)}${i.note ? ' [' + i.note + ']' : ''}`);
-    }
-  }
-  return out.join('\n');
-}
- 
-function render() {
-  renderSetup();
-  if (!S.result) { $('results').hidden = true; return; }
-  const r = S.result;
-  $('results').hidden = false;
-  const cnt = (cat) => P.aggregate(r, cat).length;
-  const reviewN = r.review.suspicious.length + r.review.noqty.length + r.review.unmatched.length;
-  $('summary').innerHTML = [
-    `배송지 ${r.customers.length}곳`, `발주 ${r.orderCount}건`, `읽은 메시지 ${r.scanned}개`,
-  ].map((t) => `<span class="chip">${t}</span>`).join('');
- 
-  const tabs = [['box', '발주(박스)', cnt('box')], ['piece', '낱개', cnt('piece')], ['maker', '메이커', cnt('maker')], ['all', '배송지별 전체', r.customers.length], ['review', '확인', reviewN]];
-  $('tabs').innerHTML = tabs.map(([k, t, n]) => `<button class="tab${S.tab === k ? ' on' : ''}" data-tab="${k}">${t}<span class="n">${n}</span></button>`).join('');
- 
-  let html = '';
-  if (S.tab === 'review') html = renderReview();
-  else {
-    const showSub = S.tab !== 'all';
-    html += `<div class="row" style="margin-bottom:6px;justify-content:space-between">`;
-    html += showSub ? `<div class="seg"><button data-sub="item" class="${S.sub === 'item' ? 'on' : ''}">물품별</button><button data-sub="cust" class="${S.sub === 'cust' ? 'on' : ''}">배송지별</button></div>` : '<span></span>';
-    html += `<div class="row"><button class="btn small" data-act="toggle">${S.openAll ? '모두 접기' : '모두 펼치기'}</button><button class="btn small" data-act="copy">복사</button>${navigator.share ? '<button class="btn small" data-act="share">공유</button>' : ''}</div></div>`;
-    if (S.tab === 'all') html += renderByCustomer('all');
-    else html += S.sub === 'item' ? renderByItem(S.tab) : renderByCustomer(S.tab);
-  }
-  $('view').innerHTML = html;
-}
- 
-/* ───────── 이벤트 ───────── */
-$('btnCsv').onclick = () => $('fileCsv').click();
-$('btnChat').onclick = () => $('fileChat').click();
-$('btnCsv2').onclick = () => $('fileCsv').click();
- 
-$('fileCsv').onchange = async (e) => {
-  const f = e.target.files[0]; if (!f) return;
-  const text = await readText(f);
-  const list = P.parseCustomers(text);
-  if (!list.length) { toast('거래처명 열을 찾지 못했어요'); return; }
-  S.csvText = text; store.set('ord.csv', text);
-  loadCustomers(); toast(`거래처 ${list.length}곳 저장`);
-  S.messages ? compute() : renderSetup();
-  e.target.value = '';
-};
- 
-$('fileChat').onchange = async (e) => {
-  const f = e.target.files[0]; if (!f) return;
-  const text = await readText(f);
-  const msgs = P.parseChat(text);
-  if (!msgs.length) {
-    const head = text.split(/\r?\n/).filter((l) => l.trim()).slice(0, 4).map((l) => l.slice(0, 60)).join('\n');
-    alert((/\.zip$/i.test(f.name) ? 'zip 파일이에요. 압축을 풀고 txt를 선택해 주세요.\n\n' : '대화 형식을 인식하지 못했어요.\n') + '파일 맨 앞 줄:\n' + head);
-    return;
-  }
-  S.messages = msgs; S.chatName = f.name;
-  S.target = P.guessTargetDate(msgs); S.customWin = false;
-  S.tab = 'box';
-  compute();
-  e.target.value = '';
-};
- 
-$('target').onchange = (e) => {
-  const [y, m, d] = e.target.value.split('-').map(Number);
-  if (!y) return;
-  S.target = new Date(y, m - 1, d); S.customWin = false; compute();
-};
- 
-$('tabs').onclick = (e) => { const b = e.target.closest('[data-tab]'); if (b) { S.tab = b.dataset.tab; render(); window.scrollTo({ top: 0 }); } };
- 
-$('view').onclick = async (e) => {
-  const sub = e.target.closest('[data-sub]'); if (sub) { S.sub = sub.dataset.sub; render(); return; }
-  const fix = e.target.closest('[data-fix]'); if (fix) { openPicker(fix.dataset.fix); return; }
-  const act = e.target.closest('[data-act]');
-  if (!act) return;
-  if (act.dataset.act === 'toggle') { S.openAll = !S.openAll; render(); }
-  else if (act.dataset.act === 'copy') {
-    const t = currentText();
-    try { await navigator.clipboard.writeText(t); }
-    catch { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
-    toast('복사했어요');
-  } else if (act.dataset.act === 'share') {
-    try { await navigator.share({ text: currentText() }); } catch {}
-  }
-};
- 
-/* 거래처 지정 */
-let pickRaw = '';
-function openPicker(raw) {
-  pickRaw = raw;
-  $('pickTitle').textContent = `“${raw}” 은(는) 어느 거래처?`;
-  $('pickSub').textContent = '한 번 지정하면 이 기기에 저장돼요';
-  $('pickQ').value = '';
-  fillPick('');
-  const guess = S.matcher ? S.matcher(raw) : null;
-  if (guess && guess.status === 'maybe') {
-    $('pickList').insertAdjacentHTML('afterbegin', `<button data-n="${esc(guess.official)}" style="background:var(--soft);font-weight:700">✓ 추천: ${esc(guess.official)}<small>${esc(guess.address)}</small></button>`);
-  }
-  $('dlgPick').showModal();
-}
-function fillPick(q) {
-  const nq = q.trim().toLowerCase();
-  const list = S.customers.filter((c) => !nq || c.name.toLowerCase().includes(nq) || c.address.toLowerCase().includes(nq)).slice(0, 80);
-  $('pickList').innerHTML = list.length
-    ? list.map((c) => `<button data-n="${esc(c.name)}">${esc(c.name)}<small>${esc(c.address)}</small></button>`).join('')
-    : '<div class="empty">검색 결과 없음</div>';
-}
-$('pickQ').oninput = (e) => fillPick(e.target.value);
-$('pickList').onclick = (e) => { const b = e.target.closest('[data-n]'); if (b) { setAlias(pickRaw, b.dataset.n); $('dlgPick').close(); } };
-$('pickRaw').onclick = () => { setAlias(pickRaw, pickRaw); $('dlgPick').close(); };
-$('pickClose').onclick = () => $('dlgPick').close();
-function setAlias(raw, official) { S.aliases[raw.trim()] = official; store.set('ord.alias', S.aliases); compute(); }
- 
-/* 설정 */
-$('btnSettings').onclick = () => {
-  const s = S.settings;
-  $('makers').value = s.makers.join(', ');
-  $('optOther').checked = s.includeOtherDays; $('optDup').checked = s.includeDuplicates;
-  if (S.win) { $('winStart').value = dtl(S.win.start); $('winEnd').value = dtl(S.win.end); }
-  const stats = S.result ? S.result.senderStats : {};
-  const names = Object.keys(stats);
-  $('senders').innerHTML = names.length
-    ? '<div class="sub">발주로 읽을 작성자</div>' + names.map((n) => `<label class="chk"><input type="checkbox" data-sender="${esc(n)}" ${s.excludeSenders.includes(n) ? '' : 'checked'}> ${esc(n)} <span class="sub">(${stats[n]}건)</span></label>`).join('')
-    : '';
-  $('dlgSet').showModal();
-};
-$('winReset').onclick = () => { S.customWin = false; if (S.target) { const w = P.defaultWindow(S.target); $('winStart').value = dtl(w.start); $('winEnd').value = dtl(w.end); } };
-$('setOk').onclick = () => {
-  const s = S.settings;
-  s.makers = $('makers').value.split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
-  s.includeOtherDays = $('optOther').checked; s.includeDuplicates = $('optDup').checked;
-  const checks = [...document.querySelectorAll('[data-sender]')];
-  if (checks.length) s.excludeSenders = checks.filter((c) => !c.checked).map((c) => c.dataset.sender);
-  store.set('ord.set', s);
-  const a = $('winStart').value, b = $('winEnd').value;
-  if (a && b && S.target) {
-    const st = new Date(a), en = new Date(b);
-    const def = P.defaultWindow(S.target);
-    if (+st !== +def.start || +en !== +def.end) { S.win = { start: st, end: en }; S.customWin = true; } else S.customWin = false;
-  }
-  $('dlgSet').close(); compute();
-};
-$('btnExport').onclick = () => {
-  if (!S.customers.length) { toast('거래처 CSV가 없어요'); return; }
-  const byOff = {};
-  for (const [raw, off] of Object.entries(S.aliases)) if (raw !== off) (byOff[off] = byOff[off] || []).push(raw);
-  const q = (v) => (/[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v);
-  const rows = ['거래처명,주소,별명'];
-  for (const c of S.customers) rows.push([q(c.name), q(c.address), q([...(c.aliases || []), ...(byOff[c.name] || [])].filter((v, i, a) => a.indexOf(v) === i).join('/'))].join(','));
-  const blob = new Blob(['\uFEFF' + rows.join('\r\n')], { type: 'text/csv' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '거래처_별명포함.csv'; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-};
-$('btnReset').onclick = () => {
-  if (!confirm('저장된 거래처 목록, 별명, 설정을 모두 지울까요?')) return;
-  ['ord.csv', 'ord.alias', 'ord.set'].forEach(store.del);
-  S.csvText = ''; S.aliases = {}; S.settings = { makers: P.DEFAULT_MAKERS.slice(), excludeSenders: [], includeOtherDays: false, includeDuplicates: false };
-  loadCustomers(); $('dlgSet').close(); S.messages ? compute() : renderSetup();
-};
- 
-/* 시작 */
-loadCustomers();
-renderSetup();
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
-})();
-</script>
+
+    <!-- ==================== [페이지 2: 발주 추출 목록] ==================== -->
+    <div id="page2" class="tab-page">
+        <div class="filter-bar">
+            <div class="filter-group">
+                <label>기준 날짜:</label>
+                <input type="date" id="orderTargetDate" onchange="onFilterCriteriaChange()">
+            </div>
+            <div class="filter-group">
+                <label>시간 범위:</label>
+                <select id="orderTimeMode" onchange="onFilterCriteriaChange()">
+                    <option value="prev10_to_16">전날 10:00(오전) ~ 당일 16:00(오후)</option>
+                    <option value="prev22_to_16">전날 22:00(밤10시) ~ 당일 16:00(오후)</option>
+                    <option value="fullday">지정 날짜 하루 전체 (00:00 ~ 23:59)</option>
+                    <option value="all">전체 날짜 모두 보기</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <button id="btnOnlyOrder" class="btn green" onclick="toggleOnlyOrder()">🔍 발주만 보기: ON (비발주 숨김)</button>
+                <button id="btnOnlyKnownClient" class="btn gray" onclick="toggleKnownClient()">🏢 등록 거래처만: OFF</button>
+                <button class="btn" onclick="downloadOrdersCsv()">📥 발주목록 CSV 저장</button>
+            </div>
+        </div>
+
+        <div id="orderStats" style="margin-bottom:8px; font-weight:bold; color:#374151;"></div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:160px;">날짜 / 거래처 / 발신자</th>
+                        <th>발주 내용</th>
+                    </tr>
+                </thead>
+                <tbody id="orderTableBody">
+                    <tr><td colspan="2" style="text-align:center; padding:24px; color:#888;">1페이지에서 카카오톡 대화 파일(.txt)을 먼저 업로드해주세요.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== [페이지 3: 일일 재고 현황표] ==================== -->
+    <div id="page3" class="tab-page">
+        <div class="filter-bar" style="justify-content: space-between;">
+            <div id="stockTitleInfo" style="font-weight:bold; font-size:15px; color:var(--primary);">📦 일일 재고 현황표</div>
+            <div class="filter-group">
+                <button class="btn green" onclick="downloadStockCsv()">📥 재고 현황표 CSV 저장</button>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:150px;">품목명</th>
+                        <th>대산 (재고 박스 / 상세)</th>
+                        <th>포크 (재고 박스 / 상세)</th>
+                        <th>정담·황금·기타 (재고 박스 / 상세)</th>
+                        <th style="width:120px;">총 재고 합계</th>
+                    </tr>
+                </thead>
+                <tbody id="stockTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== [페이지 4: 일일 발주 현황표] ==================== -->
+    <div id="page4" class="tab-page">
+        <div class="filter-bar" style="justify-content: space-between;">
+            <div>
+                <b style="color:var(--primary); font-size:15px;">📊 일일 발주 현황표 (재고현황표 동일 양식)</b>
+                <span id="orderSummaryDateInfo" style="font-size:12px; color:#555; margin-left:8px;"></span>
+            </div>
+            <div class="filter-group">
+                <button class="btn orange" onclick="copyKakaoOrderCheckText()">📋 카톡용 '발주체크' 텍스트 복사</button>
+                <button class="btn green" onclick="downloadOrderSummaryCsv()">📥 발주 현황표 CSV 저장</button>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:150px;">품목명</th>
+                        <th>대산 (발주 박스·팩 / 거래처 상세)</th>
+                        <th>포크 (발주 박스·팩 / 거래처 상세)</th>
+                        <th>정담·황금·기타 (발주 박스·팩 / 거래처 상세)</th>
+                        <th style="width:140px;">총 발주 합계</th>
+                    </tr>
+                </thead>
+                <tbody id="orderSummaryTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== [페이지 5: 발주차감 잔여재고] ==================== -->
+    <div id="page5" class="tab-page">
+        <div class="filter-bar" style="justify-content: space-between;">
+            <div>
+                <b style="color:var(--primary); font-size:15px;">⚖️ 발주 차감 잔여재고 계산표 (3페이지 재고 - 4페이지 발주)</b>
+                <span style="font-size:12px; color:#555; margin-left:8px;">(현재 재고에서 금일 발주량을 뺀 남은 박스 수량입니다)</span>
+            </div>
+            <div class="filter-group">
+                <button class="btn green" onclick="downloadDiffCsv()">📥 잔여재고표 CSV 저장</button>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>품목명</th>
+                        <th>구분 (브랜드)</th>
+                        <th>현재 재고 (박스)</th>
+                        <th>금일 발주량 (박스)</th>
+                        <th>별도 소분/팩 발주</th>
+                        <th>차감 후 잔여재고</th>
+                        <th>해당 품목 발주 거래처 내역</th>
+                    </tr>
+                </thead>
+                <tbody id="diffTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== [페이지 6: 배송처 목록·배차] ==================== -->
+    <div id="page6" class="tab-page">
+        <div class="section-card" style="margin-bottom:12px; padding:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                <h3 style="margin:0;">🚚 6대 차량 기사님 설정 (수정 시 즉시 콤보박스에 반영 및 자동 저장)</h3>
+                <div class="filter-group">
+                    <button class="btn green" onclick="downloadDispatchCsv()">📥 당일 배차 목록 엑셀(CSV) 저장</button>
+                </div>
+            </div>
+            <div class="vehicle-config-grid" id="vehicleConfigGrid"></div>
+            <div class="vehicle-stat-bar" id="vehicleStatBar"></div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:50px;">순번</th>
+                        <th style="width:170px;">납품 거래처명</th>
+                        <th>주소 / 연락처 / 출입비번</th>
+                        <th style="width:180px;">당일 발주목록 (박스 / 낱개)</th>
+                        <th style="width:185px;">배차 차량 선택 (6대)</th>
+                    </tr>
+                </thead>
+                <tbody id="dispatchTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+
+
 </body>
 </html>
- 
