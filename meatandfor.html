@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미트포앤gemini</title>
+    <title>미트포앤geminiV01</title>
     <style>
         :root { --primary: #1f4e79; --bg: #f4f7f6; --card: #ffffff; --text: #333; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 15px; background-color: var(--bg); color: var(--text); }
@@ -33,8 +33,8 @@
 <body>
 
 <div class="container">
-    <h2>🥩 미트포앤 통합 발주 분류기 v3 (PC/모바일 공용)</h2>
-    <p>스마트폰 또는 컴퓨터에서 내보낸 카톡 대화(.txt)를 모두 지원합니다. 컬럼 순서 [날짜 ➔ 거래처명 ➔ 발주내용 ➔ 발신자/구분] 및 토글 필터가 적용되어 있습니다.</p>
+    <h2>🥩 미트포앤 통합 발주 분류기 v3.1</h2>
+    <p>스마트폰/PC 카톡 내보내기 파일을 모두 지원하며, 발주와 계근 내역을 똑똑하게 분리해 줍니다.</p>
 
     <div class="upload-box" onclick="document.getElementById('fileInput').click()">
         <p>📁 <b>여기를 터치하여 카카오톡 대화 텍스트(.txt) 파일 선택</b></p>
@@ -93,14 +93,14 @@ function parseKakaoChat(text) {
     let currentItem = null;
 
     for (let i = 0; i < lines.length; i++) {
-        let line = lines.trim();
+        let line = lines[i].trim(); // 수정 완료: lines[i]의 trim 함수 호출
         if (!line) continue;
 
         // 모바일 날짜 줄 감지 (예: --------------- 2026년 10월 17일 토요일 ---------------)
         if (line.includes('---------------') && line.includes('년')) {
             const dateMatch = line.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
             if (dateMatch) {
-                currentDateStr = `${String(dateMatch).padStart(2, '0')}/${String(dateMatch).padStart(2, '0')}`;
+                currentDateStr = `${String(dateMatch[2]).padStart(2, '0')}/${String(dateMatch[3]).padStart(2, '0')}`;
             }
             continue;
         }
@@ -111,13 +111,13 @@ function parseKakaoChat(text) {
                 finalizeItem(currentItem);
                 allParsedData.push(currentItem);
             }
-            const datePart = match;
-            const timePart = match;
-            const sender = match;
-            const message = match;
+            const datePart = match[1];
+            const timePart = match[2];
+            const sender = match[3];
+            const message = match[4];
 
             const dm = datePart.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
-            if (dm) currentDateStr = `${String(dm).padStart(2, '0')}/${String(dm).padStart(2, '0')}`;
+            if (dm) currentDateStr = `${String(dm[2]).padStart(2, '0')}/${String(dm[3]).padStart(2, '0')}`;
 
             currentItem = {
                 dateRaw: currentDateStr,
@@ -136,9 +136,9 @@ function parseKakaoChat(text) {
                 finalizeItem(currentItem);
                 allParsedData.push(currentItem);
             }
-            const sender = match;
-            const timePart = match; 
-            const message = match;
+            const sender = match[1];
+            const timePart = match[2]; 
+            const message = match[3];
 
             currentItem = {
                 dateRaw: currentDateStr,
@@ -170,10 +170,10 @@ function convertTime(timeStr) {
     let cleaned = timeStr.replace('오전', 'AM').replace('오후', 'PM').replace(/\s+/g, ' ');
     let parts = cleaned.split(' ');
     if (parts.length < 2) return timeStr;
-    let meridiem = parts;
-    let hm = parts.split(':');
-    let h = parseInt(hm) || 0;
-    let m = hm || "00";
+    let meridiem = parts[0];
+    let hm = parts[1].split(':');
+    let h = parseInt(hm[0]) || 0;
+    let m = hm[1] || "00";
     if (meridiem === 'PM' && h < 12) h += 12;
     if (meridiem === 'AM' && h === 12) h = 0;
     return `${String(h).padStart(2, '0')}:${m}`;
@@ -215,7 +215,7 @@ function finalizeItem(item) {
 
     // 거래처명 추출 (맨 앞 단어)
     let cleanedText = text.replace(/^[\[\(].*?[\]\)]\s*/, '').trim();
-    let firstWord = cleanedText.split(/[\s\n\.\,\-\~]/);
+    let firstWord = cleanedText.split(/[\s\n\.\,\-\~]/)[0];
     if (firstWord && firstWord.length > 1 && firstWord.length < 15) {
         item.clientName = firstWord;
     } else {
