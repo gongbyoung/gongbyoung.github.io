@@ -12,8 +12,8 @@ let showOnlyKnownClient = false;
 
 // 6대 차량 기본 설정, 배차 저장소, 수동 납품일 지정 저장소
 const DEFAULT_VEHICLES = [
-    "1호차 (한)",
-    "2호차 (차)",
+    "1호차 (차)",
+    "2호차 (한)",
     "3호차 (엄)",
     "4호차 (최)",
     "5호차 (양)",
@@ -25,9 +25,7 @@ let manualDelivMap = JSON.parse(localStorage.getItem('mf_manual_deliv_dates') ||
 let selectedVehicleFilter = 'ALL';
 
 // 초기 샘플 재고 데이터 세팅 (11월 10일 재고현황)
-const INITIAL_STOCK_TEXT = `11월 10일 재고현황
-
-;
+const INITIAL_STOCK_TEXT = ``;
 
 /* =========================================================================
    브라우저 자동 저장(localStorage) 및 업데이트 시각 기록 기능
