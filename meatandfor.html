@@ -3,389 +3,1257 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미트포앤v6</title>
+    <title>미트포앤 발주·재고 통합 시스템</title>
     <style>
-        :root { --primary: #1f4e79; --bg: #f4f7f6; --card: #ffffff; --text: #333; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 15px; background-color: var(--bg); color: var(--text); }
-        .container { max-width: 100%; margin: 0 auto; background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        h2 { margin-top: 0; color: var(--primary); font-size: 20px; }
-        p { color: #666; font-size: 13px; line-height: 1.4; }
-        .upload-box { border: 2px dashed #b0c4de; padding: 18px; text-align: center; border-radius: 8px; background: #fafbfc; margin-bottom: 12px; cursor: pointer; }
-        .upload-box input { display: none; }
-        
-        .control-panel { background: #f0f4f8; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .control-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        label { font-size: 13px; font-weight: bold; color: var(--primary); }
-        input[type="date"] { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
-        select { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; background: white; }
-        
-        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
-        button { background-color: var(--primary); color: white; border: none; padding: 10px 16px; font-size: 14px; border-radius: 6px; cursor: pointer; font-weight: bold; flex: 1; min-width: 130px; }
-        button.toggle-btn { background-color: #d97706; }
-        button.toggle-btn.active { background-color: #047857; }
-        button.download { background-color: #2e7d32; }
-        button:active { opacity: 0.8; }
-        
-        .stats { margin-bottom: 12px; font-weight: bold; color: #444; font-size: 14px; }
-        .table-responsive { overflow-x: auto; max-height: 550px; border: 1px solid #ddd; border-radius: 6px; }
+        :root {
+            --primary: #1f4e79;
+            --primary-light: #eef4fa;
+            --accent: #047857;
+            --warn: #d97706;
+            --danger: #dc2626;
+            --bg: #f3f6f9;
+            --card: #ffffff;
+            --text: #1f2937;
+            --border: #d1d5db;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "맑은 고딕", sans-serif;
+            margin: 0; padding: 10px; background-color: var(--bg); color: var(--text); font-size: 13px;
+        }
+        .app-container {
+            max-width: 1100px; margin: 0 auto; background: var(--card);
+            border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); overflow: hidden;
+        }
+        .app-header {
+            background: var(--primary); color: white; padding: 14px 18px;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+        }
+        .app-header h1 { margin: 0; font-size: 18px; }
+        .status-pills { display: flex; gap: 6px; font-size: 11px; flex-wrap: wrap; }
+        .pill { background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 20px; }
+        .pill.ok { background: #10b981; color: white; font-weight: bold; }
+
+        /* 상단 탭 네비게이션 */
+        .tab-nav {
+            display: flex; background: #e5e7eb; border-bottom: 2px solid var(--primary); overflow-x: auto;
+        }
+        .tab-btn {
+            flex: 1; min-width: 110px; padding: 12px 10px; border: none; background: transparent;
+            font-size: 13px; font-weight: bold; color: #4b5563; cursor: pointer; white-space: nowrap;
+            border-bottom: 3px solid transparent; transition: all 0.15s;
+        }
+        .tab-btn.active {
+            background: var(--card); color: var(--primary); border-bottom: 3px solid var(--primary);
+        }
+
+        .tab-page { display: none; padding: 16px; }
+        .tab-page.active { display: block; }
+
+        /* 카드 & 폼 스타일 */
+        .section-card {
+            border: 1px solid var(--border); border-radius: 8px; padding: 14px;
+            margin-bottom: 16px; background: #fafbfc;
+        }
+        .section-card h3 { margin: 0 0 8px 0; color: var(--primary); font-size: 15px; }
+        .section-card p { margin: 0 0 10px 0; color: #555; font-size: 12px; line-height: 1.4; }
+
+        .upload-zone {
+            border: 2px dashed #93c5fd; background: var(--primary-light); padding: 16px;
+            text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 10px;
+        }
+        .upload-zone input { display: none; }
+
+        textarea {
+            width: 100%; height: 240px; padding: 10px; border: 1px solid var(--border);
+            border-radius: 6px; font-family: monospace; font-size: 12px; resize: vertical;
+        }
+        input[type="text"], input[type="date"], select {
+            padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;
+        }
+
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+        .btn {
+            background: var(--primary); color: white; border: none; padding: 9px 14px;
+            border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer;
+        }
+        .btn.green { background: var(--accent); }
+        .btn.orange { background: var(--warn); }
+        .btn.gray { background: #6b7280; }
+        .btn:active { opacity: 0.85; }
+
+        /* 컨트롤 바 */
+        .filter-bar {
+            background: var(--primary-light); padding: 12px; border-radius: 8px;
+            margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+        }
+        .filter-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .filter-group label { font-weight: bold; color: var(--primary); font-size: 12px; }
+
+        /* 테이블 스타일 */
+        .table-wrap { overflow-x: auto; max-height: 620px; border: 1px solid var(--border); border-radius: 6px; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; vertical-align: top; }
-        th { background-color: var(--primary); color: white; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
-        tr:nth-child(even) { background-color: #f9fbfd; }
-        .badge-order { background-color: #047857; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
-        .badge-weight { background-color: #b45309; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
-        .badge-other { background-color: #4b5563; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
-        .client-name { font-weight: bold; color: #1f4e79; }
+        th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+        th { background: var(--primary); color: white; position: sticky; top: 0; z-index: 5; white-space: nowrap; }
+        tr:nth-child(even) { background: #f9fafb; }
+
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
+        .b-order { background: var(--accent); }
+        .b-weight { background: var(--warn); }
+        .b-other { background: #6b7280; }
+        .b-client { background: #2563eb; font-size: 10px; margin-left: 4px; }
+
+        .num-pos { color: var(--accent); font-weight: bold; }
+        .num-neg { color: var(--danger); font-weight: bold; background: #fee2e2; }
+        .num-zero { color: #6b7280; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>🥩 미트포앤 통합 발주 분류기 v6</h2>
-    <p>복수 카톡 파일을 동시에 업로드할 수 있으며, <b>전날 밤 10시 ~ 당일 오후 4시</b> 시간대별 정확한 발주 추출을 지원합니다.</p>
-
-    <div class="upload-box" onclick="document.getElementById('fileInput').click()">
-        <p>📁 <b>여기를 터치하여 카카오톡 텍스트(.txt) 파일들 선택</b> <span id="fileStatus" style="color:green; font-weight:bold;"></span></p>
-        <input type="file" id="fileInput" accept=".txt" multiple onchange="handleFileUpload(event)">
+<div class="app-container">
+    <div class="app-header">
+        <h1>🥩 (주)미트포앤 발주·재고 통합 시스템</h1>
+        <div class="status-pills">
+            <span id="pillKakao" class="pill">카톡: 미등록</span>
+            <span id="pillStock" class="pill">재고: 미등록</span>
+            <span id="pillClient" class="pill ok">거래처 DB: 기본 내장됨</span>
+        </div>
     </div>
 
-    <div class="control-panel">
-        <div class="control-row">
-            <div>
-                <label for="targetDate">기준 날짜:</label>
-                <input type="date" id="targetDate" onchange="applyFilters()">
+    <!-- 상단 페이지 탭 -->
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('page1', this)">1. 데이터 입력 (카톡/재고)</button>
+        <button class="tab-btn" onclick="switchTab('page2', this)">2. 발주 추출 목록</button>
+        <button class="tab-btn" onclick="switchTab('page3', this)">3. 일일 재고 현황표</button>
+        <button class="tab-btn" onclick="switchTab('page4', this)">4. 발주차감 잔여재고</button>
+    </div>
+
+    <!-- ==================== [페이지 1: 데이터 입력] ==================== -->
+    <div id="page1" class="tab-page active">
+        <!-- 1. 카톡 대화 파일 로딩 -->
+        <div class="section-card">
+            <h3>💬 1단계: 발주 카카오톡 대화 파일(.txt) 로딩</h3>
+            <p>스마트폰에서 내보낸 파일과 PC에서 내보낸 파일을 모두 자동 인식합니다. 여러 파일을 동시에 선택하셔도 됩니다.</p>
+            <div class="upload-zone" onclick="document.getElementById('kakaoFileInput').click()">
+                <b>📁 여기를 터치하여 카카오톡 대화 파일(.txt) 선택</b>
+                <div id="kakaoLoadMsg" style="margin-top:6px; color:#047857; font-weight:bold;"></div>
+                <input type="file" id="kakaoFileInput" accept=".txt" multiple onchange="loadKakaoFiles(event)">
             </div>
-            <div>
-                <label for="filterMode">추출 방식:</label>
-                <select id="filterMode" onchange="applyFilters()">
-                    <option value="range">전날 밤 22:00 ~ 당일 오후 16:00 (추천)</option>
-                    <option value="fullday">선택한 날짜 하루 전체 (00:00 ~ 23:59)</option>
-                    <option value="all">전체 기간 보기 (날짜 무시)</option>
+        </div>
+
+        <!-- 2. 일일 재고 텍스트 입력 -->
+        <div class="section-card">
+            <h3>📦 2단계: 일일 재고현황 텍스트 입력</h3>
+            <p>카톡방에 올리시는 '일일 재고현황' 텍스트를 아래 칸에 붙여넣고 <b>[재고표 생성 및 적용]</b> 버튼을 누르세요.</p>
+            <textarea id="stockTextarea" placeholder="여기에 '11월 10일 재고현황...' 텍스트를 붙여넣으세요."></textarea>
+            <div class="btn-row">
+                <button class="btn green" onclick="parseAndApplyStock(true)">✅ 재고표 생성 및 적용 (3페이지로 이동)</button>
+                <button class="btn gray" onclick="document.getElementById('stockTextarea').value=''">🗑️ 내용 비우기</button>
+            </div>
+        </div>
+
+        <!-- 3. 거래처 CSV (GitHub / 로컬 파일) 연동 -->
+        <div class="section-card">
+            <h3>🏢 3단계: 거래처 목록 CSV 관리 (GitHub 연동 & 원본 변환)</h3>
+            <p>
+                • 기본 주요 거래처 및 별명(약칭)은 코드에 이미 내장되어 바로 작동합니다.<br>
+                • GitHub에 올린 <code>clients.csv</code> 주소를 불러오거나, 회계 원본 CSV(2줄 양식)를 업로드해 깔끔한 6열(<code>거래처,대표자,전화번호,주소,별명,비고</code>) CSV로 변환할 수 있습니다.
+            </p>
+            <div class="filter-group" style="margin-bottom:8px;">
+                <input type="text" id="githubCsvUrl" style="flex:1; min-width:220px;" placeholder="https://raw.githubusercontent.com/gongbyoung/.../clients.csv">
+                <button class="btn" onclick="loadCsvFromGithub()">🌐 GitHub CSV 불러오기</button>
+            </div>
+            <div class="btn-row">
+                <button class="btn orange" onclick="document.getElementById('clientCsvInput').click()">📂 로컬 거래처 CSV 파일 직접 선택 (원본/정리본 자동인식)</button>
+                <button class="btn green" id="btnExportCleanCsv" style="display:none;" onclick="exportCleanedClientsCsv()">📥 정리된 6열 거래처 CSV 다운로드 (GitHub 업로드용)</button>
+                <input type="file" id="clientCsvInput" accept=".csv" style="display:none;" onchange="loadClientCsvFile(event)">
+            </div>
+            <div id="clientLoadMsg" style="margin-top:8px; font-size:12px; color:#047857; font-weight:bold;"></div>
+        </div>
+    </div>
+
+    <!-- ==================== [페이지 2: 발주 추출 목록] ==================== -->
+    <div id="page2" class="tab-page">
+        <div class="filter-bar">
+            <div class="filter-group">
+                <label>기준 날짜:</label>
+                <input type="date" id="orderTargetDate" onchange="renderOrdersTable()">
+            </div>
+            <div class="filter-group">
+                <label>시간 범위:</label>
+                <select id="orderTimeMode" onchange="renderOrdersTable()">
+                    <option value="prev10_to_16">전날 10:00(오전) ~ 당일 16:00(오후)</option>
+                    <option value="prev22_to_16">전날 22:00(밤10시) ~ 당일 16:00(오후)</option>
+                    <option value="fullday">지정 날짜 하루 전체 (00:00 ~ 23:59)</option>
+                    <option value="all">전체 날짜 모두 보기</option>
                 </select>
             </div>
+            <div class="filter-group">
+                <button id="btnOnlyOrder" class="btn green" onclick="toggleOnlyOrder()">🔍 발주만 보기: ON (비발주 숨김)</button>
+                <button id="btnOnlyKnownClient" class="btn gray" onclick="toggleKnownClient()">🏢 등록 거래처만: OFF</button>
+                <button class="btn" onclick="downloadOrdersCsv()">📥 현재 표 엑셀(CSV) 저장</button>
+            </div>
         </div>
-        <div class="btn-group">
-            <button id="toggleBtn" class="toggle-btn" onclick="toggleOrderFilter()" active="false">🔍 순수 발주만 보기: OFF</button>
-            <button id="downloadBtn" class="download" onclick="downloadCSV()" style="display:none;">📥 정제 목록 다운로드(CSV)</button>
+
+        <div id="orderStats" style="margin-bottom:8px; font-weight:bold; color:#374151;"></div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:95px;">날짜 (월/일, 시:분)</th>
+                        <th style="width:150px;">거래처</th>
+                        <th>발주 내용</th>
+                        <th style="width:130px;">발신자 / 판별</th>
+                    </tr>
+                </thead>
+                <tbody id="orderTableBody">
+                    <tr><td colspan="4" style="text-align:center; padding:24px; color:#888;">1페이지에서 카카오톡 대화 파일(.txt)을 먼저 업로드해주세요.</td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
-    
-    <div id="stats" class="stats"></div>
 
-    <div class="table-responsive">
-        <table id="resultTable">
-            <thead>
-                <tr>
-                    <th>날짜</th>
-                    <th>거래처명</th>
-                    <th>발주 내용</th>
-                    <th>발신자 / 구분</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr><td colspan="4" style="text-align: center; color: #888; padding: 20px;">대화 파일을 업로드해주세요.</td></tr>
-            </tbody>
-        </table>
+    <!-- ==================== [페이지 3: 일일 재고 현황표] ==================== -->
+    <div id="page3" class="tab-page">
+        <div class="filter-bar" style="justify-content: space-between;">
+            <div id="stockTitleInfo" style="font-weight:bold; font-size:15px; color:var(--primary);">📦 일일 재고 현황표</div>
+            <div class="filter-group">
+                <button class="btn green" onclick="downloadStockCsv()">📥 재고 현황표 CSV 저장</button>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>품목명</th>
+                        <th>대산 (박스 / 상세)</th>
+                        <th>포크 (박스 / 상세)</th>
+                        <th>정담·황금·기타</th>
+                        <th>총 박스 합계</th>
+                    </tr>
+                </thead>
+                <tbody id="stockTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== [페이지 4: 발주차감 잔여재고] ==================== -->
+    <div id="page4" class="tab-page">
+        <div class="filter-bar" style="justify-content: space-between;">
+            <div>
+                <b style="color:var(--primary); font-size:14px;">⚖️ 발주 차감 잔여재고 계산표</b>
+                <span style="font-size:12px; color:#555; margin-left:8px;">(2페이지에서 선택된 날짜/시간 범위의 순수 발주량을 3페이지 일일 재고에서 뺀 결과입니다)</span>
+            </div>
+            <button class="btn" onclick="renderDiffTable()">🔄 다시 계산</button>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>품목명</th>
+                        <th>구분 (브랜드)</th>
+                        <th>현재 재고 (박스)</th>
+                        <th>금일 발주량 (박스)</th>
+                        <th>별도 소분/팩 발주</th>
+                        <th>차감 후 잔여재고</th>
+                        <th>해당 품목 발주 거래처 내역</th>
+                    </tr>
+                </thead>
+                <tbody id="diffTableBody"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
 <script>
-let allParsedData = [];
-let onlyOrderMode = false;
+/* =========================================================================
+   1. 기본 내장 거래처 & 별명(약칭) 사전 (전체거래처목록_20261111.csv 기반 추출)
+   ========================================================================= */
+const DEFAULT_CLIENTS = [
+    { name: "(주)태광푸드", alias: ["태광"] },
+    { name: "(주)한마음마트", alias: ["한마음마트", "한마음"] },
+    { name: "본오농민마트", alias: ["본오농민마트", "본오농민"] },
+    { name: "전라도연탄구이", alias: ["전라도연탄구이", "전라도"] },
+    { name: "농민마트(와동)", alias: ["농민마트와동", "와동"] },
+    { name: "성대지마트(주)", alias: ["성대g마트", "성대G마트", "성대g", "성대"] },
+    { name: "(주)스타마트", alias: ["스타마트", "스타"] },
+    { name: "서창별빛정육점", alias: ["별빛정육점", "별빛"] },
+    { name: "횡성생고기(본점)", alias: ["횡성본점", "횡성생고기", "횡성본정ㅅ"] },
+    { name: "횡성생고기(인천점)", alias: ["횡성생고기 인천점", "횡성인천점", "횡성 인천"] },
+    { name: "청정맛집(하중동)", alias: ["청정맛집", "청정"] },
+    { name: "덕이네쌈밥", alias: ["덕이네쌈밥", "덕이네"] },
+    { name: "농민마트 고잔점", alias: ["농민마트고잔", "농민 고잔", "고잔"] },
+    { name: "(주)원신산업-보미마트", alias: ["원신산업", "원신"] },
+    { name: "꿀돼지꿀한우(가리봉)", alias: ["가리봉꿀돼지꿀한우", "가리봉꿀"] },
+    { name: "(주)다온마트", alias: ["다온마트", "다온"] },
+    { name: "사동쌈엔쌈", alias: ["사동쌈엔쌈", "쌈엔쌈", "쌈쌈", "쌈&쌈"] },
+    { name: "풍년돼지양념구이", alias: ["풍년돼지양념구이", "풍년"] },
+    { name: "에스에이치미트(음성)", alias: ["에스에이치마트 음성", "음성엘마트", "음성"] },
+    { name: "원대성정육점", alias: ["원대성정육점", "원대성"] },
+    { name: "고기바보푸주간(부곡)", alias: ["고기바보부곡", "부곡 고기바보", "부곡점 고기바보"] },
+    { name: "고기바보푸줏간(장안점)", alias: ["고기바보장안", "장안점"] },
+    { name: "고기바보(송정점)", alias: ["고기바보송정", "송정점"] },
+    { name: "꿀돼지꿀한우(금천)", alias: ["금천꿀돼지꿀한우", "금천꿀", "꿀돼지시흥점"] },
+    { name: "꿀돼지꿀한우정육점(광명)", alias: ["광명꿀", "광꿀"] },
+    { name: "동탄식자재마트", alias: ["동탄식자재마트", "동탄식자재"] },
+    { name: "정성마트정육코너(아차산)", alias: ["정성마트", "아차산점발주입니다"] },
+    { name: "한결축산", alias: ["한결축산"] },
+    { name: "한돈미트(N마트)기흥", alias: ["한돈미트", "주식회사 엔마트용인점", "엔마트"] },
+    { name: "삼사오", alias: ["삼사오"] },
+    { name: "에스농축수산마트(율전)", alias: ["에스농축산마트 율전", "율전동에스할인마트입니다", "s율전", "율전"] },
+    { name: "주식회사에스할인마트(지점)평택", alias: ["에스할인마트 평택", "에스할인마트 (평택)", "s평택", "에스평택"] },
+    { name: "신박축산", alias: ["신박축산"] },
+    { name: "천하제일정육점(배곧동)", alias: ["천하제일정육점", "천하제일"] },
+    { name: "오늘은고기다(일동)", alias: ["오늘은고기다"] },
+    { name: "참새방앗간", alias: ["참새방앗간"] },
+    { name: "막뚱이정육점", alias: ["막뚱이정육점"] },
+    { name: "삼겹연구소", alias: ["삼겹연구소"] },
+    { name: "하늘소(광명점)", alias: ["하늘소광명", "하늘소 광명"] },
+    { name: "하늘소(화곡)", alias: ["하늘소화곡", "하늘소 화곡"] },
+    { name: "하늘소(역곡점)", alias: ["하늘소역곡", "역곡하늘소"] },
+    { name: "상미왕할인마트(산본/반월)", alias: ["상미마트"] },
+    { name: "참예소(포동)", alias: ["참예소"] },
+    { name: "일신할인마트(정육점)", alias: ["일신할인마트"] },
+    { name: "한우세상", alias: ["한우세상"] },
+    { name: "신길양평해장국", alias: ["신길양평해장국"] },
+    { name: "한양축산도매센타(봉천동)", alias: ["한양봉천", "한양 봉천"] },
+    { name: "(주)대부", alias: ["대부g마트", "대부지마트"] },
+    { name: "충북G마트", alias: ["충북g마트", "충북지"] },
+    { name: "유포리바베큐장", alias: ["유포리바베큐장", "유포리"] },
+    { name: "SK축산물도소매", alias: ["sk축산", "SK축산"] },
+    { name: "오소돈", alias: ["오소돈"] },
+    { name: "소문난정육점", alias: ["소문난정육점"] },
+    { name: "진안축산", alias: ["진안축산"] },
+    { name: "삼대축산정육점양평점", alias: ["삼대축산"] },
+    { name: "(주)큐엔씨육가공", alias: ["큐엔씨육가공"] },
+    { name: "에이스미트", alias: ["에이스미트주안", "에이스미트 주안"] },
+    { name: "형제정육점1호점", alias: ["형제정육점1호점"] },
+    { name: "더갈비", alias: ["더갈비"] },
+    { name: "삼부자돈판골", alias: ["삼부자돈판골"] },
+    { name: "원산면옥", alias: ["원산면옥"] },
+    { name: "푸른목장(삼평동)", alias: ["푸른목장 삼평점", "푸른목장삼평"] },
+    { name: "푸른목장(판교)", alias: ["푸른목장 판교점", "푸른목장판교", "푸른목장 판교"] },
+    { name: "(주)판교1등축산", alias: ["판교1등축산", "1등판교"] },
+    { name: "(주)좋은축산유통", alias: ["좋은축산유통"] },
+    { name: "다연홈마트", alias: ["다연"] },
+    { name: "소하축산(광명)", alias: ["소하축산광명", "소하축산 광명"] },
+    { name: "토종축산(광명철산동)", alias: ["토종축산"] },
+    { name: "린이네축산동탄점(구미래)", alias: ["린이네축산 동탄", "린이네축산(동탄)"] },
+    { name: "린이네축산(본점-영통)", alias: ["린이네축산 본점", "린이네본점", "린이네축산 (본점)"] },
+    { name: "골목대장삼겹살", alias: ["골목대장"] },
+    { name: "김치왕뚜껑삼겹살", alias: ["김치왕뚜껑삼겹살1호점", "김치왕뚜껑삼겹살 2호점", "김치왕뚜껑삼겹살3호점"] },
+    { name: "신풍푸줏간(신길점)", alias: ["신풍푸줏간", "신풍푸줏간 신길"] },
+    { name: "거시기 함흥냉면", alias: ["거시기함흥냉면", "거시기"] },
+    { name: "전설은행", alias: ["전설은행"] },
+    { name: "옥이네주물럭", alias: ["옥이네주물럭"] },
+    { name: "예서감자탕", alias: ["예서감자탕"] },
+    { name: "찌그러진주전자", alias: ["찌그러진"] },
+    { name: "이모네민물매운탕", alias: ["이모네민물메운탕", "이모네민물매운탕"] },
+    { name: "오늘은냉삼(구-이구집)", alias: ["오늘은냉삼"] },
+    { name: "국민생고기(장곡동)", alias: ["국민생고기 장곡"] },
+    { name: "갈비면옥", alias: ["갈비면옥"] },
+    { name: "동춘동푸줏단", alias: ["동춘동푸줏단"] },
+    { name: "오빠막창", alias: ["오빠막창"] },
+    { name: "착한정육점(산현)", alias: ["착한정육점 산현", "착한정육점 (산현)", "착한정육점"] },
+    { name: "대박축산(금천)하늘소", alias: ["대박축산금천", "대박축산 금천", "시흥대박축산"] },
+    { name: "차이나감자탕", alias: ["차이나감자탕"] },
+    { name: "여기식당", alias: ["여기식당"] },
+    { name: "곱창연가", alias: ["곱창연가"] },
+    { name: "주식회사 정육점", alias: ["주식회사정육점"] },
+    { name: "맛있는한우(상동)", alias: ["맛있는한우", "맛있는한우 상동"] },
+    { name: "효자축산", alias: ["효자축산"] },
+    { name: "도담(은행동)식당", alias: ["도담(은행동) 식당", "도담"] },
+    { name: "바른정육점", alias: ["바른정육점"] },
+    { name: "한상궁", alias: ["한상궁"] },
+    { name: "구들장", alias: ["구들장"] },
+    { name: "포동셀프정육점", alias: ["셀프정육점", "포동셀프정육점", "포동셀프정육"] },
+    { name: "샛터돌왕구이", alias: ["샛터"] },
+    { name: "백봉", alias: ["백봉"] },
+    { name: "정성가득집밥", alias: ["정성가득집밥"] },
+    { name: "오늘도고기앤장어(구 으뜸장어)", alias: ["으뜸장어", "오늘도고기앤장어", "오늘도고기&장어", "고기앤장어"] },
+    { name: "맛닭꼬치(신천동)", alias: ["신천동 맛닭꼬치입니다", "맛닭꼬치"] },
+    { name: "슈퍼킹", alias: ["슈퍼킹"] },
+    { name: "구워랑", alias: ["구워랑"] },
+    { name: "돌쇠구이", alias: ["돌쇠구이"] },
+    { name: "장터국밥", alias: ["장터국밥"] },
+    { name: "우리축산정육점", alias: ["우리축산정육점"] },
+    { name: "아이비유통", alias: ["아이비유통"] },
+    { name: "프리미엄정육점", alias: ["프리미엄정육점"] },
+    { name: "인화숯불갈비", alias: ["인화숯불갈비"] },
+    { name: "대박마포", alias: ["대박마포"] },
+    { name: "찐하오마라탕", alias: ["찐하오마라탕"] },
+    { name: "안심한우", alias: ["안심한우"] },
+    { name: "매일정육점", alias: ["매일정육점"] },
+    { name: "두근반세근반", alias: ["두근반세근반"] },
+    { name: "장군축산(광명)", alias: ["장군축산(광명)", "장군축산"] },
+    { name: "현대축산(금천)", alias: ["현대축산 금천"] },
+    { name: "농우축산", alias: ["농우축산"] },
+    { name: "오복정육", alias: ["오복정육"] },
+    { name: "까만돼지", alias: ["까만돼지"] },
+    { name: "대반전", alias: ["대반전"] },
+    { name: "두둑(아이원푸드)", alias: ["두둑 양념육 업체신규", "두둑에"] }
+];
 
-async function handleFileUpload(event) {
+let clientDB = [...DEFAULT_CLIENTS];
+let cleanedCsvRowsForExport = [];
+let allChatItems = [];
+let stockItems = [];
+let showOnlyOrder = true;
+let showOnlyKnownClient = false;
+
+// 초기 샘플 재고 데이터 세팅 (11월 10일 재고현황)
+const INITIAL_STOCK_TEXT = `11월 10일 재고현황
+
+삼겹   (대산) 4박 5
+                 26박 6
+                 12박 7
+                  2박 9 
+         (포크) 0박 낱 4
+                  0박 낱 5 
+                27박 낱 7
+                25박 10
+                                                  
+암삼겹 (대산) 6박 6
+                   5박 9
+         (포크) 2박 5
+                  6박 7
+                 10박 10
+
+특삼겹 (대산) 4박 4
+          (포크) 2박 7
+                  3박 10 
+                     
+빵삼겹 (포크) 0박                 
+
+미삼 (대산) 7박 9
+       (포크) 2박 7
+               13박 10
+           
+암미삼 (대산) 0박 낱 6
+         (포크) 5박 7
+                  4박 10
+
+특미삼  (대산) 1박 6
+          (포크) 0박 
+
+목살 (대산) 19박 9
+       (포크) 12박 7
+                30박 10
+                 
+특목살 (대산) 4박 6
+                  8박 9
+         (포크) 6박 낱 4
+                  2박 7
+
+B목살 (대산) 0박 
+         (포크) 0박 
+
+미전지 (대산) 6박 6
+                  33박 낱 7
+                  46박 9
+        (포크) 2박 7
+                10박 10
+
+전지 (대산) 2박 6  
+       (포크) 1박 7
+                5박 10
+
+지전지 (대산) 0박
+
+갈비 (대산) 10박 9
+       (포크) 20박 10
+                               
+등갈비 (대산) 0박 낱 4
+          (포크) 3박 7
+                  10박 10
+
+등심 (대산) 4박 4
+       (포크) 9박 낱 4
+                 3박 10
+
+안심  (대산) 0박 
+        (포크) 5박 10
+
+사태 (대산) 1박 4
+       (포크) 2박 7
+               3박 10              
+
+앞미사태 (대산) 10박 9
+            (포크) 3박 낱 7
+                     5박 10
+
+항정  (대산) 0박 낱 6
+                2박 7
+        (포크) 5박 7
+                3박 10
+                  
+가브리 (대산) 0박 낱 4
+                  1박 7
+          (포크) 4박 10
+
+갈매기 (대산) 0박 낱 6
+                  1박 9
+           (포크) 2박 7
+                   1박 10
+
+미후지 (포크) 0박
+          (황금) 8박 5
+                  13박 10
+
+후지 (포크) 0박
+        (대산) 0박
+        (황금) 7박 9
+                 5박 10
+                
+등뼈 (대산) 14박 9
+        (포크) 30박 10
+                 
+냉장잡육 (포크) 2박 10
+
+토레인 삼겹 3박 4
+                 1박 5
+                 7박 10
+
+냉장 알목심f PR
+    IBP 5박 
+
+냉장 살치f PR
+   엑셀 1팩
+
+냉장 늑간f CH NBP 7박 낱
+                               
+냉장 수입 올리멜 삼겹 7박 ~12/3
+                                 
+냉장 수입 올리멜 목살 6박 ~12/5`;
+
+window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('stockTextarea').value = INITIAL_STOCK_TEXT;
+    parseAndApplyStock(false);
+});
+
+/* 탭 전환 함수 */
+function switchTab(pageId, btnEl) {
+    document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+    if (btnEl) btnEl.classList.add('active');
+    if (pageId === 'page4') renderDiffTable();
+}
+
+/* =========================================================================
+   2. 거래처 CSV 파싱 및 매칭 로직 (2줄 원본 양식 & 6열 정리 양식 모두 지원)
+   ========================================================================= */
+function loadClientCsvFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        if (text.includes('')) {
+            // 한글 깨짐(CP949/EUC-KR) 감지 시 EUC-KR로 재로딩
+            const r2 = new FileReader();
+            r2.onload = ev => processClientCsvText(ev.target.result);
+            r2.readAsText(file, 'euc-kr');
+        } else {
+            processClientCsvText(text);
+        }
+    };
+    reader.readAsText(file, 'utf-8');
+}
+
+async function loadCsvFromGithub() {
+    const url = document.getElementById('githubCsvUrl').value.trim();
+    if (!url) { alert('GitHub Raw CSV URL을 입력해주세요.'); return; }
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('네트워크 오류');
+        const buf = await res.arrayBuffer();
+        let text = new TextDecoder('utf-8').decode(buf);
+        if (text.includes('')) text = new TextDecoder('euc-kr').decode(buf);
+        processClientCsvText(text);
+    } catch (err) {
+        alert('GitHub CSV를 불러오지 못했습니다. Raw URL인지 확인해주세요.');
+    }
+}
+
+function parseCsvLine(line) {
+    const result = [];
+    let cur = '', inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') inQuotes = !inQuotes;
+        else if (ch === ',' && !inQuotes) { result.push(cur.trim()); cur = ''; }
+        else cur += ch;
+    }
+    result.push(cur.trim());
+    return result;
+}
+
+function processClientCsvText(csvText) {
+    const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
+    if (lines.length < 2) return;
+
+    const headerCols = parseCsvLine(lines[0]);
+    cleanedCsvRowsForExport = [];
+    let addedCount = 0;
+
+    // 1) 이미 정리된 6열 CSV (거래처,대표자,전화번호,주소,별명,비고) 인 경우
+    if (headerCols[0].includes('거래처') && headerCols.some(h => h.includes('별명'))) {
+        for (let i = 1; i < lines.length; i++) {
+            const c = parseCsvLine(lines[i]);
+            if (!c[0]) continue;
+            const aliases = c[4] ? c[4].split('|').map(s => s.trim()).filter(Boolean) : [c[0]];
+            clientDB.push({ name: c[0], ceo: c[1]||'', phone: c[2]||'', addr: c[3]||'', alias: aliases, note: c[5]||'' });
+            cleanedCsvRowsForExport.push([c[0], c[1]||'', c[2]||'', c[3]||'', aliases.join('|'), c[5]||'']);
+            addedCount++;
+        }
+    } else {
+        // 2) 회계 프로그램 원본 2줄 구조 CSV (전체거래처목록_20261111.csv) 인 경우
+        for (let i = 2; i < lines.length; i += 2) {
+            const row1 = parseCsvLine(lines[i]);
+            const row2 = (i + 1 < lines.length) ? parseCsvLine(lines[i + 1]) : [];
+            const rawName = (row1[0] || '').trim();
+            if (!rawName || rawName.includes('폐업') || rawName.includes('거래종료') || rawName.startsWith('X') || rawName.startsWith('x')) continue;
+
+            const ceo = (row1[1] || '').trim();
+            const phone = (row1[3] || '').trim();
+            const addr = (row1[4] || '').trim();
+            const note = (row2[4] || '').trim();
+
+            // 자동 별명 생성: (주), 주식회사, 괄호 제거 버전
+            const cleanAlias = rawName.replace(/\(주\)|주식회사|출고안됨/g, '').replace(/\(.*?\)/g, '').trim();
+            const aliases = [rawName];
+            if (cleanAlias && cleanAlias !== rawName) aliases.push(cleanAlias);
+
+            clientDB.push({ name: rawName, ceo, phone, addr, alias: aliases, note });
+            cleanedCsvRowsForExport.push([rawName, ceo, phone, addr, aliases.join('|'), note]);
+            addedCount++;
+        }
+    }
+
+    document.getElementById('clientLoadMsg').innerText = `✅ 거래처 ${addedCount}건 추가 로드 완료! (총 ${clientDB.length}개 활성 거래처)`;
+    document.getElementById('pillClient').innerText = `거래처 DB: ${clientDB.length}곳 연동됨`;
+    document.getElementById('btnExportCleanCsv').style.display = 'inline-block';
+    if (allChatItems.length > 0) {
+        allChatItems.forEach(item => classifyChatItem(item));
+        renderOrdersTable();
+    }
+}
+
+function exportCleanedClientsCsv() {
+    let csv = "\uFEFF거래처,대표자,전화번호,주소,별명,비고\n";
+    cleanedCsvRowsForExport.forEach(r => {
+        csv += r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',') + "\n";
+    });
+    downloadBlob(csv, "clients.csv");
+}
+
+function matchClientFromText(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return { matched: false, clientName: "미확인" };
+
+    // 첫 줄이 "내일", "오늘", "월요일", "화요일예약" 등이면 둘째 줄까지 검사
+    let candidateLines = [lines[0]];
+    if (lines.length > 1) candidateLines.push(lines[1]);
+
+    for (let rawLine of candidateLines) {
+        let cleanLine = rawLine.replace(/^(전달:\s*|■+|●+|\*+|내일\s+|오늘\s+|월요일\s+|화요일예약\s+|수요일예약\s+)/g, '').trim();
+        let lineNoSpace = cleanLine.replace(/\s+/g, '').toLowerCase();
+
+        for (let c of clientDB) {
+            for (let al of c.alias) {
+                let alNoSpace = al.replace(/\s+/g, '').toLowerCase();
+                if (alNoSpace.length >= 2 && (lineNoSpace.startsWith(alNoSpace) || cleanLine.includes(al))) {
+                    return { matched: true, clientName: al, officialName: c.name };
+                }
+            }
+        }
+    }
+
+    // DB에 없지만 첫 줄에 '정육', '마트', '축산', '푸드', '식당', '갈비', '소매', '택배' 등이 포함된 경우
+    let firstLine = lines[0].replace(/[●■]/g, ' ').trim();
+    let firstToken = firstLine.split(/[\s\.\,\~]/)[0];
+    if (/정육|마트|축산|푸드|식당|갈비|감자탕|해장국|면옥|한우|삼겹|소매|택배|주물럭|쌈밥|막창|장어|꼬치|국밥/.test(firstLine)) {
+        return { matched: true, clientName: firstToken, officialName: firstToken };
+    }
+    return { matched: false, clientName: firstToken || "미확인", officialName: "" };
+}
+
+/* =========================================================================
+   3. 카카오톡 대화 파일 파싱 (스마트폰 + PC 내보내기 동시 지원 & 계근 100% 분리)
+   ========================================================================= */
+async function loadKakaoFiles(event) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
-    document.getElementById("fileStatus").innerText = ` (${files.length}개 파일 로드 중...)`;
-    allParsedData = [];
-
+    allChatItems = [];
     for (let i = 0; i < files.length; i++) {
-        const text = await readFileAsync(files[i]);
-        parseKakaoChat(text);
-    }
-
-    document.getElementById("fileStatus").innerText = ` (${files.length}개 파일 통합 완료!)`;
-
-    if (allParsedData.length > 0) {
-        allParsedData.sort((a, b) => {
-            if (a.dateFull !== b.dateFull) return a.dateFull.localeCompare(b.dateFull);
-            return a.timeMins - b.timeMins;
+        const text = await new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = e => res(e.target.result);
+            r.onerror = rej;
+            r.readAsText(files[i], 'utf-8');
         });
-        
-        let lastDate = allParsedData[allParsedData.length - 1].dateFull;
-        document.getElementById("targetDate").value = lastDate;
+        parseSingleKakaoText(text);
     }
 
-    applyFilters();
-    document.getElementById("downloadBtn").style.display = "inline-block";
-}
-
-function readFileAsync(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = (e) => reject(e);
-        reader.readAsText(file, 'utf-8');
+    // 시간순 정렬
+    allChatItems.sort((a, b) => {
+        if (a.dateFull !== b.dateFull) return a.dateFull.localeCompare(b.dateFull);
+        return a.timeMins - b.timeMins;
     });
+
+    if (allChatItems.length > 0) {
+        const lastDate = allChatItems[allChatItems.length - 1].dateFull;
+        document.getElementById('orderTargetDate').value = lastDate;
+    }
+
+    const orderCnt = allChatItems.filter(x => x.type === '발주').length;
+    const weightCnt = allChatItems.filter(x => x.type === '계근').length;
+    document.getElementById('kakaoLoadMsg').innerText = `✅ 총 ${allChatItems.length}건 분석 완료! (순수발주 ${orderCnt}건 / 계근 ${weightCnt}건 분리됨)`;
+    const pill = document.getElementById('pillKakao');
+    pill.innerText = `카톡: 발주 ${orderCnt}건 로드됨`;
+    pill.classList.add('ok');
+
+    renderOrdersTable();
 }
 
-function parseKakaoChat(text) {
-    const lines = text.split('\n');
-    let currentDateStr = "2026-10-13"; 
-    let displayDateStr = "10/13";
-    
-    // PC 버전: 2026년 10월 13일 오전 9:49, 이명석 이사 : 내용
-    const pcPattern = /^(\d{4}년\s*\d{1,2}월\s*\d{1,2}일)\s+([오전|오후]+\s*\d{1,2}:\d{2}),\s*(.*?)\s*:\s*(.*)$/;
-    // 모바일 버전: [발신자] [오후 2:35] 내용
-    const mobilePattern = /^\[(.*?)\] \[(오전|오후 \d{1,2}:\d{2})\] (.*)$/;
+function parseSingleKakaoText(text) {
+    const lines = text.split(/\r?\n/);
+    let currentDateFull = "2026-10-13";
+    let currentDisplayDate = "10/13";
 
-    let currentItem = null;
+    // PC버전: 2026년 10월 13일 오전 9:49, 이명석 이사 : 내용
+    const pcRegex = /^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일\s+(오전|오후)\s*(\d{1,2}:\d{2}),\s*(.*?)\s*:\s*(.*)$/;
+    // 모바일버전: [한재호(주)미트포앤] [오후 2:35] 내용
+    const mobRegex = /^\[(.*?)\]\s*\[(오전|오후)\s*(\d{1,2}:\d{2})\]\s*(.*)$/;
+    // 날짜 구분선
+    const dateLineRegex = /(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
+
+    let curItem = null;
 
     for (let i = 0; i < lines.length; i++) {
-        let line = lines[i].trim();
+        const line = lines[i].trim();
         if (!line) continue;
 
-        if (line.includes('---------------') && line.includes('년')) {
-            const dateMatch = line.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
-            if (dateMatch) {
-                let y = dateMatch[1];
-                let m = String(dateMatch[2]).padStart(2, '0');
-                let d = String(dateMatch[3]).padStart(2, '0');
-                currentDateStr = `${y}-${m}-${d}`;
-                displayDateStr = `${m}/${d}`;
-            }
-            continue;
-        }
-
-        let match = line.match(pcPattern);
-        if (match) {
-            if (currentItem) {
-                finalizeItem(currentItem);
-                allParsedData.push(currentItem);
-            }
-            const datePart = match[1];
-            const timePart = match[2];
-            const sender = match[3];
-            const message = match[4];
-
-            const dm = datePart.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
+        // 1) 모바일 날짜 구분선
+        if (line.includes('---') && line.includes('년')) {
+            const dm = line.match(dateLineRegex);
             if (dm) {
-                let y = dm[1];
-                let m = String(dm[2]).padStart(2, '0');
-                let d = String(dm[3]).padStart(2, '0');
-                currentDateStr = `${y}-${m}-${d}`;
-                displayDateStr = `${m}/${d}`;
+                currentDateFull = `${dm[1]}-${String(dm[2]).padStart(2,'0')}-${String(dm[3]).padStart(2,'0')}`;
+                currentDisplayDate = `${String(dm[2]).padStart(2,'0')}/${String(dm[3]).padStart(2,'0')}`;
             }
+            continue;
+        }
 
-            currentItem = {
-                dateFull: currentDateStr,
-                dateRaw: displayDateStr,
-                timeRaw: timePart,
-                sender: sender.trim(),
-                content: message,
-                clientName: "-",
-                type: "기타"
+        // 2) PC 단독 날짜줄 또는 초대 메시지 무시
+        if (/^\d{4}년\s*\d{1,2}월\s*\d{1,2}일\s+(오전|오후)\s*\d{1,2}:\d{2}$/.test(line) || line.includes('초대했습니다')) {
+            continue;
+        }
+
+        // 3) PC 메시지 매칭
+        let mPc = line.match(pcRegex);
+        if (mPc) {
+            if (curItem) { classifyChatItem(curItem); allChatItems.push(curItem); }
+            const y = mPc[1], m = String(mPc[2]).padStart(2,'0'), d = String(mPc[3]).padStart(2,'0');
+            currentDateFull = `${y}-${m}-${d}`;
+            currentDisplayDate = `${m}/${d}`;
+            const timeInfo = convertAmPmTime(mPc[4], mPc[5]);
+            curItem = {
+                dateFull: currentDateFull,
+                dateShort: currentDisplayDate,
+                timeStr: timeInfo.str,
+                timeMins: timeInfo.mins,
+                sender: mPc[6].trim(),
+                content: mPc[7]
             };
             continue;
         }
 
-        match = line.match(mobilePattern);
-        if (match) {
-            if (currentItem) {
-                finalizeItem(currentItem);
-                allParsedData.push(currentItem);
-            }
-            const sender = match[1];
-            const timePart = match[2]; 
-            const message = match[3];
-
-            currentItem = {
-                dateFull: currentDateStr,
-                dateRaw: displayDateStr,
-                timeRaw: timePart,
-                sender: sender.trim(),
-                content: message,
-                clientName: "-",
-                type: "기타"
+        // 4) 모바일 메시지 매칭
+        let mMob = line.match(mobRegex);
+        if (mMob) {
+            if (curItem) { classifyChatItem(curItem); allChatItems.push(curItem); }
+            const timeInfo = convertAmPmTime(mMob[2], mMob[3]);
+            curItem = {
+                dateFull: currentDateFull,
+                dateShort: currentDisplayDate,
+                timeStr: timeInfo.str,
+                timeMins: timeInfo.mins,
+                sender: mMob[1].trim(),
+                content: mMob[4]
             };
-        } else {
-            if (currentItem && !line.includes('님과 카카오톡 대화') && !line.includes('---------------') && !line.includes('저장한 날짜')) {
-                currentItem.content += "\n" + line;
-            }
+            continue;
+        }
+
+        // 5) 멀티라인 이어붙이기
+        if (curItem && !line.includes('카카오톡 대화') && !line.includes('저장한 날짜') && !line.includes('삭제되었습니다')) {
+            curItem.content += "\n" + line;
         }
     }
-    if (currentItem) {
-        finalizeItem(currentItem);
-        allParsedData.push(currentItem);
-    }
+    if (curItem) { classifyChatItem(curItem); allChatItems.push(curItem); }
 }
 
-function parseMinutes(timeStr) {
-    if (!timeStr) return 0;
-    let cleaned = timeStr.replace('오전', 'AM').replace('오후', 'PM').replace(/\u202f/g, ' ').replace(/\s+/g, ' ').trim();
-    let parts = cleaned.split(' ');
-    if (parts.length < 2) return 0;
-    let meridiem = parts[0];
-    let hm = parts[1].split(':');
-    let h = parseInt(hm[0]) || 0;
-    let m = parseInt(hm[1]) || 0;
-    if (meridiem === 'PM' && h < 12) h += 12;
-    if (meridiem === 'AM' && h === 12) h = 0;
-    return h * 60 + m;
+function convertAmPmTime(ampm, hmStr) {
+    const parts = hmStr.split(':');
+    let h = parseInt(parts[0], 10) || 0;
+    let m = parseInt(parts[1], 10) || 0;
+    if (ampm === '오후' && h < 12) h += 12;
+    if (ampm === '오전' && h === 12) h = 0;
+    return {
+        mins: h * 60 + m,
+        str: `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`
+    };
 }
 
-function convertTime(timeStr) {
-    let mins = parseMinutes(timeStr);
-    let h = Math.floor(mins / 60);
-    let m = mins % 60;
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
+/* 핵심: 발주 vs 계근 vs 기타 정밀 판별기 */
+function classifyChatItem(item) {
+    const txt = item.content.trim();
+    const clientMatch = matchClientFromText(txt);
+    item.clientName = clientMatch.clientName;
+    item.isKnownClient = clientMatch.matched;
 
-function finalizeItem(item) {
-    let text = item.content;
-
-    const numberTokens = text.match(/\b\d+\.\d+|\b\d{3,4}\b/g);
-    let isWeighIn = false;
-    if (numberTokens && numberTokens.length >= 3) {
-        isWeighIn = true;
-    }
-    if ((text.includes("포 ") || text.includes("대 ") || text.includes("개 ")) && /\d+\.\d+/.test(text)) {
-        isWeighIn = true;
-    }
-
-    const ignoreKeywords = ['사진', '삭제되었습니다', '재고현황', '발주체크', '분류전', '입금', '출고', '반품장', '공지', '투표', '장갑'];
-    let hasIgnore = ignoreKeywords.some(kw => text.includes(kw));
-
-    const meatKeywords = [
-        '삼겹', '목살', '미전지', '전지', '미삼', '등갈비', '등뼈', '갈비', '등심', '안심', 
-        '사태', '앞사태', '항정', '가브리', '갈매기', '미후지', '후지', '오겹', '우삼겹', 
-        '차돌', '스지', 'LA', '살치', '부채', '토시', '안창', '족', '껍데기', '잡육', '박스', '팩', '판', '키로', 'kg', '덩이'
+    // 1. 시스템/일상/재고/단가표 제외 키워드
+    const ignoreKw = [
+        '사진', '삭제되었습니다', '재고현황', '발주체크', '분류전', '입금', '반품장',
+        '여기까지', '팩스 보냈습니다', '코드 잡았습니다', '단가표', '원가내역',
+        '자동차검사', '타이어', '어떤거 주문하신걸까요', '어떤걸로 할까요', '기존 재고 늑간'
     ];
-    let hasMeat = meatKeywords.some(kw => text.includes(kw));
+    if (ignoreKw.some(k => txt.includes(k))) { item.type = '기타'; return; }
+    if (/\(대산\)\s*\d+박|\(포크\)\s*\d+박|나눌꺼요/.test(txt)) { item.type = '기타'; return; }
 
-    if (hasIgnore) {
-        item.type = "기타";
-    } else if (isWeighIn) {
-        item.type = "계근";
-    } else if (hasMeat) {
-        item.type = "발주";
-    } else {
-        item.type = "기타";
-    }
+    // 2. 계근(무게 측정) 판별용 전처리 (단가, 규격, 전화번호, 주소 제거)
+    let cleanForWeight = txt
+        .replace(/010-\d{3,4}-\d{4}|\d{10,11}/g, '')
+        .replace(/\d{1,3},\d{3}\s*원?/g, '')
+        .replace(/\d+\.\d{3}\s*원?/g, '')
+        .replace(/\d+(?:\.\d+)?\s*~\s*\d+(?:\.\d+)?/g, '') // 6~6.5 등 제외
+        .replace(/\d+\.\d+\s*(?:센치|cm|mm|미리|톤|키로|kg|k|작업)/gi, '')
+        .replace(/작업\s*\d+\.\d+/g, '')
+        .replace(/\d+\s*(?:동|호|번지|층|시|구|읍|면|로|길)/g, '')
+        .replace(/202\d년?/g, '')
+        .replace(/(?:비번|비밀번호)\s*\d+/g, '')
+        .replace(/\d{4}[*#]|8846별표|18079/g, '');
 
-    let cleanedText = text.replace(/^[\[\(].*?[\]\)]\s*/, '').trim();
-    let firstWord = cleanedText.split(/[\s\n\.\,\-\~]/)[0];
-    if (firstWord && firstWord.length > 1 && firstWord.length < 15) {
-        item.clientName = firstWord;
-    } else {
-        item.clientName = "미확인거래처";
-    }
-
-    item.timeMins = parseMinutes(item.timeRaw);
-    item.formattedTime = convertTime(item.timeRaw);
-}
-
-function toggleOrderFilter() {
-    const btn = document.getElementById("toggleBtn");
-    onlyOrderMode = !onlyOrderMode;
-    if (onlyOrderMode) {
-        btn.innerText = "🔍 순수 발주만 보기: ON (발주만 표시됨)";
-        btn.classList.add("active");
-    } else {
-        btn.innerText = "🔍 순수 발주만 보기: OFF (전체 표시됨)";
-        btn.classList.remove("active");
-    }
-    renderTable();
-}
-
-function applyFilters() {
-    renderTable();
-}
-
-function renderTable() {
-    const tbody = document.querySelector("#resultTable tbody");
-    tbody.innerHTML = "";
-
-    const selectedDateStr = document.getElementById("targetDate").value; // "YYYY-MM-DD"
-    const mode = document.getElementById("filterMode").value; 
-
-    let filtered = allParsedData.filter(item => {
-        if (mode === "all") return true;
-        if (!selectedDateStr) return true;
-
-        let targetDateObj = new Date(selectedDateStr + "T00:00:00");
-
-        if (mode === "fullday") {
-            return item.dateFull === selectedDateStr;
+    // 계근 규칙 A: 소수점 무게(예: 12.09, 5.44, 15.3) 또는 콤마 오타 무게(1,14) 존재 시
+    if (/\d+\.\d+|\d+,\d{2}(?!\d)/.test(cleanForWeight)) {
+        if (!/발주할게요|주문합니다|반품잡아서/.test(txt)) {
+            item.type = '계근'; return;
         }
-
-        if (mode === "range") {
-            // 전날 밤 22:00(1320분) ~ 당일 오후 16:00(960분)
-            let prevDateObj = new Date(targetDateObj);
-            prevDateObj.setDate(prevDateObj.getDate() - 1);
-            let y = prevDateObj.getFullYear();
-            let m = String(prevDateObj.getMonth() + 1).padStart(2, '0');
-            let d = String(prevDateObj.getDate()).padStart(2, '0');
-            let prevDateStr = `${y}-${m}-${d}`;
-
-            // 1) 전날 날짜이면서 시간이 22:00 이후인 경우
-            let isPrevNight = (item.dateFull === prevDateStr && item.timeMins >= 22 * 60);
-            // 2) 당일 날짜이면서 시간이 16:00 이전인 경우
-            let isTargetBefore4PM = (item.dateFull === selectedDateStr && item.timeMins <= 16 * 60);
-
-            return isPrevNight || isTargetBefore4PM;
-        }
-        return true;
-    });
-
-    if (onlyOrderMode) {
-        filtered = filtered.filter(item => item.type === "발주");
+    }
+    // 계근 규칙 B: 소수점 생략 4자리 중량 (1000 ~ 3999, 예: 테니쉬 1532, 목전지 1646)
+    if (/(?:^|[^\d])[1-3]\d{3}(?:$|[^\d])/.test(cleanForWeight)) {
+        item.type = '계근'; return;
+    }
+    // 계근 규칙 C: 도축일+브랜드 약어 (예: 14포, 19대, 27정담, 071황금, 4도누, 795개, 051각)
+    if (/\d{1,2}(?:대|포|정담|황금|도누|도누리)(?![가-힣])|\d{3}(?:개|각)(?![가-힣])/.test(cleanForWeight)) {
+        item.type = '계근'; return;
+    }
+    if (/냉동\s*미후지\s*전환|일반목으로\s*전환/.test(txt)) {
+        item.type = '계근'; return;
     }
 
-    if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: red; padding: 20px;">조건에 맞는 발주 내역이 없습니다. (날짜나 추출 방식을 확인해주세요)</td></tr>`;
-        document.getElementById("stats").innerText = `표시된 항목: 0건`;
+    // 3. 육류 품목 키워드 확인 ('팩스'가 '팩'으로 오인되지 않도록 제거 후 검사)
+    const txtNoFax = txt.replace(/팩스/g, '');
+    const meatRegex = /삼겹|목살|미전지|전지|미삼|등갈비|등뼈|갈비|등심|안심|사태|앞사태|항정|가브리|갈매기|미후지|후지|오겹|우삼겹|차돌|스지|LA|엘에이|살치|부채|토시|안창|장족|미니족|껍데기|돈피|잡육|왕구이|목뼈|사골|오돌뼈|홍두깨|볼라|설도|늑간|알목|두메코|테니쉬|셀렉타|올리멜|박스|팩|판|키로|kg|덩이|봉/i;
+
+    if (meatRegex.test(txtNoFax)) {
+        if (/납품$|반품$|교환인가요|삭제해야해요|단가표요|전체단가표|패스래요|패스요|바꿔달래요|보내야죠|갖고감요|뿐이 안됨|더찍어주세요|두메코입니다/.test(txt)) {
+            item.type = '기타'; return;
+        }
+        if (txt.length <= 10 && !/\d/.test(txt)) {
+            item.type = '기타'; return;
+        }
+        item.type = '발주';
         return;
     }
 
-    document.getElementById("stats").innerText = `📋 필터된 항목: ${filtered.length}건`;
+    item.type = '기타';
+}
 
-    filtered.forEach(item => {
-        let badgeHTML = `<span class="badge-other">기타</span>`;
-        if (item.type === "발주") badgeHTML = `<span class="badge-order">발주</span>`;
-        else if (item.type === "계근") badgeHTML = `<span class="badge-weight">계근</span>`;
+/* =========================================================================
+   4. [페이지 2] 발주 목록 렌더링 (전날 10:00 ~ 당일 16:00 등 필터링)
+   ========================================================================= */
+function getFilteredOrderList() {
+    const targetDateStr = document.getElementById('orderTargetDate').value;
+    const mode = document.getElementById('orderTimeMode').value;
 
-        const tr = document.createElement("tr");
+    return allChatItems.filter(item => {
+        if (showOnlyOrder && item.type !== '발주') return false;
+        if (showOnlyKnownClient && !item.isKnownClient) return false;
+        if (mode === 'all' || !targetDateStr) return true;
+
+        if (mode === 'fullday') {
+            return item.dateFull === targetDateStr;
+        }
+
+        // 전날 날짜 계산
+        const tDate = new Date(targetDateStr + "T00:00:00");
+        const pDate = new Date(tDate);
+        pDate.setDate(pDate.getDate() - 1);
+        const prevDateStr = `${pDate.getFullYear()}-${String(pDate.getMonth()+1).padStart(2,'0')}-${String(pDate.getDate()).padStart(2,'0')}`;
+
+        if (mode === 'prev10_to_16') {
+            // 전날 10:00 (600분) ~ 당일 16:00 (960분)
+            const isPrevFrom10 = (item.dateFull === prevDateStr && item.timeMins >= 10 * 60);
+            const isCurrTo16 = (item.dateFull === targetDateStr && item.timeMins <= 16 * 60);
+            return isPrevFrom10 || isCurrTo16;
+        }
+        if (mode === 'prev22_to_16') {
+            // 전날 22:00 (1320분) ~ 당일 16:00 (960분)
+            const isPrevFrom22 = (item.dateFull === prevDateStr && item.timeMins >= 22 * 60);
+            const isCurrTo16 = (item.dateFull === targetDateStr && item.timeMins <= 16 * 60);
+            return isPrevFrom22 || isCurrTo16;
+        }
+        return true;
+    });
+}
+
+function renderOrdersTable() {
+    const tbody = document.getElementById('orderTableBody');
+    tbody.innerHTML = '';
+
+    const list = getFilteredOrderList();
+    document.getElementById('orderStats').innerText = `📋 조회된 내역: 총 ${list.length}건`;
+
+    if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#dc2626;">선택하신 날짜/시간 조건에 해당하는 내역이 없습니다.</td></tr>`;
+        return;
+    }
+
+    list.forEach(item => {
+        let badge = `<span class="badge b-other">기타</span>`;
+        if (item.type === '발주') badge = `<span class="badge b-order">발주</span>`;
+        else if (item.type === '계근') badge = `<span class="badge b-weight">계근</span>`;
+
+        let clientBadge = item.isKnownClient ? `<span class="badge b-client">인증</span>` : '';
+
+        const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td style="white-space: nowrap;">${escapeHtml(item.dateRaw)}<br><small style="color:#666;">${escapeHtml(item.formattedTime)}</small></td>
-            <td><span class="client-name">${escapeHtml(item.clientName)}</span></td>
-            <td style="white-space: pre-line;">${escapeHtml(item.content)}</td>
-            <td style="white-space: nowrap;">${escapeHtml(item.sender)}<br>${badgeHTML}</td>
+            <td style="white-space:nowrap;"><b>${escapeHtml(item.dateShort)}</b>, ${escapeHtml(item.timeStr)}</td>
+            <td><b style="color:var(--primary);">${escapeHtml(item.clientName)}</b>${clientBadge}</td>
+            <td style="white-space:pre-line;">${escapeHtml(item.content)}</td>
+            <td style="white-space:nowrap;">${escapeHtml(item.sender)}<br>${badge}</td>
         `;
         tbody.appendChild(tr);
     });
 }
 
-function escapeHtml(str) {
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function toggleOnlyOrder() {
+    showOnlyOrder = !showOnlyOrder;
+    const btn = document.getElementById('btnOnlyOrder');
+    btn.innerText = showOnlyOrder ? "🔍 발주만 보기: ON (비발주 숨김)" : "🔍 발주만 보기: OFF (전체 표시)";
+    btn.className = showOnlyOrder ? "btn green" : "btn orange";
+    renderOrdersTable();
 }
 
-function downloadCSV() {
-    let csv = "\uFEFF날짜,시간,거래처명,발주내용,발신자,구분\n";
-    allParsedData.forEach(o => {
-        const cleanText = o.content.replace(/"/g, '""').replace(/\n/g, ' ');
-        csv += `"${o.dateRaw}","${o.formattedTime}","${o.clientName}","${cleanText}","${o.sender}","${o.type}"\n`;
+function toggleKnownClient() {
+    showOnlyKnownClient = !showOnlyKnownClient;
+    const btn = document.getElementById('btnOnlyKnownClient');
+    btn.innerText = showOnlyKnownClient ? "🏢 등록 거래처만: ON" : "🏢 등록 거래처만: OFF";
+    btn.className = showOnlyKnownClient ? "btn green" : "btn gray";
+    renderOrdersTable();
+}
+
+/* =========================================================================
+   5. [페이지 3] 일일 재고 현황 텍스트 파서 및 한 장의 요약표 생성
+   ========================================================================= */
+function parseAndApplyStock(goTab) {
+    const raw = document.getElementById('stockTextarea').value;
+    if (!raw.trim()) { alert('재고 텍스트를 입력해주세요.'); return; }
+
+    const lines = raw.split(/\r?\n/);
+    stockItems = [];
+    let curItem = null;
+    let curBrand = "기타";
+    let stockTitle = "일일 재고 현황표";
+
+    for (let rawLine of lines) {
+        let line = rawLine.replace(/\u00A0/g, ' ').trim();
+        if (!line) continue;
+
+        if (line.includes('재고현황')) {
+            stockTitle = line;
+            continue;
+        }
+
+        // 1) 앞에 품목명이 시작하는 줄인지 확인 (예: "삼겹 (대산) 4박 5" 또는 "냉장 알목심f PR")
+        const startsWithParen = line.startsWith('(');
+        const startsWithNumber = /^\d/.test(line);
+        const startsWithSubVendor = /^(IBP|엑셀|초이스|프라임)/i.test(line);
+
+        if (!startsWithParen && !startsWithNumber && !startsWithSubVendor) {
+            // 품목명 추출
+            const parenIdx = line.indexOf('(');
+            if (parenIdx > 0) {
+                const itemName = line.substring(0, parenIdx).trim();
+                curItem = getOrCreateStockItem(itemName);
+                const rest = line.substring(parenIdx).trim();
+                parseBrandAndQtyLine(curItem, rest);
+            } else {
+                // 괄호 없이 바로 수량이 나오는 품목 (예: "토레인 삼겹 3박 4", "냉장 수입 올리멜 삼겹 7박 ~12/3")
+                const mDirect = line.match(/^([가-힣a-zA-Z\s]+?)\s+(\d+박.*)$/);
+                if (mDirect) {
+                    curItem = getOrCreateStockItem(mDirect[1].trim());
+                    curItem.curBrand = '기타';
+                    parseQtyTokens(curItem, '기타', mDirect[2]);
+                } else {
+                    curItem = getOrCreateStockItem(line);
+                    curItem.curBrand = '기타';
+                }
+            }
+        } else if (curItem) {
+            parseBrandAndQtyLine(curItem, line);
+        }
+    }
+
+    document.getElementById('stockTitleInfo').innerText = `📦 ${stockTitle}`;
+    const pill = document.getElementById('pillStock');
+    pill.innerText = `재고: ${stockItems.length}개 품목 등록됨`;
+    pill.classList.add('ok');
+
+    renderStockTable();
+    if (goTab) {
+        switchTab('page3', document.querySelectorAll('.tab-btn')[2]);
+    }
+}
+
+function getOrCreateStockItem(name) {
+    let norm = name.replace(/\s+/g, ' ').trim();
+    let found = stockItems.find(x => x.name === norm);
+    if (!found) {
+        found = {
+            name: norm,
+            curBrand: '기타',
+            brands: {
+                '대산': { boxes: 0, details: [] },
+                '포크': { boxes: 0, details: [] },
+                '기타': { boxes: 0, details: [] }
+            }
+        };
+        stockItems.push(found);
+    }
+    return found;
+}
+
+function parseBrandAndQtyLine(itemObj, lineStr) {
+    let rest = lineStr;
+    const brandMatch = rest.match(/^\((.*?)\)\s*(.*)$/);
+    if (brandMatch) {
+        const bRaw = brandMatch[1].trim();
+        if (bRaw.includes('대산')) itemObj.curBrand = '대산';
+        else if (bRaw.includes('포크')) itemObj.curBrand = '포크';
+        else itemObj.curBrand = bRaw; // 황금, 정담, 자연 등
+        rest = brandMatch[2].trim();
+    }
+    if (rest) {
+        parseQtyTokens(itemObj, itemObj.curBrand, rest);
+    }
+}
+
+function parseQtyTokens(itemObj, brandName, qtyStr) {
+    const targetKey = (brandName === '대산' || brandName === '포크') ? brandName : '기타';
+    const boxMatch = qtyStr.match(/(\d+)\s*(?:박|박스|팩|판)/);
+    const boxes = boxMatch ? parseInt(boxMatch[1], 10) : 0;
+    itemObj.brands[targetKey].boxes += boxes;
+
+    const prefix = (targetKey === '기타' && brandName !== '기타') ? `[${brandName}] ` : '';
+    itemObj.brands[targetKey].details.push(prefix + qtyStr);
+}
+
+function renderStockTable() {
+    const tbody = document.getElementById('stockTableBody');
+    tbody.innerHTML = '';
+
+    stockItems.forEach(item => {
+        const d = item.brands['대산'];
+        const p = item.brands['포크'];
+        const o = item.brands['기타'];
+        const total = d.boxes + p.boxes + o.boxes;
+
+        const formatCell = (bObj) => {
+            if (bObj.details.length === 0) return `<span class="num-zero">-</span>`;
+            return `<b>${bObj.boxes}박</b><br><small style="color:#555;">${bObj.details.map(escapeHtml).join(', ')}</small>`;
+        };
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><b style="color:var(--primary); font-size:13px;">${escapeHtml(item.name)}</b></td>
+            <td>${formatCell(d)}</td>
+            <td>${formatCell(p)}</td>
+            <td>${formatCell(o)}</td>
+            <td style="font-size:13px;"><b>총 ${total}박</b></td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+/* =========================================================================
+   6. [페이지 4] 발주 수량 자동 추출 및 재고 차감(잔여재고) 계산기
+   ========================================================================= */
+const ITEM_MATCH_RULES = [
+    { key: "특미삼", regex: /특미삼/ },
+    { key: "암미삼", regex: /암미삼/ },
+    { key: "미삼", regex: /(?<!특|암)미삼|미박삼겹/ },
+    { key: "특삼겹", regex: /특삼겹|특원삼/ },
+    { key: "암삼겹", regex: /암삼겹|암원삼|암삼(?!겹)|암퇘지\s*삼겹|A삼겹|A삼(?!겹)/ },
+    { key: "빵삼겹", regex: /빵삼겹|빵삼/ },
+    { key: "토레인 삼겹", regex: /토레인\s*삼겹|삼겹\s*\d*\s*토레인/ },
+    { key: "냉장 수입 올리멜 삼겹", regex: /수입\s*냉장\s*삼겹|냉장\s*수입\s*삼겹|올리멜\s*삼겹/ },
+    { key: "삼겹", regex: /(?<!특|암|빵|토레인\s*|수입\s*|냉동\s*|모돈\s*|대패\s*|두메코\s*|테니쉬\s*)삼겹/ },
+    { key: "특목살", regex: /특목살|특목심|특목/ },
+    { key: "B목살", regex: /B목살|비목살|B목/i },
+    { key: "냉장 수입 올리멜 목살", regex: /수입\s*냉장\s*목살|냉장\s*수입\s*목살|올리멜\s*목살/ },
+    { key: "목살", regex: /(?<!특|B|비|수입|냉장수입|올리멜|고원돈)목살|목심/ },
+    { key: "미전지", regex: /(?<!냉동\s*)미전지/ },
+    { key: "지전지", regex: /지전지|지방전지|스켄전지|스키너전지/ },
+    { key: "전지", regex: /(?<!미|지|지방|스켄|스키너|목|냉동|에이)전지|일반전지|A전지/ },
+    { key: "등갈비", regex: /(?<!바텔|냉동)등갈비/ },
+    { key: "갈비", regex: /(?<!등|LA|엘에이|소|수입|냉동)갈비(?!살)|돈갈비|돼지갈비|생갈비/ },
+    { key: "등심", regex: /(?<!냉동|꽃)등심/ },
+    { key: "안심", regex: /(?<!냉동)안심/ },
+    { key: "앞미사태", regex: /앞미사태|미앞사태|앞사태|앞다리사태/ },
+    { key: "사태", regex: /(?<!앞|미|소|우|아롱)사태|속사태|생사태/ },
+    { key: "항정", regex: /(?<!냉동)항정/ },
+    { key: "가브리", regex: /가브리/ },
+    { key: "갈매기", regex: /갈매기/ },
+    { key: "미후지", regex: /(?<!냉동\s*|3mm\s*)미후지/ },
+    { key: "후지", regex: /냉장\s*3(?:mm|미리)\s*후지|3(?:mm|미리)\s*냉장\s*후지|생후지/ },
+    { key: "등뼈", regex: /(?<!냉동|목)등뼈|돈등뼈|돼지등뼈|한돈등뼈/ },
+    { key: "냉장잡육", regex: /잡육/ },
+    { key: "냉장 알목심f PR", regex: /냉장\s*프라임\s*알목|프라임\s*냉장\s*알목|수입\s*냉장\s*알목/ },
+    { key: "냉장 살치f PR", regex: /살치/ },
+    { key: "냉장 늑간f CH NBP", regex: /늑간/ }
+];
+
+function renderDiffTable() {
+    const tbody = document.getElementById('diffTableBody');
+    tbody.innerHTML = '';
+
+    // 현재 필터된 발주 목록 중 순수 '발주'만 대상
+    const orders = getFilteredOrderList().filter(x => x.type === '발주');
+
+    // 재고 데이터 복사본 준비
+    const summaryMap = {};
+    stockItems.forEach(s => {
+        summaryMap[s.name] = {
+            '대산': { stock: s.brands['대산'].boxes, orderBox: 0, orderPack: 0, clients: [] },
+            '포크': { stock: s.brands['포크'].boxes, orderBox: 0, orderPack: 0, clients: [] },
+            '기타': { stock: s.brands['기타'].boxes, orderBox: 0, orderPack: 0, clients: [] }
+        };
     });
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    // 발주 메시지 줄 단위 파싱
+    orders.forEach(ord => {
+        const lines = ord.content.split('\n').map(l => l.trim()).filter(Boolean);
+        // 전체 메시지에 '대산꺼로', '포크로' 등 일괄 브랜드 지정이 있는지 확인
+        let msgDefaultBrand = '미지정';
+        if (/대산꺼로|대산으로/.test(ord.content)) msgDefaultBrand = '대산';
+        else if (/포크로|농협/.test(ord.content)) msgDefaultBrand = '포크';
+
+        lines.forEach(line => {
+            if (/안녕|부탁|감사|발주|주문|이상입니다|대표님/.test(line) && !/\d/.test(line)) return;
+
+            for (let rule of ITEM_MATCH_RULES) {
+                if (rule.regex.test(line)) {
+                    const targetItem = summaryMap[rule.key];
+                    if (!targetItem) break;
+
+                    // 브랜드 판별
+                    let br = '기타';
+                    if (/대산/.test(line)) br = '대산';
+                    else if (/포크|농협/.test(line)) br = '포크';
+                    else if (msgDefaultBrand !== '미지정') br = msgDefaultBrand;
+                    else {
+                        // 브랜드 미지정 시 재고가 더 많은 쪽(대산/포크) 또는 기본 포크/대산으로 배정
+                        if (targetItem['포크'].stock >= targetItem['대산'].stock && targetItem['포크'].stock > 0) br = '포크';
+                        else if (targetItem['대산'].stock > 0) br = '대산';
+                        else br = '기타';
+                    }
+
+                    // 수량 추출: 팩/판/봉/키로/kg/두/벌 vs 박스(또는 단위 생략 숫자)
+                    const packMatch = line.match(/(\d+(?:\.\d+)?)\s*(팩|펙|판|봉|봉지|덩이|덩어리|키로|kg|k|두|마리)/i);
+                    const boxMatch = line.match(/(\d+)\s*(?:박스|빡스|박|box|b)(?![a-z])/i);
+                    const bareNumMatch = line.match(/(?:^|[^\d.])(\d{1,2})(?:$|[\s.포대정])/);
+
+                    if (boxMatch) {
+                        const q = parseInt(boxMatch[1], 10);
+                        targetItem[br].orderBox += q;
+                        targetItem[br].clients.push(`${ord.clientName}(${q}박)`);
+                    } else if (packMatch) {
+                        targetItem[br].orderPack += 1;
+                        targetItem[br].clients.push(`${ord.clientName}(${packMatch[0]})`);
+                    } else if (bareNumMatch) {
+                        const q = parseInt(bareNumMatch[1], 10);
+                        targetItem[br].orderBox += q;
+                        targetItem[br].clients.push(`${ord.clientName}(${q}박)`);
+                    }
+                    break;
+                }
+            }
+        });
+    });
+
+    // 결과 렌더링
+    Object.keys(summaryMap).forEach(itemName => {
+        const bGroup = summaryMap[itemName];
+        ['대산', '포크', '기타'].forEach(br => {
+            const data = bGroup[br];
+            if (data.stock === 0 && data.orderBox === 0 && data.orderPack === 0) return;
+
+            const remain = data.stock - data.orderBox;
+            const remainClass = remain < 0 ? 'num-neg' : (remain > 0 ? 'num-pos' : 'num-zero');
+            const remainText = remain < 0 ? `${remain}박 (부족!)` : `${remain}박`;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><b>${escapeHtml(itemName)}</b></td>
+                <td>${escapeHtml(br)}</td>
+                <td><b>${data.stock}박</b></td>
+                <td><b>${data.orderBox}박</b></td>
+                <td>${data.orderPack > 0 ? data.orderPack + '건' : '-'}</td>
+                <td class="${remainClass}">${remainText}</td>
+                <td style="font-size:11px; color:#4b5563;">${data.clients.map(escapeHtml).join(', ') || '-'}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    });
+}
+
+/* 유틸리티 및 CSV 다운로드 */
+function escapeHtml(str) {
+    return String(str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function downloadBlob(csvContent, filename) {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "미트포앤_통합정제발주.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+function downloadOrdersCsv() {
+    const list = getFilteredOrderList();
+    let csv = "\uFEFF날짜,시간,거래처,발주내용,발신자,판별구분\n";
+    list.forEach(o => {
+        const clean = o.content.replace(/"/g, '""').replace(/\n/g, ' ');
+        csv += `"${o.dateShort}","${o.timeStr}","${o.clientName}","${clean}","${o.sender}","${o.type}"\n`;
+    });
+    downloadBlob(csv, "미트포앤_추출발주목록.csv");
+}
+
+function downloadStockCsv() {
+    let csv = "\uFEFF품목명,대산(박스),대산(상세),포크(박스),포크(상세),기타(박스),기타(상세),총합계(박스)\n";
+    stockItems.forEach(item => {
+        const d = item.brands['대산'], p = item.brands['포크'], o = item.brands['기타'];
+        const tot = d.boxes + p.boxes + o.boxes;
+        csv += `"${item.name}",${d.boxes},"${d.details.join(' / ')}",${p.boxes},"${p.details.join(' / ')}",${o.boxes},"${o.details.join(' / ')}",${tot}\n`;
+    });
+    downloadBlob(csv, "미트포앤_일일재고현황표.csv");
 }
 </script>
 
