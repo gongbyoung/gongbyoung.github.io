@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미트포앤 스마트 발주 분류기 v5 (멀티 파일 지원)</title>
+    <title>미트포앤v6</title>
     <style>
         :root { --primary: #1f4e79; --bg: #f4f7f6; --card: #ffffff; --text: #333; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 15px; background-color: var(--bg); color: var(--text); }
@@ -41,11 +41,11 @@
 <body>
 
 <div class="container">
-    <h2>🥩 미트포앤 통합 발주 분류기 v5</h2>
-    <p>여러 개의 카카오톡 대화방 파일(<b>복수 선택 가능</b>)을 동시에 업로드하여 통합 분석할 수 있습니다.</p>
+    <h2>🥩 미트포앤 통합 발주 분류기 v6</h2>
+    <p>복수 카톡 파일을 동시에 업로드할 수 있으며, <b>전날 밤 10시 ~ 당일 오후 4시</b> 시간대별 정확한 발주 추출을 지원합니다.</p>
 
     <div class="upload-box" onclick="document.getElementById('fileInput').click()">
-        <p>📁 <b>여기를 터치하여 카카오톡 텍스트(.txt) 파일들 선택 (여러 개 선택 가능)</b> <span id="fileStatus" style="color:green; font-weight:bold;"></span></p>
+        <p>📁 <b>여기를 터치하여 카카오톡 텍스트(.txt) 파일들 선택</b> <span id="fileStatus" style="color:green; font-weight:bold;"></span></p>
         <input type="file" id="fileInput" accept=".txt" multiple onchange="handleFileUpload(event)">
     </div>
 
@@ -58,7 +58,7 @@
             <div>
                 <label for="filterMode">추출 방식:</label>
                 <select id="filterMode" onchange="applyFilters()">
-                    <option value="range">전날 밤 10시 ~ 당일 새벽 4시</option>
+                    <option value="range">전날 밤 22:00 ~ 당일 오후 16:00 (추천)</option>
                     <option value="fullday">선택한 날짜 하루 전체 (00:00 ~ 23:59)</option>
                     <option value="all">전체 기간 보기 (날짜 무시)</option>
                 </select>
@@ -108,7 +108,6 @@ async function handleFileUpload(event) {
     document.getElementById("fileStatus").innerText = ` (${files.length}개 파일 통합 완료!)`;
 
     if (allParsedData.length > 0) {
-        // 날짜순 정렬
         allParsedData.sort((a, b) => {
             if (a.dateFull !== b.dateFull) return a.dateFull.localeCompare(b.dateFull);
             return a.timeMins - b.timeMins;
@@ -224,7 +223,7 @@ function parseKakaoChat(text) {
 
 function parseMinutes(timeStr) {
     if (!timeStr) return 0;
-    let cleaned = timeStr.replace('오전', 'AM').replace('오후', 'PM').replace(/\s+/g, ' ');
+    let cleaned = timeStr.replace('오전', 'AM').replace('오후', 'PM').replace(/\u202f/g, ' ').replace(/\s+/g, ' ').trim();
     let parts = cleaned.split(' ');
     if (parts.length < 2) return 0;
     let meridiem = parts[0];
@@ -308,28 +307,34 @@ function renderTable() {
     const tbody = document.querySelector("#resultTable tbody");
     tbody.innerHTML = "";
 
-    const selectedDateStr = document.getElementById("targetDate").value; 
+    const selectedDateStr = document.getElementById("targetDate").value; // "YYYY-MM-DD"
     const mode = document.getElementById("filterMode").value; 
 
     let filtered = allParsedData.filter(item => {
         if (mode === "all") return true;
         if (!selectedDateStr) return true;
 
-        let targetDateObj = new Date(selectedDateStr);
+        let targetDateObj = new Date(selectedDateStr + "T00:00:00");
 
         if (mode === "fullday") {
             return item.dateFull === selectedDateStr;
         }
 
         if (mode === "range") {
+            // 전날 밤 22:00(1320분) ~ 당일 오후 16:00(960분)
             let prevDateObj = new Date(targetDateObj);
             prevDateObj.setDate(prevDateObj.getDate() - 1);
-            let prevDateStr = prevDateObj.toISOString().split('T');
+            let y = prevDateObj.getFullYear();
+            let m = String(prevDateObj.getMonth() + 1).padStart(2, '0');
+            let d = String(prevDateObj.getDate()).padStart(2, '0');
+            let prevDateStr = `${y}-${m}-${d}`;
 
+            // 1) 전날 날짜이면서 시간이 22:00 이후인 경우
             let isPrevNight = (item.dateFull === prevDateStr && item.timeMins >= 22 * 60);
-            let isTargetDawn = (item.dateFull === selectedDateStr && item.timeMins <= 4 * 60);
+            // 2) 당일 날짜이면서 시간이 16:00 이전인 경우
+            let isTargetBefore4PM = (item.dateFull === selectedDateStr && item.timeMins <= 16 * 60);
 
-            return isPrevNight || isTargetDawn;
+            return isPrevNight || isTargetBefore4PM;
         }
         return true;
     });
