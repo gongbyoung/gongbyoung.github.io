@@ -12,13 +12,12 @@ let showOnlyKnownClient = false;
 
 // 6대 차량 기본 설정 및 배차 저장소
 const DEFAULT_VEHICLES = [
-    "1호차 (0202)",
+    "1호차 (3371)",
     "2호차 (3775)",
-    "3호차 (3371)",
-    "4호차 (6243)",
-    "5호차 (5904)",
-    "6호차 (3482)",
-    "7호차 (6294)"
+    "3호차 (5904)",
+    "4호차 (3482)",
+    "5호차 (6243)",
+    "6호차 (0202)"
 ];
 let vehicleNames = JSON.parse(localStorage.getItem('mf_vehicles') || 'null') || [...DEFAULT_VEHICLES];
 let dispatchMap = JSON.parse(localStorage.getItem('mf_dispatch') || '{}');
@@ -26,133 +25,137 @@ let selectedVehicleFilter = 'ALL';
 
 // 초기 샘플 재고 데이터 세팅 (11월 10일 재고현황)
 const INITIAL_STOCK_TEXT = `11월 10일 재고현황
+;
 
-삼겹   (대산) 4박 5
-                 26박 6
-                 12박 7
-                  2박 9 
-         (포크) 0박 낱 4
-                  0박 낱 5 
-                27박 낱 7
-                25박 10
-                                                  
-암삼겹 (대산) 6박 6
-                   5박 9
-         (포크) 2박 5
-                  6박 7
-                 10박 10
+/* =========================================================================
+   브라우저 자동 저장(localStorage) 및 업데이트 시각 기록 기능
+   ========================================================================= */
+function getNowTimeFormatted() {
+    const now = new Date();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    return `${m}/${d} ${hh}:${mm}:${ss}`;
+}
 
-특삼겹 (대산) 4박 4
-          (포크) 2박 7
-                  3박 10 
-                     
-빵삼겹 (포크) 0박                 
+function recordLastUpdatedTime(customAction) {
+    const stamp = getNowTimeFormatted();
+    localStorage.setItem('mf_last_updated', stamp);
+    const pill = document.getElementById('pillUpdated');
+    if (pill) {
+        pill.innerText = `🕒 업데이트: ${stamp}`;
+        pill.title = customAction ? `마지막 작업: ${customAction} (${stamp})` : `마지막 업데이트: ${stamp}`;
+    }
+}
 
-미삼 (대산) 7박 9
-       (포크) 2박 7
-               13박 10
-           
-암미삼 (대산) 0박 낱 6
-         (포크) 5박 7
-                  4박 10
+function saveStateToBrowser(actionLabel) {
+    try {
+        const settings = {
+            targetDate: document.getElementById('orderTargetDate').value || '',
+            timeMode: document.getElementById('orderTimeMode').value || 'prev10_to_16',
+            showOnlyOrder: showOnlyOrder,
+            showOnlyKnownClient: showOnlyKnownClient
+        };
+        localStorage.setItem('mf_saved_settings', JSON.stringify(settings));
 
-특미삼  (대산) 1박 6
-          (포크) 0박 
+        const stockRaw = document.getElementById('stockTextarea').value || '';
+        if (stockRaw.trim()) {
+            localStorage.setItem('mf_saved_stock_text', stockRaw);
+        }
 
-목살 (대산) 19박 9
-       (포크) 12박 7
-                30박 10
-                 
-특목살 (대산) 4박 6
-                  8박 9
-         (포크) 6박 낱 4
-                  2박 7
+        if (allChatItems.length > 0) {
+            // clientObj 참조를 제외한 경량 배열 저장
+            const serializableChats = allChatItems.map(it => ({
+                dateFull: it.dateFull,
+                dateShort: it.dateShort,
+                timeStr: it.timeStr,
+                timeMins: it.timeMins,
+                sender: it.sender,
+                content: it.content
+            }));
+            localStorage.setItem('mf_saved_chat_items', JSON.stringify(serializableChats));
+        }
+        recordLastUpdatedTime(actionLabel || '자동 저장');
+    } catch (e) {
+        console.warn('브라우저 저장 용량 초과 또는 제한:', e);
+    }
+}
 
-B목살 (대산) 0박 
-         (포크) 0박 
+function restoreStateFromBrowser() {
+    // 1. 설정 복원
+    try {
+        const savedSettings = JSON.parse(localStorage.getItem('mf_saved_settings') || 'null');
+        if (savedSettings) {
+            if (savedSettings.targetDate) {
+                document.getElementById('orderTargetDate').value = savedSettings.targetDate;
+            }
+            if (savedSettings.timeMode) {
+                document.getElementById('orderTimeMode').value = savedSettings.timeMode;
+            }
+            if (typeof savedSettings.showOnlyOrder === 'boolean') {
+                showOnlyOrder = savedSettings.showOnlyOrder;
+            }
+            if (typeof savedSettings.showOnlyKnownClient === 'boolean') {
+                showOnlyKnownClient = savedSettings.showOnlyKnownClient;
+            }
+        }
+    } catch (e) {}
 
-미전지 (대산) 6박 6
-                  33박 낱 7
-                  46박 9
-        (포크) 2박 7
-                10박 10
+    updateHeaderToggleButtonsUI();
 
-전지 (대산) 2박 6  
-       (포크) 1박 7
-                5박 10
+    // 2. 재고 텍스트 복원
+    const savedStock = localStorage.getItem('mf_saved_stock_text');
+    document.getElementById('stockTextarea').value = savedStock && savedStock.trim() ? savedStock : INITIAL_STOCK_TEXT;
+    parseAndApplyStock(false, true);
 
-지전지 (대산) 0박
+    // 3. 카톡 대화 내역 복원
+    try {
+        const savedChats = JSON.parse(localStorage.getItem('mf_saved_chat_items') || 'null');
+        if (savedChats && Array.isArray(savedChats) && savedChats.length > 0) {
+            allChatItems = savedChats;
+            allChatItems.forEach(item => classifyChatItem(item));
 
-갈비 (대산) 10박 9
-       (포크) 20박 10
-                               
-등갈비 (대산) 0박 낱 4
-          (포크) 3박 7
-                  10박 10
+            if (!document.getElementById('orderTargetDate').value) {
+                const lastDate = allChatItems[allChatItems.length - 1].dateFull;
+                document.getElementById('orderTargetDate').value = lastDate;
+            }
 
-등심 (대산) 4박 4
-       (포크) 9박 낱 4
-                 3박 10
+            const orderCnt = allChatItems.filter(x => x.type === '발주').length;
+            const weightCnt = allChatItems.filter(x => x.type === '계근').length;
+            document.getElementById('kakaoLoadMsg').innerText = `💾 이전 저장된 카톡 데이터 자동 복원됨 (총 ${allChatItems.length}건 중 순수발주 ${orderCnt}건 / 계근 ${weightCnt}건)`;
+            const pill = document.getElementById('pillKakao');
+            pill.innerText = `카톡: 발주 ${orderCnt}건`;
+            pill.classList.add('ok');
+        }
+    } catch (e) {}
 
-안심  (대산) 0박 
-        (포크) 5박 10
+    // 4. 마지막 업데이트 시간 복원
+    const lastUpd = localStorage.getItem('mf_last_updated');
+    if (lastUpd) {
+        document.getElementById('pillUpdated').innerText = `🕒 업데이트: ${lastUpd}`;
+    } else {
+        recordLastUpdatedTime('초기 로드');
+    }
 
-사태 (대산) 1박 4
-       (포크) 2박 7
-               3박 10              
+    onFilterCriteriaChange(true);
+}
 
-앞미사태 (대산) 10박 9
-            (포크) 3박 낱 7
-                     5박 10
-
-항정  (대산) 0박 낱 6
-                2박 7
-        (포크) 5박 7
-                3박 10
-                  
-가브리 (대산) 0박 낱 4
-                  1박 7
-          (포크) 4박 10
-
-갈매기 (대산) 0박 낱 6
-                  1박 9
-           (포크) 2박 7
-                   1박 10
-
-미후지 (포크) 0박
-          (황금) 8박 5
-                  13박 10
-
-후지 (포크) 0박
-        (대산) 0박
-        (황금) 7박 9
-                 5박 10
-                
-등뼈 (대산) 14박 9
-        (포크) 30박 10
-                 
-냉장잡육 (포크) 2박 10
-
-토레인 삼겹 3박 4
-                 1박 5
-                 7박 10
-
-냉장 알목심f PR
-    IBP 5박 
-
-냉장 살치f PR
-   엑셀 1팩
-
-냉장 늑간f CH NBP 7박 낱
-                               
-냉장 수입 올리멜 삼겹 7박 ~12/3
-                                 
-냉장 수입 올리멜 목살 6박 ~12/5`;
+function clearSavedBrowserData() {
+    if (!confirm('브라우저에 자동 저장된 카톡 발주 내역, 재고 텍스트, 배차 기록을 모두 초기화할까요?')) return;
+    localStorage.removeItem('mf_saved_chat_items');
+    localStorage.removeItem('mf_saved_stock_text');
+    localStorage.removeItem('mf_saved_settings');
+    localStorage.removeItem('mf_last_updated');
+    localStorage.removeItem('mf_dispatch');
+    location.reload();
+}
 
 window.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('stockTextarea').value = INITIAL_STOCK_TEXT;
-    parseAndApplyStock(false);
     renderVehicleConfigInputs();
+    restoreStateFromBrowser();
+
     // 같은 폴더에 clients.csv가 있으면(GitHub Pages 등) 자동 로드 시도
     fetch('./clients.csv')
         .then(res => {
@@ -162,7 +165,7 @@ window.addEventListener('DOMContentLoaded', () => {
         .then(buf => {
             let text = new TextDecoder('utf-8').decode(buf);
             if (text.includes('\ufffd')) text = new TextDecoder('euc-kr').decode(buf);
-            processClientCsvText(text);
+            processClientCsvText(text, true);
         })
         .catch(() => {
             // 로컬 파일(file://) 환경이거나 clients.csv가 없을 때는 내장된 DEFAULT_CLIENTS 유지
@@ -183,11 +186,14 @@ function switchTab(pageId, btnEl) {
     if (pageId === 'page6') renderDispatchPage();
 }
 
-function onFilterCriteriaChange() {
+function onFilterCriteriaChange(skipSave) {
     renderOrdersTable();
     renderOrderSummaryTable();
     renderDiffTable();
     renderDispatchPage();
+    if (!skipSave) {
+        saveStateToBrowser('날짜/필터 변경');
+    }
 }
 
 /* =========================================================================
@@ -201,10 +207,10 @@ function loadClientCsvFile(event) {
         const text = e.target.result;
         if (text.includes('\ufffd')) {
             const r2 = new FileReader();
-            r2.onload = ev => processClientCsvText(ev.target.result);
+            r2.onload = ev => processClientCsvText(ev.target.result, false);
             r2.readAsText(file, 'euc-kr');
         } else {
-            processClientCsvText(text);
+            processClientCsvText(text, false);
         }
     };
     reader.readAsText(file, 'utf-8');
@@ -219,7 +225,7 @@ async function loadCsvFromGithub() {
         const buf = await res.arrayBuffer();
         let text = new TextDecoder('utf-8').decode(buf);
         if (text.includes('\ufffd')) text = new TextDecoder('euc-kr').decode(buf);
-        processClientCsvText(text);
+        processClientCsvText(text, false);
     } catch (err) {
         alert('GitHub CSV를 불러오지 못했습니다. Raw URL인지 확인해주세요.');
     }
@@ -238,7 +244,7 @@ function parseCsvLine(line) {
     return result;
 }
 
-function processClientCsvText(csvText) {
+function processClientCsvText(csvText, isSilentAutoLoad) {
     const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
     if (lines.length < 2) return;
 
@@ -278,11 +284,11 @@ function processClientCsvText(csvText) {
     }
 
     document.getElementById('clientLoadMsg').innerText = `✅ 거래처 ${addedCount}건 추가 로드 완료! (총 ${clientDB.length}개 활성 거래처)`;
-    document.getElementById('pillClient').innerText = `거래처 DB: ${clientDB.length}곳 연동됨`;
+    document.getElementById('pillClient').innerText = `거래처: ${clientDB.length}곳`;
     document.getElementById('btnExportCleanCsv').style.display = 'inline-block';
     if (allChatItems.length > 0) {
         allChatItems.forEach(item => classifyChatItem(item));
-        onFilterCriteriaChange();
+        onFilterCriteriaChange(isSilentAutoLoad);
     }
 }
 
@@ -353,12 +359,13 @@ async function loadKakaoFiles(event) {
 
     const orderCnt = allChatItems.filter(x => x.type === '발주').length;
     const weightCnt = allChatItems.filter(x => x.type === '계근').length;
-    document.getElementById('kakaoLoadMsg').innerText = `✅ 총 ${allChatItems.length}건 분석 완료! (순수발주 ${orderCnt}건 / 계근 ${weightCnt}건 분리됨)`;
+    document.getElementById('kakaoLoadMsg').innerText = `✅ 총 ${allChatItems.length}건 분석 및 자동저장 완료! (순수발주 ${orderCnt}건 / 계근 ${weightCnt}건 분리됨)`;
     const pill = document.getElementById('pillKakao');
-    pill.innerText = `카톡: 발주 ${orderCnt}건 로드됨`;
+    pill.innerText = `카톡: 발주 ${orderCnt}건`;
     pill.classList.add('ok');
 
-    onFilterCriteriaChange();
+    saveStateToBrowser('카톡 대화 파일 업로드');
+    onFilterCriteriaChange(true);
 }
 
 function parseSingleKakaoText(text) {
@@ -501,7 +508,7 @@ function classifyChatItem(item) {
 }
 
 /* =========================================================================
-   4. [페이지 2] 발주 목록 필터링 및 렌더링 (날짜/거래처/발신자 1셀 줄바꿈 통합)
+   4. [페이지 2] 발주 목록 필터링 및 상단 헤더 소형 아이콘 토글 제어
    ========================================================================= */
 function getFilteredOrderList(forceOnlyOrder = false) {
     const targetDateStr = document.getElementById('orderTargetDate').value;
@@ -567,26 +574,37 @@ function renderOrdersTable() {
     });
 }
 
+function updateHeaderToggleButtonsUI() {
+    const btnOrder = document.getElementById('btnOnlyOrder');
+    if (btnOrder) {
+        btnOrder.innerText = showOnlyOrder ? "🔍 발주만: ON" : "🔍 발주만: OFF";
+        btnOrder.title = showOnlyOrder ? "발주만 보기: ON (비발주 숨김)" : "발주만 보기: OFF (전체 표시)";
+        btnOrder.className = showOnlyOrder ? "hdr-icon-btn active" : "hdr-icon-btn warn";
+    }
+    const btnClient = document.getElementById('btnOnlyKnownClient');
+    if (btnClient) {
+        btnClient.innerText = showOnlyKnownClient ? "🏢 거래처: ON" : "🏢 거래처: OFF";
+        btnClient.title = showOnlyKnownClient ? "등록 거래처만 보기: ON" : "등록 거래처만 보기: OFF";
+        btnClient.className = showOnlyKnownClient ? "hdr-icon-btn active" : "hdr-icon-btn";
+    }
+}
+
 function toggleOnlyOrder() {
     showOnlyOrder = !showOnlyOrder;
-    const btn = document.getElementById('btnOnlyOrder');
-    btn.innerText = showOnlyOrder ? "🔍 발주만 보기: ON (비발주 숨김)" : "🔍 발주만 보기: OFF (전체 표시)";
-    btn.className = showOnlyOrder ? "btn green" : "btn orange";
-    renderOrdersTable();
+    updateHeaderToggleButtonsUI();
+    onFilterCriteriaChange(false);
 }
 
 function toggleKnownClient() {
     showOnlyKnownClient = !showOnlyKnownClient;
-    const btn = document.getElementById('btnOnlyKnownClient');
-    btn.innerText = showOnlyKnownClient ? "🏢 등록 거래처만: ON" : "🏢 등록 거래처만: OFF";
-    btn.className = showOnlyKnownClient ? "btn green" : "btn gray";
-    onFilterCriteriaChange();
+    updateHeaderToggleButtonsUI();
+    onFilterCriteriaChange(false);
 }
 
 /* =========================================================================
    5. [페이지 3] 일일 재고 현황 텍스트 파서 및 표 생성
    ========================================================================= */
-function parseAndApplyStock(goTab) {
+function parseAndApplyStock(goTab, skipSave) {
     const raw = document.getElementById('stockTextarea').value;
     if (!raw.trim()) { alert('재고 텍스트를 입력해주세요.'); return; }
 
@@ -633,10 +651,13 @@ function parseAndApplyStock(goTab) {
 
     document.getElementById('stockTitleInfo').innerText = `📦 ${stockTitle}`;
     const pill = document.getElementById('pillStock');
-    pill.innerText = `재고: ${stockItems.length}개 품목 등록됨`;
+    pill.innerText = `재고: ${stockItems.length}품목`;
     pill.classList.add('ok');
 
     renderStockTable();
+    if (!skipSave) {
+        saveStateToBrowser('일일 재고현황 적용');
+    }
     if (goTab) {
         switchTab('page3', document.querySelectorAll('.tab-btn')[2]);
     }
@@ -952,6 +973,7 @@ function renderVehicleConfigInputs() {
 function updateVehicleName(idx, newVal) {
     vehicleNames[idx] = newVal.trim() || `${idx + 1}호차`;
     localStorage.setItem('mf_vehicles', JSON.stringify(vehicleNames));
+    recordLastUpdatedTime('차량 기사명 변경');
     renderDispatchPage();
 }
 
@@ -971,27 +993,19 @@ function countOrderBoxesAndLoose(orderText) {
         }
 
         let s = line;
-        // 괄호 안 '(4박스로 작업)' 등은 박스 수량으로 살리고 나머지 부연설명 괄호는 제거
         s = s.replace(/\((\d+)\s*박스(?:로[^\)]*)?\)/g, ' $1박스 ');
         s = s.replace(/\([^\)]*\)/g, ' ').replace(/\[[^\]]*\]/g, ' ');
-        // 가격, 할인액 제거
         s = s.replace(/[+-]?\d{1,3}(?:,\d{3})+(?:원|행사|할인|납)?/g, ' ');
         s = s.replace(/\d+\.\d{3}(?:원)?/g, ' ').replace(/-\d+할인/g, ' ');
-        // 두께, 규격 제거 (3mm, 0.5mm, 8미리, 10mm, 1센치 등)
         s = s.replace(/\d+(?:\.\d+)?\s*(?:mm|미리|센치|cm)/gi, ' ');
-        // 날짜 표기 제거 (6일자, 29일재고, 10/20 등)
         s = s.replace(/\d{1,2}월\s*\d{1,2}일(?:자로)?|\d{1,2}\/\d{1,2}|\d{1,2}일(?:자|자로|재고|진|포크|암삼|대산)?/g, ' ');
-        // 중량 스펙 제거 (17~18키로대, 18키로이상, 미삼18키로 등)
         s = s.replace(/\d+\s*~\s*\d+\s*(?:키로|kg)?(?:대)?/gi, ' ');
         s = s.replace(/\d+\s*(?:키로|kg)\s*(?:대|이상)/gi, ' ');
         s = s.replace(/(?:미삼|삼겹|암삼|암미삼)\s*1[6789]키로/g, '미삼 ');
-        // 호점, 등급 제거
         s = s.replace(/\d+호점|1\+\+/g, ' ');
-        // 한글 수량 변환
         s = s.replace(/한박스/g, '1박스').replace(/한판/g, '1판').replace(/한덩이/g, '1덩이').replace(/한덩어리/g, '1덩어리');
         s = s.replace(/두마리분/g, '2마리분').replace(/한마리분/g, '1마리분').replace(/한마리반/g, '1마리분');
 
-        // 육류/품목 키워드가 있는 줄만 집계
         if (!/(삼겹|목살|목심|미전지|전지|미삼|등갈비|등뼈|목뼈|갈비|등심|안심|사태|항정|가브리|갈매기|미후지|후지|오겹|우삼겹|우겹살|차돌|스지|살치|부채|장족|미니족|돈피|껍데기|잡육|등잡|왕구이|사골|오돌뼈|홍두깨|볼라|설도|늑간|알목|두메코|테니쉬|셀렉타|올리멜|주물럭|제육|불고기|미추리|잡뼈|우족|덧살|덜미|민찌|수삼|모돈|엘에이|LA|백립|빽립|프렌치렉|숄더렉|삼각살)/i.test(s)) {
             return;
         }
@@ -1068,7 +1082,6 @@ function renderDispatchPage() {
     tbody.innerHTML = '';
     statBar.innerHTML = '';
 
-    // 차량별 배차 건수 집계
     const counts = { 'ALL': destinations.length, 'UNASSIGNED': 0, 'PICKUP': 0 };
     for (let i = 0; i < 6; i++) counts[`V${i}`] = 0;
 
@@ -1078,7 +1091,6 @@ function renderDispatchPage() {
         else counts['UNASSIGNED']++;
     });
 
-    // 차량 필터 칩 생성
     const chips = [
         { code: 'ALL', label: `전체 납품처 (${counts['ALL']})` },
         { code: 'UNASSIGNED', label: `미배차 (${counts['UNASSIGNED']})` },
@@ -1144,6 +1156,7 @@ function renderDispatchPage() {
 function assignVehicle(clientName, vCode) {
     dispatchMap[clientName] = vCode;
     localStorage.setItem('mf_dispatch', JSON.stringify(dispatchMap));
+    recordLastUpdatedTime(`${clientName} 배차 지정`);
     renderDispatchPage();
 }
 
