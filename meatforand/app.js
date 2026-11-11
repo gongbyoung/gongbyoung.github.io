@@ -12,12 +12,13 @@ let showOnlyKnownClient = false;
 
 // 6대 차량 기본 설정 및 배차 저장소
 const DEFAULT_VEHICLES = [
-    "1호차 (이명석 이사)",
-    "2호차 (김석민 부장)",
-    "3호차 (한승희 부장)",
-    "4호차 (최규진 과장)",
-    "5호차 (엄태원 과장)",
-    "6호차 (양승준/최청호)"
+    "1호차 (0202)",
+    "2호차 (3775)",
+    "3호차 (3371)",
+    "4호차 (6243)",
+    "5호차 (5904)",
+    "6호차 (3482)",
+    "7호차 (6294)"
 ];
 let vehicleNames = JSON.parse(localStorage.getItem('mf_vehicles') || 'null') || [...DEFAULT_VEHICLES];
 let dispatchMap = JSON.parse(localStorage.getItem('mf_dispatch') || '{}');
