@@ -25,14 +25,39 @@
             max-width: 1200px; margin: 0 auto; background: var(--card);
             border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); overflow: hidden;
         }
+        /* 상단 헤더 및 소형 컨트롤 영역 */
         .app-header {
-            background: var(--primary); color: white; padding: 14px 18px;
+            background: var(--primary); color: white; padding: 10px 14px;
             display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
         }
-        .app-header h1 { margin: 0; font-size: 18px; }
-        .status-pills { display: flex; gap: 6px; font-size: 11px; flex-wrap: wrap; }
-        .pill { background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 20px; }
-        .pill.ok { background: #10b981; color: white; font-weight: bold; }
+        .header-title-group {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+        }
+        .app-header h1 {
+            margin: 0; font-size: 16px; white-space: nowrap; margin-right: 4px;
+        }
+        .hdr-input, .hdr-select {
+            padding: 3px 6px; font-size: 11.5px; border-radius: 5px;
+            border: 1px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.95);
+            color: #1f2937; font-weight: bold; height: 26px; cursor: pointer;
+        }
+        .hdr-icon-btn {
+            display: inline-flex; align-items: center; gap: 3px;
+            padding: 3px 8px; font-size: 11px; font-weight: bold; height: 26px;
+            border-radius: 5px; border: 1px solid rgba(255,255,255,0.35);
+            background: rgba(255,255,255,0.15); color: #e5e7eb; cursor: pointer;
+            white-space: nowrap; transition: all 0.15s;
+        }
+        .hdr-icon-btn.active {
+            background: #10b981; color: #ffffff; border-color: #059669;
+        }
+        .hdr-icon-btn.warn {
+            background: #f59e0b; color: #ffffff; border-color: #d97706;
+        }
+        .status-pills { display: flex; gap: 5px; font-size: 11px; flex-wrap: wrap; align-items: center; }
+        .pill { background: rgba(255,255,255,0.18); padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
+        .pill.ok { background: #059669; color: white; font-weight: bold; }
+        .pill.time { background: #1e3a5f; border: 1px solid rgba(255,255,255,0.3); color: #fde68a; font-weight: bold; }
 
         /* 상단 6개 탭 네비게이션 */
         .tab-nav {
@@ -68,7 +93,7 @@
             width: 100%; height: 220px; padding: 10px; border: 1px solid var(--border);
             border-radius: 6px; font-family: monospace; font-size: 12px; resize: vertical;
         }
-        input[type="text"], input[type="date"], select {
+        input[type="text"] {
             padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white;
         }
 
@@ -80,15 +105,16 @@
         .btn.green { background: var(--accent); }
         .btn.orange { background: var(--warn); }
         .btn.gray { background: #6b7280; }
+        .btn.red { background: var(--danger); }
         .btn:active { opacity: 0.85; }
 
         /* 컨트롤 바 */
         .filter-bar {
-            background: var(--primary-light); padding: 12px; border-radius: 8px;
+            background: var(--primary-light); padding: 10px 12px; border-radius: 8px;
             margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+            justify-content: space-between;
         }
         .filter-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .filter-group label { font-weight: bold; color: var(--primary); font-size: 12px; }
 
         /* 테이블 스타일 */
         .table-wrap { overflow-x: auto; max-height: 620px; border: 1px solid var(--border); border-radius: 6px; }
@@ -134,12 +160,29 @@
 <body>
 
 <div class="app-container">
+    <!-- 상단 헤더: 제목 + 기준날짜 + 시간범위 콤보박스 + 소형 아이콘 토글 2종 + 업데이트 시간 -->
     <div class="app-header">
-        <h1>🥩 (주)미트포앤 발주·재고·배차 통합 시스템 v3</h1>
+        <div class="header-title-group">
+            <h1>🥩 (주)미트포앤 발주·재고·배차 통합 시스템 v3</h1>
+            <input type="date" id="orderTargetDate" class="hdr-input" onchange="onFilterCriteriaChange()" title="기준 날짜 선택">
+            <select id="orderTimeMode" class="hdr-select" onchange="onFilterCriteriaChange()" title="추출 시간 범위">
+                <option value="prev10_to_16">전날10:00~당일16:00</option>
+                <option value="prev22_to_16">전날22:00~당일16:00</option>
+                <option value="fullday">당일 전체(0~24시)</option>
+                <option value="all">전체 날짜 보기</option>
+            </select>
+            <button id="btnOnlyOrder" class="hdr-icon-btn active" onclick="toggleOnlyOrder()" title="발주만 보기: ON (비발주 숨김)">
+                🔍 발주만: ON
+            </button>
+            <button id="btnOnlyKnownClient" class="hdr-icon-btn" onclick="toggleKnownClient()" title="등록 거래처만 보기">
+                🏢 거래처: OFF
+            </button>
+        </div>
         <div class="status-pills">
+            <span id="pillUpdated" class="pill time" title="마지막 로컬 저장 및 업데이트 시각">🕒 업데이트: 대기중</span>
             <span id="pillKakao" class="pill">카톡: 미등록</span>
             <span id="pillStock" class="pill">재고: 미등록</span>
-            <span id="pillClient" class="pill ok">거래처 DB: 123곳 내장됨</span>
+            <span id="pillClient" class="pill ok">거래처: 123곳</span>
         </div>
     </div>
 
@@ -153,11 +196,14 @@
         <button class="tab-btn" onclick="switchTab('page6', this)">6. 배송처 목록·배차</button>
     </div>
 
-    <!-- ==================== [페이지 1: 데이터 입력] ==================== -->
+    <!-- [페이지 1: 데이터 입력] -->
     <div id="page1" class="tab-page active">
         <div class="section-card">
-            <h3>💬 1단계: 발주 카카오톡 대화 파일(.txt) 로딩</h3>
-            <p>스마트폰에서 내보낸 파일과 PC에서 내보낸 파일을 모두 자동 인식합니다. 여러 파일을 동시에 선택하셔도 됩니다.</p>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
+                <h3 style="margin:0;">💬 1단계: 발주 카카오톡 대화 파일(.txt) 로딩</h3>
+                <button class="btn red" style="padding:5px 10px; font-size:11.5px;" onclick="clearSavedBrowserData()">🗑️ 브라우저 자동저장 초기화</button>
+            </div>
+            <p>스마트폰/PC 내보내기 파일을 모두 인식하며, <b>마지막 분석 결과와 업데이트 시각이 컴퓨터(브라우저)에 자동 저장</b>됩니다.</p>
             <div class="upload-zone" onclick="document.getElementById('kakaoFileInput').click()">
                 <b>📁 여기를 터치하여 카카오톡 대화 파일(.txt) 선택</b>
                 <div id="kakaoLoadMsg" style="margin-top:6px; color:#047857; font-weight:bold;"></div>
@@ -167,7 +213,7 @@
 
         <div class="section-card">
             <h3>📦 2단계: 일일 재고현황 텍스트 입력</h3>
-            <p>카톡방에 올리시는 '일일 재고현황' 텍스트를 아래 칸에 붙여넣고 <b>[재고표 생성 및 적용]</b> 버튼을 누르세요.</p>
+            <p>카톡방에 올리시는 '일일 재고현황' 텍스트를 아래 칸에 붙여넣고 <b>[재고표 생성 및 적용]</b> 버튼을 누르세요. (자동 저장됨)</p>
             <textarea id="stockTextarea" placeholder="여기에 '11월 10일 재고현황...' 텍스트를 붙여넣으세요."></textarea>
             <div class="btn-row">
                 <button class="btn green" onclick="parseAndApplyStock(true)">✅ 재고표 생성 및 적용 (3페이지로 이동)</button>
@@ -178,8 +224,8 @@
         <div class="section-card">
             <h3>🏢 3단계: 거래처 목록 CSV 관리 (GitHub 연동 & 원본 변환)</h3>
             <p>
-                • 주요 거래처(주소·전화번호·출입비번·약칭 포함)는 이미 내장되어 있어 바로 2~6페이지를 사용하실 수 있습니다.<br>
-                • GitHub에 올린 <code>clients.csv</code> 주소를 불러오거나, 회계 원본 CSV(2줄 양식)를 업로드해 깔끔한 6열(<code>거래처,대표자,전화번호,주소,별명,비고</code>) CSV로 변환할 수 있습니다.
+                • 같은 폴더에 <code>clients.csv</code>가 있으면 자동 로드되며, 없어도 내장된 거래처 DB로 즉시 작동합니다.<br>
+                • GitHub Raw URL을 불러오거나 회계 원본 CSV(2줄 양식)를 업로드해 6열(<code>거래처,대표자,전화번호,주소,별명,비고</code>) CSV로 변환할 수 있습니다.
             </p>
             <div class="filter-group" style="margin-bottom:8px;">
                 <input type="text" id="githubCsvUrl" style="flex:1; min-width:220px;" placeholder="https://raw.githubusercontent.com/gongbyoung/.../clients.csv">
@@ -194,30 +240,14 @@
         </div>
     </div>
 
-    <!-- ==================== [페이지 2: 발주 추출 목록] ==================== -->
+    <!-- [페이지 2: 발주 추출 목록] -->
     <div id="page2" class="tab-page">
         <div class="filter-bar">
+            <div id="orderStats" style="font-weight:bold; color:var(--primary); font-size:14px;">📋 조회된 내역: 0건</div>
             <div class="filter-group">
-                <label>기준 날짜:</label>
-                <input type="date" id="orderTargetDate" onchange="onFilterCriteriaChange()">
-            </div>
-            <div class="filter-group">
-                <label>시간 범위:</label>
-                <select id="orderTimeMode" onchange="onFilterCriteriaChange()">
-                    <option value="prev10_to_16">전날 10:00(오전) ~ 당일 16:00(오후)</option>
-                    <option value="prev22_to_16">전날 22:00(밤10시) ~ 당일 16:00(오후)</option>
-                    <option value="fullday">지정 날짜 하루 전체 (00:00 ~ 23:59)</option>
-                    <option value="all">전체 날짜 모두 보기</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <button id="btnOnlyOrder" class="btn green" onclick="toggleOnlyOrder()">🔍 발주만 보기: ON (비발주 숨김)</button>
-                <button id="btnOnlyKnownClient" class="btn gray" onclick="toggleKnownClient()">🏢 등록 거래처만: OFF</button>
-                <button class="btn" onclick="downloadOrdersCsv()">📥 발주목록 CSV 저장</button>
+                <button class="btn green" onclick="downloadOrdersCsv()">📥 발주목록 CSV 저장</button>
             </div>
         </div>
-
-        <div id="orderStats" style="margin-bottom:8px; font-weight:bold; color:#374151;"></div>
 
         <div class="table-wrap">
             <table>
@@ -234,9 +264,9 @@
         </div>
     </div>
 
-    <!-- ==================== [페이지 3: 일일 재고 현황표] ==================== -->
+    <!-- [페이지 3: 일일 재고 현황표] -->
     <div id="page3" class="tab-page">
-        <div class="filter-bar" style="justify-content: space-between;">
+        <div class="filter-bar">
             <div id="stockTitleInfo" style="font-weight:bold; font-size:15px; color:var(--primary);">📦 일일 재고 현황표</div>
             <div class="filter-group">
                 <button class="btn green" onclick="downloadStockCsv()">📥 재고 현황표 CSV 저장</button>
@@ -259,9 +289,9 @@
         </div>
     </div>
 
-    <!-- ==================== [페이지 4: 일일 발주 현황표] ==================== -->
+    <!-- [페이지 4: 일일 발주 현황표] -->
     <div id="page4" class="tab-page">
-        <div class="filter-bar" style="justify-content: space-between;">
+        <div class="filter-bar">
             <div>
                 <b style="color:var(--primary); font-size:15px;">📊 일일 발주 현황표 (재고현황표 동일 양식)</b>
                 <span id="orderSummaryDateInfo" style="font-size:12px; color:#555; margin-left:8px;"></span>
@@ -288,9 +318,9 @@
         </div>
     </div>
 
-    <!-- ==================== [페이지 5: 발주차감 잔여재고] ==================== -->
+    <!-- [페이지 5: 발주차감 잔여재고] -->
     <div id="page5" class="tab-page">
-        <div class="filter-bar" style="justify-content: space-between;">
+        <div class="filter-bar">
             <div>
                 <b style="color:var(--primary); font-size:15px;">⚖️ 발주 차감 잔여재고 계산표 (3페이지 재고 - 4페이지 발주)</b>
                 <span style="font-size:12px; color:#555; margin-left:8px;">(현재 재고에서 금일 발주량을 뺀 남은 박스 수량입니다)</span>
@@ -318,7 +348,7 @@
         </div>
     </div>
 
-    <!-- ==================== [페이지 6: 배송처 목록·배차] ==================== -->
+    <!-- [페이지 6: 배송처 목록·배차] -->
     <div id="page6" class="tab-page">
         <div class="section-card" style="margin-bottom:12px; padding:12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
@@ -349,7 +379,5 @@
 </div>
 
 <script src="app.js"></script>
-
-
 </body>
 </html>
