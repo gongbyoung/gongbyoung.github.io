@@ -369,15 +369,20 @@
         </div>
     </div>
 
-    <!-- ==================== [페이지 6: 배송처 목록·배차] ==================== -->
+   <!-- ==================== [페이지 6: 배송처 목록·배차] ==================== -->
     <div id="page6" class="tab-page">
         <div class="section-card" style="margin-bottom:12px; padding:12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-                <h3 style="margin:0;">🚚 6대 차량 기사님 설정 (수정 시 즉시 콤보박스에 반영 및 자동 저장)</h3>
+                <h3 style="margin:0;">🚚 6대 차량 권역 설정 및 동선 최적화 배차</h3>
                 <div class="filter-group">
-                    <button class="btn green" onclick="downloadDispatchCsv()">📥 당일 배차 목록 엑셀(CSV) 저장</button>
+                    <button class="btn orange" onclick="autoDispatchByZoneAndRoute(true)">🧭 권역·동선별 스마트 자동배차 실행</button>
+                    <button class="btn gray" onclick="resetCurrentDispatch()">🔄 배차 초기화</button>
+                    <button class="btn green" onclick="downloadDispatchCsv()">📥 당일 배차·동선표 엑셀(CSV) 저장</button>
                 </div>
             </div>
+            <p style="margin-bottom:8px; font-size:11.5px; color:#374151;">
+                • <b>출발 거점:</b> 안산 선부동·시흥 하상동 (서안산IC/목감IC) 기준 ➔ <b>6대 권역 자동 분류 및 권역 내 최적 경유 순서(#1 ➔ #N)</b>로 자동 정렬됩니다.
+            </p>
             <div class="vehicle-config-grid" id="vehicleConfigGrid"></div>
             <div class="vehicle-stat-bar" id="vehicleStatBar"></div>
         </div>
@@ -386,10 +391,11 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width:50px;">순번</th>
-                        <th style="width:170px;">납품 거래처명</th>
+                        <th style="width:55px;">동선순번</th>
+                        <th style="width:145px;">권역 / 추천코스</th>
+                        <th style="width:165px;">납품 거래처명</th>
                         <th>주소 / 연락처 / 출입비번</th>
-                        <th style="width:180px;">당일 발주목록 (박스 / 낱개)</th>
+                        <th style="width:165px;">당일 발주목록 (박스 / 낱개)</th>
                         <th style="width:185px;">배차 차량 선택 (6대)</th>
                     </tr>
                 </thead>
@@ -397,7 +403,6 @@
             </table>
         </div>
     </div>
-</div>
 
 <script src="app.js"></script>
 </body>
