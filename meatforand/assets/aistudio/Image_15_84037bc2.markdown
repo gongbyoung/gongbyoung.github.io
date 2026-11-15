@@ -1,0 +1,219 @@
+---
+name: Logistics Precision
+colors:
+  surface: '#faf8ff'
+  surface-dim: '#d2d9f4'
+  surface-bright: '#faf8ff'
+  surface-container-lowest: '#ffffff'
+  surface-container-low: '#f2f3ff'
+  surface-container: '#eaedff'
+  surface-container-high: '#e2e7ff'
+  surface-container-highest: '#dae2fd'
+  on-surface: '#131b2e'
+  on-surface-variant: '#444651'
+  inverse-surface: '#283044'
+  inverse-on-surface: '#eef0ff'
+  outline: '#757682'
+  outline-variant: '#c5c5d3'
+  surface-tint: '#4059aa'
+  primary: '#00236f'
+  on-primary: '#ffffff'
+  primary-container: '#1e3a8a'
+  on-primary-container: '#90a8ff'
+  inverse-primary: '#b6c4ff'
+  secondary: '#0051d5'
+  on-secondary: '#ffffff'
+  secondary-container: '#316bf3'
+  on-secondary-container: '#fefcff'
+  tertiary: '#6a5f00'
+  on-tertiary: '#ffffff'
+  tertiary-container: '#bfac00'
+  on-tertiary-container: '#484000'
+  error: '#ba1a1a'
+  on-error: '#ffffff'
+  error-container: '#ffdad6'
+  on-error-container: '#93000a'
+  primary-fixed: '#dce1ff'
+  primary-fixed-dim: '#b6c4ff'
+  on-primary-fixed: '#00164e'
+  on-primary-fixed-variant: '#264191'
+  secondary-fixed: '#dbe1ff'
+  secondary-fixed-dim: '#b4c5ff'
+  on-secondary-fixed: '#00174b'
+  on-secondary-fixed-variant: '#003ea8'
+  tertiary-fixed: '#fde400'
+  tertiary-fixed-dim: '#dec800'
+  on-tertiary-fixed: '#201c00'
+  on-tertiary-fixed-variant: '#504700'
+  background: '#faf8ff'
+  on-background: '#131b2e'
+  surface-variant: '#dae2fd'
+typography:
+  headline-lg:
+    fontFamily: Hanken Grotesk
+    fontSize: 28px
+    fontWeight: '700'
+    lineHeight: 36px
+    letterSpacing: -0.02em
+  headline-md:
+    fontFamily: Hanken Grotesk
+    fontSize: 22px
+    fontWeight: '600'
+    lineHeight: 28px
+    letterSpacing: -0.01em
+  headline-sm:
+    fontFamily: Hanken Grotesk
+    fontSize: 18px
+    fontWeight: '600'
+    lineHeight: 24px
+  body-lg:
+    fontFamily: Pretendard, Hanken Grotesk
+    fontSize: 16px
+    fontWeight: '400'
+    lineHeight: 24px
+  body-md:
+    fontFamily: Pretendard, Hanken Grotesk
+    fontSize: 14px
+    fontWeight: '400'
+    lineHeight: 20px
+  body-sm:
+    fontFamily: Pretendard, Hanken Grotesk
+    fontSize: 12px
+    fontWeight: '400'
+    lineHeight: 16px
+  label-numeric:
+    fontFamily: JetBrains Mono
+    fontSize: 13px
+    fontWeight: '500'
+    lineHeight: 18px
+    letterSpacing: 0.02em
+  label-sku:
+    fontFamily: JetBrains Mono
+    fontSize: 11px
+    fontWeight: '700'
+    lineHeight: 14px
+    letterSpacing: 0.05em
+  caption:
+    fontFamily: Pretendard, Hanken Grotesk
+    fontSize: 11px
+    fontWeight: '500'
+    lineHeight: 14px
+    letterSpacing: '0'
+rounded:
+  sm: 0.125rem
+  DEFAULT: 0.25rem
+  md: 0.375rem
+  lg: 0.5rem
+  xl: 0.75rem
+  full: 9999px
+spacing:
+  gutter: 0.75rem
+  margin: 1rem
+  space-xs: 0.25rem
+  space-sm: 0.5rem
+  space-md: 0.75rem
+  space-lg: 1rem
+  space-xl: 1.5rem
+---
+
+## Brand & Style
+
+### Brand Personality & Philosophy
+This design system powers enterprise logistics operations, field distribution hubs, and cross-docking workflows. The core aesthetic is engineered for operational speed, systematic reliability, and zero-ambiguity status recognition in high-friction mobile environments (e.g., warehouse floors, dock bays, delivery vans).
+
+### Visual Movement
+**Industrial Corporate Modern**: High-density utility balanced with modern crispness. It eschews decorative flourishes in favor of structured data tiers, precise contrast ratios, functional line separators, and unmistakable tactile tap targets. Micro-surfaces rely on subtle tonal distinctions rather than heavy shadows to maintain screen legibility under fluctuating warehouse lighting conditions.
+
+## Colors
+
+### Primary Palette
+- **Deep Navy (`#1E3A8A`)**: Primary surface anchor, top application bars, high-level headers, and high-impact system CTAs. Communicates enterprise stability and operational authority.
+- **Cobalt Blue (`#2563EB`)**: Interactive primary color for active states, key workflows (e.g., "Scan Batch", "Confirm Dispatch"), and link indicators.
+
+### Integration Accent
+- **Kakao Yellow (`#FEE500`)**: Reserved exclusively for KakaoTalk notifications, quick share intents, and direct messenger integrations. Paired strictly with Dark Cocoa text (`#3C1E1E`) to satisfy strict accessibility and contrast standards.
+
+### Operational Semantic Palette
+- **Inbound / Success Green (`#16A34A` / Light BG: `#DCFCE7`)**: Finished sorting, successful scan, completed receipt, inbound normal.
+- **Transit / Warning Orange (`#EA580C` / Light BG: `#FFEDD5`)**: Pending verification, cross-dock transit, stock warning, low inventory.
+- **Outbound Issue / Critical Red (`#DC2626` / Light BG: `#FEE2E2`)**: Damaged shipment, SKU mismatch, critical stockout, delayed route.
+
+### Neutral & Tonal Palette
+- **Base Canvas (`#F8FAFC`)**: Light slate background providing contrast for elevated white surfaces.
+- **Card & Container Surface (`#FFFFFF`)**: Pure white base for inventory cards and metrics modules.
+- **Border Tone (`#E2E8F0`)**: Low-contrast structural borders for field separators and table cells.
+- **Text Tones**: Headings (`#0F172A`), Body Text (`#334155`), Muted/Metadata (`#64748B`).
+
+## Typography
+
+### Structural Decisions
+- **Headings & Body (`Hanken Grotesk` / Korean system fallback `Pretendard`)**: Balanced geometric grotesque optimized for high-speed scanning and multi-lingual Latin/Hangul log numbers.
+- **Technical & Monospace Fields (`JetBrains Mono`)**: Applied to all SKU codes, batch numbers, barcode digits, timestamps, and real-time inventory count integers to eliminate glyph confusion (e.g., differentiating `0` and `O`, `1` and `l`).
+
+### Mobile Adaptation Rules
+All typography levels maintain minimum 1.25x line height to prevent touch collision and optical bleeding on handheld barcode terminals or mobile screens with screen protectors.
+
+## Layout & Spacing
+
+### Mobile-First Fluid Grid
+- **Screen Margins**: Strict `16px` (`1rem`) lateral margin for all viewport edges to maximize usable density on 360px–428px device widths.
+- **Component Gutters**: `12px` (`0.75rem`) horizontal separation between multi-column stat tiles and twin metric indicators.
+- **Vertical Rhythm**: Built upon a `4px` baseline unit. Component internals scale linearly (`4px`, `8px`, `12px`, `16px`, `24px`).
+
+### Adaptation Breakpoints
+- **Mobile Handheld (`< 600px`)**: Single-column vertical stream for inventory listings and full-width barcode scanner viewports.
+- **Tablet / Mounted Terminal (`600px - 1024px`)**: Splits into a 2-column workspace featuring an order list pane (40%) and an item verification/pallet layout pane (60%).
+
+## Elevation & Depth
+
+### Tonal Stratification
+Visual depth is established primarily through crisp boundary borders and slight tonal shift, rather than heavy drop shadows which reduce readability under high glare.
+
+- **Level 0 (Canvas Base)**: `#F8FAFC` — Primary application background.
+- **Level 1 (Card & Module Surface)**: `#FFFFFF` — Inset with a `1px` border of `#E2E8F0`. Shadow: `0 1px 2px 0 rgba(15, 23, 42, 0.05)`.
+- **Level 2 (Active/Selected Card, Pull-down Drawer)**: `#FFFFFF` — Border: `#CBD5E1`. Shadow: `0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04)`.
+- **Level 3 (Barcode Scanner Overlay, Modals, Action Sheets)**: Elevated modal sheet with `#0F172A` backdrop tint at `40%` opacity. Shadow: `0 10px 15px -3px rgba(15, 23, 42, 0.12)`.
+
+## Shapes
+
+### Shape Language
+This design system utilizes **Soft (`1`)** roundedness. Precision logistics demands maximum screen real estate utilization and structured modularity; overly rounded pill shapes waste critical pixel boundaries in compact mobile tables and data-dense cards.
+
+- **Micro Components (Badges, SKU Tags, Buttons)**: `4px` (`rounded-sm`).
+- **Containers & Cards (Shipment Tiles, Table Wrappers)**: `8px` (`rounded-lg`).
+- **Bottom Sheets & Modal Surfaces**: `12px` (`rounded-xl`) applied to the top edge corners only.
+
+## Components
+
+### Buttons
+- **Primary Operational Button**: Background `#2563EB`, text `#FFFFFF`, height `48px` (touch-target compliant), corner radius `4px`, font weight `600`. Active state darkens to `#1E3A8A`.
+- **Secondary / Action Button**: Background `#EFF6FF`, border `1px solid #BFDBFE`, text `#1E3A8A`.
+- **Kakao Integration Action**: Background `#FEE500`, text `#3C1E1E`, font weight `600`. Employs the Kakao chat balloon icon on the left with `8px` padding.
+
+### Chips & Semantic Status Badges
+- Compact badges designed for instant sorting identification:
+  - **Inbound Finished**: Text `#16A34A`, background `#DCFCE7`, border `1px solid #BBF7D0`.
+  - **In Transit / Review**: Text `#C2410C`, background `#FFEDD5`, border `1px solid #FED7AA`.
+  - **Discrepancy / Alert**: Text `#DC2626`, background `#FEE2E2`, border `1px solid #FECACA`.
+  - SKU & Rack location codes are rendered in `JetBrains Mono` with uppercase tags and `#F1F5F9` neutral backing.
+
+### Cards (Shipment & SKU Card)
+- Surface `#FFFFFF`, border `1px solid #E2E8F0`, inner padding `12px`.
+- Composed of:
+  1. Top metadata line (Timestamp + Location code).
+  2. Main line (SKU / Product Name in bold with quantity indicator in monospace).
+  3. Bottom operational tray containing status chip and quick actions.
+
+### Data Tables & Compact Lists
+- Alternating row zebra striping using `#FFFFFF` and `#F8FAFC`.
+- Sticky column headers with `#F1F5F9` background, `11px` uppercase typography, and `1px` bottom border `#CBD5E1`.
+- Row height fixed at `40px` for high-density listing, with full-row tap targets triggering detail side-sheets.
+
+### Inputs & Barcode Trigger Fields
+- Inputs feature `44px` height, `#FFFFFF` background, and `1px solid #CBD5E1` border.
+- Active focus state applies a `2px` focus ring in `#2563EB` with zero horizontal layout shift.
+- Trailing accessory slot holds a high-contrast `#1E3A8A` barcode icon button for instant scanner launch.
+
+### Progress & Stock Level Charts
+- High-contrast, flat linear bars with neutral tracks (`#E2E8F0`) and solid semantic fills without gradients.
+- Micro sparklines feature `2px` stroke width and distinct circular nodes for peak delivery load tracking.
