@@ -15,7 +15,7 @@ import {
   DeliveryStop,
   TimeFilterMode,
 } from '../types/logistics';
-import { downloadCsvBlob } from '../utils/meatParser';
+import { downloadCsvBlob, getWeekdayKo } from '../utils/meatParser';
 import { LinearProgressBar } from './SparklineChart';
 import { KakaoButton, StatusBadge } from './StatusBadge';
 
@@ -146,12 +146,17 @@ export const DeliveriesScreen: React.FC<DeliveriesScreenProps> = ({
             className="h-10 px-2 bg-white border border-[#CBD5E1] rounded-sm text-xs font-semibold text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
           >
             <option value="smart">스마트 납품일 (추천)</option>
-            <option value="prev10_to_16">전날10시~당일16시</option>
-            <option value="prev22_to_16">전날22시~당일16시</option>
+            <option value="prev10_to_16">전영업일10시~당일16시 (월:금~월)</option>
+            <option value="prev22_to_16">전영업일22시~당일16시 (월:금~월)</option>
             <option value="fullday">작성일 당일전체</option>
             <option value="all">전체 날짜</option>
           </select>
         </div>
+        {getWeekdayKo(targetDate) === '월' && (
+          <p className="text-[11px] font-semibold text-[#1E3A8A] bg-[#EFF6FF] border border-[#BFDBFE] rounded-sm px-2.5 py-1">
+            월요일 배송 집계: 금요일 오후 · 토 · 일 · 월요일 카톡 발주 포함
+          </p>
+        )}
 
         {/* 6-Vehicle Filter Chips */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">

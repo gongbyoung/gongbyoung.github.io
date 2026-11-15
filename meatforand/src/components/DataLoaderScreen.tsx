@@ -342,8 +342,8 @@ export const DataLoaderScreen: React.FC<DataLoaderScreenProps> = ({
                   className="w-full h-11 px-2 bg-white border border-[#CBD5E1] rounded-sm text-xs font-semibold text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                 >
                   <option value="smart">스마트 자동판별 (추천)</option>
-                  <option value="prev10_to_16">전날10시~당일16시</option>
-                  <option value="prev22_to_16">전날22시~당일16시</option>
+                  <option value="prev10_to_16">전영업일10시~당일16시 (월:금~월)</option>
+                  <option value="prev22_to_16">전영업일22시~당일16시 (월:금~월)</option>
                   <option value="fullday">작성일 당일전체</option>
                   <option value="all">전체 날짜</option>
                 </select>

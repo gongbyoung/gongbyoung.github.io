@@ -22,6 +22,51 @@ export function toShortDate(dateFullStr: string): string {
   return `${dateFullStr.substring(5, 7)}/${dateFullStr.substring(8, 10)}`;
 }
 
+/**
+ * 주말(토·일) 휴무 기준 다음 영업 납품일 계산
+ * - 금요일(5) -> 월요일(+3일)
+ * - 토요일(6) -> 월요일(+2일)
+ * - 일요일(0) -> 월요일(+1일)
+ * - 월~목(1~4) -> 익일(+1일)
+ */
+export function getNextDeliveryDateStr(dateFullStr: string): string {
+  const wd = new Date(`${dateFullStr}T00:00:00`).getDay();
+  if (wd === 5) return addDaysToDateStr(dateFullStr, 3);
+  if (wd === 6) return addDaysToDateStr(dateFullStr, 2);
+  return addDaysToDateStr(dateFullStr, 1);
+}
+
+/**
+ * 시간대 필터(전영업일 10시/22시~당일 16시) 시작 기준일 계산
+ * - 월요일(1) 납품 -> 금요일(-3일)부터 집계 시작
+ */
+export function getPrevDeliveryStartDateStr(targetDateStr: string): string {
+  const wd = new Date(`${targetDateStr}T00:00:00`).getDay();
+  if (wd === 1) return addDaysToDateStr(targetDateStr, -3);
+  if (wd === 0) return addDaysToDateStr(targetDateStr, -2);
+  return addDaysToDateStr(targetDateStr, -1);
+}
+
+export function getWeekdayKo(dateFullStr: string): string {
+  if (!dateFullStr || dateFullStr.length < 10) return '';
+  const names = ['일', '월', '화', '수', '목', '금', '토'];
+  return names[new Date(`${dateFullStr}T00:00:00`).getDay()] ?? '';
+}
+
+export function getRecommendedTargetDate(items: ParsedChatItem[]): string {
+  const orderItems = items.filter((x) => x.type === '발주');
+  if (orderItems.length > 0) {
+    return orderItems.reduce(
+      (max, it) => (it.targetDeliveryDate > max ? it.targetDeliveryDate : max),
+      orderItems[0].targetDeliveryDate
+    );
+  }
+  if (items.length > 0) {
+    return items[items.length - 1].dateFull;
+  }
+  return '2026-11-16';
+}
+
 /* =========================================================================
    거래처 CSV 파싱 (정리본 6열 / 회계 원본 2줄 양식 자동 인식)
    ========================================================================= */
@@ -533,14 +578,30 @@ export function inferDeliveryDatesForAllItems(
       continue;
     }
 
+    // 1단계-C: 주말(토·일) 발주 → 월요일로 이월
+    if (msgWd === 6) {
+      item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 2);
+      item.delivShort = toShortDate(item.targetDeliveryDate);
+      item.delivReason = '토요일→월요일';
+      continue;
+    }
+    if (msgWd === 0) {
+      item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
+      item.delivShort = toShortDate(item.targetDeliveryDate);
+      item.delivReason = '일요일→월요일';
+      continue;
+    }
+
+    // 2단계-A: 명시적·암묵적 익일 키워드 ("내일", "낼", "아침에", "오전 급 배송" 등)
+    // 금요일(5)에 익일 요청 시 토/일 건너뛰고 월요일로 배정
     if (
       /내일|낼주문|(?:^|[^가-힣])낼(?:$|[^가-힣])|아침에\s*(?:들리|갖을러|가지러)|오전\s*급\s*배송|10시\s*전에/.test(
         txt
       )
     ) {
-      item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
+      item.targetDeliveryDate = getNextDeliveryDateStr(item.dateFull);
       item.delivShort = toShortDate(item.targetDeliveryDate);
-      item.delivReason = '익일키워드(내일)';
+      item.delivReason = msgWd === 5 ? '금익일→월요일' : '익일키워드(내일)';
       continue;
     }
 
@@ -561,9 +622,9 @@ export function inferDeliveryDatesForAllItems(
         item.delivShort = item.dateShort;
         item.delivReason = '오전추가→당일';
       } else {
-        item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
+        item.targetDeliveryDate = getNextDeliveryDateStr(item.dateFull);
         item.delivShort = toShortDate(item.targetDeliveryDate);
-        item.delivReason = '저녁추가→익일';
+        item.delivReason = msgWd === 5 ? '금저녁추가→월요일' : '저녁추가→익일';
       }
       continue;
     }
@@ -587,21 +648,14 @@ export function inferDeliveryDatesForAllItems(
       continue;
     }
 
-    if (msgWd === 0) {
-      item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
-      item.delivShort = toShortDate(item.targetDeliveryDate);
-      item.delivReason = '일요일→월요일';
-      continue;
-    }
-
     if (mins < 13 * 60 + 50) {
       item.targetDeliveryDate = item.dateFull;
       item.delivShort = item.dateShort;
       item.delivReason = '13:50이전→당일';
     } else {
-      item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
+      item.targetDeliveryDate = getNextDeliveryDateStr(item.dateFull);
       item.delivShort = toShortDate(item.targetDeliveryDate);
-      item.delivReason = '14시예약/오후→익일';
+      item.delivReason = msgWd === 5 ? '금오후→월요일' : '14시예약/오후→익일';
     }
   }
 
@@ -642,22 +696,24 @@ export function getFilteredOrderList(
       return item.dateFull === targetDate;
     }
 
-    const prevDateStr = addDaysToDateStr(targetDate, -1);
+    const startDateStr = getPrevDeliveryStartDateStr(targetDate);
 
     if (timeMode === 'prev10_to_16') {
-      const isPrevFrom10 =
-        item.dateFull === prevDateStr && item.timeMins >= 10 * 60;
-      const isCurrTo16 =
+      const isStart =
+        item.dateFull === startDateStr && item.timeMins >= 10 * 60;
+      const isMid = item.dateFull > startDateStr && item.dateFull < targetDate;
+      const isEnd =
         item.dateFull === targetDate && item.timeMins <= 16 * 60;
-      return isPrevFrom10 || isCurrTo16;
+      return isStart || isMid || isEnd;
     }
 
     if (timeMode === 'prev22_to_16') {
-      const isPrevFrom22 =
-        item.dateFull === prevDateStr && item.timeMins >= 22 * 60;
-      const isCurrTo16 =
+      const isStart =
+        item.dateFull === startDateStr && item.timeMins >= 22 * 60;
+      const isMid = item.dateFull > startDateStr && item.dateFull < targetDate;
+      const isEnd =
         item.dateFull === targetDate && item.timeMins <= 16 * 60;
-      return isPrevFrom22 || isCurrTo16;
+      return isStart || isMid || isEnd;
     }
 
     return true;

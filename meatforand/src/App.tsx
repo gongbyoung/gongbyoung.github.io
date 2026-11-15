@@ -29,12 +29,13 @@ import {
   TimeFilterMode,
 } from './types/logistics';
 import {
-  addDaysToDateStr,
   buildDeliveryStopsFromOrders,
   classifyChatItem,
   computeOrderAggregation,
   decodeCsvBuffer,
   getFilteredOrderList,
+  getNextDeliveryDateStr,
+  getRecommendedTargetDate,
   inferDeliveryDatesForAllItems,
   parseClientCsvText,
   parseSingleKakaoText,
@@ -139,10 +140,8 @@ export default function App() {
   }, [initialClients]);
 
   const initialSettings = useMemo<SavedSettings>(() => {
-    const defDate =
-      initialChats.length > 0
-        ? initialChats[initialChats.length - 1].dateFull
-        : '2026-11-14';
+    const inferred = inferDeliveryDatesForAllItems(initialChats, {});
+    const defDate = getRecommendedTargetDate(inferred);
     return loadJson<SavedSettings>(KEY_SETTINGS, {
       targetDate: defDate,
       timeMode: 'smart',
@@ -404,9 +403,9 @@ export default function App() {
     });
 
     setRawChatItems(collected);
-    if (collected.length > 0) {
-      const lastDate = collected[collected.length - 1].dateFull;
-      setTargetDate(lastDate);
+    const inferred = inferDeliveryDatesForAllItems(collected, manualDelivMap);
+    if (inferred.length > 0) {
+      setTargetDate(getRecommendedTargetDate(inferred));
     }
     const orderCnt = collected.filter((x) => x.type === '발주').length;
     setToast(
@@ -417,8 +416,9 @@ export default function App() {
   const handleLoadSampleKakao = () => {
     const parsed = parseSingleKakaoText(SAMPLE_KAKAO_CHAT_TEXT, clients);
     setRawChatItems(parsed);
-    if (parsed.length > 0) {
-      setTargetDate(parsed[parsed.length - 1].dateFull);
+    const inferred = inferDeliveryDatesForAllItems(parsed, manualDelivMap);
+    if (inferred.length > 0) {
+      setTargetDate(getRecommendedTargetDate(inferred));
     }
     setToast(`샘플 카톡 발주 ${parsed.length}건을 불러왔습니다.`);
   };
@@ -427,16 +427,15 @@ export default function App() {
     const item = allChatItems[idx];
     if (!item) return;
     const isCurrentlySameDay = item.targetDeliveryDate === item.dateFull;
-    const nextDate = isCurrentlySameDay
-      ? addDaysToDateStr(item.dateFull, 1)
-      : item.dateFull;
+    const nextBusinessDay = getNextDeliveryDateStr(item.dateFull);
+    const nextDate = isCurrentlySameDay ? nextBusinessDay : item.dateFull;
     setManualDelivMap((prev) => ({
       ...prev,
       [item.itemKey]: nextDate,
     }));
     setToast(
       `${item.clientName} · 납품 기준일을 ${nextDate.slice(5).replace('-', '/')}(${
-        isCurrentlySameDay ? '익일' : '당일'
+        isCurrentlySameDay ? '차기영업일' : '작성당일'
       })로 변경했습니다.`
     );
   };
@@ -509,12 +508,11 @@ export default function App() {
         c.note,
       ])
     );
+    const inferred = inferDeliveryDatesForAllItems(parsed, {});
     setRawChatItems(parsed);
     setStockDraftText(INITIAL_STOCK_TEXT);
     setAppliedStockText(INITIAL_STOCK_TEXT);
-    setTargetDate(
-      parsed.length > 0 ? parsed[parsed.length - 1].dateFull : '2026-11-14'
-    );
+    setTargetDate(getRecommendedTargetDate(inferred));
     setTimeMode('smart');
     setShowOnlyOrder(true);
     setShowOnlyKnownClient(false);
