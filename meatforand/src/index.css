@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Hanken Grotesk", "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: #F8FAFC;
+    color: #0F172A;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes scan-sweep {
+  0% {
+    transform: translateY(8px);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(148px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(8px);
+    opacity: 0.7;
+  }
+}
+
+.scanner-beam {
+  animation: scan-sweep 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanner-beam {
+    animation: none;
+    transform: translateY(78px);
+  }
+}
