@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미트포앤 CGJ · 발주·재고·배차</title>
+    <title>미트포앤CGJ · 발주·재고·배차</title>
     <style>
 
         :root {
@@ -682,6 +682,15 @@
                 <button class="btn green" onclick="downloadDispatchCsv()">📥 배차 CSV</button>
             </div>
             <div class="vehicle-config-grid" id="vehicleConfigGrid"></div>
+            <div class="settings-row" style="margin:10px 0 8px; align-items:center;">
+                <label for="dispatchSortMode" style="font-size:13px;font-weight:800;color:var(--primary);margin:0;">목록 정렬</label>
+                <select id="dispatchSortMode" onchange="onDispatchSortChange()"
+                    style="flex:1;min-width:200px;height:40px;padding:6px 10px;border-radius:10px;border:1px solid var(--border);font-weight:700;font-size:13px;background:#fff;">
+                    <option value="far">기점(미트포앤)에서 먼 곳 먼저</option>
+                    <option value="near">기점(미트포앤)에서 가까운 곳 먼저</option>
+                    <option value="city" selected>시·구 가나다순</option>
+                </select>
+            </div>
             <div class="vehicle-stat-bar" id="vehicleStatBar"></div>
         </div>
 
