@@ -1541,14 +1541,29 @@ function sortDestinations(list, mode) {
     const m = mode || dispatchSortMode || 'city';
 
     if (m === 'city') {
+        // 주소·연락·비번 컬럼의 주소 텍스트에서 시·구 추출 → 가나다순
         arr.sort((a, b) => {
             const ca = extractCityFromAddr(a.addr);
             const cb = extractCityFromAddr(b.addr);
-            // 주소미상은 맨 아래
             if (ca === '주소미상' && cb !== '주소미상') return 1;
             if (cb === '주소미상' && ca !== '주소미상') return -1;
             const c = ca.localeCompare(cb, 'ko');
             if (c !== 0) return c;
+            // 같은 시·구면 전체 주소 가나다, 그다음 거래처명
+            const aa = String(a.addr || '').localeCompare(String(b.addr || ''), 'ko');
+            if (aa !== 0) return aa;
+            return String(a.clientName).localeCompare(String(b.clientName), 'ko');
+        });
+        return arr;
+    }
+
+    if (m === 'boxes') {
+        // 박스 많은 순, 동률이면 낱개 많은 순 → 이름
+        arr.sort((a, b) => {
+            const dbx = (b.totalBoxes || 0) - (a.totalBoxes || 0);
+            if (dbx !== 0) return dbx;
+            const dl = (b.totalLoose || 0) - (a.totalLoose || 0);
+            if (dl !== 0) return dl;
             return String(a.clientName).localeCompare(String(b.clientName), 'ko');
         });
         return arr;
@@ -1563,7 +1578,7 @@ function sortDestinations(list, mode) {
         if (aMiss && bMiss) {
             return String(a.clientName).localeCompare(String(b.clientName), 'ko');
         }
-        if (aMiss) return 1;   // 좌표 없는 항목은 맨 뒤
+        if (aMiss) return 1;
         if (bMiss) return -1;
         if (m === 'far') return db - da;
         return da - db; // near
