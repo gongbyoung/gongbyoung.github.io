@@ -23,6 +23,7 @@ let vehicleNames = JSON.parse(localStorage.getItem('mf_vehicles') || 'null') || 
 let dispatchMap = JSON.parse(localStorage.getItem('mf_dispatch') || '{}');
 let manualDelivMap = JSON.parse(localStorage.getItem('mf_manual_deliv_dates') || '{}');
 let selectedVehicleFilter = 'ALL';
+let dispatchSortMode = localStorage.getItem('mf_dispatch_sort') || 'city';
 
 // 초기 샘플 재고 데이터 세팅 (11월 10일 재고현황)
 const INITIAL_STOCK_TEXT = ``;
@@ -1338,7 +1339,76 @@ async function refreshDispatchMap() {
     }
     if (status) status.textContent = `표시 ${ok}곳` + (fail ? ` · 주소없음/실패 ${fail}` : '');
     setTimeout(() => map.invalidateSize(), 100);
+    // 좌표 캐시가 채워진 뒤 거리 정렬 모드면 목록 다시 정렬
+    if ((dispatchSortMode === 'far' || dispatchSortMode === 'near') && ok > 0) {
+        const tbody = document.getElementById('dispatchTableBody');
+        if (tbody && !tbody.dataset.resortLock) {
+            tbody.dataset.resortLock = '1';
+            setTimeout(() => {
+                delete tbody.dataset.resortLock;
+                const destinations = sortDestinations(getAggregatedDeliveryDestinations(), dispatchSortMode);
+                renderClientChips(destinations);
+                // 표만 다시 그리기 (지도 재요청 방지)
+                redrawDispatchTableOnly(destinations);
+            }, 50);
+        }
+    }
 }
+
+function redrawDispatchTableOnly(destinations) {
+    const tbody = document.getElementById('dispatchTableBody');
+    if (!tbody) return;
+    const filteredDests = destinations.filter(d => {
+        const assigned = dispatchMap[d.clientName] || 'UNASSIGNED';
+        if (selectedVehicleFilter === 'ALL') return true;
+        return assigned === selectedVehicleFilter;
+    });
+    tbody.innerHTML = '';
+    if (filteredDests.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:24px; color:#888;">조건에 해당하는 당일 납품처가 없습니다.</td></tr>`;
+        return;
+    }
+    filteredDests.forEach((d, idx) => {
+        const curVal = dispatchMap[d.clientName] || 'UNASSIGNED';
+        const isAssignedClass = (curVal !== 'UNASSIGNED') ? 'assigned' : '';
+        const pinCol = pinColorForCode(curVal);
+        const dist = getCachedDistKm(d.addr);
+        const city = extractCityFromAddr(d.addr);
+        const distTxt = dist != null ? ` · ${dist.toFixed(1)}km` : '';
+
+        let optionsHtml = `<option value="UNASSIGNED" ${curVal==='UNASSIGNED'?'selected':''}>-- 미배차 --</option>`;
+        for (let i = 0; i < 6; i++) {
+            const vCode = `V${i}`;
+            optionsHtml += `<option value="${vCode}" ${curVal===vCode?'selected':''}>🚚 ${escapeHtml(vehicleNames[i])}</option>`;
+        }
+        optionsHtml += `<option value="PICKUP" ${curVal==='PICKUP'?'selected':''}>📦 방문/택배</option>`;
+
+        let addrHtml = d.addr ? `<div>📍 ${escapeHtml(d.addr)}</div>` : `<div style="color:#9ca3af;">📍 주소 미등록</div>`;
+        if (d.phone) addrHtml += `<div style="color:#4b5563; margin-top:2px;">📞 ${escapeHtml(d.phone)}</div>`;
+        if (d.note) addrHtml += `<div style="color:#b45309; font-weight:bold; margin-top:2px;">🔑 ${escapeHtml(d.note)}</div>`;
+        let urgentBadge = d.isUrgent ? `<span class="badge b-urgent">급/오전</span>` : '';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="text-align:center; vertical-align:middle;"><b>${idx + 1}</b></td>
+            <td style="vertical-align:middle;">
+                <span class="pin-dot" style="background:${pinCol};vertical-align:middle;margin-right:4px;"></span>
+                <b style="color:var(--primary); font-size:14px;">${escapeHtml(d.clientName)}</b>${urgentBadge}
+                <div style="font-size:11px;color:#6b7280;margin-top:2px;">${escapeHtml(city)}${distTxt}</div>
+                ${d.officialName !== d.clientName ? `<small style="color:#6b7280;">(${escapeHtml(d.officialName)})</small>` : ''}
+            </td>
+            <td style="font-size:12.5px; line-height:1.4; vertical-align:middle;">${addrHtml}</td>
+            <td style="vertical-align:middle; white-space:nowrap;">${formatBoxLooseSummary(d.totalBoxes, d.totalLoose)}</td>
+            <td style="vertical-align:middle;">
+                <select class="dispatch-select ${isAssignedClass}" data-client="${escapeHtml(d.clientName)}" onchange="assignVehicle(this.getAttribute('data-client'), this.value)">
+                    ${optionsHtml}
+                </select>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
 
 function fitDispatchMap() {
     if (!dispatchMapObj || !dispatchLayer) return;
@@ -1429,6 +1499,87 @@ function countOrderBoxesAndLoose(orderText) {
     return { boxes: totalBoxes, loose: totalLoose };
 }
 
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const toR = d => d * Math.PI / 180;
+    const dLat = toR(lat2 - lat1);
+    const dLng = toR(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(toR(lat1)) * Math.cos(toR(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function extractCityFromAddr(addr) {
+    if (!addr) return '주소미상';
+    const s = String(addr).replace(/\s+/g, ' ').trim();
+    // 특별시/광역시/도 + 시·군·구
+    let m = s.match(/(서울|부산|대구|인천|광주|대전|울산|세종)(?:특별시|광역시|시)?\s*([가-힣]+(?:구|군))?/);
+    if (m) {
+        if (m[1] === '세종') return '세종시';
+        return m[2] ? `${m[1]} ${m[2]}` : `${m[1]}시`;
+    }
+    m = s.match(/([가-힣]+도)\s*([가-힣]+시|[가-힣]+군)/);
+    if (m) return m[2];
+    m = s.match(/([가-힣]+시|[가-힣]+군)\s*([가-힣]+구)?/);
+    if (m) return m[2] ? `${m[1]} ${m[2]}` : m[1];
+    m = s.match(/([가-힣]+구)/);
+    if (m) return m[1];
+    return '주소미상';
+}
+
+function getCachedDistKm(addr) {
+    if (!addr) return null;
+    const key = addr.trim();
+    const pos = geoCache[key];
+    if (!pos || pos.lat == null || pos.lng == null) return null;
+    return haversineKm(DEPOT.lat, DEPOT.lng, pos.lat, pos.lng);
+}
+
+function sortDestinations(list, mode) {
+    const arr = list.slice();
+    const m = mode || dispatchSortMode || 'city';
+
+    if (m === 'city') {
+        arr.sort((a, b) => {
+            const ca = extractCityFromAddr(a.addr);
+            const cb = extractCityFromAddr(b.addr);
+            // 주소미상은 맨 아래
+            if (ca === '주소미상' && cb !== '주소미상') return 1;
+            if (cb === '주소미상' && ca !== '주소미상') return -1;
+            const c = ca.localeCompare(cb, 'ko');
+            if (c !== 0) return c;
+            return String(a.clientName).localeCompare(String(b.clientName), 'ko');
+        });
+        return arr;
+    }
+
+    // 거리: 캐시 있는 곳 우선 정렬, 없는 곳은 맨 뒤
+    arr.sort((a, b) => {
+        const da = getCachedDistKm(a.addr);
+        const db = getCachedDistKm(b.addr);
+        const aMiss = da == null;
+        const bMiss = db == null;
+        if (aMiss && bMiss) {
+            return String(a.clientName).localeCompare(String(b.clientName), 'ko');
+        }
+        if (aMiss) return 1;   // 좌표 없는 항목은 맨 뒤
+        if (bMiss) return -1;
+        if (m === 'far') return db - da;
+        return da - db; // near
+    });
+    return arr;
+}
+
+function onDispatchSortChange() {
+    const sel = document.getElementById('dispatchSortMode');
+    if (sel) {
+        dispatchSortMode = sel.value || 'city';
+        localStorage.setItem('mf_dispatch_sort', dispatchSortMode);
+    }
+    renderDispatchPage();
+}
+
 function getAggregatedDeliveryDestinations() {
     const orders = getFilteredOrderList(true);
     const destMap = new Map();
@@ -1469,12 +1620,16 @@ function formatBoxLooseSummary(boxes, loose) {
 }
 
 function renderDispatchPage() {
-    const destinations = getAggregatedDeliveryDestinations();
+    const destinationsRaw = getAggregatedDeliveryDestinations();
+    const destinations = sortDestinations(destinationsRaw, dispatchSortMode);
     const tbody = document.getElementById('dispatchTableBody');
     const statBar = document.getElementById('vehicleStatBar');
     if (!tbody || !statBar) return;
     tbody.innerHTML = '';
     statBar.innerHTML = '';
+
+    const sortSel = document.getElementById('dispatchSortMode');
+    if (sortSel && sortSel.value !== dispatchSortMode) sortSel.value = dispatchSortMode;
 
     const counts = { 'ALL': destinations.length, 'UNASSIGNED': 0, 'PICKUP': 0 };
     for (let i = 0; i < 6; i++) counts[`V${i}`] = 0;
@@ -1500,7 +1655,7 @@ function renderDispatchPage() {
         statBar.appendChild(span);
     });
 
-    // 칩·지도는 전체 납품처 기준
+    // 칩·지도·표 모두 동일 정렬
     renderClientChips(destinations);
     refreshDispatchMap();
 
@@ -1519,6 +1674,9 @@ function renderDispatchPage() {
         const curVal = dispatchMap[d.clientName] || 'UNASSIGNED';
         const isAssignedClass = (curVal !== 'UNASSIGNED') ? 'assigned' : '';
         const pinCol = pinColorForCode(curVal);
+        const dist = getCachedDistKm(d.addr);
+        const city = extractCityFromAddr(d.addr);
+        const distTxt = dist != null ? ` · ${dist.toFixed(1)}km` : '';
 
         let optionsHtml = `<option value="UNASSIGNED" ${curVal==='UNASSIGNED'?'selected':''}>-- 미배차 --</option>`;
         for (let i = 0; i < 6; i++) {
@@ -1539,7 +1697,8 @@ function renderDispatchPage() {
             <td style="vertical-align:middle;">
                 <span class="pin-dot" style="background:${pinCol};vertical-align:middle;margin-right:4px;"></span>
                 <b style="color:var(--primary); font-size:14px;">${escapeHtml(d.clientName)}</b>${urgentBadge}
-                ${d.officialName !== d.clientName ? `<br><small style="color:#6b7280;">(${escapeHtml(d.officialName)})</small>` : ''}
+                <div style="font-size:11px;color:#6b7280;margin-top:2px;">${escapeHtml(city)}${distTxt}</div>
+                ${d.officialName !== d.clientName ? `<small style="color:#6b7280;">(${escapeHtml(d.officialName)})</small>` : ''}
             </td>
             <td style="font-size:12.5px; line-height:1.4; vertical-align:middle;">${addrHtml}</td>
             <td style="vertical-align:middle; white-space:nowrap;">${formatBoxLooseSummary(d.totalBoxes, d.totalLoose)}</td>
