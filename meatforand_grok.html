@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미트포앤CGJ · 발주·재고·배차</title>
+    <title>미트포앤 CGJ · 발주·재고·배차</title>
     <style>
 
         :root {
@@ -682,15 +682,6 @@
                 <button class="btn green" onclick="downloadDispatchCsv()">📥 배차 CSV</button>
             </div>
             <div class="vehicle-config-grid" id="vehicleConfigGrid"></div>
-            <div class="settings-row" style="margin:10px 0 8px; align-items:center;">
-                <label for="dispatchSortMode" style="font-size:13px;font-weight:800;color:var(--primary);margin:0;">목록 정렬</label>
-                <select id="dispatchSortMode" onchange="onDispatchSortChange()"
-                    style="flex:1;min-width:200px;height:40px;padding:6px 10px;border-radius:10px;border:1px solid var(--border);font-weight:700;font-size:13px;background:#fff;">
-                    <option value="far">기점(미트포앤)에서 먼 곳 먼저</option>
-                    <option value="near">기점(미트포앤)에서 가까운 곳 먼저</option>
-                    <option value="city" selected>시·구 가나다순</option>
-                </select>
-            </div>
             <div class="vehicle-stat-bar" id="vehicleStatBar"></div>
         </div>
 
@@ -709,6 +700,22 @@
             <p id="selectedClientHint" style="font-size:12px;color:#555;margin:0;">거래처 버튼을 선택한 뒤 차량을 지정하세요.</p>
         </div>
 
+        <div class="section-card" style="margin-bottom:10px;padding:12px;">
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;">
+                <h3 style="margin:0;font-size:15px;">📋 배송처 목록</h3>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1;justify-content:flex-end;">
+                    <label for="dispatchSortMode" style="font-size:12px;font-weight:800;color:var(--text-sub);">정렬</label>
+                    <select id="dispatchSortMode" onchange="onDispatchSortChange()"
+                        style="min-width:220px;max-width:100%;height:40px;padding:6px 10px;border-radius:10px;border:2px solid var(--primary);font-weight:700;font-size:13px;background:#fff;color:#111;">
+                        <option value="city">주소(시·구) 가나다순</option>
+                        <option value="far">기점에서 먼 곳 먼저</option>
+                        <option value="near">기점에서 가까운 곳 먼저</option>
+                        <option value="boxes">박스 많은 순</option>
+                    </select>
+                </div>
+            </div>
+            <p style="margin:8px 0 0;font-size:12px;color:var(--text-sub);">주소·연락·비번 기준으로 시·구를 뽑거나, 기점 거리·박스 수로 목록 순서를 바꿉니다.</p>
+        </div>
         <div class="table-wrap">
             <table>
                 <thead>
