@@ -153,9 +153,25 @@ function clearSavedBrowserData() {
     location.reload();
 }
 
+window.addEventListener('popstate', (ev) => {
+    const pageId = (ev.state && ev.state.pageId) || (location.hash || '#pageHome').replace(/^#/, '') || 'pageHome';
+    switchTab(pageId, null, true);
+});
+
 window.addEventListener('DOMContentLoaded', () => {
     renderVehicleConfigInputs();
     restoreStateFromBrowser();
+    try {
+        const initial = (location.hash || '#pageHome').replace(/^#/, '') || 'pageHome';
+        history.replaceState({ pageId: 'pageHome' }, '', '#pageHome');
+        if (initial && initial !== 'pageHome' && document.getElementById(initial)) {
+            switchTab(initial, null, true);
+        } else {
+            switchTab('pageHome', null, true);
+        }
+    } catch (e) {
+        switchTab('pageHome', null, true);
+    }
 
     fetch('./clients.csv')
         .then(res => {
@@ -171,17 +187,23 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 /* 탭 전환 함수 */
-function switchTab(pageId, btnEl) {
+function goHome() {
+    switchTab('pageHome');
+}
+
+function switchTab(pageId, btnEl, fromPopstate) {
+    const page = document.getElementById(pageId);
+    if (!page) {
+        pageId = 'pageHome';
+    }
     document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.bottom-nav button').forEach(b => b.classList.remove('active'));
-    const page = document.getElementById(pageId);
-    if (page) page.classList.add('active');
+    const el = document.getElementById(pageId);
+    if (el) el.classList.add('active');
     if (btnEl) btnEl.classList.add('active');
-    // 하단/상단 탭 동기화
-    document.querySelectorAll('.tab-btn').forEach((b, i) => {
-        const map = ['page1','page2','page3','page4','page5','page6'];
-        if (map[i] === pageId) b.classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        if (b.getAttribute('data-page') === pageId) b.classList.add('active');
     });
     document.querySelectorAll('.bottom-nav button').forEach(b => {
         if (b.getAttribute('data-page') === pageId) b.classList.add('active');
@@ -192,7 +214,82 @@ function switchTab(pageId, btnEl) {
     if (pageId === 'page4') renderOrderSummaryTable();
     if (pageId === 'page5') renderDiffTable();
     if (pageId === 'page6') renderDispatchPage();
+    if (pageId === 'pageLoose') renderLooseTable();
+    if (pageId === 'pageHome') updateHomeSummary();
+
+    // 브라우저 뒤로가기가 사이트 종료 대신 앱 내 이동이 되도록
+    if (!fromPopstate) {
+        try {
+            const hash = '#' + pageId;
+            if (location.hash !== hash) {
+                history.pushState({ pageId }, '', hash);
+            } else {
+                history.replaceState({ pageId }, '', hash);
+            }
+        } catch (e) {}
+    }
+    try { window.scrollTo(0, 0); } catch (e) {}
 }
+
+function extractLooseLinesFromOrderText(orderText) {
+    const lines = String(orderText || '').split('\n').map(l => l.trim()).filter(Boolean);
+    const out = [];
+    lines.forEach((line, idx) => {
+        if (/010-\d{3,4}-\d{4}|안녕하|발주드리려고|부탁드립|부탁해요|보내주세요|이상입니다|감사합니다|주문합니다/.test(line)
+            && !/(삼겹|목살|미전지|전지|미삼|등갈비|등뼈|갈비|등심|안심|사태|항정|가브리|갈매기|후지|잡육|돈피)/.test(line)) {
+            return;
+        }
+        // 박스만 있는 줄은 제외, 팩/봉/kg/판/덩이 등 낱개 단위가 있으면 포함
+        const hasLoose = /(\d+(?:\.\d+)?)\s*(?:팩|펙|판|봉|봉지|덩이|덩어리|진공|벌|마리분|피스|p|개|kg|키로|킬)/i.test(line);
+        const onlyBox = /(\d+)\s*(?:박스|빡스|박|box)\b/i.test(line) && !hasLoose;
+        if (onlyBox) return;
+        if (hasLoose || (/팩|봉|kg|키로/i.test(line) && /\d/.test(line))) {
+            out.push(line);
+        }
+    });
+    return out;
+}
+
+function renderLooseTable() {
+    const tbody = document.getElementById('looseTableBody');
+    const stats = document.getElementById('looseStats');
+    if (!tbody) return;
+    const orders = getFilteredOrderList(true);
+    const map = new Map();
+    orders.forEach(ord => {
+        const lines = extractLooseLinesFromOrderText(ord.content);
+        if (!lines.length) return;
+        const key = ord.clientName || '(미지정)';
+        if (!map.has(key)) map.set(key, []);
+        lines.forEach(l => map.get(key).push(l));
+    });
+    const rows = Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], 'ko'));
+    if (stats) stats.textContent = rows.length ? `거래처 ${rows.length}곳` : '낱개 발주 없음';
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:#888;">해당 날짜에 박스 외 낱개(팩·봉·kg 등) 발주가 없습니다.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = '';
+    rows.forEach((entry, idx) => {
+        const name = entry[0];
+        const lines = entry[1];
+        // 합계: 낱개 숫자 합 (대략)
+        let total = 0;
+        lines.forEach(l => {
+            const ms = [...l.matchAll(/(\d+(?:\.\d+)?)\s*(?:팩|펙|판|봉|봉지|덩이|개|kg|키로)/gi)];
+            ms.forEach(m => { total += parseFloat(m[1]) || 0; });
+        });
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="text-align:center;"><b>${idx + 1}</b></td>
+            <td><b style="color:var(--primary);">${escapeHtml(name)}</b></td>
+            <td style="font-size:13px;line-height:1.45;">${lines.map(l => escapeHtml(l)).join('<br>')}</td>
+            <td><b>${total > 0 ? total : '-'}</b></td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
 
 function onFilterCriteriaChange(skipSave) {
     renderOrdersTable();
