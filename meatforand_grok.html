@@ -3,525 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미트포앤 CGJ · 발주·재고·배차</title>
+    <title>미트포앤 v4.1</title>
     <style>
-
         :root {
-            --primary: #2B7BFF;
-            --primary-dark: #1a5fd0;
-            --primary-light: #E8F1FF;
-            --go: #FFB800;
-            --go-dark: #E5A500;
-            --accent: #00A86B;
-            --warn: #FF8A00;
-            --danger: #E53935;
-            --bg: #F2F4F7;
+            --primary: #1f4e79;
+            --primary-light: #eef4fa;
+            --accent: #047857;
+            --warn: #d97706;
+            --danger: #dc2626;
+            --bg: #f3f6f9;
             --card: #ffffff;
-            --text: #222;
-            --text-sub: #6B7280;
-            --border: #E5E7EB;
-            --shadow: 0 2px 12px rgba(43, 123, 255, 0.08);
+            --text: #1f2937;
+            --border: #d1d5db;
         }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+        * { box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-            margin: 0; padding: 0;
-            background: var(--bg); color: var(--text);
-            font-size: 14px; line-height: 1.45;
-            padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+            font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "맑은 고딕", sans-serif;
+            margin: 0; padding: 10px; background-color: var(--bg); color: var(--text); font-size: 13px;
         }
         .app-container {
-            max-width: 480px; margin: 0 auto; min-height: 100vh;
-            background: var(--bg);
+            max-width: 1200px; margin: 0 auto; background: var(--card);
+            border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); overflow: hidden;
         }
-        @media (min-width: 900px) {
-            .app-container { max-width: 960px; }
-            body { padding-bottom: 0; }
-        }
-
-        /* 발주고 스타일 상단바 */
+        /* 상단 헤더 및 소형 컨트롤 영역 */
         .app-header {
-            background: linear-gradient(135deg, #2B7BFF 0%, #1a6eef 100%);
-            color: white;
-            padding: 12px 14px 10px;
-            padding-top: max(12px, env(safe-area-inset-top));
-            position: sticky; top: 0; z-index: 50;
-            box-shadow: 0 2px 10px rgba(26, 95, 208, 0.25);
+            background: var(--primary); color: white; padding: 10px 14px;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
         }
         .header-title-group {
-            display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+            display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
         }
         .app-header h1 {
-            margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.3px;
-            display: flex; align-items: center; gap: 4px;
-        }
-        .app-header h1 .go {
-            color: var(--go); font-weight: 900;
+            margin: 0; font-size: 16px; white-space: nowrap; margin-right: 4px;
         }
         .hdr-input, .hdr-select {
-            padding: 6px 10px; font-size: 13px; border-radius: 8px;
-            border: none; background: #fff; color: #222; font-weight: 600;
-            height: 34px; cursor: pointer;
+            padding: 3px 6px; font-size: 11.5px; border-radius: 5px;
+            border: 1px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.95);
+            color: #1f2937; font-weight: bold; height: 26px; cursor: pointer;
         }
         .hdr-icon-btn {
-            display: inline-flex; align-items: center; gap: 4px;
-            padding: 6px 12px; font-size: 12px; font-weight: 700; height: 34px;
-            border-radius: 20px; border: none;
-            background: rgba(255,255,255,0.2); color: #fff; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 3px;
+            padding: 3px 8px; font-size: 11px; font-weight: bold; height: 26px;
+            border-radius: 5px; border: 1px solid rgba(255,255,255,0.35);
+            background: rgba(255,255,255,0.15); color: #e5e7eb; cursor: pointer;
+            white-space: nowrap; transition: all 0.15s;
         }
         .hdr-icon-btn.active {
-            background: var(--go); color: #1a1a1a;
+            background: #10b981; color: #ffffff; border-color: #059669;
         }
-        .hdr-icon-btn.warn { background: #FF8A00; color: #fff; }
-        .status-pills {
-            display: flex; gap: 6px; font-size: 11px; flex-wrap: wrap;
-            margin-top: 8px; align-items: center;
+        .hdr-icon-btn.warn {
+            background: #f59e0b; color: #ffffff; border-color: #d97706;
         }
-        .pill {
-            background: rgba(255,255,255,0.18); padding: 4px 10px;
-            border-radius: 20px; white-space: nowrap; font-weight: 600;
-        }
-        .pill.ok { background: #00A86B; }
-        .pill.time { background: rgba(0,0,0,0.2); color: #FFE08A; }
+        .status-pills { display: flex; gap: 5px; font-size: 11px; flex-wrap: wrap; align-items: center; }
+        .pill { background: rgba(255,255,255,0.18); padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
+        .pill.ok { background: #059669; color: white; font-weight: bold; }
+        .pill.time { background: #1e3a5f; border: 1px solid rgba(255,255,255,0.3); color: #fde68a; font-weight: bold; }
 
-        /* 상단 탭 → 모바일에서는 숨기고 하단 네비 사용 / PC는 상단 유지 */
+        /* 상단 6개 탭 네비게이션 */
         .tab-nav {
-            display: none;
-            background: #fff; border-bottom: 1px solid var(--border);
-            overflow-x: auto; -webkit-overflow-scrolling: touch;
+            display: flex; background: #e5e7eb; border-bottom: 2px solid var(--primary); overflow-x: auto;
         }
         .tab-btn {
-            flex: 0 0 auto; min-width: 88px; padding: 12px 10px; border: none;
-            background: transparent; font-size: 13px; font-weight: 700;
-            color: var(--text-sub); cursor: pointer;
-            border-bottom: 3px solid transparent;
+            flex: 1; min-width: 115px; padding: 11px 8px; border: none; background: transparent;
+            font-size: 12.5px; font-weight: bold; color: #4b5563; cursor: pointer; white-space: nowrap;
+            border-bottom: 3px solid transparent; transition: all 0.15s;
         }
         .tab-btn.active {
-            color: var(--primary); border-bottom-color: var(--primary);
-            background: var(--primary-light);
-        }
-        @media (min-width: 900px) {
-            .tab-nav { display: flex; position: sticky; top: 0; z-index: 40; }
-            .bottom-nav { display: none !important; }
-            body { padding-bottom: 0; }
+            background: var(--card); color: var(--primary); border-bottom: 3px solid var(--primary);
         }
 
-        /* 발주고형 하단 네비 */
-        .bottom-nav {
-            position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
-            display: flex; background: #fff;
-            border-top: 1px solid var(--border);
-            box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
-            padding-bottom: env(safe-area-inset-bottom, 0);
-            max-width: 480px; margin: 0 auto;
-        }
-        @media (min-width: 900px) {
-            .bottom-nav { max-width: 960px; }
-        }
-        .bottom-nav button {
-            flex: 1; border: none; background: transparent;
-            padding: 8px 2px 6px; font-size: 10px; font-weight: 700;
-            color: #9CA3AF; cursor: pointer;
-            display: flex; flex-direction: column; align-items: center; gap: 2px;
-        }
-        .bottom-nav button .ico { font-size: 20px; line-height: 1; }
-        .bottom-nav button.active {
-            color: var(--primary);
-        }
-        .bottom-nav button.active .ico { transform: scale(1.08); }
-
-        .tab-page { display: none; padding: 12px; }
+        .tab-page { display: none; padding: 16px; }
         .tab-page.active { display: block; }
 
+        /* 카드 & 폼 스타일 */
         .section-card {
-            border: none; border-radius: 14px; padding: 16px;
-            margin-bottom: 12px; background: var(--card);
-            box-shadow: var(--shadow);
+            border: 1px solid var(--border); border-radius: 8px; padding: 14px;
+            margin-bottom: 16px; background: #fafbfc;
         }
-        .section-card h3 {
-            margin: 0 0 8px 0; color: #111; font-size: 16px; font-weight: 800;
-        }
-        .section-card p { margin: 0 0 10px 0; color: var(--text-sub); font-size: 13px; line-height: 1.45; }
+        .section-card h3 { margin: 0 0 8px 0; color: var(--primary); font-size: 15px; }
+        .section-card p { margin: 0 0 10px 0; color: #555; font-size: 12px; line-height: 1.4; }
 
         .upload-zone {
-            border: 2px dashed #93C5FD; background: var(--primary-light);
-            padding: 22px 14px; text-align: center; border-radius: 14px;
-            cursor: pointer; margin-bottom: 10px;
+            border: 2px dashed #93c5fd; background: var(--primary-light); padding: 16px;
+            text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 10px;
         }
         .upload-zone input { display: none; }
-        .upload-zone b { color: var(--primary); font-size: 15px; }
 
         textarea {
-            width: 100%; height: 180px; padding: 12px; border: 1px solid var(--border);
-            border-radius: 12px; font-family: monospace; font-size: 13px; resize: vertical;
-            background: #FAFBFC;
+            width: 100%; height: 220px; padding: 10px; border: 1px solid var(--border);
+            border-radius: 6px; font-family: monospace; font-size: 12px; resize: vertical;
         }
         input[type="text"] {
-            padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
-            font-size: 14px; background: white; width: 100%;
+            padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white;
         }
 
         .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
         .btn {
-            background: var(--primary); color: white; border: none;
-            padding: 12px 16px; border-radius: 12px;
-            font-size: 14px; font-weight: 700; cursor: pointer;
-            min-height: 44px; box-shadow: 0 4px 12px rgba(43,123,255,0.25);
+            background: var(--primary); color: white; border: none; padding: 8px 13px;
+            border-radius: 6px; font-size: 12.5px; font-weight: bold; cursor: pointer;
         }
-        .btn.green { background: var(--accent); box-shadow: 0 4px 12px rgba(0,168,107,0.2); }
-        .btn.orange { background: var(--warn); box-shadow: 0 4px 12px rgba(255,138,0,0.2); }
-        .btn.gray { background: #9CA3AF; box-shadow: none; }
+        .btn.green { background: var(--accent); }
+        .btn.orange { background: var(--warn); }
+        .btn.gray { background: #6b7280; }
         .btn.red { background: var(--danger); }
-        .btn:active { opacity: 0.9; transform: scale(0.98); }
+        .btn:active { opacity: 0.85; }
 
+        /* 컨트롤 바 */
         .filter-bar {
-            background: #fff; padding: 12px; border-radius: 14px;
-            margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px;
-            align-items: center; justify-content: space-between;
-            box-shadow: var(--shadow);
+            background: var(--primary-light); padding: 10px 12px; border-radius: 8px;
+            margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+            justify-content: space-between;
         }
         .filter-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
-        .table-wrap {
-            overflow-x: auto; max-height: 62vh;
-            border-radius: 14px; background: #fff;
-            box-shadow: var(--shadow);
-        }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th, td {
-            border-bottom: 1px solid var(--border);
-            padding: 12px 10px; text-align: left; vertical-align: top;
-        }
-        th {
-            background: var(--primary); color: white;
-            position: sticky; top: 0; z-index: 5; font-weight: 700;
-        }
-        tr:nth-child(even) { background: #F8FAFC; }
-        tr:active { background: var(--primary-light); }
+        /* 테이블 스타일 */
+        .table-wrap { overflow-x: auto; max-height: 620px; border: 1px solid var(--border); border-radius: 6px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+        th { background: var(--primary); color: white; position: sticky; top: 0; z-index: 5; white-space: nowrap; }
+        tr:nth-child(even) { background: #f9fafb; }
 
-        .badge {
-            display: inline-block; padding: 3px 8px; border-radius: 20px;
-            font-size: 11px; font-weight: 700; color: white;
-        }
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
         .b-order { background: var(--accent); }
         .b-weight { background: var(--warn); }
-        .b-other { background: #6B7280; }
-        .b-client { background: var(--primary); font-size: 10px; margin-left: 4px; }
+        .b-other { background: #6b7280; }
+        .b-client { background: #2563eb; font-size: 10px; margin-left: 4px; }
         .b-urgent { background: var(--danger); font-size: 10px; margin-left: 4px; }
 
+        /* 2페이지 납품일 자동판별 & 수동 원클릭 전환 배지 버튼 */
         .deliv-badge-btn {
-            display: inline-block; margin-top: 4px; padding: 4px 8px; border-radius: 8px;
-            font-size: 11px; font-weight: 700; border: 1px solid #93C5FD;
-            background: var(--primary-light); color: var(--primary-dark); cursor: pointer;
+            display: inline-block; margin-top: 3px; padding: 2px 6px; border-radius: 4px;
+            font-size: 11px; font-weight: bold; border: 1px solid #93c5fd;
+            background: #eff6ff; color: #1e40af; cursor: pointer; transition: all 0.12s;
         }
+        .deliv-badge-btn:hover { background: #dbeafe; }
         .deliv-badge-btn.next-day {
-            background: #FFF7E6; color: #B45309; border-color: var(--go);
+            background: #fef3c7; color: #92400e; border-color: #f59e0b;
         }
         .deliv-badge-btn.manual {
-            background: #F3E8FF; color: #7C3AED; border-color: #C084FC;
+            background: #fae8ff; color: #86198f; border-color: #d946ef;
         }
 
-        .num-pos { color: var(--accent); font-weight: 800; }
-        .num-neg { color: var(--danger); font-weight: 800; background: #FEE2E2; }
-        .num-zero { color: #9CA3AF; }
+        .num-pos { color: var(--accent); font-weight: bold; }
+        .num-neg { color: var(--danger); font-weight: bold; background: #fee2e2; }
+        .num-zero { color: #6b7280; }
 
+        /* 6페이지 배차 콤보박스 및 차량 설정 */
         .vehicle-config-grid {
-            display: grid; grid-template-columns: 1fr 1fr;
-            gap: 8px; margin-bottom: 12px; background: var(--primary-light);
-            padding: 12px; border-radius: 12px;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+            gap: 8px; margin-bottom: 12px; background: #f8fafc; padding: 10px;
+            border: 1px solid var(--border); border-radius: 8px;
         }
-        .vehicle-config-item { display: flex; flex-direction: column; gap: 4px; }
-        .vehicle-config-item span { font-size: 12px; font-weight: 700; color: var(--primary); }
-        .vehicle-config-item input {
-            padding: 10px; font-size: 14px; border-radius: 10px; border: 1px solid var(--border);
-        }
+        .vehicle-config-item { display: flex; flex-direction: column; gap: 3px; }
+        .vehicle-config-item span { font-size: 11px; font-weight: bold; color: var(--primary); }
+        .vehicle-config-item input { padding: 5px 8px; font-size: 12px; }
+
         .dispatch-select {
-            width: 100%; min-width: 140px; padding: 10px; font-weight: 700;
-            border-radius: 10px; border: 2px solid #93C5FD; cursor: pointer;
-            min-height: 44px; font-size: 14px;
+            width: 100%; min-width: 155px; padding: 6px 8px; font-weight: bold;
+            border-radius: 6px; border: 2px solid #93c5fd; cursor: pointer;
         }
-        .dispatch-select.assigned {
-            border-color: var(--accent); background: #ECFDF5; color: #065F46;
-        }
+        .dispatch-select.assigned { border-color: var(--accent); background: #ecfdf5; color: #065f46; }
         .vehicle-stat-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
         .v-stat-chip {
-            padding: 8px 12px; border-radius: 20px; background: #fff;
-            font-size: 12px; font-weight: 700; cursor: pointer;
-            border: 2px solid var(--border); box-shadow: var(--shadow);
+            padding: 5px 10px; border-radius: 16px; background: #e2e8f0;
+            font-size: 12px; font-weight: bold; cursor: pointer; border: 2px solid transparent;
         }
-        .v-stat-chip.active {
-            background: var(--primary); color: white; border-color: var(--primary);
-        }
-
-        #dispatchMap {
-            width: 100%; height: 42vh; min-height: 240px;
-            border-radius: 14px; border: none; z-index: 1;
-            box-shadow: inset 0 0 0 1px var(--border);
-        }
-        .map-toolbar {
-            display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; align-items: center;
-        }
-        .map-legend {
-            display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; margin: 6px 0 10px;
-        }
-        .map-legend span { display: inline-flex; align-items: center; gap: 4px; }
-        .pin-dot {
-            width: 12px; height: 12px; border-radius: 50%;
-            display: inline-block; border: 1px solid rgba(0,0,0,.15);
-        }
-        .client-chip-row {
-            display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px;
-        }
-        .client-chip {
-            border: 2px solid var(--border); background: #fff;
-            border-radius: 20px; padding: 8px 14px;
-            font-size: 13px; font-weight: 700; cursor: pointer;
-            min-height: 40px; color: #222;
-            box-shadow: var(--shadow);
-        }
-        .client-chip.selected {
-            border-color: var(--primary); background: var(--primary-light); color: var(--primary);
-        }
-        .client-chip.has-v0 { border-color: #e53935; background: #ffebee; }
-        .client-chip.has-v1 { border-color: #1e88e5; background: #e3f2fd; }
-        .client-chip.has-v2 { border-color: #43a047; background: #e8f5e9; }
-        .client-chip.has-v3 { border-color: #fb8c00; background: #fff3e0; }
-        .client-chip.has-v4 { border-color: #8e24aa; background: #f3e5f5; }
-        .client-chip.has-v5 { border-color: #00acc1; background: #e0f7fa; }
-        .quick-vehicle-bar {
-            display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;
-        }
-        .qv-btn {
-            flex: 1 1 30%; min-width: 96px; min-height: 42px;
-            border-radius: 12px; border: 2px solid var(--border);
-            background: #fff; font-weight: 800; font-size: 12px;
-            cursor: pointer; color: #111;
-        }
-
-
-        /* ===== 발주고형 홈 대시보드 ===== */
-        .greet-box {
-            background: var(--card);
-            border-radius: var(--radius, 14px);
-            padding: 16px;
-            margin-bottom: 12px;
-            box-shadow: var(--shadow);
-        }
-        .greet-box .hello {
-            font-size: 17px; font-weight: 800; color: #111; margin: 0 0 12px;
-        }
-        .greet-box .hello span { color: var(--primary); }
-        .quick-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        .quick-tile {
-            background: #fff;
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 14px 8px;
-            text-align: center;
-            cursor: pointer;
-            box-shadow: var(--shadow);
-            font-weight: 700;
-            font-size: 12px;
-            color: #374151;
-        }
-        .quick-tile .qi { font-size: 26px; display: block; margin-bottom: 6px; }
-        .quick-tile:active { background: var(--primary-light); }
-        .cta-btn {
-            display: block; width: 100%;
-            background: var(--primary); color: #fff;
-            border: none; border-radius: 14px;
-            padding: 16px; font-size: 16px; font-weight: 800;
-            cursor: pointer; margin-bottom: 12px;
-            box-shadow: 0 6px 16px rgba(43,123,255,0.3);
-            text-align: center;
-        }
-        .cta-btn:active { opacity: 0.92; }
-        .summary-bar {
-            background: #F0F7FF;
-            border-radius: 12px;
-            padding: 12px 14px;
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 12px;
-            font-size: 13px; font-weight: 700;
-        }
-        .summary-bar strong { color: var(--primary); font-size: 16px; }
-        .notice-card {
-            background: var(--card);
-            border-radius: 14px;
-            padding: 14px 16px;
-            box-shadow: var(--shadow);
-            margin-bottom: 12px;
-        }
-        .notice-card h4 {
-            margin: 0 0 10px; font-size: 14px; font-weight: 800;
-            display: flex; justify-content: space-between;
-        }
-        .notice-card h4 small { color: var(--text-sub); font-weight: 600; }
-        .notice-item {
-            display: flex; justify-content: space-between; gap: 8px;
-            padding: 8px 0; border-bottom: 1px solid var(--border);
-            font-size: 13px;
-        }
-        .notice-item:last-child { border-bottom: none; }
-        .notice-item .date { color: var(--text-sub); font-size: 12px; white-space: nowrap; }
-        .notice-item .new {
-            background: var(--danger); color: #fff;
-            font-size: 10px; padding: 1px 6px; border-radius: 8px;
-            margin-left: 4px; font-weight: 800;
-        }
-
-        .hdr-date-only {
-            display: flex; align-items: center; gap: 6px;
-        }
-        .hdr-date-label {
-            font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.9);
-        }
-        .hdr-date-only .hdr-input {
-            height: 34px; font-size: 13px; font-weight: 700;
-        }
-        .settings-grid {
-            display: grid; gap: 10px;
-        }
-        .settings-grid label {
-            display: block; font-size: 12px; font-weight: 700;
-            color: var(--text-sub); margin-bottom: 4px;
-        }
-        .settings-row {
-            display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
-        }
-        /* 헤더 발주고형 */
-        .hdr-top-row {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 8px;
-        }
-        .hdr-brand {
-            font-size: 17px; font-weight: 800; color: #fff;
-            display: flex; align-items: center; gap: 6px;
-        }
-        .hdr-brand .go { color: var(--go); }
-        .hdr-controls {
-            display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
-        }
-
-        /* 데스크톱: 넓은 관리자 레이아웃 */
-        @media (min-width: 900px) {
-            body { padding-bottom: 0; }
-            .app-container { max-width: 1100px; }
-            .mobile-only { display: none !important; }
-            .tab-nav { display: flex !important; }
-            .bottom-nav { display: none !important; }
-            .table-wrap { max-height: 70vh; }
-            .quick-grid { grid-template-columns: repeat(6, 1fr); }
-            .desktop-toolbar {
-                display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
-            }
-        }
-        @media (max-width: 899px) {
-            .desktop-only { display: none !important; }
-            .hdr-controls .hdr-select { max-width: 100%; font-size: 12px; }
-            .app-header .status-pills { margin-top: 6px; }
-        }
-
-        code {
-            background: #EEF2FF; color: var(--primary-dark);
-            padding: 2px 6px; border-radius: 4px; font-size: 12px;
-        }
-
+        .v-stat-chip.active { background: var(--primary); color: white; }
     </style>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
 <div class="app-container">
     <!-- 상단 헤더: 제목 + 기준날짜 + 시간범위/스마트판별 콤보박스 + 소형 아이콘 토글 2종 + 업데이트 시간 -->
     <div class="app-header">
-        <div class="hdr-top-row">
-            <div class="hdr-brand">미트포앤<span class="go">GO</span></div>
-            <div class="hdr-date-only">
-                <label for="orderTargetDate" class="hdr-date-label">납품일</label>
-                <input type="date" id="orderTargetDate" class="hdr-input" onchange="onFilterCriteriaChange()" title="납품 기준 날짜">
-            </div>
+        <div class="header-title-group">
+            <h1>🥩 (주)미트포앤 발주·재고·배차 통합 시스템 v4.1</h1>
+            <input type="date" id="orderTargetDate" class="hdr-input" onchange="onFilterCriteriaChange()" title="납품 기준 날짜 선택">
+            <select id="orderTimeMode" class="hdr-select" onchange="onFilterCriteriaChange()" title="발주 추출 및 납품일 판별 방식">
+                <option value="smart" selected>🧠 전날10:00~당일16:00 (스마트 분리)</option>
+                <option value="raw_prev10_to_16">전날10:00~당일16:00 (단순시간)</option>
+                <option value="prev22_to_16">전날22:00~당일16:00 (스마트 분리)</option>
+                <option value="fullday">작성일 당일전체(0~24시)</option>
+                <option value="all">전체 날짜 보기</option>
+            </select>
+            <button id="btnOnlyOrder" class="hdr-icon-btn active" onclick="toggleOnlyOrder()" title="발주만 보기: ON (비발주 숨김)">
+                🔍 발주만: ON
+            </button>
+            <button id="btnOnlyKnownClient" class="hdr-icon-btn" onclick="toggleKnownClient()" title="등록 거래처만 보기">
+                🏢 거래처: OFF
+            </button>
+        </div>
+        <div class="status-pills">
+            <span id="pillUpdated" class="pill time" title="마지막 로컬 저장 및 업데이트 시각">🕒 업데이트: 대기중</span>
+            <span id="pillKakao" class="pill">카톡: 미등록</span>
+            <span id="pillStock" class="pill">재고: 미등록</span>
+            <span id="pillClient" class="pill ok">거래처: 123곳</span>
         </div>
     </div>
 
     <!-- 상단 6개 페이지 탭 -->
-    <div class="tab-nav desktop-only">
-        <button class="tab-btn active" onclick="switchTab('page1', this)">홈·입력</button>
-        <button class="tab-btn" onclick="switchTab('page2', this)">발주목록</button>
-        <button class="tab-btn" onclick="switchTab('page3', this)">재고</button>
-        <button class="tab-btn" onclick="switchTab('page4', this)">발주표</button>
-        <button class="tab-btn" onclick="switchTab('page5', this)">잔여</button>
-        <button class="tab-btn" onclick="switchTab('page6', this)">배차·지도</button>
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('page1', this)">1. 데이터 입력</button>
+        <button class="tab-btn" onclick="switchTab('page2', this)">2. 발주 추출 목록</button>
+        <button class="tab-btn" onclick="switchTab('page3', this)">3. 일일 재고 현황표</button>
+        <button class="tab-btn" onclick="switchTab('page4', this)">4. 일일 발주 현황표</button>
+        <button class="tab-btn" onclick="switchTab('page5', this)">5. 발주차감 잔여재고</button>
+        <button class="tab-btn" onclick="switchTab('page6', this)">6. 배송처 목록·배차</button>
     </div>
 
     <!-- [페이지 1: 데이터 입력] -->
     <div id="page1" class="tab-page active">
-
-        <!-- 발주고형 모바일 홈 -->
-        <div class="greet-box mobile-only">
-            <p class="hello"><span>미트포앤</span>님 안녕하세요.</p>
-            <div class="quick-grid">
-                <button type="button" class="quick-tile" onclick="switchTab('page2')"><span class="qi">📋</span>발주내역</button>
-                <button type="button" class="quick-tile" onclick="switchTab('page6')"><span class="qi">🚚</span>배송·배차</button>
-                <button type="button" class="quick-tile" onclick="switchTab('page5')"><span class="qi">⚖️</span>잔여재고</button>
-            </div>
-            <button type="button" class="cta-btn" onclick="document.getElementById('kakaoFileInput').click()">📂 카톡 발주 불러오기</button>
-            <div class="summary-bar">
-                <span>오늘 납품 예정</span>
-                <span><strong id="homeOrderCount">0</strong> 곳</span>
-            </div>
-        </div>
-        <div class="notice-card mobile-only">
-            <h4>안내 <small>더보기</small></h4>
-            <div class="notice-item"><span>카톡 TXT 업로드 후 날짜를 지정하세요<span class="new">New</span></span><span class="date">사용팁</span></div>
-            <div class="notice-item"><span>배차 탭에서 차량별 핀 색으로 동선을 확인합니다</span><span class="date">배차</span></div>
-            <div class="notice-item"><span>결과는 이 브라우저에 자동 저장됩니다</span><span class="date">저장</span></div>
-        </div>
-
-        <div class="section-card" id="settingsCard">
-            <h3>⚙️ 추출·표시 설정 <small style="font-weight:600;color:var(--text-sub);font-size:12px;">(한 번 정하면 자동 저장 · 다른 탭에서도 유지)</small></h3>
-            <div class="settings-grid">
-                <div>
-                    <label>발주 추출 시간 창</label>
-                    <select id="orderTimeMode" class="hdr-select" style="width:100%;max-width:100%;height:40px;border:1px solid var(--border);background:#fff;color:#222;" onchange="onFilterCriteriaChange()">
-                        <option value="smart" selected>전날 10:00 ~ 당일 16:00 (스마트 분리)</option>
-                        <option value="raw_prev10_to_16">전날 10:00 ~ 당일 16:00 (단순 시간)</option>
-                        <option value="prev22_to_16">전날 22:00 ~ 당일 16:00 (스마트)</option>
-                        <option value="fullday">작성일 당일 전체 (0~24시)</option>
-                        <option value="all">전체 날짜 보기</option>
-                    </select>
-                </div>
-                <div>
-                    <label>목록 필터</label>
-                    <div class="settings-row">
-                        <button type="button" id="btnOnlyOrder" class="btn" style="min-height:40px;padding:8px 14px;" onclick="toggleOnlyOrder()">🔍 발주만: ON</button>
-                        <button type="button" id="btnOnlyKnownClient" class="btn gray" style="min-height:40px;padding:8px 14px;" onclick="toggleKnownClient()">🏢 등록거래처: OFF</button>
-                    </div>
-                </div>
-                <div>
-                    <label>상태</label>
-                    <div class="settings-row" style="gap:6px;">
-                        <span id="pillUpdated" class="pill time" style="background:#1e3a5f;color:#fde68a;padding:6px 10px;border-radius:20px;font-size:12px;font-weight:700;">업데이트: 대기중</span>
-                        <span id="pillKakao" class="pill" style="background:#e5e7eb;padding:6px 10px;border-radius:20px;font-size:12px;font-weight:700;">카톡: 미등록</span>
-                        <span id="pillStock" class="pill" style="background:#e5e7eb;padding:6px 10px;border-radius:20px;font-size:12px;font-weight:700;">재고: 미등록</span>
-                        <span id="pillClient" class="pill ok" style="background:#059669;color:#fff;padding:6px 10px;border-radius:20px;font-size:12px;font-weight:700;">거래처: -</span>
-                    </div>
-                </div>
-                <div class="settings-row">
-                    <button type="button" class="btn red" style="min-height:40px;" onclick="clearSavedBrowserData()">🗑️ 브라우저 저장 초기화</button>
-                </div>
-            </div>
-        </div>
         <div class="section-card">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
                 <h3 style="margin:0;">💬 1단계: 발주 카카오톡 대화 파일(.txt) 로딩</h3>
+                <button class="btn red" style="padding:5px 10px; font-size:11.5px;" onclick="clearSavedBrowserData()">🗑️ 브라우저 자동저장 초기화</button>
             </div>
             <p>
                 • 스마트폰/PC 내보내기 파일을 모두 인식하며, <b>5단계 스마트 납품일 알고리즘</b>이 전날 10시 이후 당일 발주(`오늘`, `퇴근길에` 등)와 익일 발주를 자동 분리합니다.<br>
@@ -678,53 +373,24 @@
     <div id="page6" class="tab-page">
         <div class="section-card" style="margin-bottom:12px; padding:12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-                <h3 style="margin:0;">🚚 차량·기사 설정</h3>
-                <button class="btn green" onclick="downloadDispatchCsv()">📥 배차 CSV</button>
+                <h3 style="margin:0;">🚚 6대 차량 기사님 설정 (수정 시 즉시 콤보박스에 반영 및 자동 저장)</h3>
+                <div class="filter-group">
+                    <button class="btn green" onclick="downloadDispatchCsv()">📥 당일 배차 목록 엑셀(CSV) 저장</button>
+                </div>
             </div>
             <div class="vehicle-config-grid" id="vehicleConfigGrid"></div>
             <div class="vehicle-stat-bar" id="vehicleStatBar"></div>
         </div>
 
-        <div class="section-card" style="margin-bottom:12px; padding:12px;">
-            <h3 style="margin:0 0 6px 0;">🗺️ 배송처 지도 (차량별 핀 색)</h3>
-            <p style="margin:0 0 8px 0;">발주 난 거래처만 표시됩니다. 아래 거래처 버튼을 고른 뒤 차량 버튼을 누르면 배차·핀 색이 바뀝니다.</p>
-            <div class="map-legend" id="mapLegend"></div>
-            <div class="map-toolbar">
-                <button type="button" class="btn" onclick="refreshDispatchMap()">지도 새로고침</button>
-                <button type="button" class="btn gray" onclick="fitDispatchMap()">전체 보기</button>
-                <span id="mapStatus" style="font-size:12px;color:#555;"></span>
-            </div>
-            <div id="dispatchMap"></div>
-            <div class="client-chip-row" id="clientChipRow"></div>
-            <div class="quick-vehicle-bar" id="quickVehicleBar"></div>
-            <p id="selectedClientHint" style="font-size:12px;color:#555;margin:0;">거래처 버튼을 선택한 뒤 차량을 지정하세요.</p>
-        </div>
-
-        <div class="section-card" style="margin-bottom:10px;padding:12px;">
-            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;">
-                <h3 style="margin:0;font-size:15px;">📋 배송처 목록</h3>
-                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1;justify-content:flex-end;">
-                    <label for="dispatchSortMode" style="font-size:12px;font-weight:800;color:var(--text-sub);">정렬</label>
-                    <select id="dispatchSortMode" onchange="onDispatchSortChange()"
-                        style="min-width:220px;max-width:100%;height:40px;padding:6px 10px;border-radius:10px;border:2px solid var(--primary);font-weight:700;font-size:13px;background:#fff;color:#111;">
-                        <option value="city">주소(시·구) 가나다순</option>
-                        <option value="far">기점에서 먼 곳 먼저</option>
-                        <option value="near">기점에서 가까운 곳 먼저</option>
-                        <option value="boxes">박스 많은 순</option>
-                    </select>
-                </div>
-            </div>
-            <p style="margin:8px 0 0;font-size:12px;color:var(--text-sub);">주소·연락·비번 기준으로 시·구를 뽑거나, 기점 거리·박스 수로 목록 순서를 바꿉니다.</p>
-        </div>
         <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
-                        <th style="width:44px;">#</th>
-                        <th>거래처</th>
-                        <th>주소·연락·비번</th>
-                        <th>박스/낱개</th>
-                        <th style="min-width:140px;">배차</th>
+                        <th style="width:50px;">순번</th>
+                        <th style="width:170px;">납품 거래처명</th>
+                        <th>주소 / 연락처 / 출입비번</th>
+                        <th style="width:180px;">당일 발주목록 (박스 / 낱개)</th>
+                        <th style="width:185px;">배차 차량 선택 (6대)</th>
                     </tr>
                 </thead>
                 <tbody id="dispatchTableBody"></tbody>
