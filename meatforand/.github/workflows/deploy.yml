@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm install
       - name: Build app
         run: npm run build
       - name: Setup Pages
