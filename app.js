@@ -25,6 +25,33 @@ let manualDelivMap = JSON.parse(localStorage.getItem('mf_manual_deliv_dates') ||
 let selectedVehicleFilter = 'ALL';
 let dispatchSortMode = localStorage.getItem('mf_dispatch_sort') || 'far';
 
+function getUiScalePercent() {
+    const v = parseInt(localStorage.getItem('mf_ui_scale') || '200', 10);
+    if ([100, 125, 150, 175, 200].includes(v)) return v;
+    if (v >= 100 && v <= 200) return v;
+    return 200;
+}
+
+function applyUiScale(percent) {
+    const p = Math.max(100, Math.min(200, parseInt(percent, 10) || 200));
+    const scale = p / 100;
+    document.documentElement.style.setProperty('--ui-scale', String(scale));
+    const range = document.getElementById('uiScaleRange');
+    const label = document.getElementById('uiScaleLabel');
+    if (range) range.value = String(p);
+    if (label) label.textContent = p + '%';
+    try { localStorage.setItem('mf_ui_scale', String(p)); } catch (e) {}
+}
+
+function setUiScale(percent) {
+    applyUiScale(percent);
+}
+
+function onUiScaleChange(val) {
+    applyUiScale(val);
+}
+
+
 // 초기 샘플 재고 데이터 세팅 (11월 10일 재고현황)
 const INITIAL_STOCK_TEXT = ``;
 
@@ -159,6 +186,7 @@ window.addEventListener('popstate', (ev) => {
 });
 
 window.addEventListener('DOMContentLoaded', () => {
+    applyUiScale(getUiScalePercent());
     renderVehicleConfigInputs();
     restoreStateFromBrowser();
     try {
