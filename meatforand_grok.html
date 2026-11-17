@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미트포앤 CGJ · 발주·재고·배차</title>
+    <title>미트포앤 GO · 발주·재고·배차</title>
     <style>
 
         :root {
+            --ui-scale: 2;
             --primary: #2B7BFF;
             --primary-dark: #1a5fd0;
             --primary-light: #E8F1FF;
@@ -23,7 +24,14 @@
             --shadow: 0 2px 12px rgba(43, 123, 255, 0.08);
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+        html {
+            font-size: 16px;
+            -webkit-text-size-adjust: 100%;
+        }
+        /* 시인성: 전체 UI 배율 (설정에서 100%~200%) */
+        .app-container {
+            zoom: var(--ui-scale, 2);
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
             margin: 0; padding: 0;
@@ -467,6 +475,16 @@
     </style>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* apply early scale */
+(function(){
+  try {
+    var p = parseInt(localStorage.getItem('mf_ui_scale') || '200', 10);
+    if (!(p >= 100 && p <= 200)) p = 200;
+    document.documentElement.style.setProperty('--ui-scale', String(p/100));
+  } catch(e) {}
+})();
+</script>
 </head>
 <body>
 
@@ -546,6 +564,23 @@
                         <option value="all">전체 날짜 보기</option>
                         <option value="fullday">작성일=납품일로 보기</option>
                     </select>
+                </div>
+                <div>
+                    <label>글자·화면 크기 (시인성)</label>
+                    <div class="settings-row" style="align-items:center;gap:10px;">
+                        <input type="range" id="uiScaleRange" min="100" max="200" step="25" value="200"
+                            style="flex:1;min-width:140px;height:36px;"
+                            oninput="onUiScaleChange(this.value)" />
+                        <span id="uiScaleLabel" style="font-weight:800;color:var(--primary);min-width:52px;">200%</span>
+                    </div>
+                    <div class="settings-row" style="margin-top:6px;">
+                        <button type="button" class="btn gray" style="min-height:36px;padding:6px 10px;" onclick="setUiScale(100)">100%</button>
+                        <button type="button" class="btn gray" style="min-height:36px;padding:6px 10px;" onclick="setUiScale(125)">125%</button>
+                        <button type="button" class="btn gray" style="min-height:36px;padding:6px 10px;" onclick="setUiScale(150)">150%</button>
+                        <button type="button" class="btn gray" style="min-height:36px;padding:6px 10px;" onclick="setUiScale(175)">175%</button>
+                        <button type="button" class="btn" style="min-height:36px;padding:6px 10px;" onclick="setUiScale(200)">200%</button>
+                    </div>
+                    <p style="margin:6px 0 0;font-size:12px;color:var(--text-sub);">기본 200%(2배). 설정은 이 기기에 저장됩니다.</p>
                 </div>
                 <div>
                     <label>목록 필터</label>
