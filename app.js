@@ -321,11 +321,11 @@ function renderLooseTable() {
 
 
 function onFilterCriteriaChange(skipSave) {
-    renderOrdersTable();
-    renderOrderSummaryTable();
-    renderDiffTable();
-    renderDispatchPage();
-    updateHomeSummary();
+    try { renderOrdersTable(); } catch (e) { console.warn(e); }
+    try { renderOrderSummaryTable(); } catch (e) { console.warn(e); }
+    try { renderDiffTable(); } catch (e) { console.warn(e); }
+    try { renderDispatchPage(); } catch (e) { console.warn(e); }
+    try { updateHomeSummary(); } catch (e) { console.warn(e); }
     if (!skipSave) {
         saveStateToBrowser('날짜/필터 변경');
     }
@@ -843,6 +843,7 @@ function getFilteredOrderList(forceOnlyOrder = false) {
 
 function renderOrdersTable() {
     const tbody = document.getElementById('orderTableBody');
+    if (!tbody) return;
     tbody.innerHTML = '';
 
     const list = getFilteredOrderList(false);
@@ -1228,6 +1229,7 @@ function downloadOrderSummaryCsv() {
    ========================================================================= */
 function renderDiffTable() {
     const tbody = document.getElementById('diffTableBody');
+    if (!tbody) return; // 5번 잔여재고 UI 제거됨 — 없으면 스킵
     tbody.innerHTML = '';
 
     const summaryMap = computeOrderAggregation();
