@@ -865,14 +865,10 @@ function renderOrdersTable() {
 
         let delivBadgeHtml = '';
         if (item.type === '발주') {
-            const isNextDay = item.targetDeliveryDate !== item.dateFull;
-            const infoCls = item.isManualDeliv ? 'manual' : (isNextDay ? 'next-day' : '');
-            const reason = item.delivReason ? ` · ${escapeHtml(item.delivReason)}` : '';
             delivBadgeHtml = `
                 <div class="deliv-shift-row">
-                    <span class="deliv-shift-info ${infoCls}">납품 ${escapeHtml(item.delivShort)}${reason}</span>
-                    <button type="button" class="deliv-shift-btn prev" onclick="shiftItemDeliveryDate(${item.idx}, -1)" title="납품일을 하루 전으로">전일</button>
-                    <button type="button" class="deliv-shift-btn next" onclick="shiftItemDeliveryDate(${item.idx}, 1)" title="납품일을 하루 뒤로">익일</button>
+                    <button type="button" class="deliv-shift-btn prev" onclick="shiftItemDeliveryDate(${item.idx}, -1)" title="납품일 하루 전">전일</button>
+                    <button type="button" class="deliv-shift-btn next" onclick="shiftItemDeliveryDate(${item.idx}, 1)" title="납품일 하루 뒤">익일</button>
                 </div>`;
         }
 
