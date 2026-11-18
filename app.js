@@ -779,22 +779,24 @@ function inferDeliveryDatesForAllItems() {
     }
 }
 
-/* 사용자가 2페이지 배지를 클릭해 당일(D) <-> 익일(D+1) 납품일을 수동 전환하는 함수 */
-function toggleItemDeliveryDate(itemIdx) {
+/* 발주 행: 전일(-1일) / 익일(+1일) 로 납품일 이동 */
+function shiftItemDeliveryDate(itemIdx, deltaDays) {
     const item = allChatItems[itemIdx];
     if (!item || item.type !== '발주') return;
-
-    const sameDay = item.dateFull;
-    const nextDay = addDaysToDateStr(item.dateFull, 1);
-
-    // 현재 당일이면 익일로, 익일(또는 다른 날)이면 당일로 원클릭 토글
-    const newTarget = (item.targetDeliveryDate === sameDay) ? nextDay : sameDay;
+    const base = item.targetDeliveryDate || item.dateFull;
+    const newTarget = addDaysToDateStr(base, deltaDays);
     manualDelivMap[item.itemKey] = newTarget;
     localStorage.setItem('mf_manual_deliv_dates', JSON.stringify(manualDelivMap));
 
     inferDeliveryDatesForAllItems();
-    recordLastUpdatedTime(`${item.clientName} 납품일 수동변경(${toShortDate(newTarget)})`);
+    const dir = deltaDays < 0 ? '전일' : '익일';
+    recordLastUpdatedTime(`${item.clientName} 납품일 ${dir}(${toShortDate(newTarget)})`);
     onFilterCriteriaChange(true);
+}
+
+// 하위 호환
+function toggleItemDeliveryDate(itemIdx) {
+    shiftItemDeliveryDate(itemIdx, 1);
 }
 
 /* =========================================================================
@@ -864,19 +866,25 @@ function renderOrdersTable() {
         let delivBadgeHtml = '';
         if (item.type === '발주') {
             const isNextDay = item.targetDeliveryDate !== item.dateFull;
-            const extraCls = item.isManualDeliv ? 'manual' : (isNextDay ? 'next-day' : '');
-            delivBadgeHtml = `<br><button class="deliv-badge-btn ${extraCls}" onclick="toggleItemDeliveryDate(${item.idx})" title="클릭하면 당일(${item.dateShort}) ↔ 익일 납품일을 수동 전환합니다">🚚 납품:${escapeHtml(item.delivShort)} (${escapeHtml(item.delivReason)}) 🔄</button>`;
+            const infoCls = item.isManualDeliv ? 'manual' : (isNextDay ? 'next-day' : '');
+            const reason = item.delivReason ? ` · ${escapeHtml(item.delivReason)}` : '';
+            delivBadgeHtml = `
+                <div class="deliv-shift-row">
+                    <span class="deliv-shift-info ${infoCls}">납품 ${escapeHtml(item.delivShort)}${reason}</span>
+                    <button type="button" class="deliv-shift-btn prev" onclick="shiftItemDeliveryDate(${item.idx}, -1)" title="납품일을 하루 전으로">전일</button>
+                    <button type="button" class="deliv-shift-btn next" onclick="shiftItemDeliveryDate(${item.idx}, 1)" title="납품일을 하루 뒤로">익일</button>
+                </div>`;
         }
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td style="white-space:nowrap; line-height:1.6; vertical-align:middle;">
-                <span style="color:#4b5563;">작성: <b>${escapeHtml(item.dateShort)}</b>, ${escapeHtml(item.timeStr)}</span><br>
-                <b style="color:var(--primary); font-size:13px;">${escapeHtml(item.clientName)}</b>${clientBadge}<br>
-                <span style="color:#374151;">${escapeHtml(item.sender)}</span> ${badge}
+            <td class="order-meta-cell">
+                <span style="color:#6b7280;font-size:11px;">${escapeHtml(item.dateShort)} ${escapeHtml(item.timeStr)}</span><br>
+                <b style="color:var(--primary);">${escapeHtml(item.clientName)}</b>${clientBadge}<br>
+                <span style="color:#6b7280;font-size:11px;">${escapeHtml(item.sender)}</span> ${badge}
                 ${delivBadgeHtml}
             </td>
-            <td style="white-space:pre-line; vertical-align:middle;">${escapeHtml(item.content)}</td>
+            <td class="order-body-cell">${escapeHtml(item.content)}</td>
         `;
         tbody.appendChild(tr);
     });

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미트포앤 CGJ</title>
+    <title>미트포앤 GO · 발주·재고·배차</title>
     <style>
 
         :root {
@@ -191,6 +191,43 @@
         }
         .filter-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
+        /* 발주 목록: 왼쪽 메타 좁게, 내용 넓게 */
+        #page2 .table-wrap table { table-layout: fixed; width: 100%; }
+        #page2 .order-meta-col {
+            width: 32%;
+            max-width: 120px;
+            vertical-align: top;
+        }
+        #page2 .order-body-col {
+            width: 68%;
+            vertical-align: top;
+            word-break: keep-all;
+            overflow-wrap: anywhere;
+        }
+        #page2 td.order-meta-cell {
+            width: 32%;
+            max-width: 120px;
+            white-space: normal !important;
+            word-break: keep-all;
+            overflow-wrap: anywhere;
+            line-height: 1.35;
+            font-size: 12px;
+            vertical-align: top;
+            padding: 8px 6px;
+        }
+        #page2 td.order-body-cell {
+            white-space: pre-line;
+            word-break: keep-all;
+            overflow-wrap: anywhere;
+            vertical-align: top;
+            font-size: 13px;
+            line-height: 1.4;
+            padding: 8px 8px;
+        }
+        #page2 .order-meta-cell b {
+            display: inline;
+            font-size: 12.5px;
+        }
         .table-wrap {
             overflow-x: auto; max-height: 62vh;
             border-radius: 14px; background: #fff;
@@ -218,17 +255,30 @@
         .b-client { background: var(--primary); font-size: 10px; margin-left: 4px; }
         .b-urgent { background: var(--danger); font-size: 10px; margin-left: 4px; }
 
-        .deliv-badge-btn {
-            display: inline-block; margin-top: 4px; padding: 4px 8px; border-radius: 8px;
-            font-size: 11px; font-weight: 700; border: 1px solid #93C5FD;
-            background: var(--primary-light); color: var(--primary-dark); cursor: pointer;
+        .deliv-shift-row {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+            margin-top: 6px;
         }
-        .deliv-badge-btn.next-day {
-            background: #FFF7E6; color: #B45309; border-color: var(--go);
+        .deliv-shift-info {
+            font-size: 11px; font-weight: 700; color: #4b5563;
+            margin-right: 2px;
         }
-        .deliv-badge-btn.manual {
-            background: #F3E8FF; color: #7C3AED; border-color: #C084FC;
+        .deliv-shift-info.manual { color: #7C3AED; }
+        .deliv-shift-info.next-day { color: #B45309; }
+        .deliv-shift-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 44px; height: 28px; padding: 0 8px;
+            border-radius: 8px; font-size: 12px; font-weight: 800;
+            border: 1px solid var(--border); background: #fff; color: #374151;
+            cursor: pointer; line-height: 1;
         }
+        .deliv-shift-btn.prev {
+            border-color: #93C5FD; background: #EFF6FF; color: #1D4ED8;
+        }
+        .deliv-shift-btn.next {
+            border-color: #FCD34D; background: #FFFBEB; color: #B45309;
+        }
+        .deliv-shift-btn:active { transform: scale(0.96); }
 
         .num-pos { color: var(--accent); font-weight: 800; }
         .num-neg { color: var(--danger); font-weight: 800; background: #FEE2E2; }
@@ -652,7 +702,7 @@
         <div class="filter-bar">
             <div>
                 <span id="orderStats" style="font-weight:bold; color:var(--primary); font-size:14px;">📋 조회된 내역: 0건</span>
-                <span style="font-size:11.5px; color:#555; margin-left:8px;">(💡 왼쪽 셀의 <b>[🚚 납품: MM/DD 🔄]</b> 배지를 클릭하면 당일 ↔ 익일 납품일을 수동 전환할 수 있습니다)</span>
+                <span style="font-size:11.5px; color:#555; margin-left:8px;">(💡 <b>전일</b>·<b>익일</b> 버튼으로 납품일을 하루씩 옮길 수 있습니다)</span>
             </div>
             <div class="filter-group">
                 <button class="btn green" onclick="downloadOrdersCsv()">📥 발주목록 CSV 저장</button>
@@ -663,8 +713,8 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width:185px;">작성일시 / 거래처 / 발신자 / 납품일</th>
-                        <th>발주 내용</th>
+                        <th class="order-meta-col">작성·거래처</th>
+                        <th class="order-body-col">발주 내용</th>
                     </tr>
                 </thead>
                 <tbody id="orderTableBody">
