@@ -33,7 +33,7 @@ function showToast(msg) {
 
 function getUiScalePercent() {
     let v = parseInt(localStorage.getItem('mf_ui_scale') || '100', 10);
-    if (v > 140) v = 100; // 구버전 zoom:2 보정
+    if (v > 140) v = 100;
     if ([100, 115, 130].includes(v)) return v;
     return 100;
 }
@@ -169,7 +169,10 @@ function restoreStateFromBrowser() {
                 document.getElementById('orderTargetDate').value = savedSettings.targetDate;
             }
             if (savedSettings.timeMode) {
-                document.getElementById('orderTimeMode').value = savedSettings.timeMode;
+                const modeEl = document.getElementById('orderTimeMode');
+                if ([...modeEl.options].some(o => o.value === savedSettings.timeMode)) {
+                    modeEl.value = savedSettings.timeMode;
+                }
             }
             if (typeof savedSettings.showOnlyOrder === 'boolean') {
                 showOnlyOrder = savedSettings.showOnlyOrder;
@@ -581,7 +584,7 @@ function matchClientFromText(text) {
 }
 
 /* =========================================================================
-   3. 카카오톡 대화 파일 파싱 및 5단계 스마트 납품일 자동판별 알고리즘
+   3. 카카오톡 대화 파일 파싱 및 스마트 납품일(전일~당일 취합) 자동판별 알고리즘
    ========================================================================= */
 async function loadKakaoFiles(event) {
     const files = event.target.files;
@@ -787,7 +790,11 @@ function isYeogiKkajiMessage(content) {
 
 function inferDeliveryDatesForAllItems() {
     const lastCutoffIdxByDate = {};
+    let latestChatDate = '';
     allChatItems.forEach((it, i) => {
+        if (it.dateFull && it.dateFull > latestChatDate) {
+            latestChatDate = it.dateFull;
+        }
         if (isYeogiKkajiMessage(it.content)) {
             lastCutoffIdxByDate[it.dateFull] = i;
         }
@@ -868,9 +875,17 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
-        item.delivShort = toShortDate(item.targetDeliveryDate);
-        item.delivReason = '여기까지없음→익일';
+        // 해당 날짜에 '여기까지'가 없는 경우:
+        // 당일(최신 날짜) 진행 중 발주는 당일 납품으로, 전일(이전 날짜) 발주는 익일 납품으로 연결
+        if (item.dateFull === latestChatDate) {
+            item.targetDeliveryDate = item.dateFull;
+            item.delivShort = item.dateShort;
+            item.delivReason = '당일작성→당일';
+        } else {
+            item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
+            item.delivShort = toShortDate(item.targetDeliveryDate);
+            item.delivReason = '전일작성→익일';
+        }
     }
 }
 
@@ -894,7 +909,7 @@ function toggleItemDeliveryDate(itemIdx) {
 }
 
 /* =========================================================================
-   4. [페이지 2] 발주 목록 필터링 및 모바일 카드 렌더링
+   4. [페이지 2] 발주 목록 필터링 (납품일 기준 전일~당일 취합) 및 카드 렌더링
    ========================================================================= */
 function getFilteredOrderList(forceOnlyOrder = false) {
     const targetDateStr = document.getElementById('orderTargetDate').value;
@@ -905,19 +920,27 @@ function getFilteredOrderList(forceOnlyOrder = false) {
         if (showOnlyKnownClient && !item.isKnownClient) return false;
         if (mode === 'all' || !targetDateStr) return true;
 
+        const prevDateStr = addDaysToDateStr(targetDateStr, -1);
+        const isPrevToCurr = (item.dateFull === prevDateStr || item.dateFull === targetDateStr);
+
         if (mode === 'smart') {
             if (item.type === '발주') {
-                return item.targetDeliveryDate === targetDateStr;
+                // 납품일(D) 기준 전일(D-1) ~ 당일(D) 작성분 취합
+                if (item.targetDeliveryDate !== targetDateStr) return false;
+                return isPrevToCurr || item.isManualDeliv || (item.delivReason && item.delivReason.startsWith('명시날짜'));
             } else {
-                return item.dateFull === targetDateStr;
+                // 비발주(계근/기타) 함께 보기 시에도 전일~당일 범위 표시
+                return isPrevToCurr;
             }
+        }
+
+        if (mode === 'prev_to_curr') {
+            return isPrevToCurr;
         }
 
         if (mode === 'fullday') {
             return item.dateFull === targetDateStr;
         }
-
-        const prevDateStr = addDaysToDateStr(targetDateStr, -1);
 
         if (mode === 'prev10_to_16') {
             const isPrevFrom10 = (item.dateFull === prevDateStr && item.timeMins >= 10 * 60);
@@ -954,12 +977,21 @@ function renderOrdersTable() {
     }
 
     const targetDateStr = document.getElementById('orderTargetDate').value;
+    const prevDateStr = targetDateStr ? addDaysToDateStr(targetDateStr, -1) : '';
     const mode = document.getElementById('orderTimeMode').value;
-    const modeLabel = mode === 'smart' ? `납품일 ${toShortDate(targetDateStr)}` : (mode === 'all' ? '전체' : '선택 기준');
-    document.getElementById('orderStats').innerText = `📋 조회된 내역: 총 ${list.length}건 (${modeLabel})`;
+
+    let rangeLabel = '전체';
+    if (targetDateStr) {
+        if (mode === 'smart' || mode === 'prev_to_curr') {
+            rangeLabel = `납품 ${toShortDate(targetDateStr)} · 취합 ${toShortDate(prevDateStr)}~${toShortDate(targetDateStr)}`;
+        } else if (mode === 'fullday') {
+            rangeLabel = `당일 작성 ${toShortDate(targetDateStr)}`;
+        }
+    }
+    document.getElementById('orderStats').innerText = `📋 조회된 내역: 총 ${list.length}건 (${rangeLabel})`;
 
     if (list.length === 0) {
-        container.innerHTML = `<div class="empty-box">선택하신 납품 기준일(${escapeHtml(targetDateStr || '전체')})에 해당하는 발주 내역이 없습니다.</div>`;
+        container.innerHTML = `<div class="empty-box">납품 기준일(${escapeHtml(targetDateStr || '전체')})의 전일~당일 취합 내역이 없습니다.</div>`;
         return;
     }
 
@@ -969,6 +1001,13 @@ function renderOrdersTable() {
         else if (item.type === '계근') badge = `<span class="badge b-weight">계근</span>`;
 
         const clientBadge = item.isKnownClient ? `<span class="badge b-client">인증</span>` : '';
+
+        let dayTagHtml = '';
+        if (targetDateStr && item.dateFull === prevDateStr) {
+            dayTagHtml = `<span class="badge" style="background:#D97706;">전일</span>`;
+        } else if (targetDateStr && item.dateFull === targetDateStr) {
+            dayTagHtml = `<span class="badge" style="background:#1D4ED8;">당일</span>`;
+        }
 
         let footerHtml = '';
         if (item.type === '발주') {
@@ -989,7 +1028,7 @@ function renderOrdersTable() {
         card.innerHTML = `
             <div class="order-card-head">
                 <span class="order-card-meta">작성 ${escapeHtml(item.dateShort)} ${escapeHtml(item.timeStr)} · ${escapeHtml(item.sender)}</span>
-                <div style="display:flex;gap:4px;align-items:center;">${clientBadge}${badge}</div>
+                <div style="display:flex;gap:4px;align-items:center;">${dayTagHtml}${clientBadge}${badge}</div>
             </div>
             <div class="order-card-client">${escapeHtml(item.clientName)}</div>
             <div class="order-card-body">${highlightOrderBody(item.content)}</div>
@@ -1187,7 +1226,7 @@ function renderStockTable() {
 }
 
 /* =========================================================================
-   6. 품목별 발주 집계 엔진 (4페이지 일일 발주 현황표 & 5페이지 차감 계산 공용)
+   6. 품목별 발주 집계 엔진
    ========================================================================= */
 const ITEM_MATCH_RULES = [
     { key: "특미삼", regex: /특미삼/ },
@@ -1297,7 +1336,10 @@ function renderOrderSummaryTable() {
     container.innerHTML = '';
 
     const tDate = document.getElementById('orderTargetDate').value || '전체';
-    document.getElementById('orderSummaryDateInfo').innerText = `납품 기준일: ${tDate}`;
+    const prevDate = tDate !== '전체' ? addDaysToDateStr(tDate, -1) : '';
+    document.getElementById('orderSummaryDateInfo').innerText = prevDate
+        ? `납품 기준일: ${tDate} (취합: ${toShortDate(prevDate)} 전일 ~ ${toShortDate(tDate)} 당일)`
+        : `납품 기준일: ${tDate}`;
 
     const summaryMap = computeOrderAggregation();
     const keys = Object.keys(summaryMap);
