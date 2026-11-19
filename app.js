@@ -9,50 +9,101 @@ let allChatItems = [];
 let stockItems = [];
 let showOnlyOrder = true;
 let showOnlyKnownClient = false;
+let stockOnlyPositive = false;
 
-// 6대 차량 기본 설정, 배차 저장소, 수동 납품일 지정 저장소
-const DEFAULT_VEHICLES = [
-    "(차)",
-    "(한)",
-    "(엄)",
-    "(최)",
-    "(양)",
-    "(김)"
-];
+const DEFAULT_VEHICLES = ["(차)", "(한)", "(엄)", "(최)", "(양)", "(김)"];
 let vehicleNames = JSON.parse(localStorage.getItem('mf_vehicles') || 'null') || [...DEFAULT_VEHICLES];
 let dispatchMap = JSON.parse(localStorage.getItem('mf_dispatch') || '{}');
 let manualDelivMap = JSON.parse(localStorage.getItem('mf_manual_deliv_dates') || '{}');
+let looseCheckedMap = JSON.parse(localStorage.getItem('mf_loose_checked') || '{}');
 let selectedVehicleFilter = 'ALL';
 let dispatchSortMode = localStorage.getItem('mf_dispatch_sort') || 'far';
 
+/* =========================================================================
+   가독성 스케일 & 다크모드 & 토스트 제어
+   ========================================================================= */
+function showToast(msg) {
+    const el = document.getElementById('toastMsg');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
 function getUiScalePercent() {
-    const v = parseInt(localStorage.getItem('mf_ui_scale') || '200', 10);
-    if ([100, 125, 150, 175, 200].includes(v)) return v;
-    if (v >= 100 && v <= 200) return v;
-    return 200;
+    let v = parseInt(localStorage.getItem('mf_ui_scale') || '100', 10);
+    if (v > 140) v = 100; // 구버전 zoom:2 보정
+    if ([100, 115, 130].includes(v)) return v;
+    return 100;
 }
 
 function applyUiScale(percent) {
-    const p = Math.max(100, Math.min(200, parseInt(percent, 10) || 200));
-    const scale = p / 100;
-    document.documentElement.style.setProperty('--ui-scale', String(scale));
-    const range = document.getElementById('uiScaleRange');
-    const label = document.getElementById('uiScaleLabel');
-    if (range) range.value = String(p);
-    if (label) label.textContent = p + '%';
+    const p = [100, 115, 130].includes(parseInt(percent, 10)) ? parseInt(percent, 10) : 100;
+    document.documentElement.style.fontSize = (16 * (p / 100)) + 'px';
     try { localStorage.setItem('mf_ui_scale', String(p)); } catch (e) {}
+
+    const quickBtn = document.getElementById('btnQuickScale');
+    if (quickBtn) {
+        quickBtn.textContent = `가+ ${p}%`;
+        quickBtn.classList.toggle('active', p > 100);
+    }
+    [100, 115, 130].forEach(val => {
+        const b = document.getElementById('btnScale' + val);
+        if (b) {
+            b.className = (val === p) ? 'btn sm' : 'btn sm outline';
+        }
+    });
 }
 
 function setUiScale(percent) {
     applyUiScale(percent);
+    showToast(`글자 크기 ${percent}% 적용`);
 }
 
-function onUiScaleChange(val) {
-    applyUiScale(val);
+function cycleUiScale() {
+    const cur = getUiScalePercent();
+    const next = cur === 100 ? 115 : (cur === 115 ? 130 : 100);
+    setUiScale(next);
 }
 
+function updateDarkModeUI() {
+    const isDark = document.documentElement.classList.contains('dark-mode');
+    const qBtn = document.getElementById('btnQuickDark');
+    const sBtn = document.getElementById('btnSettingDark');
+    if (qBtn) {
+        qBtn.textContent = isDark ? '☀️ 주간' : '🌙 야간';
+        qBtn.classList.toggle('active', isDark);
+    }
+    if (sBtn) {
+        sBtn.textContent = isDark ? '☀️ 주간모드 전환' : '🌙 야간모드 전환';
+        sBtn.className = isDark ? 'btn sm' : 'btn sm outline';
+    }
+}
 
-// 초기 샘플 재고 데이터 세팅 (11월 10일 재고현황)
+function toggleDarkMode() {
+    const isDark = document.documentElement.classList.toggle('dark-mode');
+    try { localStorage.setItem('mf_dark_mode', isDark ? '1' : '0'); } catch (e) {}
+    updateDarkModeUI();
+    showToast(isDark ? '야간 고대비 모드 켜짐' : '주간 고대비 모드 켜짐');
+}
+
+function toggleVehicleEditBox() {
+    const grid = document.getElementById('vehicleConfigGrid');
+    if (!grid) return;
+    grid.style.display = (grid.style.display === 'none') ? 'grid' : 'none';
+}
+
+function toggleStockOnlyPositive() {
+    stockOnlyPositive = !stockOnlyPositive;
+    const btn = document.getElementById('btnStockOnlyPos');
+    if (btn) {
+        btn.textContent = stockOnlyPositive ? '보유만: ON' : '보유만: OFF';
+        btn.className = stockOnlyPositive ? 'btn sm' : 'btn sm outline';
+    }
+    renderStockTable();
+}
+
 const INITIAL_STOCK_TEXT = ``;
 
 /* =========================================================================
@@ -133,7 +184,11 @@ function restoreStateFromBrowser() {
 
     const savedStock = localStorage.getItem('mf_saved_stock_text');
     document.getElementById('stockTextarea').value = savedStock && savedStock.trim() ? savedStock : INITIAL_STOCK_TEXT;
-    parseAndApplyStock(false, true);
+    if (document.getElementById('stockTextarea').value.trim()) {
+        parseAndApplyStock(false, true);
+    } else {
+        renderStockTable();
+    }
 
     try {
         const savedChats = JSON.parse(localStorage.getItem('mf_saved_chat_items') || 'null');
@@ -159,6 +214,8 @@ function restoreStateFromBrowser() {
         }
     } catch (e) {}
 
+    document.getElementById('pillClient').innerText = `거래처: ${clientDB.length}곳`;
+
     const lastUpd = localStorage.getItem('mf_last_updated');
     if (lastUpd) {
         document.getElementById('pillUpdated').innerText = `🕒 업데이트: ${lastUpd}`;
@@ -177,6 +234,7 @@ function clearSavedBrowserData() {
     localStorage.removeItem('mf_last_updated');
     localStorage.removeItem('mf_dispatch');
     localStorage.removeItem('mf_manual_deliv_dates');
+    localStorage.removeItem('mf_loose_checked');
     location.reload();
 }
 
@@ -187,6 +245,7 @@ window.addEventListener('popstate', (ev) => {
 
 window.addEventListener('DOMContentLoaded', () => {
     applyUiScale(getUiScalePercent());
+    updateDarkModeUI();
     renderVehicleConfigInputs();
     restoreStateFromBrowser();
     try {
@@ -240,12 +299,10 @@ function switchTab(pageId, btnEl, fromPopstate) {
     if (pageId === 'page2') renderOrdersTable();
     if (pageId === 'page3') renderStockTable();
     if (pageId === 'page4') renderOrderSummaryTable();
-    /* residual removed: page5 is 낱개 */
     if (pageId === 'page6') renderDispatchPage();
     if (pageId === 'page5') renderLooseTable();
     if (pageId === 'pageHome') updateHomeSummary();
 
-    // 브라우저 뒤로가기가 사이트 종료 대신 앱 내 이동이 되도록
     if (!fromPopstate) {
         try {
             const hash = '#' + pageId;
@@ -260,7 +317,6 @@ function switchTab(pageId, btnEl, fromPopstate) {
 }
 
 function extractLooseLinesFromOrderText(orderText) {
-    // 낱개: 팩, 봉지, 진공, 마리, 두, PACK, KG, K, 키로 등 — 박스·개 제외
     const LOOSE_UNIT = /팩|펙|pack|봉지|진공|마리분|마리|두|덩이|덩어리|벌|피스|판|kg|키로|킬로|(?:^|[^가-힣a-z])봉(?:$|[^가-힣a-z])|\bk\b/i;
     const lines = String(orderText || '').split('\n').map(l => l.trim()).filter(Boolean);
     const out = [];
@@ -272,17 +328,24 @@ function extractLooseLinesFromOrderText(orderText) {
         }
         if (!/\d/.test(line)) return;
         if (!LOOSE_UNIT.test(line)) return;
-        // 순수 박스 줄 제외
         if (/(?:박스|빡스|box)/i.test(line) && !/(팩|봉지|진공|마리|kg|키로|덩이|벌|판)/i.test(line)) return;
         out.push(line);
     });
     return out;
 }
 
+function toggleLoosePickItem(pickKey) {
+    looseCheckedMap[pickKey] = !looseCheckedMap[pickKey];
+    try { localStorage.setItem('mf_loose_checked', JSON.stringify(looseCheckedMap)); } catch (e) {}
+    renderLooseTable();
+}
+
 function renderLooseTable() {
-    const tbody = document.getElementById('looseTableBody');
+    const container = document.getElementById('looseCardList');
     const stats = document.getElementById('looseStats');
-    if (!tbody) return;
+    if (!container) return;
+
+    const targetDateStr = document.getElementById('orderTargetDate').value || 'all';
     const orders = getFilteredOrderList(true);
     const map = new Map();
     orders.forEach(ord => {
@@ -292,37 +355,56 @@ function renderLooseTable() {
         if (!map.has(key)) map.set(key, []);
         lines.forEach(l => map.get(key).push(l));
     });
+
     const rows = Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], 'ko'));
     if (stats) stats.textContent = rows.length ? `거래처 ${rows.length}곳` : '낱개 발주 없음';
+
     if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:#888;">해당 날짜에 박스 외 낱개(팩·봉·kg 등) 발주가 없습니다.</td></tr>`;
+        container.innerHTML = `<div class="empty-box">해당 날짜에 박스 외 낱개(팩·봉·kg 등) 발주가 없습니다.</div>`;
         return;
     }
-    tbody.innerHTML = '';
+
+    container.innerHTML = '';
     rows.forEach((entry, idx) => {
         const name = entry[0];
         const lines = entry[1];
-        // 합계: 낱개 숫자 합 (대략)
         let total = 0;
         lines.forEach(l => {
             const ms = [...l.matchAll(/(\d+(?:\.\d+)?)\s*(?:팩|펙|pack|봉|봉지|진공|마리분|마리|두|덩이|덩어리|벌|피스|판|kg|키로|킬로)/gi)];
             ms.forEach(m => { total += parseFloat(m[1]) || 0; });
         });
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td style="text-align:center;"><b>${idx + 1}</b></td>
-            <td><b style="color:var(--primary);">${escapeHtml(name)}</b></td>
-            <td style="font-size:13px;line-height:1.45;">${lines.map(l => escapeHtml(l)).join('<br>')}</td>
-            <td><b>${total > 0 ? total : '-'}</b></td>
+
+        const itemsHtml = lines.map((line, lIdx) => {
+            const pickKey = `${targetDateStr}_${name}_${lIdx}_${line}`;
+            const isChecked = !!looseCheckedMap[pickKey];
+            return `
+                <button type="button" class="loose-pick-item ${isChecked ? 'checked' : ''}" data-pkey="${escapeHtml(pickKey)}" onclick="toggleLoosePickItem(this.getAttribute('data-pkey'))">
+                    <span>${escapeHtml(line)}</span>
+                    <span>${isChecked ? '✅ 완료' : '⬜ 확인'}</span>
+                </button>
+            `;
+        }).join('');
+
+        const card = document.createElement('div');
+        card.className = 'loose-card';
+        card.innerHTML = `
+            <div class="loose-card-head">
+                <div class="loose-client-title">
+                    <span class="num-circle">${idx + 1}</span>
+                    <span>${escapeHtml(name)}</span>
+                </div>
+                <span class="stock-total-badge">${total > 0 ? `합계 ${total}` : `${lines.length}건`}</span>
+            </div>
+            <div class="loose-chip-list">${itemsHtml}</div>
         `;
-        tbody.appendChild(tr);
+        container.appendChild(card);
     });
 }
-
 
 function onFilterCriteriaChange(skipSave) {
     try { renderOrdersTable(); } catch (e) { console.warn(e); }
     try { renderOrderSummaryTable(); } catch (e) { console.warn(e); }
+    try { renderLooseTable(); } catch (e) { console.warn(e); }
     try { renderDiffTable(); } catch (e) { console.warn(e); }
     try { renderDispatchPage(); } catch (e) { console.warn(e); }
     try { updateHomeSummary(); } catch (e) { console.warn(e); }
@@ -332,14 +414,33 @@ function onFilterCriteriaChange(skipSave) {
 }
 
 function updateHomeSummary() {
-    const el = document.getElementById('homeOrderCount');
-    if (!el) return;
     try {
-        const n = getAggregatedDeliveryDestinations().length;
-        el.textContent = String(n);
-    } catch (e) {
-        el.textContent = '0';
-    }
+        const dests = getAggregatedDeliveryDestinations();
+        const orders = getFilteredOrderList(false);
+        const looseOrders = getFilteredOrderList(true).filter(o => extractLooseLinesFromOrderText(o.content).length > 0);
+        const looseClients = new Set(looseOrders.map(o => o.clientName));
+
+        let totBoxes = 0;
+        let totLoose = 0;
+        dests.forEach(d => {
+            totBoxes += d.totalBoxes || 0;
+            totLoose += d.totalLoose || 0;
+        });
+
+        const elDest = document.getElementById('homeOrderCount');
+        const elBoxSub = document.getElementById('homeBoxLooseSub');
+        const elMsg = document.getElementById('homeMsgCount');
+        const elLoose = document.getElementById('homeLooseCount');
+        const elStock = document.getElementById('homeStockCount');
+        const elHdrInfo = document.getElementById('hdrQuickInfo');
+
+        if (elDest) elDest.textContent = `${dests.length}곳`;
+        if (elBoxSub) elBoxSub.textContent = `총 ${totBoxes}박스 · 낱개 ${totLoose}`;
+        if (elMsg) elMsg.textContent = `${orders.length}건`;
+        if (elLoose) elLoose.textContent = `${looseClients.size}곳`;
+        if (elStock) elStock.textContent = `${stockItems.length}품목`;
+        if (elHdrInfo) elHdrInfo.textContent = `발주 ${orders.length}건 · 배송 ${dests.length}곳 (${totBoxes}박)`;
+    } catch (e) {}
 }
 
 /* =========================================================================
@@ -512,13 +613,14 @@ async function loadKakaoFiles(event) {
 
     const orderCnt = allChatItems.filter(x => x.type === '발주').length;
     const weightCnt = allChatItems.filter(x => x.type === '계근').length;
-    document.getElementById('kakaoLoadMsg').innerText = `✅ 총 ${allChatItems.length}건 분석 및 납품일 자동판별 완료! (순수발주 ${orderCnt}건 / 계근 ${weightCnt}건 분리됨)`;
+    document.getElementById('kakaoLoadMsg').innerText = `✅ 총 ${allChatItems.length}건 분석 완료! (순수발주 ${orderCnt}건 / 계근 ${weightCnt}건)`;
     const pill = document.getElementById('pillKakao');
     pill.innerText = `카톡: 발주 ${orderCnt}건`;
     pill.classList.add('ok');
 
     saveStateToBrowser('카톡 대화 파일 업로드');
     onFilterCriteriaChange(true);
+    showToast(`발주 ${orderCnt}건 분석 완료`);
 }
 
 function parseSingleKakaoText(text) {
@@ -662,7 +764,6 @@ function classifyChatItem(item) {
     item.type = '기타';
 }
 
-/* 날짜 더하기 유틸리티 ("YYYY-MM-DD" + days -> "YYYY-MM-DD") */
 function addDaysToDateStr(dateFullStr, days) {
     const dt = new Date(dateFullStr + "T00:00:00");
     dt.setDate(dt.getDate() + days);
@@ -677,9 +778,6 @@ function toShortDate(dateFullStr) {
     return `${dateFullStr.substring(5, 7)}/${dateFullStr.substring(8, 10)}`;
 }
 
-/* =========================================================================
-   핵심: 마지막 "여기까지" 기준 납품일 추론 (이후=익일, 이전=당일)
-   ========================================================================= */
 const JS_WEEKDAY_MAP = { '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
 
 function isYeogiKkajiMessage(content) {
@@ -688,7 +786,6 @@ function isYeogiKkajiMessage(content) {
 }
 
 function inferDeliveryDatesForAllItems() {
-    // 날짜별 마지막 "여기까지" 인덱스 → 그 이후 발주 = 익일 납품
     const lastCutoffIdxByDate = {};
     allChatItems.forEach((it, i) => {
         if (isYeogiKkajiMessage(it.content)) {
@@ -757,7 +854,6 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        // 핵심: 그날 마지막 "여기까지" 이후 → 익일, 이전 → 당일
         const cutIdx = lastCutoffIdxByDate[item.dateFull];
         if (typeof cutIdx === 'number') {
             if (i > cutIdx) {
@@ -772,14 +868,12 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        // 여기까지 없으면 기본 익일 (토·일 등은 배지로 수동)
         item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
         item.delivShort = toShortDate(item.targetDeliveryDate);
         item.delivReason = '여기까지없음→익일';
     }
 }
 
-/* 발주 행: 전일(-1일) / 익일(+1일) 로 납품일 이동 */
 function shiftItemDeliveryDate(itemIdx, deltaDays) {
     const item = allChatItems[itemIdx];
     if (!item || item.type !== '발주') return;
@@ -791,16 +885,16 @@ function shiftItemDeliveryDate(itemIdx, deltaDays) {
     inferDeliveryDatesForAllItems();
     const dir = deltaDays < 0 ? '전일' : '익일';
     recordLastUpdatedTime(`${item.clientName} 납품일 ${dir}(${toShortDate(newTarget)})`);
+    showToast(`${item.clientName} → 납품일 ${toShortDate(newTarget)}`);
     onFilterCriteriaChange(true);
 }
 
-// 하위 호환
 function toggleItemDeliveryDate(itemIdx) {
     shiftItemDeliveryDate(itemIdx, 1);
 }
 
 /* =========================================================================
-   4. [페이지 2] 발주 목록 필터링 및 상단 헤더 소형 아이콘 토글 제어
+   4. [페이지 2] 발주 목록 필터링 및 모바일 카드 렌더링
    ========================================================================= */
 function getFilteredOrderList(forceOnlyOrder = false) {
     const targetDateStr = document.getElementById('orderTargetDate').value;
@@ -811,12 +905,10 @@ function getFilteredOrderList(forceOnlyOrder = false) {
         if (showOnlyKnownClient && !item.isKnownClient) return false;
         if (mode === 'all' || !targetDateStr) return true;
 
-        // [추천] 5단계 스마트 납품일 자동판별 모드
         if (mode === 'smart') {
             if (item.type === '발주') {
                 return item.targetDeliveryDate === targetDateStr;
             } else {
-                // 비발주(계근/기타) 함께 보기 상태일 때는 해당 날짜에 작성된 계근을 표시
                 return item.dateFull === targetDateStr;
             }
         }
@@ -841,19 +933,33 @@ function getFilteredOrderList(forceOnlyOrder = false) {
     });
 }
 
-function renderOrdersTable() {
-    const tbody = document.getElementById('orderTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
+function highlightOrderBody(rawText) {
+    const escaped = escapeHtml(rawText);
+    return escaped.replace(/(\d+(?:\.\d+)?\s*(?:박스|빡스|박|팩|펙|판|봉지|봉|진공|덩이|덩어리|마리분|마리|두|벌|kg|키로|킬로))/gi, '<span class="hl-qty">$1</span>');
+}
 
-    const list = getFilteredOrderList(false);
+function renderOrdersTable() {
+    const container = document.getElementById('orderCardList');
+    if (!container) return;
+    container.innerHTML = '';
+
+    let list = getFilteredOrderList(false);
+    const q = (document.getElementById('orderSearchInput')?.value || '').trim().toLowerCase();
+    if (q) {
+        list = list.filter(item =>
+            (item.clientName || '').toLowerCase().includes(q) ||
+            (item.content || '').toLowerCase().includes(q) ||
+            (item.sender || '').toLowerCase().includes(q)
+        );
+    }
+
     const targetDateStr = document.getElementById('orderTargetDate').value;
     const mode = document.getElementById('orderTimeMode').value;
-    const modeLabel = mode === 'smart' ? `여기까지기준 납품일(${toShortDate(targetDateStr)})` : (mode === 'all' ? '전체' : '선택 기준');
+    const modeLabel = mode === 'smart' ? `납품일 ${toShortDate(targetDateStr)}` : (mode === 'all' ? '전체' : '선택 기준');
     document.getElementById('orderStats').innerText = `📋 조회된 내역: 총 ${list.length}건 (${modeLabel})`;
 
     if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; padding:20px; color:#dc2626;">선택하신 납품 기준일(${escapeHtml(targetDateStr)})에 해당하는 발주 내역이 없습니다.</td></tr>`;
+        container.innerHTML = `<div class="empty-box">선택하신 납품 기준일(${escapeHtml(targetDateStr || '전체')})에 해당하는 발주 내역이 없습니다.</div>`;
         return;
     }
 
@@ -862,28 +968,34 @@ function renderOrdersTable() {
         if (item.type === '발주') badge = `<span class="badge b-order">발주</span>`;
         else if (item.type === '계근') badge = `<span class="badge b-weight">계근</span>`;
 
-        let clientBadge = item.isKnownClient ? `<span class="badge b-client">인증</span>` : '';
+        const clientBadge = item.isKnownClient ? `<span class="badge b-client">인증</span>` : '';
 
-        let delivBadgeHtml = '';
+        let footerHtml = '';
         if (item.type === '발주') {
-            delivBadgeHtml = `
-                <div class="deliv-shift-row">
-                    <button type="button" class="deliv-shift-btn prev" onclick="shiftItemDeliveryDate(${item.idx}, -1)" title="납품일 하루 전">전일</button>
-                    <button type="button" class="deliv-shift-btn next" onclick="shiftItemDeliveryDate(${item.idx}, 1)" title="납품일 하루 뒤">익일</button>
-                </div>`;
+            const pillClass = item.isManualDeliv ? 'deliv-pill manual' : 'deliv-pill';
+            footerHtml = `
+                <div class="order-card-foot">
+                    <span class="${pillClass}">🚚 납품 ${escapeHtml(item.delivShort)} (${escapeHtml(item.delivReason)})</span>
+                    <div class="deliv-shift-btns">
+                        <button type="button" class="deliv-shift-btn prev" onclick="shiftItemDeliveryDate(${item.idx}, -1)">◀ 전일</button>
+                        <button type="button" class="deliv-shift-btn next" onclick="shiftItemDeliveryDate(${item.idx}, 1)">익일 ▶</button>
+                    </div>
+                </div>
+            `;
         }
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td class="order-meta-cell">
-                <span style="color:#6b7280;font-size:11px;">${escapeHtml(item.dateShort)} ${escapeHtml(item.timeStr)}</span><br>
-                <b style="color:var(--primary);">${escapeHtml(item.clientName)}</b>${clientBadge}<br>
-                <span style="color:#6b7280;font-size:11px;">${escapeHtml(item.sender)}</span> ${badge}
-                ${delivBadgeHtml}
-            </td>
-            <td class="order-body-cell">${escapeHtml(item.content)}</td>
+        const card = document.createElement('div');
+        card.className = 'order-card';
+        card.innerHTML = `
+            <div class="order-card-head">
+                <span class="order-card-meta">작성 ${escapeHtml(item.dateShort)} ${escapeHtml(item.timeStr)} · ${escapeHtml(item.sender)}</span>
+                <div style="display:flex;gap:4px;align-items:center;">${clientBadge}${badge}</div>
+            </div>
+            <div class="order-card-client">${escapeHtml(item.clientName)}</div>
+            <div class="order-card-body">${highlightOrderBody(item.content)}</div>
+            ${footerHtml}
         `;
-        tbody.appendChild(tr);
+        container.appendChild(card);
     });
 }
 
@@ -891,18 +1003,12 @@ function updateHeaderToggleButtonsUI() {
     const btnOrder = document.getElementById('btnOnlyOrder');
     if (btnOrder) {
         btnOrder.innerText = showOnlyOrder ? "🔍 발주만: ON" : "🔍 발주만: OFF";
-        btnOrder.title = showOnlyOrder ? "발주만 보기: ON (비발주 숨김)" : "발주만 보기: OFF (전체 표시)";
-        btnOrder.className = showOnlyOrder ? "btn" : "btn gray";
-        btnOrder.style.minHeight = "40px";
-        btnOrder.style.padding = "8px 14px";
+        btnOrder.className = showOnlyOrder ? "btn sm" : "btn sm gray";
     }
     const btnClient = document.getElementById('btnOnlyKnownClient');
     if (btnClient) {
         btnClient.innerText = showOnlyKnownClient ? "🏢 등록거래처: ON" : "🏢 등록거래처: OFF";
-        btnClient.title = showOnlyKnownClient ? "등록 거래처만 보기: ON" : "등록 거래처만 보기: OFF";
-        btnClient.className = showOnlyKnownClient ? "btn" : "btn gray";
-        btnClient.style.minHeight = "40px";
-        btnClient.style.padding = "8px 14px";
+        btnClient.className = showOnlyKnownClient ? "btn sm" : "btn sm gray";
     }
 }
 
@@ -919,7 +1025,7 @@ function toggleKnownClient() {
 }
 
 /* =========================================================================
-   5. [페이지 3] 일일 재고 현황 텍스트 파서 및 표 생성
+   5. [페이지 3] 일일 재고 현황 텍스트 파서 및 모바일 카드 생성
    ========================================================================= */
 function parseAndApplyStock(goTab, skipSave) {
     const raw = document.getElementById('stockTextarea').value;
@@ -975,11 +1081,13 @@ function parseAndApplyStock(goTab, skipSave) {
     pill.classList.add('ok');
 
     renderStockTable();
+    updateHomeSummary();
     if (!skipSave) {
         saveStateToBrowser('일일 재고현황 적용');
+        showToast(`재고 ${stockItems.length}품목 적용 완료`);
     }
     if (goTab) {
-        switchTab('page3', document.querySelectorAll('.tab-btn')[2]);
+        switchTab('page3');
     }
 }
 
@@ -1027,29 +1135,54 @@ function parseQtyTokens(itemObj, brandName, qtyStr) {
 }
 
 function renderStockTable() {
-    const tbody = document.getElementById('stockTableBody');
-    tbody.innerHTML = '';
+    const container = document.getElementById('stockCardList');
+    if (!container) return;
+    container.innerHTML = '';
 
-    stockItems.forEach(item => {
+    const q = (document.getElementById('stockSearchInput')?.value || '').trim().toLowerCase();
+    const filtered = stockItems.filter(item => {
+        const total = item.brands['대산'].boxes + item.brands['포크'].boxes + item.brands['기타'].boxes;
+        if (stockOnlyPositive && total <= 0) return false;
+        if (q && !item.name.toLowerCase().includes(q)) return false;
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="empty-box">${stockItems.length === 0 ? '설정 탭에서 일일 재고현황 텍스트를 입력해주세요.' : '검색 조건에 맞는 재고 품목이 없습니다.'}</div>`;
+        return;
+    }
+
+    filtered.forEach(item => {
         const d = item.brands['대산'];
         const p = item.brands['포크'];
         const o = item.brands['기타'];
         const total = d.boxes + p.boxes + o.boxes;
 
-        const formatCell = (bObj) => {
-            if (bObj.details.length === 0) return `<span class="num-zero">-</span>`;
-            return `<b>${bObj.boxes}박</b><br><small style="color:#555;">${bObj.details.map(escapeHtml).join(', ')}</small>`;
+        const renderBrandBox = (label, bObj) => {
+            const has = bObj.details.length > 0;
+            return `
+                <div class="brand-box ${has ? 'has-qty' : ''}">
+                    <div class="brand-box-label">${label}</div>
+                    <div class="brand-box-val ${has ? '' : 'zero'}">${has ? `${bObj.boxes}박` : '-'}</div>
+                    ${has ? `<div class="brand-box-detail">${bObj.details.map(escapeHtml).join(', ')}</div>` : ''}
+                </div>
+            `;
         };
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><b style="color:var(--primary); font-size:13px;">${escapeHtml(item.name)}</b></td>
-            <td>${formatCell(d)}</td>
-            <td>${formatCell(p)}</td>
-            <td>${formatCell(o)}</td>
-            <td style="font-size:13px;"><b>총 ${total}박</b></td>
+        const card = document.createElement('div');
+        card.className = 'stock-card';
+        card.innerHTML = `
+            <div class="stock-card-head">
+                <span class="stock-item-title">${escapeHtml(item.name)}</span>
+                <span class="stock-total-badge ${total === 0 ? 'zero' : ''}">총 ${total}박</span>
+            </div>
+            <div class="stock-brand-grid">
+                ${renderBrandBox('대산', d)}
+                ${renderBrandBox('포크', p)}
+                ${renderBrandBox('정담·황금·기타', o)}
+            </div>
         `;
-        tbody.appendChild(tr);
+        container.appendChild(card);
     });
 }
 
@@ -1156,42 +1289,62 @@ function computeOrderAggregation() {
 }
 
 /* =========================================================================
-   7. [페이지 4] 일일 발주 현황표 렌더링 (3페이지 재고현황표와 동일한 양식!)
+   7. [페이지 4] 일일 발주 현황표 모바일 카드 렌더링
    ========================================================================= */
 function renderOrderSummaryTable() {
-    const tbody = document.getElementById('orderSummaryTableBody');
-    tbody.innerHTML = '';
+    const container = document.getElementById('orderSummaryCardList');
+    if (!container) return;
+    container.innerHTML = '';
 
     const tDate = document.getElementById('orderTargetDate').value || '전체';
-    document.getElementById('orderSummaryDateInfo').innerText = `[납품 기준일: ${tDate}]`;
+    document.getElementById('orderSummaryDateInfo').innerText = `납품 기준일: ${tDate}`;
 
     const summaryMap = computeOrderAggregation();
+    const keys = Object.keys(summaryMap);
 
-    Object.keys(summaryMap).forEach(itemName => {
+    if (keys.length === 0) {
+        container.innerHTML = `<div class="empty-box">설정 탭에서 재고현황 텍스트와 카톡 발주를 먼저 등록해주세요.</div>`;
+        return;
+    }
+
+    keys.forEach(itemName => {
         const g = summaryMap[itemName];
         const d = g['대산'], p = g['포크'], o = g['기타'];
         const totBox = d.orderBox + p.orderBox + o.orderBox;
         const totPack = d.orderPack + p.orderPack + o.orderPack;
 
-        const formatOrderCell = (bObj) => {
-            if (bObj.orderBox === 0 && bObj.orderPack === 0) return `<span class="num-zero">0박</span>`;
-            let head = `<b style="color:var(--accent);">${bObj.orderBox}박</b>`;
-            if (bObj.orderPack > 0) head += ` <b style="color:var(--warn);">+ ${bObj.orderPack}팩(건)</b>`;
-            return `${head}<br><small style="color:#4b5563;">${bObj.clients.map(escapeHtml).join(', ')}</small>`;
+        const renderBrandOrderBox = (label, bObj) => {
+            const has = bObj.orderBox > 0 || bObj.orderPack > 0;
+            let valTxt = '0박';
+            if (has) {
+                valTxt = `${bObj.orderBox}박` + (bObj.orderPack > 0 ? ` +${bObj.orderPack}팩` : '');
+            }
+            return `
+                <div class="brand-box ${has ? 'has-qty' : ''}">
+                    <div class="brand-box-label">${label}</div>
+                    <div class="brand-box-val ${has ? '' : 'zero'}">${valTxt}</div>
+                    ${has ? `<div class="brand-box-detail">${bObj.clients.map(escapeHtml).join(', ')}</div>` : ''}
+                </div>
+            `;
         };
 
-        let totStr = `<b>총 ${totBox}박</b>`;
-        if (totPack > 0) totStr += `<br><small style="color:var(--warn); font-weight:bold;">+ ${totPack}팩(건)</small>`;
+        let totLabel = `총 ${totBox}박`;
+        if (totPack > 0) totLabel += ` + ${totPack}팩`;
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><b style="color:var(--primary); font-size:13px;">${escapeHtml(itemName)}</b></td>
-            <td>${formatOrderCell(d)}</td>
-            <td>${formatOrderCell(p)}</td>
-            <td>${formatOrderCell(o)}</td>
-            <td style="font-size:13px;">${totStr}</td>
+        const card = document.createElement('div');
+        card.className = 'stock-card';
+        card.innerHTML = `
+            <div class="stock-card-head">
+                <span class="stock-item-title">${escapeHtml(itemName)}</span>
+                <span class="stock-total-badge ${(totBox === 0 && totPack === 0) ? 'zero' : ''}">${totLabel}</span>
+            </div>
+            <div class="stock-brand-grid">
+                ${renderBrandOrderBox('대산', d)}
+                ${renderBrandOrderBox('포크', p)}
+                ${renderBrandOrderBox('정담·황금·기타', o)}
+            </div>
         `;
-        tbody.appendChild(tr);
+        container.appendChild(card);
     });
 }
 
@@ -1207,7 +1360,7 @@ function copyKakaoOrderCheckText() {
         lines.push(`${itemName} ${bStr} ${pStr}`);
     });
     navigator.clipboard.writeText(lines.join('\n')).then(() => {
-        alert("카톡용 '발주체크' 요약 텍스트가 클립보드에 복사되었습니다!");
+        showToast("카톡용 '발주체크' 텍스트 복사 완료!");
     });
 }
 
@@ -1225,38 +1378,12 @@ function downloadOrderSummaryCsv() {
 }
 
 /* =========================================================================
-   8. [페이지 5] 발주차감 잔여재고 렌더링
+   8. 잔여재고 테이블 (하위 호환 유지)
    ========================================================================= */
 function renderDiffTable() {
     const tbody = document.getElementById('diffTableBody');
-    if (!tbody) return; // 5번 잔여재고 UI 제거됨 — 없으면 스킵
+    if (!tbody) return;
     tbody.innerHTML = '';
-
-    const summaryMap = computeOrderAggregation();
-
-    Object.keys(summaryMap).forEach(itemName => {
-        const bGroup = summaryMap[itemName];
-        ['대산', '포크', '기타'].forEach(br => {
-            const data = bGroup[br];
-            if (data.stock === 0 && data.orderBox === 0 && data.orderPack === 0) return;
-
-            const remain = data.stock - data.orderBox;
-            const remainClass = remain < 0 ? 'num-neg' : (remain > 0 ? 'num-pos' : 'num-zero');
-            const remainText = remain < 0 ? `${remain}박 (부족!)` : `${remain}박`;
-
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td><b>${escapeHtml(itemName)}</b></td>
-                <td>${escapeHtml(br)}</td>
-                <td><b>${data.stock}박</b></td>
-                <td><b>${data.orderBox}박</b></td>
-                <td>${data.orderPack > 0 ? data.orderPack + '팩(건)' : '-'}</td>
-                <td class="${remainClass}">${remainText}</td>
-                <td style="font-size:11px; color:#4b5563;">${data.clients.map(escapeHtml).join(', ') || '-'}</td>
-            `;
-            tbody.appendChild(tr);
-        });
-    });
 }
 
 function downloadDiffCsv() {
@@ -1275,11 +1402,7 @@ function downloadDiffCsv() {
 }
 
 /* =========================================================================
-   9. [페이지 6] 당일 배송처 목록 (박스수/낱개수 전용) 및 6대 차량 기사 배차 관리
-   ========================================================================= */
-
-/* =========================================================================
-   배차 지도 (Leaflet + vWorld 지오코딩, 차량별 핀 색)
+   9. [페이지 6] 당일 배송처 목록 (카드형 UI) 및 6대 차량 기사 배차 관리
    ========================================================================= */
 const VWORLD_KEY = '3351CCD7-07E8-40AB-97D0-243A592B74C3';
 const VEHICLE_PIN_COLORS = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00acc1'];
@@ -1316,7 +1439,6 @@ function geocodeAddress(address) {
         const key = address.trim();
         if (geoCache[key]) return resolve(geoCache[key]);
 
-        // Photon (OSM) 우선 — CORS 친화
         const q = encodeURIComponent(key + ', 대한민국');
         fetch(`https://photon.komoot.io/api/?q=${q}&limit=1`)
             .then(r => r.json())
@@ -1344,7 +1466,6 @@ function ensureDispatchMap() {
         return dispatchMapObj;
     }
     dispatchMapObj = L.map(el, { zoomControl: true }).setView([DEPOT.lat, DEPOT.lng], 11);
-    // OSM 타일 (키 없이 안정). vWorld 타일은 도메인 등록 이슈가 있어 보조 안 씀
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap'
@@ -1356,7 +1477,7 @@ function ensureDispatchMap() {
 function renderMapLegend() {
     const el = document.getElementById('mapLegend');
     if (!el) return;
-    let html = `<span><i class="pin-dot" style="background:#d32f2f"></i> 기점(미트포앤)</span>`;
+    let html = `<span><i class="pin-dot" style="background:#d32f2f"></i> 기점</span>`;
     for (let i = 0; i < 6; i++) {
         html += `<span><i class="pin-dot" style="background:${VEHICLE_PIN_COLORS[i]}"></i> ${escapeHtml(vehicleNames[i] || (i+1)+'호차')}</span>`;
     }
@@ -1420,7 +1541,6 @@ async function refreshDispatchMap() {
     const status = document.getElementById('mapStatus');
     if (status) status.textContent = '좌표 조회 중...';
 
-    // 기점
     L.marker([DEPOT.lat, DEPOT.lng], { icon: makePinIcon('#d32f2f') })
         .bindPopup(`<b>${DEPOT.name}</b><br>${DEPOT.addr}`)
         .addTo(dispatchLayer);
@@ -1447,37 +1567,54 @@ async function refreshDispatchMap() {
     if (bounds.length > 1) {
         try { map.fitBounds(bounds, { padding: [28, 28], maxZoom: 13 }); } catch (e) {}
     }
-    if (status) status.textContent = `표시 ${ok}곳` + (fail ? ` · 주소없음/실패 ${fail}` : '');
+    if (status) status.textContent = `지도 표시 ${ok}곳` + (fail ? ` · 주소없음/실패 ${fail}` : '');
     setTimeout(() => map.invalidateSize(), 100);
-    // 좌표 캐시가 채워진 뒤 거리 정렬 모드면 목록 다시 정렬
+
     if ((dispatchSortMode === 'far' || dispatchSortMode === 'near') && ok > 0) {
-        const tbody = document.getElementById('dispatchTableBody');
-        if (tbody && !tbody.dataset.resortLock) {
-            tbody.dataset.resortLock = '1';
+        const container = document.getElementById('dispatchCardList');
+        if (container && !container.dataset.resortLock) {
+            container.dataset.resortLock = '1';
             setTimeout(() => {
-                delete tbody.dataset.resortLock;
-                const destinations = sortDestinations(getAggregatedDeliveryDestinations(), dispatchSortMode);
-                renderClientChips(destinations);
-                // 표만 다시 그리기 (지도 재요청 방지)
-                redrawDispatchTableOnly(destinations);
+                delete container.dataset.resortLock;
+                const sorted = sortDestinations(getAggregatedDeliveryDestinations(), dispatchSortMode);
+                renderClientChips(sorted);
+                redrawDispatchCardsOnly(sorted);
             }, 50);
         }
     }
 }
 
-function redrawDispatchTableOnly(destinations) {
-    const tbody = document.getElementById('dispatchTableBody');
-    if (!tbody) return;
+function copyTextSafe(txt, label) {
+    if (!txt) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(() => showToast(`${label} 복사 완료`));
+    } else {
+        const ta = document.createElement('textarea');
+        ta.value = txt;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast(`${label} 복사 완료`);
+    }
+}
+
+function redrawDispatchCardsOnly(destinations) {
+    const container = document.getElementById('dispatchCardList');
+    if (!container) return;
+
     const filteredDests = destinations.filter(d => {
         const assigned = dispatchMap[d.clientName] || 'UNASSIGNED';
         if (selectedVehicleFilter === 'ALL') return true;
         return assigned === selectedVehicleFilter;
     });
-    tbody.innerHTML = '';
+
+    container.innerHTML = '';
     if (filteredDests.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:24px; color:#888;">조건에 해당하는 당일 납품처가 없습니다.</td></tr>`;
+        container.innerHTML = `<div class="empty-box">조건에 해당하는 당일 납품처가 없습니다.</div>`;
         return;
     }
+
     filteredDests.forEach((d, idx) => {
         const curVal = dispatchMap[d.clientName] || 'UNASSIGNED';
         const isAssignedClass = (curVal !== 'UNASSIGNED') ? 'assigned' : '';
@@ -1493,32 +1630,45 @@ function redrawDispatchTableOnly(destinations) {
         }
         optionsHtml += `<option value="PICKUP" ${curVal==='PICKUP'?'selected':''}>📦 방문/택배</option>`;
 
-        let addrHtml = d.addr ? `<div>📍 ${escapeHtml(d.addr)}</div>` : `<div style="color:#9ca3af;">📍 주소 미등록</div>`;
-        if (d.phone) addrHtml += `<div style="color:#4b5563; margin-top:2px;">📞 ${escapeHtml(d.phone)}</div>`;
-        if (d.note) addrHtml += `<div style="color:#b45309; font-weight:bold; margin-top:2px;">🔑 ${escapeHtml(d.note)}</div>`;
-        let urgentBadge = d.isUrgent ? `<span class="badge b-urgent">급/오전</span>` : '';
+        const urgentBadge = d.isUrgent ? `<span class="badge b-urgent">급/오전</span>` : '';
+        const phoneDigits = String(d.phone || '').replace(/[^0-9+]/g, '');
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td style="text-align:center; vertical-align:middle;"><b>${idx + 1}</b></td>
-            <td style="vertical-align:middle;">
-                <span class="pin-dot" style="background:${pinCol};vertical-align:middle;margin-right:4px;"></span>
-                <b style="color:var(--primary); font-size:14px;">${escapeHtml(d.clientName)}</b>${urgentBadge}
-                <div style="font-size:11px;color:#6b7280;margin-top:2px;">${escapeHtml(city)}${distTxt}</div>
-                ${d.officialName !== d.clientName ? `<small style="color:#6b7280;">(${escapeHtml(d.officialName)})</small>` : ''}
-            </td>
-            <td style="font-size:12.5px; line-height:1.4; vertical-align:middle;">${addrHtml}</td>
-            <td style="vertical-align:middle; white-space:nowrap;">${formatBoxLooseSummary(d.totalBoxes, d.totalLoose)}</td>
-            <td style="vertical-align:middle;">
-                <select class="dispatch-select ${isAssignedClass}" data-client="${escapeHtml(d.clientName)}" onchange="assignVehicle(this.getAttribute('data-client'), this.value)">
-                    ${optionsHtml}
-                </select>
-            </td>
+        const card = document.createElement('div');
+        card.className = 'dispatch-card';
+        card.innerHTML = `
+            <div class="dispatch-card-head">
+                <div class="dispatch-client-block">
+                    <span class="num-circle" style="background:${pinCol};">${idx + 1}</span>
+                    <div>
+                        <div class="dispatch-client-name">
+                            <span>${escapeHtml(d.clientName)}</span>
+                            ${urgentBadge}
+                        </div>
+                        <div class="dispatch-sub-meta">${escapeHtml(city)}${distTxt}${d.officialName !== d.clientName ? ` · ${escapeHtml(d.officialName)}` : ''}</div>
+                    </div>
+                </div>
+                <div class="cargo-badge-box">${formatBoxLooseSummary(d.totalBoxes, d.totalLoose)}</div>
+            </div>
+
+            <div class="dispatch-addr-box">
+                <div>📍 ${d.addr ? escapeHtml(d.addr) : '<span style="color:var(--text-muted);">주소 미등록</span>'}</div>
+                ${d.phone ? `<div style="margin-top:4px; font-weight:700; color:var(--text-sub);">📞 ${escapeHtml(d.phone)}</div>` : ''}
+            </div>
+
+            ${d.note ? `<div class="dispatch-note-box">🔑 ${escapeHtml(d.note)}</div>` : ''}
+
+            <div class="dispatch-actions-row">
+                ${phoneDigits ? `<a class="dispatch-mini-btn" href="tel:${phoneDigits}">📞 전화걸기</a>` : `<span class="dispatch-mini-btn" style="opacity:0.45;">📞 번호없음</span>`}
+                ${d.addr ? `<button type="button" class="dispatch-mini-btn" data-addr="${escapeHtml(d.addr)}" onclick="copyTextSafe(this.getAttribute('data-addr'), '주소')">📋 주소복사</button>` : ''}
+            </div>
+
+            <select class="dispatch-select ${isAssignedClass}" data-client="${escapeHtml(d.clientName)}" onchange="assignVehicle(this.getAttribute('data-client'), this.value)">
+                ${optionsHtml}
+            </select>
         `;
-        tbody.appendChild(tr);
+        container.appendChild(card);
     });
 }
-
 
 function fitDispatchMap() {
     if (!dispatchMapObj || !dispatchLayer) return;
@@ -1531,6 +1681,7 @@ function fitDispatchMap() {
 
 function renderVehicleConfigInputs() {
     const grid = document.getElementById('vehicleConfigGrid');
+    if (!grid) return;
     grid.innerHTML = '';
     for (let i = 0; i < 6; i++) {
         const div = document.createElement('div');
@@ -1609,7 +1760,6 @@ function countOrderBoxesAndLoose(orderText) {
     return { boxes: totalBoxes, loose: totalLoose };
 }
 
-
 function haversineKm(lat1, lng1, lat2, lng2) {
     const R = 6371;
     const toR = d => d * Math.PI / 180;
@@ -1623,7 +1773,6 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 function extractCityFromAddr(addr) {
     if (!addr) return '주소미상';
     const s = String(addr).replace(/\s+/g, ' ').trim();
-    // 특별시/광역시/도 + 시·군·구
     let m = s.match(/(서울|부산|대구|인천|광주|대전|울산|세종)(?:특별시|광역시|시)?\s*([가-힣]+(?:구|군))?/);
     if (m) {
         if (m[1] === '세종') return '세종시';
@@ -1651,7 +1800,6 @@ function sortDestinations(list, mode) {
     const m = mode || dispatchSortMode || 'city';
 
     if (m === 'city') {
-        // 주소·연락·비번 컬럼의 주소 텍스트에서 시·구 추출 → 가나다순
         arr.sort((a, b) => {
             const ca = extractCityFromAddr(a.addr);
             const cb = extractCityFromAddr(b.addr);
@@ -1659,7 +1807,6 @@ function sortDestinations(list, mode) {
             if (cb === '주소미상' && ca !== '주소미상') return -1;
             const c = ca.localeCompare(cb, 'ko');
             if (c !== 0) return c;
-            // 같은 시·구면 전체 주소 가나다, 그다음 거래처명
             const aa = String(a.addr || '').localeCompare(String(b.addr || ''), 'ko');
             if (aa !== 0) return aa;
             return String(a.clientName).localeCompare(String(b.clientName), 'ko');
@@ -1668,7 +1815,6 @@ function sortDestinations(list, mode) {
     }
 
     if (m === 'boxes') {
-        // 물품(박스) 많은 순, 동률이면 낱개 많은 순 → 이름
         arr.sort((a, b) => {
             const dbx = (b.totalBoxes || 0) - (a.totalBoxes || 0);
             if (dbx !== 0) return dbx;
@@ -1680,7 +1826,6 @@ function sortDestinations(list, mode) {
     }
 
     if (m === 'vehicle') {
-        // 1~6호차 순 → 미배차 → 방문/택배, 같은 차량 안에서는 주소 가나다
         const rank = (code) => {
             if (/^V[0-5]$/.test(code)) return parseInt(code.slice(1), 10);
             if (code === 'UNASSIGNED' || !code) return 50;
@@ -1699,7 +1844,6 @@ function sortDestinations(list, mode) {
         return arr;
     }
 
-    // 거리: 캐시 있는 곳 우선 정렬, 없는 곳은 맨 뒤
     arr.sort((a, b) => {
         const da = getCachedDistKm(a.addr);
         const db = getCachedDistKm(b.addr);
@@ -1711,7 +1855,7 @@ function sortDestinations(list, mode) {
         if (aMiss) return 1;
         if (bMiss) return -1;
         if (m === 'far') return db - da;
-        return da - db; // near
+        return da - db;
     });
     return arr;
 }
@@ -1755,22 +1899,21 @@ function getAggregatedDeliveryDestinations() {
 
 function formatBoxLooseSummary(boxes, loose) {
     if (boxes > 0 && loose > 0) {
-        return `<b style="color:var(--primary); font-size:13px;">📦 ${boxes}박스</b> <span style="color:#9ca3af;">/</span> <b style="color:var(--warn); font-size:13px;">낱개 ${loose}</b>`;
+        return `<b style="color:var(--primary); font-size:0.9rem;">📦 ${boxes}박</b><br><b style="color:var(--warn); font-size:0.82rem;">낱개 ${loose}</b>`;
     } else if (boxes > 0) {
-        return `<b style="color:var(--primary); font-size:13px;">📦 ${boxes}박스</b>`;
+        return `<b style="color:var(--primary); font-size:0.92rem;">📦 ${boxes}박스</b>`;
     } else if (loose > 0) {
-        return `<b style="color:var(--warn); font-size:13px;">낱개 ${loose}</b>`;
+        return `<b style="color:var(--warn); font-size:0.9rem;">낱개 ${loose}</b>`;
     }
-    return `<span class="num-zero">-</span>`;
+    return `<span style="color:var(--text-muted); font-size:0.82rem;">수량미상</span>`;
 }
 
 function renderDispatchPage() {
     const destinationsRaw = getAggregatedDeliveryDestinations();
     const destinations = sortDestinations(destinationsRaw, dispatchSortMode);
-    const tbody = document.getElementById('dispatchTableBody');
+    const container = document.getElementById('dispatchCardList');
     const statBar = document.getElementById('vehicleStatBar');
-    if (!tbody || !statBar) return;
-    tbody.innerHTML = '';
+    if (!container || !statBar) return;
     statBar.innerHTML = '';
 
     const sortSel = document.getElementById('dispatchSortMode');
@@ -1800,67 +1943,16 @@ function renderDispatchPage() {
         statBar.appendChild(span);
     });
 
-    // 칩·지도·표 모두 동일 정렬
     renderClientChips(destinations);
+    redrawDispatchCardsOnly(destinations);
     refreshDispatchMap();
-
-    const filteredDests = destinations.filter(d => {
-        const assigned = dispatchMap[d.clientName] || 'UNASSIGNED';
-        if (selectedVehicleFilter === 'ALL') return true;
-        return assigned === selectedVehicleFilter;
-    });
-
-    if (filteredDests.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:24px; color:#888;">조건에 해당하는 당일 납품처가 없습니다.</td></tr>`;
-        return;
-    }
-
-    filteredDests.forEach((d, idx) => {
-        const curVal = dispatchMap[d.clientName] || 'UNASSIGNED';
-        const isAssignedClass = (curVal !== 'UNASSIGNED') ? 'assigned' : '';
-        const pinCol = pinColorForCode(curVal);
-        const dist = getCachedDistKm(d.addr);
-        const city = extractCityFromAddr(d.addr);
-        const distTxt = dist != null ? ` · ${dist.toFixed(1)}km` : '';
-
-        let optionsHtml = `<option value="UNASSIGNED" ${curVal==='UNASSIGNED'?'selected':''}>-- 미배차 --</option>`;
-        for (let i = 0; i < 6; i++) {
-            const vCode = `V${i}`;
-            optionsHtml += `<option value="${vCode}" ${curVal===vCode?'selected':''}>🚚 ${escapeHtml(vehicleNames[i])}</option>`;
-        }
-        optionsHtml += `<option value="PICKUP" ${curVal==='PICKUP'?'selected':''}>📦 방문/택배</option>`;
-
-        let addrHtml = d.addr ? `<div>📍 ${escapeHtml(d.addr)}</div>` : `<div style="color:#9ca3af;">📍 주소 미등록</div>`;
-        if (d.phone) addrHtml += `<div style="color:#4b5563; margin-top:2px;">📞 ${escapeHtml(d.phone)}</div>`;
-        if (d.note) addrHtml += `<div style="color:#b45309; font-weight:bold; margin-top:2px;">🔑 ${escapeHtml(d.note)}</div>`;
-
-        let urgentBadge = d.isUrgent ? `<span class="badge b-urgent">급/오전</span>` : '';
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td style="text-align:center; vertical-align:middle;"><b>${idx + 1}</b></td>
-            <td style="vertical-align:middle;">
-                <span class="pin-dot" style="background:${pinCol};vertical-align:middle;margin-right:4px;"></span>
-                <b style="color:var(--primary); font-size:14px;">${escapeHtml(d.clientName)}</b>${urgentBadge}
-                <div style="font-size:11px;color:#6b7280;margin-top:2px;">${escapeHtml(city)}${distTxt}</div>
-                ${d.officialName !== d.clientName ? `<small style="color:#6b7280;">(${escapeHtml(d.officialName)})</small>` : ''}
-            </td>
-            <td style="font-size:12.5px; line-height:1.4; vertical-align:middle;">${addrHtml}</td>
-            <td style="vertical-align:middle; white-space:nowrap;">${formatBoxLooseSummary(d.totalBoxes, d.totalLoose)}</td>
-            <td style="vertical-align:middle;">
-                <select class="dispatch-select ${isAssignedClass}" data-client="${escapeHtml(d.clientName)}" onchange="assignVehicle(this.getAttribute('data-client'), this.value)">
-                    ${optionsHtml}
-                </select>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
 }
 
 function assignVehicle(clientName, vCode) {
     dispatchMap[clientName] = vCode;
     localStorage.setItem('mf_dispatch', JSON.stringify(dispatchMap));
     recordLastUpdatedTime(`${clientName} 배차 지정`);
+    showToast(`${clientName} 배차 변경`);
     renderDispatchPage();
 }
 
