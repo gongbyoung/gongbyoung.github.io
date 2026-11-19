@@ -12,12 +12,12 @@ let showOnlyKnownClient = false;
 
 // 6대 차량 기본 설정, 배차 저장소, 수동 납품일 지정 저장소
 const DEFAULT_VEHICLES = [
-    "1호차 (차)",
-    "2호차 (한)",
-    "3호차 (엄)",
-    "4호차 (최)",
-    "5호차 (양)",
-    "6호차 (김)"
+    "(차)",
+    "(한)",
+    "(엄)",
+    "(최)",
+    "(양)",
+    "(김)"
 ];
 let vehicleNames = JSON.parse(localStorage.getItem('mf_vehicles') || 'null') || [...DEFAULT_VEHICLES];
 let dispatchMap = JSON.parse(localStorage.getItem('mf_dispatch') || '{}');
