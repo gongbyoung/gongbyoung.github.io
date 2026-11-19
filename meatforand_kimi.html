@@ -1245,10 +1245,11 @@
                 <div>
                     <label>발주 추출 시간 창</label>
                     <select id="orderTimeMode" class="hdr-select" style="width:100%;height:42px;border:1.5px solid var(--border);background:var(--card);color:var(--text);" onchange="onFilterCriteriaChange()">
-                        <option value="smart" selected>여기까지 기준 (마지막 여기까지 이후=익일)</option>
-                        <option value="all">전체 날짜 보기</option>
-                        <option value="fullday">작성일=납품일로 보기</option>
-                    </select>
+    <option value="smart" selected>여기까지 기준 (납품일 기준 전일~당일 자동 취합)</option>
+    <option value="prev_to_curr">전일 ~ 당일 작성분 전체 보기 (D-1 ~ D)</option>
+    <option value="fullday">당일 작성분만 보기 (D)</option>
+    <option value="all">전체 날짜 보기</option>
+</select>
                 </div>
                 <div>
                     <label>글자 크기 & 화면 모드</label>
