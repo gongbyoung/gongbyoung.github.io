@@ -20,6 +20,131 @@ let selectedVehicleFilter = 'ALL';
 let dispatchSortMode = localStorage.getItem('mf_dispatch_sort') || 'far';
 
 /* =========================================================================
+   설정 영구 저장 & 즉시 동기화 (절대 초기화되지 않도록 전용 키로 보호)
+   ========================================================================= */
+const USER_PREFS_KEY = 'mf_user_prefs_v2';
+
+function readStoredUserPrefs() {
+    let prefs = {};
+    try {
+        const legacy = JSON.parse(localStorage.getItem('mf_saved_settings') || 'null');
+        if (legacy && typeof legacy === 'object') prefs = Object.assign(prefs, legacy);
+    } catch (e) {}
+    try {
+        const v2 = JSON.parse(localStorage.getItem(USER_PREFS_KEY) || 'null');
+        if (v2 && typeof v2 === 'object') prefs = Object.assign(prefs, v2);
+    } catch (e) {}
+    return prefs;
+}
+
+function setSelectValueLocked(selectEl, desiredValue) {
+    if (!selectEl || !desiredValue) return;
+    const opts = Array.from(selectEl.options);
+    if (!opts.some(o => o.value === desiredValue)) return;
+    selectEl.value = desiredValue;
+    opts.forEach(o => {
+        o.selected = (o.value === desiredValue);
+    });
+}
+
+function saveUserSettings(reasonText) {
+    try {
+        const modeEl = document.getElementById('orderTimeMode');
+        const dateEl = document.getElementById('orderTargetDate');
+        const sortEl = document.getElementById('dispatchSortMode');
+        const ghEl = document.getElementById('githubCsvUrl');
+
+        const currentPrefs = readStoredUserPrefs();
+        const nextPrefs = {
+            targetDate: dateEl ? (dateEl.value || currentPrefs.targetDate || '') : (currentPrefs.targetDate || ''),
+            timeMode: modeEl ? (modeEl.value || 'smart') : (currentPrefs.timeMode || 'smart'),
+            showOnlyOrder: Boolean(showOnlyOrder),
+            showOnlyKnownClient: Boolean(showOnlyKnownClient),
+            stockOnlyPositive: Boolean(stockOnlyPositive),
+            uiScale: getUiScalePercent(),
+            darkMode: document.documentElement.classList.contains('dark-mode'),
+            dispatchSortMode: sortEl ? (sortEl.value || dispatchSortMode || 'far') : (dispatchSortMode || 'far'),
+            githubCsvUrl: ghEl ? (ghEl.value || '') : (currentPrefs.githubCsvUrl || '')
+        };
+
+        localStorage.setItem(USER_PREFS_KEY, JSON.stringify(nextPrefs));
+        localStorage.setItem('mf_saved_settings', JSON.stringify(nextPrefs));
+        localStorage.setItem('mf_ui_scale', String(nextPrefs.uiScale));
+        localStorage.setItem('mf_dark_mode', nextPrefs.darkMode ? '1' : '0');
+        localStorage.setItem('mf_dispatch_sort', nextPrefs.dispatchSortMode);
+
+        const banner = document.getElementById('settingLockBanner');
+        if (banner) {
+            const stamp = getNowTimeFormatted();
+            banner.textContent = reasonText
+                ? `🔒 '${reasonText}' 저장 완료 (${stamp}) · 변경 전까지 영구 유지`
+                : `🔒 현재 선택한 모든 설정이 저장되어 유지됩니다 (${stamp})`;
+        }
+    } catch (e) {
+        console.warn('설정 저장 오류:', e);
+    }
+}
+
+function restoreUserSettings(preserveTargetDateIfEmpty = false) {
+    const prefs = readStoredUserPrefs();
+
+    if (prefs.timeMode) {
+        const modeEl = document.getElementById('orderTimeMode');
+        setSelectValueLocked(modeEl, prefs.timeMode);
+    }
+
+    if (prefs.targetDate) {
+        const dateEl = document.getElementById('orderTargetDate');
+        if (dateEl && (!preserveTargetDateIfEmpty || !dateEl.value)) {
+            dateEl.value = prefs.targetDate;
+        }
+    }
+
+    if (typeof prefs.showOnlyOrder === 'boolean') {
+        showOnlyOrder = prefs.showOnlyOrder;
+    }
+    if (typeof prefs.showOnlyKnownClient === 'boolean') {
+        showOnlyKnownClient = prefs.showOnlyKnownClient;
+    }
+    if (typeof prefs.stockOnlyPositive === 'boolean') {
+        stockOnlyPositive = prefs.stockOnlyPositive;
+    }
+    if (prefs.dispatchSortMode) {
+        dispatchSortMode = prefs.dispatchSortMode;
+        const sortEl = document.getElementById('dispatchSortMode');
+        setSelectValueLocked(sortEl, dispatchSortMode);
+    }
+    if (typeof prefs.githubCsvUrl === 'string') {
+        const ghEl = document.getElementById('githubCsvUrl');
+        if (ghEl && !ghEl.value) ghEl.value = prefs.githubCsvUrl;
+    }
+
+    if (typeof prefs.darkMode === 'boolean') {
+        document.documentElement.classList.toggle('dark-mode', prefs.darkMode);
+    }
+    updateDarkModeUI();
+
+    const scaleVal = prefs.uiScale ? parseInt(prefs.uiScale, 10) : getUiScalePercent();
+    applyUiScale(scaleVal, true);
+
+    updateHeaderToggleButtonsUI();
+    updateStockPositiveBtnUI();
+}
+
+function onTimeModeChange(newVal) {
+    const modeEl = document.getElementById('orderTimeMode');
+    setSelectValueLocked(modeEl, newVal);
+    saveUserSettings('발주 추출 시간 창');
+    showToast('추출 시간 창 설정 저장됨');
+    onFilterCriteriaChange(true);
+}
+
+function onTargetDateChange() {
+    saveUserSettings('납품 기준일');
+    onFilterCriteriaChange(false);
+}
+
+/* =========================================================================
    가독성 스케일 & 다크모드 & 토스트 제어
    ========================================================================= */
 function showToast(msg) {
@@ -38,7 +163,7 @@ function getUiScalePercent() {
     return 100;
 }
 
-function applyUiScale(percent) {
+function applyUiScale(percent, skipSave) {
     const p = [100, 115, 130].includes(parseInt(percent, 10)) ? parseInt(percent, 10) : 100;
     document.documentElement.style.fontSize = (16 * (p / 100)) + 'px';
     try { localStorage.setItem('mf_ui_scale', String(p)); } catch (e) {}
@@ -54,10 +179,11 @@ function applyUiScale(percent) {
             b.className = (val === p) ? 'btn sm' : 'btn sm outline';
         }
     });
+    if (!skipSave) saveUserSettings(`글자 크기 ${p}%`);
 }
 
 function setUiScale(percent) {
-    applyUiScale(percent);
+    applyUiScale(percent, false);
     showToast(`글자 크기 ${percent}% 적용`);
 }
 
@@ -85,6 +211,7 @@ function toggleDarkMode() {
     const isDark = document.documentElement.classList.toggle('dark-mode');
     try { localStorage.setItem('mf_dark_mode', isDark ? '1' : '0'); } catch (e) {}
     updateDarkModeUI();
+    saveUserSettings(isDark ? '야간모드' : '주간모드');
     showToast(isDark ? '야간 고대비 모드 켜짐' : '주간 고대비 모드 켜짐');
 }
 
@@ -94,13 +221,18 @@ function toggleVehicleEditBox() {
     grid.style.display = (grid.style.display === 'none') ? 'grid' : 'none';
 }
 
-function toggleStockOnlyPositive() {
-    stockOnlyPositive = !stockOnlyPositive;
+function updateStockPositiveBtnUI() {
     const btn = document.getElementById('btnStockOnlyPos');
     if (btn) {
         btn.textContent = stockOnlyPositive ? '보유만: ON' : '보유만: OFF';
         btn.className = stockOnlyPositive ? 'btn sm' : 'btn sm outline';
     }
+}
+
+function toggleStockOnlyPositive() {
+    stockOnlyPositive = !stockOnlyPositive;
+    updateStockPositiveBtnUI();
+    saveUserSettings('재고 보유만 필터');
     renderStockTable();
 }
 
@@ -130,15 +262,8 @@ function recordLastUpdatedTime(customAction) {
 }
 
 function saveStateToBrowser(actionLabel) {
+    saveUserSettings(actionLabel);
     try {
-        const settings = {
-            targetDate: document.getElementById('orderTargetDate').value || '',
-            timeMode: document.getElementById('orderTimeMode').value || 'smart',
-            showOnlyOrder: showOnlyOrder,
-            showOnlyKnownClient: showOnlyKnownClient
-        };
-        localStorage.setItem('mf_saved_settings', JSON.stringify(settings));
-
         const stockRaw = document.getElementById('stockTextarea').value || '';
         if (stockRaw.trim()) {
             localStorage.setItem('mf_saved_stock_text', stockRaw);
@@ -162,28 +287,7 @@ function saveStateToBrowser(actionLabel) {
 }
 
 function restoreStateFromBrowser() {
-    try {
-        const savedSettings = JSON.parse(localStorage.getItem('mf_saved_settings') || 'null');
-        if (savedSettings) {
-            if (savedSettings.targetDate) {
-                document.getElementById('orderTargetDate').value = savedSettings.targetDate;
-            }
-            if (savedSettings.timeMode) {
-                const modeEl = document.getElementById('orderTimeMode');
-                if ([...modeEl.options].some(o => o.value === savedSettings.timeMode)) {
-                    modeEl.value = savedSettings.timeMode;
-                }
-            }
-            if (typeof savedSettings.showOnlyOrder === 'boolean') {
-                showOnlyOrder = savedSettings.showOnlyOrder;
-            }
-            if (typeof savedSettings.showOnlyKnownClient === 'boolean') {
-                showOnlyKnownClient = savedSettings.showOnlyKnownClient;
-            }
-        }
-    } catch (e) {}
-
-    updateHeaderToggleButtonsUI();
+    restoreUserSettings(false);
 
     const savedStock = localStorage.getItem('mf_saved_stock_text');
     document.getElementById('stockTextarea').value = savedStock && savedStock.trim() ? savedStock : INITIAL_STOCK_TEXT;
@@ -201,11 +305,13 @@ function restoreStateFromBrowser() {
                 item.idx = idx;
                 classifyChatItem(item);
             });
+            resolveSequentialFollowUpClients();
             inferDeliveryDatesForAllItems();
 
             if (!document.getElementById('orderTargetDate').value) {
                 const lastDate = allChatItems[allChatItems.length - 1].dateFull;
                 document.getElementById('orderTargetDate').value = lastDate;
+                saveUserSettings();
             }
 
             const orderCnt = allChatItems.filter(x => x.type === '발주').length;
@@ -230,14 +336,18 @@ function restoreStateFromBrowser() {
 }
 
 function clearSavedBrowserData() {
-    if (!confirm('브라우저에 자동 저장된 카톡 발주 내역, 수동 납품일 지정, 재고 텍스트, 배차 기록을 모두 초기화할까요?')) return;
+    if (!confirm('브라우저에 자동 저장된 카톡 발주 내역, 수동 납품일 지정, 재고 텍스트, 배차 기록 및 설정을 모두 초기화할까요?')) return;
     localStorage.removeItem('mf_saved_chat_items');
     localStorage.removeItem('mf_saved_stock_text');
     localStorage.removeItem('mf_saved_settings');
+    localStorage.removeItem(USER_PREFS_KEY);
     localStorage.removeItem('mf_last_updated');
     localStorage.removeItem('mf_dispatch');
     localStorage.removeItem('mf_manual_deliv_dates');
     localStorage.removeItem('mf_loose_checked');
+    localStorage.removeItem('mf_ui_scale');
+    localStorage.removeItem('mf_dark_mode');
+    localStorage.removeItem('mf_dispatch_sort');
     location.reload();
 }
 
@@ -246,9 +356,11 @@ window.addEventListener('popstate', (ev) => {
     switchTab(pageId, null, true);
 });
 
+window.addEventListener('pageshow', () => {
+    restoreUserSettings(true);
+});
+
 window.addEventListener('DOMContentLoaded', () => {
-    applyUiScale(getUiScalePercent());
-    updateDarkModeUI();
     renderVehicleConfigInputs();
     restoreStateFromBrowser();
     try {
@@ -299,6 +411,7 @@ function switchTab(pageId, btnEl, fromPopstate) {
         if (b.getAttribute('data-page') === pageId) b.classList.add('active');
     });
 
+    if (pageId === 'page1') restoreUserSettings(true);
     if (pageId === 'page2') renderOrdersTable();
     if (pageId === 'page3') renderStockTable();
     if (pageId === 'page4') renderOrderSummaryTable();
@@ -349,7 +462,7 @@ function renderLooseTable() {
     if (!container) return;
 
     const targetDateStr = document.getElementById('orderTargetDate').value || 'all';
-    const orders = getFilteredOrderList(true);
+    const orders = getActiveOrdersForAggregation();
     const map = new Map();
     orders.forEach(ord => {
         const lines = extractLooseLinesFromOrderText(ord.content);
@@ -419,9 +532,10 @@ function onFilterCriteriaChange(skipSave) {
 function updateHomeSummary() {
     try {
         const dests = getAggregatedDeliveryDestinations();
-        const orders = getFilteredOrderList(false);
-        const looseOrders = getFilteredOrderList(true).filter(o => extractLooseLinesFromOrderText(o.content).length > 0);
-        const looseClients = new Set(looseOrders.map(o => o.clientName));
+        const activeOrders = getActiveOrdersForAggregation();
+        const consolidated = getConsolidatedOrderGroups(getFilteredOrderList(false));
+        const looseOrders = activeOrders.filter(o => extractLooseLinesFromOrderText(o.content).length > 0);
+        const looseClients = new Set(looseOrders.map(o => getCanonicalClientKey(o)));
 
         let totBoxes = 0;
         let totLoose = 0;
@@ -439,15 +553,15 @@ function updateHomeSummary() {
 
         if (elDest) elDest.textContent = `${dests.length}곳`;
         if (elBoxSub) elBoxSub.textContent = `총 ${totBoxes}박스 · 낱개 ${totLoose}`;
-        if (elMsg) elMsg.textContent = `${orders.length}건`;
+        if (elMsg) elMsg.textContent = `${consolidated.length}건`;
         if (elLoose) elLoose.textContent = `${looseClients.size}곳`;
         if (elStock) elStock.textContent = `${stockItems.length}품목`;
-        if (elHdrInfo) elHdrInfo.textContent = `발주 ${orders.length}건 · 배송 ${dests.length}곳 (${totBoxes}박)`;
+        if (elHdrInfo) elHdrInfo.textContent = `발주 ${consolidated.length}건 · 배송 ${dests.length}곳 (${totBoxes}박)`;
     } catch (e) {}
 }
 
 /* =========================================================================
-   2. 거래처 CSV 파싱 및 매칭 로직
+   2. 거래처 CSV 파싱 및 매칭 로직 (같은 업체 식별 정규화)
    ========================================================================= */
 function loadClientCsvFile(event) {
     const file = event.target.files[0];
@@ -469,6 +583,7 @@ function loadClientCsvFile(event) {
 async function loadCsvFromGithub() {
     const url = document.getElementById('githubCsvUrl').value.trim();
     if (!url) { alert('GitHub Raw CSV URL을 입력해주세요.'); return; }
+    saveUserSettings('GitHub CSV URL');
     try {
         const res = await fetch(url);
         if (!res.ok) throw new Error('네트워크 오류');
@@ -541,6 +656,7 @@ function processClientCsvText(csvText, isSilentAutoLoad) {
             item.idx = idx;
             classifyChatItem(item);
         });
+        resolveSequentialFollowUpClients();
         inferDeliveryDatesForAllItems();
         onFilterCriteriaChange(isSilentAutoLoad);
     }
@@ -554,6 +670,13 @@ function exportCleanedClientsCsv() {
     downloadBlob(csv, "clients.csv");
 }
 
+function stripActionTagsFromClientToken(tok) {
+    return String(tok || '')
+        .replace(/[●■\*]+/g, '')
+        .replace(/[\(\[\{]?(?:추가|수정|변경|정정|취소|재발주|급)[\)\]\}]?$/g, '')
+        .trim();
+}
+
 function matchClientFromText(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     if (lines.length === 0) return { matched: false, clientName: "미확인", clientObj: null };
@@ -562,7 +685,7 @@ function matchClientFromText(text) {
     if (lines.length > 1) candidateLines.push(lines[1]);
 
     for (let rawLine of candidateLines) {
-        let cleanLine = rawLine.replace(/^(전달:\s*|■+|●+|\*+|내일\s+|오늘\s+|월요일\s+|화요일예약\s+|수요일예약\s+)/g, '').trim();
+        let cleanLine = rawLine.replace(/^(전달:\s*|■+|●+|\*+|내일\s+|오늘\s+|월요일\s+|화요일예약\s+|수요일예약\s+|추가\s+|수정\s+|변경\s+)/g, '').trim();
         let lineNoSpace = cleanLine.replace(/\s+/g, '').toLowerCase();
 
         for (let c of clientDB) {
@@ -576,11 +699,159 @@ function matchClientFromText(text) {
     }
 
     let firstLine = lines[0].replace(/[●■]/g, ' ').trim();
-    let firstToken = firstLine.split(/[\s\.\,\~]/)[0];
+    let firstToken = stripActionTagsFromClientToken(firstLine.split(/[\s\.\,\~\(\[\-\:\/]/)[0]);
     if (/정육|마트|축산|푸드|식당|갈비|감자탕|해장국|면옥|한우|삼겹|소매|택배|주물럭|쌈밥|막창|장어|꼬치|국밥/.test(firstLine)) {
         return { matched: true, clientName: firstToken, officialName: firstToken, clientObj: null };
     }
     return { matched: false, clientName: firstToken || "미확인", officialName: "", clientObj: null };
+}
+
+/* 같은 업체 식별용 정규화 키 (별칭이 다르거나 ●추가/●수정 표기가 붙어도 하나로 묶음) */
+function getCanonicalClientKey(item) {
+    if (item && item.clientObj && item.clientObj.name) {
+        return 'DB:' + item.clientObj.name.trim();
+    }
+    const raw = stripActionTagsFromClientToken(item && item.clientName ? item.clientName : '미확인');
+    const norm = raw.replace(/\(주\)|주식회사|\s+/g, '').toLowerCase();
+    return 'RAW:' + (norm || '미확인');
+}
+
+/* 업체명을 안 적고 바로 '추가 ~', '수정 ~'만 보낸 연속 카톡 메시지 보정 */
+function resolveSequentialFollowUpClients() {
+    for (let i = 1; i < allChatItems.length; i++) {
+        const cur = allChatItems[i];
+        if (cur.type !== '발주') continue;
+        const isUnnamedOrActionOnly = !cur.clientName || cur.clientName === '미확인' || /^(추가|수정|변경|정정|취소)$/.test(cur.clientName);
+        if (!isUnnamedOrActionOnly) continue;
+
+        for (let j = i - 1; j >= 0; j--) {
+            const prev = allChatItems[j];
+            if (prev.dateFull !== cur.dateFull) break;
+            if (cur.timeMins - prev.timeMins > 30) break;
+            if (prev.type === '발주' && prev.sender === cur.sender && prev.clientName && prev.clientName !== '미확인') {
+                cur.clientName = prev.clientName;
+                cur.isKnownClient = prev.isKnownClient;
+                cur.clientObj = prev.clientObj;
+                break;
+            }
+        }
+    }
+}
+
+/* 추가 vs 수정·변경·취소 판별 */
+function detectFollowUpKind(txt) {
+    const t = String(txt || '').trim();
+    // 전체/기존 발주 수정·변경·취소 후 재발주 패턴
+    if (/(?:전체\s*)?(?:수정|변경|정정)(?:합니다|할게요|해요|요|입니다|건|분)?|(?:기존|이전|아까|방금|앞선)\s*(?:발주|주문|꺼|것)?\s*(?:취소|삭제|빼고|말고)|취소하고|다시\s*발주|재발주/.test(t)) {
+        return 'modify';
+    }
+    return 'add';
+}
+
+/* 같은 업체 + 같은 납품일 발주를 1개의 통합 그룹으로 묶기 */
+function getConsolidatedOrderGroups(rawList) {
+    const groups = [];
+    const groupByKey = new Map();
+
+    rawList.forEach(item => {
+        if (item.type !== '발주') {
+            groups.push({
+                isOrder: false,
+                singleItem: item,
+                items: [item],
+                activeItems: [item],
+                supersededItems: [],
+                clientName: item.clientName,
+                clientObj: item.clientObj,
+                isKnownClient: item.isKnownClient,
+                targetDeliveryDate: item.targetDeliveryDate || item.dateFull,
+                delivShort: item.delivShort || item.dateShort,
+                hasModify: false,
+                hasAdd: false
+            });
+            return;
+        }
+
+        const cKey = getCanonicalClientKey(item);
+        const dDate = item.targetDeliveryDate || item.dateFull;
+        const mergeKey = `${dDate}__${cKey}`;
+
+        let grp = groupByKey.get(mergeKey);
+        if (!grp) {
+            grp = {
+                isOrder: true,
+                mergeKey: mergeKey,
+                canonicalClientKey: cKey,
+                clientName: item.clientName,
+                clientObj: item.clientObj,
+                isKnownClient: item.isKnownClient,
+                targetDeliveryDate: dDate,
+                delivShort: item.delivShort || toShortDate(dDate),
+                items: [],
+                activeItems: [],
+                supersededItems: [],
+                hasModify: false,
+                hasAdd: false
+            };
+            groupByKey.set(mergeKey, grp);
+            groups.push(grp);
+        }
+
+        if (!grp.clientObj && item.clientObj) {
+            grp.clientObj = item.clientObj;
+            grp.isKnownClient = true;
+        }
+        if (item.clientName && item.clientName.length < grp.clientName.length && item.clientName !== '미확인') {
+            grp.clientName = item.clientName;
+        }
+
+        grp.items.push(item);
+    });
+
+    // 각 발주 그룹 내 추가 / 수정 적용 계산
+    groups.forEach(grp => {
+        if (!grp.isOrder) return;
+        if (grp.items.length === 1) {
+            grp.activeItems = [grp.items[0]];
+            grp.supersededItems = [];
+            return;
+        }
+
+        let active = [];
+        let superseded = [];
+
+        grp.items.forEach((it, idx) => {
+            if (idx === 0) {
+                active.push(it);
+                return;
+            }
+            const kind = detectFollowUpKind(it.content);
+            if (kind === 'modify') {
+                grp.hasModify = true;
+                superseded = superseded.concat(active);
+                active = [it];
+            } else {
+                grp.hasAdd = true;
+                active.push(it);
+            }
+        });
+
+        grp.activeItems = active;
+        grp.supersededItems = superseded;
+    });
+
+    return groups;
+}
+
+/* 집계(발주현황표 · 발주낱개 · 배차)에 사용할 '유효(최종 적용된) 발주' 목록 */
+function getActiveOrdersForAggregation() {
+    const rawOrders = getFilteredOrderList(true);
+    const groups = getConsolidatedOrderGroups(rawOrders);
+    const activeFlat = [];
+    groups.forEach(grp => {
+        grp.activeItems.forEach(it => activeFlat.push(it));
+    });
+    return activeFlat;
 }
 
 /* =========================================================================
@@ -607,6 +878,7 @@ async function loadKakaoFiles(event) {
     });
 
     allChatItems.forEach((item, idx) => { item.idx = idx; });
+    resolveSequentialFollowUpClients();
     inferDeliveryDatesForAllItems();
 
     if (allChatItems.length > 0) {
@@ -875,8 +1147,6 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        // 해당 날짜에 '여기까지'가 없는 경우:
-        // 당일(최신 날짜) 진행 중 발주는 당일 납품으로, 전일(이전 날짜) 발주는 익일 납품으로 연결
         if (item.dateFull === latestChatDate) {
             item.targetDeliveryDate = item.dateFull;
             item.delivShort = item.dateShort;
@@ -889,27 +1159,38 @@ function inferDeliveryDatesForAllItems() {
     }
 }
 
-function shiftItemDeliveryDate(itemIdx, deltaDays) {
-    const item = allChatItems[itemIdx];
-    if (!item || item.type !== '발주') return;
-    const base = item.targetDeliveryDate || item.dateFull;
-    const newTarget = addDaysToDateStr(base, deltaDays);
-    manualDelivMap[item.itemKey] = newTarget;
-    localStorage.setItem('mf_manual_deliv_dates', JSON.stringify(manualDelivMap));
+/* 통합된 발주 그룹(또는 단일 항목) 전체의 납품일 이동 */
+function shiftGroupDeliveryDate(idxListStr, deltaDays) {
+    const indices = String(idxListStr || '').split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n));
+    if (!indices.length) return;
 
+    let labelName = '';
+    let newTargetLabel = '';
+
+    indices.forEach(itemIdx => {
+        const item = allChatItems[itemIdx];
+        if (!item || item.type !== '발주') return;
+        const base = item.targetDeliveryDate || item.dateFull;
+        const newTarget = addDaysToDateStr(base, deltaDays);
+        manualDelivMap[item.itemKey] = newTarget;
+        labelName = item.clientName;
+        newTargetLabel = toShortDate(newTarget);
+    });
+
+    localStorage.setItem('mf_manual_deliv_dates', JSON.stringify(manualDelivMap));
     inferDeliveryDatesForAllItems();
     const dir = deltaDays < 0 ? '전일' : '익일';
-    recordLastUpdatedTime(`${item.clientName} 납품일 ${dir}(${toShortDate(newTarget)})`);
-    showToast(`${item.clientName} → 납품일 ${toShortDate(newTarget)}`);
+    recordLastUpdatedTime(`${labelName} 납품일 ${dir}(${newTargetLabel})`);
+    showToast(`${labelName} → 납품일 ${newTargetLabel}`);
     onFilterCriteriaChange(true);
 }
 
-function toggleItemDeliveryDate(itemIdx) {
-    shiftItemDeliveryDate(itemIdx, 1);
+function shiftItemDeliveryDate(itemIdx, deltaDays) {
+    shiftGroupDeliveryDate(String(itemIdx), deltaDays);
 }
 
 /* =========================================================================
-   4. [페이지 2] 발주 목록 필터링 (납품일 기준 전일~당일 취합) 및 카드 렌더링
+   4. [페이지 2] 발주 목록 필터링 (전일~당일 취합 + 동일업체 추가/수정 통합 카드)
    ========================================================================= */
 function getFilteredOrderList(forceOnlyOrder = false) {
     const targetDateStr = document.getElementById('orderTargetDate').value;
@@ -925,11 +1206,9 @@ function getFilteredOrderList(forceOnlyOrder = false) {
 
         if (mode === 'smart') {
             if (item.type === '발주') {
-                // 납품일(D) 기준 전일(D-1) ~ 당일(D) 작성분 취합
                 if (item.targetDeliveryDate !== targetDateStr) return false;
                 return isPrevToCurr || item.isManualDeliv || (item.delivReason && item.delivReason.startsWith('명시날짜'));
             } else {
-                // 비발주(계근/기타) 함께 보기 시에도 전일~당일 범위 표시
                 return isPrevToCurr;
             }
         }
@@ -961,18 +1240,46 @@ function highlightOrderBody(rawText) {
     return escaped.replace(/(\d+(?:\.\d+)?\s*(?:박스|빡스|박|팩|펙|판|봉지|봉|진공|덩이|덩어리|마리분|마리|두|벌|kg|키로|킬로))/gi, '<span class="hl-qty">$1</span>');
 }
 
+function buildMergedOrderBodyHtml(grp) {
+    if (grp.activeItems.length === 1) {
+        return highlightOrderBody(grp.activeItems[0].content);
+    }
+    return grp.activeItems.map((it, idx) => {
+        if (idx === 0) {
+            return highlightOrderBody(it.content);
+        }
+        const kind = detectFollowUpKind(it.content);
+        const tagText = kind === 'modify' ? `✏️ ${it.timeStr} 수정` : `➕ ${it.timeStr} 추가`;
+        return `<span class="merge-divider">${escapeHtml(tagText)}</span>${highlightOrderBody(it.content)}`;
+    }).join('\n');
+}
+
+function buildMergedOrderPlainText(grp) {
+    if (!grp.isOrder) return grp.singleItem.content;
+    if (grp.activeItems.length === 1) return grp.activeItems[0].content;
+    return grp.activeItems.map((it, idx) => {
+        if (idx === 0) return it.content;
+        const kind = detectFollowUpKind(it.content);
+        return `[${kind === 'modify' ? '수정' : '추가'} ${it.timeStr}] ${it.content}`;
+    }).join(' / ');
+}
+
 function renderOrdersTable() {
     const container = document.getElementById('orderCardList');
     if (!container) return;
     container.innerHTML = '';
 
-    let list = getFilteredOrderList(false);
+    const rawList = getFilteredOrderList(false);
+    let groups = getConsolidatedOrderGroups(rawList);
+
     const q = (document.getElementById('orderSearchInput')?.value || '').trim().toLowerCase();
     if (q) {
-        list = list.filter(item =>
-            (item.clientName || '').toLowerCase().includes(q) ||
-            (item.content || '').toLowerCase().includes(q) ||
-            (item.sender || '').toLowerCase().includes(q)
+        groups = groups.filter(grp =>
+            (grp.clientName || '').toLowerCase().includes(q) ||
+            grp.items.some(it =>
+                (it.content || '').toLowerCase().includes(q) ||
+                (it.sender || '').toLowerCase().includes(q)
+            )
         );
     }
 
@@ -988,51 +1295,90 @@ function renderOrdersTable() {
             rangeLabel = `당일 작성 ${toShortDate(targetDateStr)}`;
         }
     }
-    document.getElementById('orderStats').innerText = `📋 조회된 내역: 총 ${list.length}건 (${rangeLabel})`;
 
-    if (list.length === 0) {
-        container.innerHTML = `<div class="empty-box">납품 기준일(${escapeHtml(targetDateStr || '전체')})의 전일~당일 취합 내역이 없습니다.</div>`;
+    const totalRawMsgs = groups.reduce((acc, g) => acc + g.items.length, 0);
+    const mergedCountNote = totalRawMsgs > groups.length ? ` · 원본 ${totalRawMsgs}건 통합` : '';
+    document.getElementById('orderStats').innerText = `📋 조회된 내역: 총 ${groups.length}건 (${rangeLabel}${mergedCountNote})`;
+
+    if (groups.length === 0) {
+        container.innerHTML = `<div class="empty-box">납품 기준일(${escapeHtml(targetDateStr || '전체')})의 취합 내역이 없습니다.</div>`;
         return;
     }
 
-    list.forEach(item => {
-        let badge = `<span class="badge b-other">기타</span>`;
-        if (item.type === '발주') badge = `<span class="badge b-order">발주</span>`;
-        else if (item.type === '계근') badge = `<span class="badge b-weight">계근</span>`;
+    groups.forEach(grp => {
+        if (!grp.isOrder) {
+            const item = grp.singleItem;
+            const badge = item.type === '계근' ? `<span class="badge b-weight">계근</span>` : `<span class="badge b-other">기타</span>`;
+            const clientBadge = item.isKnownClient ? `<span class="badge b-client">인증</span>` : '';
+            const card = document.createElement('div');
+            card.className = 'order-card';
+            card.innerHTML = `
+                <div class="order-card-head">
+                    <span class="order-card-meta">작성 ${escapeHtml(item.dateShort)} ${escapeHtml(item.timeStr)} · ${escapeHtml(item.sender)}</span>
+                    <div style="display:flex;gap:4px;align-items:center;">${clientBadge}${badge}</div>
+                </div>
+                <div class="order-card-client">${escapeHtml(item.clientName)}</div>
+                <div class="order-card-body">${highlightOrderBody(item.content)}</div>
+            `;
+            container.appendChild(card);
+            return;
+        }
 
-        const clientBadge = item.isKnownClient ? `<span class="badge b-client">인증</span>` : '';
+        const firstItem = grp.items[0];
+        const lastItem = grp.items[grp.items.length - 1];
+        const isMerged = grp.items.length > 1;
+
+        const clientBadge = grp.isKnownClient ? `<span class="badge b-client">인증</span>` : '';
+        let statusBadge = `<span class="badge b-order">발주</span>`;
+        if (grp.hasModify) {
+            statusBadge = `<span class="badge b-modified">수정 적용 (${grp.items.length}건)</span>`;
+        } else if (isMerged) {
+            statusBadge = `<span class="badge b-merged">추가 합산 (${grp.items.length}건)</span>`;
+        }
 
         let dayTagHtml = '';
-        if (targetDateStr && item.dateFull === prevDateStr) {
+        if (targetDateStr && lastItem.dateFull === prevDateStr) {
             dayTagHtml = `<span class="badge" style="background:#D97706;">전일</span>`;
-        } else if (targetDateStr && item.dateFull === targetDateStr) {
+        } else if (targetDateStr && lastItem.dateFull === targetDateStr) {
             dayTagHtml = `<span class="badge" style="background:#1D4ED8;">당일</span>`;
         }
 
-        let footerHtml = '';
-        if (item.type === '발주') {
-            const pillClass = item.isManualDeliv ? 'deliv-pill manual' : 'deliv-pill';
-            footerHtml = `
-                <div class="order-card-foot">
-                    <span class="${pillClass}">🚚 납품 ${escapeHtml(item.delivShort)} (${escapeHtml(item.delivReason)})</span>
-                    <div class="deliv-shift-btns">
-                        <button type="button" class="deliv-shift-btn prev" onclick="shiftItemDeliveryDate(${item.idx}, -1)">◀ 전일</button>
-                        <button type="button" class="deliv-shift-btn next" onclick="shiftItemDeliveryDate(${item.idx}, 1)">익일 ▶</button>
-                    </div>
+        const timeRangeStr = isMerged
+            ? `작성 ${escapeHtml(firstItem.dateShort)} ${escapeHtml(firstItem.timeStr)} → ${escapeHtml(lastItem.timeStr)} · ${escapeHtml(lastItem.sender)}`
+            : `작성 ${escapeHtml(firstItem.dateShort)} ${escapeHtml(firstItem.timeStr)} · ${escapeHtml(firstItem.sender)}`;
+
+        let supersededHtml = '';
+        if (grp.supersededItems.length > 0) {
+            const oldTxt = grp.supersededItems.map(s => `[${s.timeStr}] ${s.content}`).join('\n');
+            supersededHtml = `
+                <div class="order-superseded-box">
+                    <div class="order-superseded-label">수정 전 이전 발주 (집계 제외됨)</div>
+                    <div>${escapeHtml(oldTxt)}</div>
                 </div>
             `;
         }
 
+        const hasManual = grp.items.some(it => it.isManualDeliv);
+        const pillClass = hasManual ? 'deliv-pill manual' : 'deliv-pill';
+        const idxListStr = grp.items.map(it => it.idx).join(',');
+
         const card = document.createElement('div');
-        card.className = 'order-card';
+        card.className = 'order-card' + (isMerged ? ' has-merge' : '');
         card.innerHTML = `
             <div class="order-card-head">
-                <span class="order-card-meta">작성 ${escapeHtml(item.dateShort)} ${escapeHtml(item.timeStr)} · ${escapeHtml(item.sender)}</span>
-                <div style="display:flex;gap:4px;align-items:center;">${dayTagHtml}${clientBadge}${badge}</div>
+                <span class="order-card-meta">${timeRangeStr}</span>
+                <div style="display:flex;gap:4px;align-items:center;">${dayTagHtml}${clientBadge}${statusBadge}</div>
             </div>
-            <div class="order-card-client">${escapeHtml(item.clientName)}</div>
-            <div class="order-card-body">${highlightOrderBody(item.content)}</div>
-            ${footerHtml}
+            <div class="order-card-client">${escapeHtml(grp.clientName)}</div>
+            ${supersededHtml}
+            <div class="order-card-body">${buildMergedOrderBodyHtml(grp)}</div>
+            <div class="order-card-foot">
+                <span class="${pillClass}">🚚 납품 ${escapeHtml(grp.delivShort)} (${escapeHtml(lastItem.delivReason)})</span>
+                <div class="deliv-shift-btns">
+                    <button type="button" class="deliv-shift-btn prev" onclick="shiftGroupDeliveryDate('${idxListStr}', -1)">◀ 전일</button>
+                    <button type="button" class="deliv-shift-btn next" onclick="shiftGroupDeliveryDate('${idxListStr}', 1)">익일 ▶</button>
+                </div>
+            </div>
         `;
         container.appendChild(card);
     });
@@ -1054,13 +1400,15 @@ function updateHeaderToggleButtonsUI() {
 function toggleOnlyOrder() {
     showOnlyOrder = !showOnlyOrder;
     updateHeaderToggleButtonsUI();
-    onFilterCriteriaChange(false);
+    saveUserSettings('발주만 보기 필터');
+    onFilterCriteriaChange(true);
 }
 
 function toggleKnownClient() {
     showOnlyKnownClient = !showOnlyKnownClient;
     updateHeaderToggleButtonsUI();
-    onFilterCriteriaChange(false);
+    saveUserSettings('등록거래처 필터');
+    onFilterCriteriaChange(true);
 }
 
 /* =========================================================================
@@ -1226,7 +1574,7 @@ function renderStockTable() {
 }
 
 /* =========================================================================
-   6. 품목별 발주 집계 엔진
+   6. 품목별 발주 집계 엔진 (유효 적용된 발주만 집계)
    ========================================================================= */
 const ITEM_MATCH_RULES = [
     { key: "특미삼", regex: /특미삼/ },
@@ -1264,7 +1612,7 @@ const ITEM_MATCH_RULES = [
 ];
 
 function computeOrderAggregation() {
-    const orders = getFilteredOrderList(true);
+    const orders = getActiveOrdersForAggregation();
     const summaryMap = {};
 
     stockItems.forEach(s => {
@@ -1902,25 +2250,24 @@ function sortDestinations(list, mode) {
     return arr;
 }
 
-function onDispatchSortChange() {
+function onDispatchSortChange(newVal) {
     const sel = document.getElementById('dispatchSortMode');
-    if (sel) {
-        dispatchSortMode = sel.value || 'city';
-        localStorage.setItem('mf_dispatch_sort', dispatchSortMode);
-    }
+    dispatchSortMode = newVal || (sel ? sel.value : 'far') || 'far';
+    setSelectValueLocked(sel, dispatchSortMode);
+    saveUserSettings('배차 정렬 기준');
     renderDispatchPage();
 }
 
 function getAggregatedDeliveryDestinations() {
-    const orders = getFilteredOrderList(true);
+    const orders = getActiveOrdersForAggregation();
     const destMap = new Map();
 
     orders.forEach(ord => {
-        const key = ord.clientName;
+        const key = getCanonicalClientKey(ord);
         if (!destMap.has(key)) {
             destMap.set(key, {
-                clientName: key,
-                officialName: ord.clientObj ? ord.clientObj.name : key,
+                clientName: ord.clientName,
+                officialName: ord.clientObj ? ord.clientObj.name : ord.clientName,
                 addr: ord.clientObj ? ord.clientObj.addr : '',
                 phone: ord.clientObj ? ord.clientObj.phone : '',
                 note: ord.clientObj ? ord.clientObj.note : '',
@@ -1959,7 +2306,7 @@ function renderDispatchPage() {
     statBar.innerHTML = '';
 
     const sortSel = document.getElementById('dispatchSortMode');
-    if (sortSel && sortSel.value !== dispatchSortMode) sortSel.value = dispatchSortMode;
+    setSelectValueLocked(sortSel, dispatchSortMode);
 
     const counts = { 'ALL': destinations.length, 'UNASSIGNED': 0, 'PICKUP': 0 };
     for (let i = 0; i < 6; i++) counts[`V${i}`] = 0;
@@ -2012,7 +2359,7 @@ function downloadDispatchCsv() {
     downloadBlob(csv, "미트포앤_당일배송처_배차목록.csv");
 }
 
-/* 유틸리티 및 CSV 다운로드 */
+/* 유틸리티 및 CSV 다운로드 (통합된 발주 기준) */
 function escapeHtml(str) {
     return String(str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -2026,11 +2373,25 @@ function downloadBlob(csvContent, filename) {
 }
 
 function downloadOrdersCsv() {
-    const list = getFilteredOrderList(false);
+    const rawList = getFilteredOrderList(false);
+    const groups = getConsolidatedOrderGroups(rawList);
     let csv = "\uFEFF작성날짜,작성시간,납품기준일,판별사유,거래처,발신자,판별구분,발주내용\n";
-    list.forEach(o => {
-        const clean = o.content.replace(/"/g, '""').replace(/\n/g, ' ');
-        csv += `"${o.dateShort}","${o.timeStr}","${o.delivShort||''}","${o.delivReason||''}","${o.clientName}","${o.sender}","${o.type}","${clean}"\n`;
+    groups.forEach(grp => {
+        if (!grp.isOrder) {
+            const o = grp.singleItem;
+            const clean = o.content.replace(/"/g, '""').replace(/\n/g, ' ');
+            csv += `"${o.dateShort}","${o.timeStr}","${o.delivShort||''}","${o.delivReason||''}","${o.clientName}","${o.sender}","${o.type}","${clean}"\n`;
+            return;
+        }
+        const first = grp.items[0];
+        const last = grp.items[grp.items.length - 1];
+        const timeDisp = grp.items.length > 1 ? `${first.timeStr}~${last.timeStr}` : first.timeStr;
+        let typeLabel = '발주';
+        if (grp.hasModify) typeLabel = `발주(수정적용)`;
+        else if (grp.items.length > 1) typeLabel = `발주(추가합산 ${grp.items.length}건)`;
+
+        const clean = buildMergedOrderPlainText(grp).replace(/"/g, '""').replace(/\n/g, ' ');
+        csv += `"${last.dateShort}","${timeDisp}","${grp.delivShort||''}","${last.delivReason||''}","${grp.clientName}","${last.sender}","${typeLabel}","${clean}"\n`;
     });
     downloadBlob(csv, "미트포앤_추출발주목록.csv");
 }
