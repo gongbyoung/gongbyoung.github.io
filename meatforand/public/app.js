@@ -88,8 +88,8 @@ function renderAlgoSettingsUI() {
         const on = Boolean(algoConfig.autoClientFromSender);
         btnAuto.innerText = on ? '👤 미등록 거래처 자동인식(첫줄/발신자): ON' : '👤 미등록 거래처 자동인식(첫줄/발신자): OFF';
         btnAuto.className = on
-            ? 'w-full py-2 px-3 rounded-xl bg-[#1677FF] text-white text-[12px] font-extrabold text-left'
-            : 'w-full py-2 px-3 rounded-xl bg-slate-200 text-slate-800 text-[12px] font-extrabold text-left';
+            ? 'w-full py-2.5 px-3 rounded-xl bg-[#1D4ED8] text-white text-[0.78rem] font-black text-left'
+            : 'w-full py-2.5 px-3 rounded-xl hv-pill text-[0.78rem] font-black text-left';
     }
 
     ['meatpoan', 'food', 'universal'].forEach(p => {
@@ -97,8 +97,8 @@ function renderAlgoSettingsUI() {
         if (!btn) return;
         const isActive = algoConfig.preset === p;
         btn.className = isActive
-            ? 'algo-preset-btn py-2 px-1 rounded-xl border-2 border-[#1677FF] bg-blue-50 text-[#0958D9] text-[11.5px] font-extrabold text-center'
-            : 'algo-preset-btn py-2 px-1 rounded-xl border-2 border-slate-200 bg-white text-slate-700 text-[11.5px] font-extrabold text-center';
+            ? 'algo-preset-btn py-2 px-1 rounded-xl border-2 border-[#1D4ED8] hv-badge-blue text-[0.74rem] font-black text-center'
+            : 'algo-preset-btn py-2 px-1 rounded-xl border-2 hv-pill text-[0.74rem] font-black text-center';
     });
 }
 
@@ -348,26 +348,37 @@ function restoreStateFromBrowser() {
 
             const orderCnt = allChatItems.filter(x => x.type === '발주').length;
             const weightCnt = allChatItems.filter(x => x.type === '계근').length;
-            document.getElementById('kakaoLoadMsg').innerText = `💾 이전 저장된 카톡 데이터 자동 복원됨 (총 ${allChatItems.length}건 중 순수발주 ${orderCnt}건 / 계근 ${weightCnt}건)`;
+            const kakaoMsgEl = document.getElementById('kakaoLoadMsg');
+            if (kakaoMsgEl) kakaoMsgEl.innerText = `💾 이전 저장된 카톡 데이터 자동 복원됨 (총 ${allChatItems.length}건 중 순수발주 ${orderCnt}건 / 계근 ${weightCnt}건)`;
             const pill = document.getElementById('pillKakao');
-            pill.innerText = `카톡: 발주 ${orderCnt}건`;
-            pill.classList.add('ok');
+            if (pill) {
+                pill.innerText = `카톡: 발주 ${orderCnt}건`;
+                pill.classList.add('ok');
+            }
         }
     } catch (e) {}
 
     const lastUpd = localStorage.getItem('mf_last_updated');
     if (lastUpd) {
-        document.getElementById('pillUpdated').innerText = `🕒 업데이트: ${lastUpd}`;
+        const pillUpd = document.getElementById('pillUpdated');
+        if (pillUpd) pillUpd.innerText = `🕒 업데이트: ${lastUpd}`;
+        const homeBadge = document.getElementById('homeUpdatedBadge');
+        if (homeBadge) homeBadge.innerText = lastUpd;
     } else {
         recordLastUpdatedTime('초기 로드');
     }
 
+    updateHeaderDateDisplay();
+    syncReadabilityButtonsUI();
+    if (typeof restorePurchaseAndStaffChats === 'function') restorePurchaseAndStaffChats();
     onFilterCriteriaChange(true);
 }
 
 function clearSavedBrowserData() {
-    if (!confirm('브라우저에 자동 저장된 카톡 발주 내역, 수동 납품일 지정, 재고 텍스트, 배차 기록을 모두 초기화할까요?')) return;
+    if (!confirm('브라우저에 자동 저장된 카톡 발주 내역, 매입/직원방 내역, 수동 납품일 지정, 재고 텍스트, 배차 기록을 모두 초기화할까요?')) return;
     localStorage.removeItem('mf_saved_chat_items');
+    localStorage.removeItem('mf_saved_purchase_chats');
+    localStorage.removeItem('mf_saved_staff_chats');
     localStorage.removeItem('mf_saved_stock_text');
     localStorage.removeItem('mf_saved_settings');
     localStorage.removeItem('mf_last_updated');
@@ -383,8 +394,10 @@ window.addEventListener('popstate', (ev) => {
 });
 
 window.addEventListener('DOMContentLoaded', () => {
+    syncReadabilityButtonsUI();
     renderVehicleConfigInputs();
     restoreStateFromBrowser();
+    updateHeaderDateDisplay();
     try {
         const initial = (location.hash || '#home').replace(/^#/, '') || 'home';
         history.replaceState({ pageId: 'home' }, '', '#home');
@@ -411,8 +424,164 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 let activeTab = 'home';
+let orderFilterMode = 'all';
 let inventoryFilter = 'all';
+let dispatchPendingOnly = false;
 let toastTimer = null;
+let loosePickedMap = {};
+let dispatchDoneMap = {};
+try {
+    loosePickedMap = JSON.parse(localStorage.getItem('mf_loose_picked') || '{}');
+    dispatchDoneMap = JSON.parse(localStorage.getItem('mf_dispatch_done') || '{}');
+} catch (e) {}
+
+function syncReadabilityButtonsUI() {
+    const isLarge = document.documentElement.classList.contains('large-text');
+    const isDark = document.documentElement.classList.contains('dark-mode');
+
+    const btnLarge = document.getElementById('btn-large-text');
+    const setLarge = document.getElementById('settings-toggle-large');
+    if (btnLarge) {
+        btnLarge.className = isLarge
+            ? 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.68rem] font-black bg-amber-300 text-slate-950 border border-amber-200 shadow-xs transition whitespace-nowrap'
+            : 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.68rem] font-extrabold bg-white/15 hover:bg-white/25 text-white border border-white/25 transition whitespace-nowrap';
+        btnLarge.setAttribute('aria-pressed', String(isLarge));
+    }
+    if (setLarge) {
+        setLarge.textContent = isLarge ? 'ON (115%)' : 'OFF';
+        setLarge.className = isLarge
+            ? 'px-3.5 py-2 rounded-xl text-[0.78rem] font-black bg-[#1D4ED8] text-white transition shrink-0'
+            : 'px-3.5 py-2 rounded-xl text-[0.78rem] font-black hv-pill transition shrink-0';
+    }
+
+    const btnDark = document.getElementById('btn-dark-mode');
+    const iconEl = document.getElementById('dark-mode-icon');
+    const labelEl = document.getElementById('dark-mode-label');
+    const setDark = document.getElementById('settings-toggle-dark');
+    if (iconEl) iconEl.textContent = isDark ? '☀️' : '🌙';
+    if (labelEl) labelEl.textContent = isDark ? '주간모드' : '야간모드';
+    if (btnDark) {
+        btnDark.className = isDark
+            ? 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.68rem] font-black bg-slate-900 text-amber-300 border border-slate-700 shadow-xs transition whitespace-nowrap'
+            : 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.68rem] font-extrabold bg-white/15 hover:bg-white/25 text-white border border-white/25 transition whitespace-nowrap';
+        btnDark.setAttribute('aria-pressed', String(isDark));
+    }
+    if (setDark) {
+        setDark.textContent = isDark ? 'ON (야간)' : 'OFF';
+        setDark.className = isDark
+            ? 'px-3.5 py-2 rounded-xl text-[0.78rem] font-black bg-[#1D4ED8] text-white transition shrink-0'
+            : 'px-3.5 py-2 rounded-xl text-[0.78rem] font-black hv-pill transition shrink-0';
+    }
+}
+
+function toggleLargeText() {
+    const next = !document.documentElement.classList.contains('large-text');
+    document.documentElement.classList.toggle('large-text', next);
+    try { localStorage.setItem('mf_large_text', next ? '1' : '0'); } catch (e) {}
+    syncReadabilityButtonsUI();
+    showToast(next ? '큰글씨 모드(115% 확대)가 적용되었습니다.' : '기본 글씨 크기로 복원되었습니다.');
+}
+
+function toggleDarkMode() {
+    const next = !document.documentElement.classList.contains('dark-mode');
+    document.documentElement.classList.toggle('dark-mode', next);
+    try { localStorage.setItem('mf_dark_mode', next ? '1' : '0'); } catch (e) {}
+    syncReadabilityButtonsUI();
+    showToast(next ? '야간 / 배송 트럭 다크모드가 활성화되었습니다.' : '주간 고대비 모드로 전환되었습니다.');
+}
+
+function formatDateWithDow(dateStr) {
+    if (!dateStr) return '전체 날짜';
+    const dt = new Date(dateStr + 'T00:00:00');
+    if (isNaN(dt.getTime())) return dateStr;
+    const dows = ['일', '월', '화', '수', '목', '금', '토'];
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    return `${y}. ${m}. ${d} (${dows[dt.getDay()]})`;
+}
+
+function updateHeaderDateDisplay() {
+    const dateVal = document.getElementById('orderTargetDate')?.value || '';
+    const labelEl = document.getElementById('header-date-label');
+    const homeDateEl = document.getElementById('home-brief-date');
+    const formatted = formatDateWithDow(dateVal);
+    if (labelEl) labelEl.textContent = formatted;
+    if (homeDateEl) homeDateEl.textContent = dateVal ? `${formatted} 납품 기준` : '전체 날짜 기준';
+}
+
+function stepDeliveryDate(delta) {
+    const inp = document.getElementById('orderTargetDate');
+    if (!inp) return;
+    let cur = inp.value;
+    if (!cur) {
+        const now = new Date();
+        cur = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    }
+    const next = addDaysToDateStr(cur, delta);
+    inp.value = next;
+    updateHeaderDateDisplay();
+    onFilterCriteriaChange();
+    showToast(`납품 기준일이 ${formatDateWithDow(next)}로 변경되었습니다.`);
+}
+
+function openDateSheet() {
+    const listEl = document.getElementById('date-sheet-options');
+    const modalEl = document.getElementById('date-sheet-modal');
+    const pickerEl = document.getElementById('sheetDatePicker');
+    const curVal = document.getElementById('orderTargetDate')?.value || '';
+    if (pickerEl) pickerEl.value = curVal;
+
+    // 불러온 카톡 내역에 존재하는 납품일 목록 자동 추출
+    const dateCounts = {};
+    allChatItems.forEach(it => {
+        if (it.type === '발주' && it.targetDeliveryDate) {
+            dateCounts[it.targetDeliveryDate] = (dateCounts[it.targetDeliveryDate] || 0) + 1;
+        }
+    });
+    const keys = Object.keys(dateCounts).sort().reverse().slice(0, 8);
+    if (listEl) {
+        let html = `
+            <button type="button" onclick="applyDirectDateFromSheet('')" class="w-full px-4 py-3 rounded-2xl flex items-center justify-between text-left transition ${!curVal ? 'hv-badge-blue font-black' : 'hv-subbox font-bold hv-text-main'}">
+                <span class="text-[0.88rem]">전체 날짜 보기</span>
+                <span class="text-[0.72rem] font-extrabold px-2 py-0.5 rounded-full hv-pill">전체</span>
+            </button>
+        `;
+        keys.forEach(dKey => {
+            const active = dKey === curVal;
+            html += `
+                <button type="button" onclick="applyDirectDateFromSheet('${dKey}')" class="w-full px-4 py-3 rounded-2xl flex items-center justify-between text-left transition ${active ? 'hv-badge-blue font-black' : 'hv-subbox font-bold hv-text-main'}">
+                    <span class="text-[0.88rem] num-tabular">${formatDateWithDow(dKey)}</span>
+                    <span class="text-[0.72rem] font-extrabold px-2 py-0.5 rounded-full ${active ? 'bg-[#1D4ED8] text-white' : 'hv-pill'} num-tabular">발주 ${dateCounts[dKey]}건</span>
+                </button>
+            `;
+        });
+        listEl.innerHTML = html;
+    }
+    if (modalEl) modalEl.classList.remove('hidden');
+}
+
+function closeDateSheet() {
+    const modalEl = document.getElementById('date-sheet-modal');
+    if (modalEl) modalEl.classList.add('hidden');
+}
+
+function applyDirectDateFromSheet(val) {
+    const inp = document.getElementById('orderTargetDate');
+    if (inp) inp.value = val || '';
+    updateHeaderDateDisplay();
+    closeDateSheet();
+    onFilterCriteriaChange();
+    showToast(val ? `납품 기준일이 ${formatDateWithDow(val)}로 변경되었습니다.` : '전체 날짜 보기로 전환되었습니다.');
+}
+
+function openMemoSheet(storeName, memoText) {
+    openMemoModal(storeName, memoText);
+}
+
+function closeMemoSheet() {
+    closeMemoModal();
+}
 
 function showToast(message) {
     const banner = document.getElementById('toast-banner');
@@ -429,29 +598,44 @@ function showToast(message) {
 }
 
 function openMemoModal(storeName, memoText) {
-    const titleEl = document.getElementById('memo-modal-title');
-    const bodyEl = document.getElementById('memo-modal-body');
-    const modalEl = document.getElementById('memo-modal');
+    const titleEl = document.getElementById('memo-sheet-title') || document.getElementById('memo-modal-title');
+    const bodyEl = document.getElementById('memo-sheet-body') || document.getElementById('memo-modal-body');
+    const modalEl = document.getElementById('memo-sheet-modal') || document.getElementById('memo-modal');
     if (titleEl) titleEl.textContent = `${storeName} 비번/메모`;
     if (bodyEl) bodyEl.textContent = memoText;
     if (modalEl) modalEl.classList.remove('hidden');
 }
 
 function closeMemoModal() {
-    const modalEl = document.getElementById('memo-modal');
+    const modalEl = document.getElementById('memo-sheet-modal') || document.getElementById('memo-modal');
     if (modalEl) modalEl.classList.add('hidden');
 }
 
-function handlePhoneAction(storeName, phone) {
+function copyTextWithToast(text, message) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {});
+    }
     try {
-        const tempInput = document.createElement('input');
-        tempInput.value = phone;
+        const tempInput = document.createElement('textarea');
+        tempInput.value = text;
+        tempInput.style.position = 'fixed';
+        tempInput.style.opacity = '0';
         document.body.appendChild(tempInput);
         tempInput.select();
         document.execCommand('copy');
         document.body.removeChild(tempInput);
     } catch (e) {}
-    showToast(`${storeName} 연락처(${phone})가 복사되었습니다.`);
+    showToast(message);
+}
+
+function handlePhoneAction(storeName, phone) {
+    copyTextWithToast(phone, `${storeName} 연락처(${phone})가 복사되었습니다.`);
+    try {
+        const telClean = String(phone || '').replace(/[^0-9+*#]/g, '');
+        if (telClean) {
+            window.location.href = `tel:${telClean}`;
+        }
+    } catch (e) {}
 }
 
 function toggleOrderHelp() {
@@ -491,23 +675,12 @@ function switchTab(tabKey, btnEl, fromPopstate) {
     document.querySelectorAll('.nav-btn').forEach(btn => {
         const isCurrent = btn.dataset.tab === tabKey;
         const indicator = btn.querySelector('.nav-indicator');
-        const label = btn.querySelector('span:last-child');
         if (isCurrent) {
-            btn.classList.remove('text-slate-400', 'hover:text-slate-600');
-            btn.classList.add('text-[#1677FF]');
+            btn.style.color = 'var(--accent-blue)';
             if (indicator) indicator.classList.remove('hidden');
-            if (label) {
-                label.classList.remove('font-semibold');
-                label.classList.add('font-extrabold');
-            }
         } else {
-            btn.classList.add('text-slate-400', 'hover:text-slate-600');
-            btn.classList.remove('text-[#1677FF]');
+            btn.style.color = 'var(--text-muted)';
             if (indicator) indicator.classList.add('hidden');
-            if (label) {
-                label.classList.add('font-semibold');
-                label.classList.remove('font-extrabold');
-            }
         }
     });
 
@@ -516,6 +689,8 @@ function switchTab(tabKey, btnEl, fromPopstate) {
     if (tabKey === 'summary') renderOrderSummaryTable();
     if (tabKey === 'dispatch') renderDispatchPage();
     if (tabKey === 'loose') renderLooseTable();
+    if (tabKey === 'purchase' && typeof renderChatRoomTab === 'function') renderChatRoomTab('purchase');
+    if (tabKey === 'staff' && typeof renderChatRoomTab === 'function') renderChatRoomTab('staff');
     if (tabKey === 'home') updateHomeSummary();
 
     if (!fromPopstate) {
@@ -549,9 +724,17 @@ function extractLooseLinesFromOrderText(orderText) {
     return out;
 }
 
+function toggleLooseItemPicked(itemKey) {
+    if (!itemKey) return;
+    loosePickedMap[itemKey] = !loosePickedMap[itemKey];
+    renderLooseTable();
+    updateHomeSummary();
+}
+
 function renderLooseTable() {
     const container = document.getElementById('loose-card-list');
     const stats = document.getElementById('looseStats');
+    const pickStatus = document.getElementById('loose-picking-status');
     if (!container) return;
     const orders = getFilteredOrderList(true);
     const map = new Map();
@@ -564,11 +747,28 @@ function renderLooseTable() {
     });
     const rows = Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], 'ko'));
     if (stats) stats.textContent = rows.length ? `거래처 ${rows.length}곳` : '거래처 0곳';
+
+    let totalItems = 0;
+    let pickedItems = 0;
+    const targetDate = document.getElementById('orderTargetDate')?.value || 'all';
+
+    rows.forEach(([name, lines]) => {
+        lines.forEach((l, lineIdx) => {
+            totalItems++;
+            const k = `${targetDate}::${name}::${lineIdx}::${l}`;
+            if (loosePickedMap[k]) pickedItems++;
+        });
+    });
+
+    if (pickStatus) {
+        pickStatus.textContent = `준비 ${pickedItems} / ${totalItems}건`;
+    }
+
     if (!rows.length) {
         container.innerHTML = `
-            <div class="bg-white rounded-2xl border border-slate-200/80 p-8 text-center">
-                <p class="text-[14px] font-bold text-slate-700">박스 외 낱개(팩·봉·kg 등) 발주가 없습니다.</p>
-                <p class="text-[12px] text-slate-400 mt-1">설정에서 카톡 대화를 불러오거나 납품일을 확인하세요.</p>
+            <div class="hv-card rounded-2xl p-8 text-center">
+                <p class="text-[0.9rem] font-black hv-text-main">박스 외 낱개(팩·봉·kg 등) 발주가 없습니다.</p>
+                <p class="text-[0.76rem] font-semibold hv-text-muted mt-1">설정에서 카톡 대화를 불러오거나 납품일을 확인하세요.</p>
             </div>`;
         return;
     }
@@ -581,35 +781,52 @@ function renderLooseTable() {
             const ms = [...l.matchAll(/(\d+(?:\.\d+)?)\s*(?:팩|펙|pack|봉|봉지|진공|마리분|마리|두|덩이|덩어리|벌|피스|판|통|병|캔|망|포대|묶음|kg|키로|킬로)/gi)];
             ms.forEach(m => { total += parseFloat(m[1]) || 0; });
         });
-        const pillsHtml = lines.map(l => `
-            <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 text-[13px] font-bold">
-                ${escapeHtml(l)}
-            </span>
-        `).join('');
+
+        const clientDoneCount = lines.filter((l, lineIdx) => !!loosePickedMap[`${targetDate}::${name}::${lineIdx}::${l}`]).length;
+        const allClientDone = clientDoneCount === lines.length && lines.length > 0;
+
+        const itemsHtml = lines.map((l, lineIdx) => {
+            const k = `${targetDate}::${name}::${lineIdx}::${l}`;
+            const checked = !!loosePickedMap[k];
+            const encodedKey = encodeURIComponent(k);
+            return `
+                <button type="button" onclick="toggleLooseItemPicked(decodeURIComponent('${encodedKey}'))"
+                    class="w-full flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl border transition text-left ${checked ? 'bg-emerald-50/80 border-emerald-300 opacity-75' : 'hv-subbox hover:border-[#1D4ED8]'}">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="w-5 h-5 rounded-md flex items-center justify-center shrink-0 text-[0.75rem] font-black ${checked ? 'bg-[#047857] text-white' : 'border-2 border-slate-400 bg-white text-transparent'}">✓</span>
+                        <span class="text-[0.84rem] font-extrabold keep-all ${checked ? 'line-through text-emerald-800' : 'hv-text-main'}">${escapeHtml(l)}</span>
+                    </div>
+                    <span class="text-[0.68rem] font-black px-2 py-0.5 rounded-full shrink-0 ${checked ? 'hv-badge-green' : 'hv-badge-amber'}">${checked ? '완료' : '대기'}</span>
+                </button>
+            `;
+        }).join('');
 
         return `
-            <article class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-3.5 space-y-2.5">
+            <article class="hv-card rounded-2xl p-3.5 space-y-2.5 ${allClientDone ? 'opacity-80' : ''}">
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2 min-w-0">
-                        <span class="px-1.5 py-0.5 rounded-md bg-blue-50 text-[#1677FF] text-[12px] font-extrabold text-center shrink-0">${idx + 1}</span>
-                        <h2 class="text-[15.5px] font-extrabold text-slate-900 whitespace-nowrap">${escapeHtml(name)}</h2>
+                        <span class="px-2 py-0.5 rounded-md hv-badge-blue text-[0.72rem] font-black num-tabular shrink-0">${idx + 1}</span>
+                        <h2 class="text-[0.98rem] font-black hv-text-main keep-all">${escapeHtml(name)}</h2>
                     </div>
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-slate-900 text-white text-[12px] font-extrabold whitespace-nowrap shrink-0">
-                        합계 ${total > 0 ? total : '-'}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full ${allClientDone ? 'hv-badge-green' : 'bg-[#0F172A] text-white'} text-[0.74rem] font-black num-tabular whitespace-nowrap shrink-0">
+                        ${allClientDone ? '피킹완료' : `합계 ${total > 0 ? total : lines.length + '건'}`}
                     </span>
                 </div>
-                <div class="flex flex-wrap gap-1.5 pt-0.5">${pillsHtml}</div>
+                <div class="space-y-1.5 pt-0.5">${itemsHtml}</div>
             </article>
         `;
     }).join('');
 }
 
 function onFilterCriteriaChange(skipSave) {
+    updateHeaderDateDisplay();
     renderOrdersTable();
     renderOrderSummaryTable();
     renderLooseTable();
     renderDiffTable();
     renderDispatchPage();
+    if (activeTab === 'purchase' && typeof renderChatRoomTab === 'function') renderChatRoomTab('purchase');
+    if (activeTab === 'staff' && typeof renderChatRoomTab === 'function') renderChatRoomTab('staff');
     updateHomeSummary();
     if (!skipSave) {
         saveStateToBrowser('날짜/필터 변경');
@@ -618,25 +835,88 @@ function onFilterCriteriaChange(skipSave) {
 
 function updateHomeSummary() {
     const targetDate = document.getElementById('orderTargetDate')?.value || '';
-    const dateBadge = document.getElementById('homeDateBadge');
-    if (dateBadge) {
-        dateBadge.textContent = targetDate ? `${targetDate} 납품 기준` : '전체 날짜 기준';
+    const briefDate = document.getElementById('home-brief-date');
+    if (briefDate) {
+        briefDate.textContent = targetDate ? `${formatDateWithDow(targetDate)} 납품 기준` : '전체 날짜 기준';
     }
     try {
-        const orderCnt = getFilteredOrderList(true).length;
-        const dispatchCnt = getAggregatedDeliveryDestinations().length;
-        const looseMap = new Set();
-        getFilteredOrderList(true).forEach(ord => {
-            if (extractLooseLinesFromOrderText(ord.content).length > 0) {
-                looseMap.add(ord.clientName || '(미지정)');
+        const filteredOrders = getFilteredOrderList(true);
+        const orderCnt = filteredOrders.length;
+        const knownOrderCnt = filteredOrders.filter(o => o.isKnownClient).length;
+
+        const dispatchList = getAggregatedDeliveryDestinations();
+        const dispatchCnt = dispatchList.length;
+        const doneDispatchCnt = dispatchList.filter(d => !!dispatchDoneMap[`${targetDate || 'all'}::${d.clientName}`]).length;
+
+        const looseSet = new Set();
+        let looseTotalCount = 0;
+        let looseDoneCount = 0;
+        filteredOrders.forEach(ord => {
+            const lines = extractLooseLinesFromOrderText(ord.content);
+            if (lines.length > 0) {
+                const name = ord.clientName || '(미지정)';
+                looseSet.add(name);
+                lines.forEach((l, idx) => {
+                    looseTotalCount++;
+                    if (loosePickedMap[`${targetDate || 'all'}::${name}::${idx}::${l}`]) looseDoneCount++;
+                });
             }
         });
-        const elOrd = document.getElementById('homeOrderCount');
-        const elLoose = document.getElementById('homeLooseCount');
-        const elDisp = document.getElementById('homeDispatchCount');
-        if (elOrd) elOrd.textContent = String(orderCnt);
-        if (elLoose) elLoose.textContent = String(looseMap.size);
-        if (elDisp) elDisp.textContent = String(dispatchCnt);
+
+        const totalStockItems = (typeof stockItems !== 'undefined' && Array.isArray(stockItems)) ? stockItems.length : 0;
+        const inStockItems = (typeof stockItems !== 'undefined' && Array.isArray(stockItems))
+            ? stockItems.filter(s => ((s.brands?.['대산']?.boxes || 0) + (s.brands?.['포크']?.boxes || 0) + (s.brands?.['기타']?.boxes || 0)) > 0).length
+            : 0;
+
+        const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        setEl('home-stat-orders', String(orderCnt));
+        setEl('home-stat-orders-sub', orderCnt > 0 ? `거래처 매칭 ${knownOrderCnt}건` : '대기 중');
+
+        setEl('home-stat-dispatch', String(dispatchCnt));
+        setEl('home-stat-dispatch-sub', dispatchCnt > 0 ? `완료 ${doneDispatchCnt}/${dispatchCnt}곳` : '배차 없음');
+
+        setEl('home-stat-loose', String(looseSet.size));
+        setEl('home-stat-loose-sub', looseTotalCount > 0 ? `준비 ${looseDoneCount}/${looseTotalCount}건` : '피킹 없음');
+
+        setEl('home-stat-inventory', String(totalStockItems));
+        setEl('home-stat-inventory-sub', totalStockItems > 0 ? `재고보유 ${inStockItems}개` : '재고 미등록');
+
+        if (typeof purchaseChatItems !== 'undefined') {
+            setEl('home-stat-purchase', `${purchaseChatItems.length}건`);
+        }
+        if (typeof staffChatItems !== 'undefined') {
+            setEl('home-stat-staff', `${staffChatItems.length}건`);
+        }
+
+        // 하단 내비게이션 실시간 카운트 배지
+        setEl('badge-nav-orders', String(orderCnt));
+        setEl('badge-nav-loose', String(looseSet.size));
+        setEl('badge-nav-dispatch', String(dispatchCnt));
+
+        // 최근 접수 발주 미리보기 (최대 4건)
+        const recentEl = document.getElementById('home-recent-orders');
+        if (recentEl) {
+            if (!filteredOrders.length) {
+                recentEl.innerHTML = `<div class="hv-subbox rounded-xl p-4 text-center text-[0.8rem] font-bold hv-text-muted">해당 납품일 기준 발주가 없습니다.</div>`;
+            } else {
+                const topList = filteredOrders.slice(0, 4);
+                recentEl.innerHTML = topList.map(item => {
+                    const firstLine = (item.content || '').split('\n').map(s => s.trim()).filter(Boolean)[0] || '';
+                    return `
+                        <div class="hv-subbox rounded-xl p-2.5 flex items-center justify-between gap-2.5">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-[0.84rem] font-black hv-text-main keep-all truncate">${escapeHtml(item.clientName || '(미지정)')}</span>
+                                    ${item.isNextDayMoved ? '<span class="hv-badge-amber text-[0.62rem] font-black px-1.5 py-0.5 rounded-md shrink-0">익일</span>' : ''}
+                                </div>
+                                <p class="text-[0.75rem] font-bold hv-text-sub truncate mt-0.5">${escapeHtml(firstLine)}</p>
+                            </div>
+                            <span class="text-[0.7rem] font-extrabold hv-text-muted num-tabular shrink-0">${escapeHtml(item.timeStr || item.dateFull || '')}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
     } catch (e) {}
 }
 
@@ -727,9 +1007,12 @@ function processClientCsvText(csvText, isSilentAutoLoad) {
         }
     }
 
-    document.getElementById('clientLoadMsg').innerText = `✅ 거래처 ${addedCount}건 추가 로드 완료! (총 ${clientDB.length}개 활성 거래처)`;
-    document.getElementById('pillClient').innerText = `거래처: ${clientDB.length}곳`;
-    document.getElementById('btnExportCleanCsv').style.display = 'inline-block';
+    const clientMsgEl = document.getElementById('clientLoadMsg');
+    if (clientMsgEl) clientMsgEl.innerText = `✅ 거래처 ${addedCount}건 추가 로드 완료! (총 ${clientDB.length}개 활성 거래처)`;
+    const pillClient = document.getElementById('pillClient');
+    if (pillClient) pillClient.innerText = `거래처: ${clientDB.length}곳`;
+    const btnExport = document.getElementById('btnExportCleanCsv');
+    if (btnExport) btnExport.classList.remove('hidden');
     if (allChatItems.length > 0) {
         allChatItems.forEach((item, idx) => {
             item.idx = idx;
@@ -861,11 +1144,15 @@ function finalizeKakaoLoad(actionLabel) {
 
     const orderCnt = allChatItems.filter(x => x.type === '발주').length;
     const weightCnt = allChatItems.filter(x => x.type === '계근').length;
-    document.getElementById('kakaoLoadMsg').innerText = `✅ 총 ${allChatItems.length}건 분석 및 납품일 자동판별 완료! (순수발주 ${orderCnt}건 / 계근 ${weightCnt}건 분리됨)`;
+    const kakaoMsgEl = document.getElementById('kakaoLoadMsg');
+    if (kakaoMsgEl) kakaoMsgEl.innerText = `✅ 총 ${allChatItems.length}건 분석 및 납품일 자동판별 완료! (순수발주 ${orderCnt}건 / 계근 ${weightCnt}건 분리됨)`;
     const pill = document.getElementById('pillKakao');
-    pill.innerText = `카톡: 발주 ${orderCnt}건`;
-    pill.classList.add('ok');
+    if (pill) {
+        pill.innerText = `카톡: 발주 ${orderCnt}건`;
+        pill.classList.add('ok');
+    }
 
+    updateHeaderDateDisplay();
     saveStateToBrowser(actionLabel);
     onFilterCriteriaChange(true);
 }
@@ -1207,61 +1494,91 @@ function getFilteredOrderList(forceOnlyOrder = false) {
     });
 }
 
+function toggleOrderGuide() {
+    const box = document.getElementById('orders-guide-box');
+    if (box) box.classList.toggle('hidden');
+}
+
+function setOrderFilter(filterKey) {
+    orderFilterMode = filterKey || 'all';
+    document.querySelectorAll('[data-order-chip]').forEach(btn => {
+        const active = btn.getAttribute('data-order-chip') === orderFilterMode;
+        btn.className = active
+            ? 'order-chip px-3 py-1.5 rounded-full text-[0.75rem] font-black bg-[#1D4ED8] text-white transition shrink-0'
+            : 'order-chip px-3 py-1.5 rounded-full text-[0.75rem] font-extrabold hv-pill transition shrink-0';
+    });
+    renderOrdersTable();
+}
+
+function highlightOrderKeywords(text) {
+    let escaped = escapeHtml(text || '');
+    escaped = escaped.replace(/(서비스|덤|긴급|냉동|냉장|오전|추가|변경|취소|꼭|부탁|직송)/g, '<span class="px-1 py-0.5 rounded bg-amber-200/80 text-amber-950 font-black">$1</span>');
+    return escaped;
+}
+
 function renderOrdersTable() {
     const container = document.getElementById('orders-card-list');
     if (!container) return;
 
-    const list = getFilteredOrderList(false);
-    const targetDateStr = document.getElementById('orderTargetDate').value;
-    const mode = document.getElementById('orderTimeMode').value;
-    const modeLabel = mode === 'smart' ? `기준 ${toShortDate(targetDateStr)}` : (mode === 'all' ? '전체' : `작성일 ${toShortDate(targetDateStr)}`);
+    let list = getFilteredOrderList(false);
+    const targetDateStr = document.getElementById('orderTargetDate')?.value || '';
+    const mode = document.getElementById('orderTimeMode')?.value || 'smart';
+    const modeLabel = mode === 'smart'
+        ? `납품 기준 ${toShortDate(targetDateStr)}`
+        : (mode === 'all' ? '전체 날짜 기준' : `작성일 ${toShortDate(targetDateStr)}`);
 
-    const countEl = document.getElementById('orderStatsCount');
-    const dateEl = document.getElementById('orderStatsDate');
-    if (countEl) countEl.textContent = `조회 총 ${list.length}건`;
-    if (dateEl) dateEl.textContent = modeLabel;
+    if (orderFilterMode === 'nextDay') {
+        list = list.filter(i => i.targetDeliveryDate !== i.dateFull || i.isNextDayMoved);
+    } else if (orderFilterMode === 'unmatched') {
+        list = list.filter(i => !i.isKnownClient);
+    }
+
+    const countEl = document.getElementById('orders-header-count');
+    const modeEl = document.getElementById('orders-header-mode');
+    if (countEl) countEl.textContent = `발주 총 ${list.length}건`;
+    if (modeEl) modeEl.textContent = modeLabel;
 
     if (list.length === 0) {
         container.innerHTML = `
-            <div class="bg-white rounded-2xl border border-slate-200/80 p-8 text-center">
-                <p class="text-[14px] font-bold text-slate-700">조회된 발주 내역이 없습니다.</p>
-                <p class="text-[12px] text-slate-400 mt-1">상단 납품일(${escapeHtml(targetDateStr || '전체')})을 바꾸거나 [설정]에서 카톡을 불러오세요.</p>
+            <div class="hv-card rounded-2xl p-8 text-center">
+                <p class="text-[0.9rem] font-black hv-text-main">조회된 발주 내역이 없습니다.</p>
+                <p class="text-[0.76rem] font-semibold hv-text-muted mt-1">상단 납품일(${escapeHtml(targetDateStr || '전체')})을 바꾸거나 [설정]에서 카톡을 불러오세요.</p>
             </div>`;
         return;
     }
 
     container.innerHTML = list.map(item => {
-        const typeColor = item.type === '발주'
-            ? 'bg-emerald-600'
-            : (item.type === '계근' ? 'bg-amber-500' : 'bg-slate-500');
+        const typeBadge = item.type === '발주'
+            ? 'hv-badge-green'
+            : (item.type === '계근' ? 'hv-badge-amber' : 'hv-pill');
         const isNextDay = item.targetDeliveryDate !== item.dateFull;
         const pillStyle = item.isManualDeliv
-            ? 'bg-purple-50 hover:bg-purple-100 text-purple-800 border-purple-300/90'
+            ? 'bg-purple-100 text-purple-900 border-purple-300'
             : (isNextDay
-                ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300/90'
-                : 'bg-blue-50 hover:bg-blue-100 text-[#1677FF] border-blue-300/90');
+                ? 'hv-badge-amber border-amber-300'
+                : 'hv-badge-blue border-blue-300');
 
         const delivBtnHtml = item.type === '발주' ? `
-            <button type="button" onclick="toggleItemDeliveryDate(${item.idx})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11.5px] font-extrabold active:scale-[0.97] transition whitespace-nowrap ${pillStyle}" title="터치하여 당일(${escapeHtml(item.dateShort)}) ↔ 익일 납품일 전환">
+            <button type="button" onclick="toggleItemDeliveryDate(${item.idx})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[0.72rem] font-black active:scale-[0.97] transition whitespace-nowrap num-tabular ${pillStyle}" title="터치하여 당일(${escapeHtml(item.dateShort)}) ↔ 익일 납품일 전환">
                 <span>🚚 납품: ${escapeHtml(item.delivShort)} (${escapeHtml(item.delivReason)})</span>
                 <span>🔄</span>
             </button>` : '';
 
         return `
-            <article class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-3.5 space-y-2.5">
-                <div class="flex items-center justify-between gap-2">
+            <article class="hv-card rounded-2xl p-3.5 space-y-2.5">
+                <div class="flex items-start justify-between gap-2">
                     <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
-                        <h2 class="text-[16px] font-extrabold text-slate-900 whitespace-nowrap">${escapeHtml(item.clientName)}</h2>
-                        ${item.isKnownClient ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-[#1677FF] text-white whitespace-nowrap">인증</span>` : ''}
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold ${typeColor} text-white whitespace-nowrap">${escapeHtml(item.type)}</span>
+                        <h2 class="text-[1.02rem] font-black hv-text-main keep-all">${escapeHtml(item.clientName)}</h2>
+                        ${item.isKnownClient ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[0.68rem] font-black bg-[#1D4ED8] text-white whitespace-nowrap">인증</span>` : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[0.68rem] font-black hv-badge-amber whitespace-nowrap">미등록</span>`}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[0.68rem] font-black ${typeBadge} whitespace-nowrap">${escapeHtml(item.type)}</span>
                     </div>
-                    <span class="text-[12px] font-semibold text-slate-400 whitespace-nowrap shrink-0">${escapeHtml(item.dateShort)} ${escapeHtml(item.timeStr)}</span>
+                    <span class="text-[0.74rem] font-extrabold hv-text-muted whitespace-nowrap shrink-0 num-tabular">${escapeHtml(item.dateShort)} ${escapeHtml(item.timeStr)}</span>
                 </div>
                 <div class="flex items-center justify-between gap-2 flex-wrap">
-                    <span class="text-[12.5px] font-bold text-slate-600">${escapeHtml(item.sender)}</span>
+                    <span class="text-[0.78rem] font-extrabold hv-text-sub">${escapeHtml(item.sender)}</span>
                     ${delivBtnHtml}
                 </div>
-                <div class="w-full bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-[14px] font-semibold text-slate-800 leading-relaxed whitespace-pre-line">${escapeHtml(item.content)}</div>
+                <div class="w-full hv-subbox rounded-xl px-3.5 py-2.5 text-[0.88rem] font-bold hv-text-main leading-relaxed whitespace-pre-line keep-all">${highlightOrderKeywords(item.content)}</div>
             </article>
         `;
     }).join('');
@@ -1272,15 +1589,15 @@ function updateHeaderToggleButtonsUI() {
     if (btnOrder) {
         btnOrder.innerText = showOnlyOrder ? "🔍 발주만: ON" : "🔍 발주만: OFF";
         btnOrder.className = showOnlyOrder
-            ? "py-2 px-2 rounded-xl bg-[#1677FF] text-white text-[12px] font-extrabold"
-            : "py-2 px-2 rounded-xl bg-slate-200 text-slate-700 text-[12px] font-extrabold";
+            ? "py-2.5 px-2 rounded-xl bg-[#1D4ED8] text-white text-[0.78rem] font-black"
+            : "py-2.5 px-2 rounded-xl hv-pill text-[0.78rem] font-black";
     }
     const btnClient = document.getElementById('btnOnlyKnownClient');
     if (btnClient) {
         btnClient.innerText = showOnlyKnownClient ? "🏢 등록거래처: ON" : "🏢 등록거래처: OFF";
         btnClient.className = showOnlyKnownClient
-            ? "py-2 px-2 rounded-xl bg-[#1677FF] text-white text-[12px] font-extrabold"
-            : "py-2 px-2 rounded-xl bg-slate-200 text-slate-700 text-[12px] font-extrabold";
+            ? "py-2.5 px-2 rounded-xl bg-[#1D4ED8] text-white text-[0.78rem] font-black"
+            : "py-2.5 px-2 rounded-xl hv-pill text-[0.78rem] font-black";
     }
 }
 
@@ -1409,17 +1726,17 @@ function parseQtyTokens(itemObj, brandName, qtyStr) {
 
 function setInventoryFilter(filterType) {
     inventoryFilter = filterType;
-    document.querySelectorAll('.inv-filter-chip').forEach((chip) => {
-        const active = chip.dataset.invFilter === filterType;
+    document.querySelectorAll('[data-inv-chip]').forEach((chip) => {
+        const active = chip.getAttribute('data-inv-chip') === filterType;
         chip.className = active
-            ? 'inv-filter-chip px-3 py-1.5 rounded-full text-[12px] font-bold bg-[#1677FF] text-white transition shrink-0'
-            : 'inv-filter-chip px-3 py-1.5 rounded-full text-[12px] font-semibold bg-white text-slate-600 border border-slate-200 transition shrink-0';
+            ? 'inv-chip px-3 py-1.5 rounded-full text-[0.75rem] font-black bg-[#1D4ED8] text-white transition shrink-0'
+            : 'inv-chip px-3 py-1.5 rounded-full text-[0.75rem] font-extrabold hv-pill transition shrink-0';
     });
     renderStockTable();
 }
 
 function clearInventorySearch() {
-    const input = document.getElementById('inventory-search');
+    const input = document.getElementById('inventory-search-input');
     if (input) {
         input.value = '';
         renderStockTable();
@@ -1431,13 +1748,13 @@ function renderWarehouseCell(label, bObj) {
     const isEmpty = !bObj || bObj.details.length === 0;
     const mainTxt = isEmpty ? '-' : `${bObj.boxes}박`;
     const detailTxt = isEmpty ? '' : bObj.details.map(escapeHtml).join(', ');
-    const mainColor = (isEmpty || bObj.boxes === 0) ? 'text-slate-400' : 'text-slate-900';
+    const mainColor = (isEmpty || bObj.boxes === 0) ? 'hv-text-muted' : 'hv-text-main';
     return `
-        <div class="bg-slate-50 rounded-xl px-2.5 py-2 border border-slate-100 flex flex-col justify-between min-h-[60px]">
-            <span class="text-[11px] font-bold text-slate-500">${label}</span>
+        <div class="hv-subbox rounded-xl px-2.5 py-2 flex flex-col justify-between min-h-[60px]">
+            <span class="text-[0.72rem] font-extrabold hv-text-muted">${label}</span>
             <div class="mt-1">
-                <div class="text-[14px] font-extrabold ${mainColor} leading-tight">${mainTxt}</div>
-                ${detailTxt ? `<div class="text-[10.5px] font-semibold text-slate-500 mt-0.5 leading-tight">${detailTxt}</div>` : ''}
+                <div class="text-[0.94rem] font-black ${mainColor} leading-tight num-tabular">${mainTxt}</div>
+                ${detailTxt ? `<div class="text-[0.68rem] font-bold hv-text-sub mt-0.5 leading-tight num-tabular">${detailTxt}</div>` : ''}
             </div>
         </div>
     `;
@@ -1447,16 +1764,16 @@ function renderStockTable() {
     const container = document.getElementById('inventory-card-list');
     if (!container) return;
 
-    const searchEl = document.getElementById('inventory-search');
+    const searchEl = document.getElementById('inventory-search-input');
     const clearBtn = document.getElementById('inventory-search-clear');
     const query = (searchEl ? searchEl.value : '').trim().toLowerCase();
     if (clearBtn) clearBtn.classList.toggle('hidden', query.length === 0);
 
     if (stockItems.length === 0) {
         container.innerHTML = `
-            <div class="bg-white rounded-2xl border border-slate-200/80 p-8 text-center">
-                <p class="text-[14px] font-bold text-slate-700">등록된 일일 재고현황이 없습니다.</p>
-                <p class="text-[12px] text-slate-400 mt-1">[설정] 탭에서 재고현황 텍스트를 입력하고 적용해 주세요.</p>
+            <div class="hv-card rounded-2xl p-8 text-center">
+                <p class="text-[0.9rem] font-black hv-text-main">등록된 일일 재고현황이 없습니다.</p>
+                <p class="text-[0.76rem] font-semibold hv-text-muted mt-1">[설정] 탭에서 재고현황 텍스트를 입력하고 적용해 주세요.</p>
             </div>`;
         return;
     }
@@ -1471,9 +1788,9 @@ function renderStockTable() {
 
     if (filtered.length === 0) {
         container.innerHTML = `
-            <div class="bg-white rounded-2xl border border-slate-200/80 p-8 text-center">
-                <p class="text-[14px] font-bold text-slate-700">일치하는 재고 품목이 없습니다.</p>
-                <p class="text-[12px] text-slate-400 mt-1">검색어나 필터 조건을 변경해 보세요.</p>
+            <div class="hv-card rounded-2xl p-8 text-center">
+                <p class="text-[0.9rem] font-black hv-text-main">일치하는 재고 품목이 없습니다.</p>
+                <p class="text-[0.76rem] font-semibold hv-text-muted mt-1">검색어나 필터 조건을 변경해 보세요.</p>
             </div>`;
         return;
     }
@@ -1484,14 +1801,14 @@ function renderStockTable() {
         const o = item.brands['기타'];
         const total = d.boxes + p.boxes + o.boxes;
         const badgeClass = total === 0
-            ? 'bg-slate-100 text-slate-500 border-slate-200'
-            : 'bg-blue-50 text-[#1677FF] border-blue-200/80';
+            ? 'hv-pill'
+            : 'hv-badge-blue';
 
         return `
-            <article class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-3.5 transition">
+            <article class="hv-card rounded-2xl p-3.5 transition">
                 <div class="flex items-center justify-between gap-2 mb-2.5">
-                    <h2 class="text-[15.5px] font-extrabold text-slate-900 tracking-tight">${escapeHtml(item.name)}</h2>
-                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-extrabold border ${badgeClass} whitespace-nowrap">
+                    <h2 class="text-[0.98rem] font-black hv-text-main tracking-tight keep-all">${escapeHtml(item.name)}</h2>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[0.76rem] font-black num-tabular ${badgeClass} whitespace-nowrap">
                         총 ${total}박
                     </span>
                 </div>
@@ -2203,11 +2520,11 @@ async function refreshDispatchMap() {
     setTimeout(() => map.invalidateSize(), 100);
 
     if ((dispatchSortMode === 'far' || dispatchSortMode === 'near') && ok > 0) {
-        const tbody = document.getElementById('dispatchTableBody');
-        if (tbody && !tbody.dataset.resortLock) {
-            tbody.dataset.resortLock = '1';
+        const listEl = document.getElementById('dispatch-card-list');
+        if (listEl && !listEl.dataset.resortLock) {
+            listEl.dataset.resortLock = '1';
             setTimeout(() => {
-                delete tbody.dataset.resortLock;
+                delete listEl.dataset.resortLock;
                 const sorted = sortDestinations(getAggregatedDeliveryDestinations(), dispatchSortMode);
                 renderClientChips(sorted);
                 redrawDispatchTableOnly(sorted);
@@ -2216,21 +2533,59 @@ async function refreshDispatchMap() {
     }
 }
 
+let dispatchShowPendingOnly = false;
+
+function toggleDispatchPendingOnly() {
+    dispatchShowPendingOnly = !dispatchShowPendingOnly;
+    const btn = document.getElementById('btn-disp-pending');
+    if (btn) {
+        btn.className = dispatchShowPendingOnly
+            ? 'px-3 py-1.5 rounded-full text-[0.74rem] font-black bg-[#1D4ED8] text-white transition shrink-0'
+            : 'px-3 py-1.5 rounded-full text-[0.74rem] font-extrabold hv-pill transition shrink-0';
+    }
+    renderDispatchPage();
+}
+
+function toggleDispatchCompleted(clientName) {
+    if (!clientName) return;
+    const targetDate = document.getElementById('orderTargetDate')?.value || 'all';
+    const key = `${targetDate}::${clientName}`;
+    dispatchDoneMap[key] = !dispatchDoneMap[key];
+    renderDispatchPage();
+    if (activeTab === 'purchase' && typeof renderChatRoomTab === 'function') renderChatRoomTab('purchase');
+    if (activeTab === 'staff' && typeof renderChatRoomTab === 'function') renderChatRoomTab('staff');
+    updateHomeSummary();
+    showToast(dispatchDoneMap[key] ? `${clientName} 배송 완료 처리` : `${clientName} 배송 완료 해제`);
+}
+
 function redrawDispatchTableOnly(destinations) {
     const container = document.getElementById('dispatch-card-list');
     if (!container) return;
 
-    const filteredDests = destinations.filter(d => {
+    const targetDate = document.getElementById('orderTargetDate')?.value || 'all';
+
+    let filteredDests = destinations.filter(d => {
         const assigned = dispatchMap[d.clientName] || 'UNASSIGNED';
-        if (selectedVehicleFilter === 'ALL') return true;
-        return assigned === selectedVehicleFilter;
+        if (selectedVehicleFilter !== 'ALL' && assigned !== selectedVehicleFilter) return false;
+        return true;
     });
+
+    const totalCount = filteredDests.length;
+    const doneCount = filteredDests.filter(d => !!dispatchDoneMap[`${targetDate}::${d.clientName}`]).length;
+    const progressBadge = document.getElementById('dispatch-progress-badge');
+    if (progressBadge) {
+        progressBadge.textContent = `완료 ${doneCount}/${totalCount}`;
+    }
+
+    if (dispatchShowPendingOnly) {
+        filteredDests = filteredDests.filter(d => !dispatchDoneMap[`${targetDate}::${d.clientName}`]);
+    }
 
     if (filteredDests.length === 0) {
         container.innerHTML = `
-            <div class="bg-white rounded-2xl border border-slate-200/80 p-8 text-center">
-                <p class="text-[14px] font-bold text-slate-700">당일 배차할 거래처가 없습니다.</p>
-                <p class="text-[12px] text-slate-400 mt-1">상단 납품일을 확인하거나 [설정]에서 카톡을 불러오세요.</p>
+            <div class="hv-card rounded-2xl p-8 text-center">
+                <p class="text-[0.9rem] font-black hv-text-main">${dispatchShowPendingOnly ? '남은 미완료 배차가 없습니다.' : '당일 배차할 거래처가 없습니다.'}</p>
+                <p class="text-[0.76rem] font-semibold hv-text-muted mt-1">상단 납품일을 확인하거나 [설정]에서 카톡을 불러오세요.</p>
             </div>`;
         return;
     }
@@ -2241,6 +2596,7 @@ function redrawDispatchTableOnly(destinations) {
         const dist = getCachedDistKm(d.addr);
         const city = extractCityFromAddr(d.addr);
         const distTxt = dist != null ? ` · ${dist.toFixed(1)}km` : '';
+        const isDone = !!dispatchDoneMap[`${targetDate}::${d.clientName}`];
 
         let optionsHtml = `<option value="UNASSIGNED" ${curVal === 'UNASSIGNED' ? 'selected' : ''}>-- 미배차 --</option>`;
         for (let i = 0; i < 6; i++) {
@@ -2250,51 +2606,62 @@ function redrawDispatchTableOnly(destinations) {
         optionsHtml += `<option value="PICKUP" ${curVal === 'PICKUP' ? 'selected' : ''}>📦 방문/택배</option>`;
 
         const selectColor = curVal === 'UNASSIGNED'
-            ? 'bg-slate-50 border-slate-200 text-slate-700'
-            : 'bg-emerald-50 border-emerald-400 text-emerald-800';
+            ? 'hv-subbox hv-text-main'
+            : 'bg-emerald-50 border-2 border-emerald-500 text-emerald-900';
 
-        const escapedClient = escapeHtml(d.clientName);
-        const escapedPhone = escapeHtml(d.phone || '');
-        const escapedMemo = escapeHtml(d.note || '');
+        const encodedClient = encodeURIComponent(d.clientName);
+        const encodedPhone = encodeURIComponent(d.phone || '');
+        const encodedAddr = encodeURIComponent(d.addr || '');
+        const encodedMemo = encodeURIComponent(d.note || '');
 
         return `
-            <article class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-3.5 space-y-2.5">
+            <article class="hv-card rounded-2xl p-3.5 space-y-2.5 transition ${isDone ? 'opacity-70' : ''}">
                 <div class="flex items-start justify-between gap-2">
-                    <div class="flex items-center gap-2 min-w-0">
-                        <span class="w-6 h-6 rounded-full bg-slate-900 text-white text-[12px] font-extrabold flex items-center justify-center shrink-0">${idx + 1}</span>
+                    <div class="flex items-start gap-2 min-w-0">
+                        <span class="w-6 h-6 rounded-full bg-[#0F172A] text-white text-[0.74rem] font-black flex items-center justify-center shrink-0 num-tabular mt-0.5">${idx + 1}</span>
                         <div class="min-w-0">
                             <div class="flex items-center gap-1.5 flex-wrap">
-                                <span class="pin-dot" style="background:${pinCol};"></span>
-                                <h2 class="text-[16px] font-extrabold text-slate-900 whitespace-nowrap">${escapedClient}</h2>
-                                ${d.isUrgent ? `<span class="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-extrabold">급/오전</span>` : ''}
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-bold whitespace-nowrap">${escapeHtml(city)}${distTxt}</span>
+                                <span class="pin-dot shrink-0" style="background:${pinCol};"></span>
+                                <h2 class="text-[1.02rem] font-black hv-text-main keep-all ${isDone ? 'line-through' : ''}">${escapeHtml(d.clientName)}</h2>
+                                ${d.isUrgent ? `<span class="px-1.5 py-0.5 rounded-full bg-[#DC2626] text-white text-[0.66rem] font-black">급/오전</span>` : ''}
+                                ${isDone ? `<span class="hv-badge-green px-2 py-0.5 rounded-full text-[0.66rem] font-black">완료</span>` : ''}
                             </div>
+                            <span class="inline-flex items-center mt-1 px-2 py-0.5 rounded-md hv-pill text-[0.7rem] font-extrabold num-tabular">${escapeHtml(city)}${distTxt}</span>
                         </div>
                     </div>
 
-                    <div class="shrink-0 bg-blue-50 border border-blue-200/80 px-2.5 py-1 rounded-xl text-right whitespace-nowrap">
-                        <span class="text-[12px] font-extrabold text-[#1677FF]">📦 ${d.totalBoxes}박스</span>
-                        ${d.totalLoose > 0 ? `<span class="text-blue-300 mx-0.5">·</span><span class="text-[12px] font-extrabold text-amber-600">낱개 ${d.totalLoose}</span>` : ''}
+                    <div class="shrink-0 hv-badge-blue px-2.5 py-1 rounded-xl text-right whitespace-nowrap num-tabular">
+                        <span class="text-[0.76rem] font-black">📦 ${d.totalBoxes}박스</span>
+                        ${d.totalLoose > 0 ? `<span class="mx-0.5 opacity-50">·</span><span class="text-[0.76rem] font-black text-[#B45309]">낱개 ${d.totalLoose}</span>` : ''}
                     </div>
                 </div>
 
-                <div class="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[13px] font-semibold text-slate-800 leading-snug">
-                    📍 ${d.addr ? escapeHtml(d.addr) : '<span class="text-slate-400">주소 미등록</span>'}
+                <div class="w-full hv-subbox rounded-xl px-3 py-2 text-[0.82rem] font-bold hv-text-main leading-snug keep-all">
+                    📍 ${d.addr ? escapeHtml(d.addr) : '<span class="hv-text-muted">주소 미등록</span>'}
                 </div>
 
-                <div class="flex items-center justify-between gap-2 flex-wrap pt-0.5">
-                    <div class="flex items-center gap-1.5">
-                        ${d.phone ? `
-                            <button type="button" onclick="handlePhoneAction('${escapedClient}', '${escapedPhone}')" class="inline-flex items-center gap-1 bg-slate-100 hover:bg-blue-50 active:scale-[0.98] text-slate-800 hover:text-[#1677FF] text-[12px] font-bold px-2.5 py-1.5 rounded-xl transition whitespace-nowrap">
-                                📞 ${escapedPhone}
-                            </button>` : ''}
-                        ${d.note ? `
-                            <button type="button" onclick="openMemoModal('${escapedClient}', '${escapedMemo}')" class="inline-flex items-center gap-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[12px] font-extrabold px-2.5 py-1.5 rounded-xl active:scale-[0.98] transition whitespace-nowrap">
-                                🔑 비번/메모
-                            </button>` : ''}
-                    </div>
+                <div class="grid grid-cols-4 gap-1.5 pt-0.5">
+                    <button type="button" onclick="handlePhoneAction(decodeURIComponent('${encodedClient}'), decodeURIComponent('${encodedPhone}'))"
+                        class="py-2 px-1 rounded-xl text-[0.74rem] font-black transition text-center whitespace-nowrap ${d.phone ? 'hv-badge-blue active:scale-[0.97]' : 'hv-pill opacity-40'}">
+                        📞 전화
+                    </button>
+                    <button type="button" onclick="copyTextWithToast(decodeURIComponent('${encodedAddr}'), '주소')"
+                        class="py-2 px-1 rounded-xl text-[0.74rem] font-black transition text-center whitespace-nowrap ${d.addr ? 'hv-pill active:scale-[0.97]' : 'hv-pill opacity-40'}">
+                        📋 주소복사
+                    </button>
+                    <button type="button" onclick="openMemoSheet(decodeURIComponent('${encodedClient}'), decodeURIComponent('${encodedMemo}'))"
+                        class="py-2 px-1 rounded-xl text-[0.74rem] font-black transition text-center whitespace-nowrap ${d.note ? 'hv-badge-amber active:scale-[0.97]' : 'hv-pill opacity-60'}">
+                        🔑 비번/메모
+                    </button>
+                    <button type="button" onclick="toggleDispatchCompleted(decodeURIComponent('${encodedClient}'))"
+                        class="py-2 px-1 rounded-xl text-[0.74rem] font-black transition text-center whitespace-nowrap ${isDone ? 'bg-[#047857] text-white' : 'hv-pill active:scale-[0.97]'}">
+                        ${isDone ? '✓ 완료됨' : '✓ 완료'}
+                    </button>
+                </div>
 
-                    <select class="border-2 rounded-xl px-2.5 py-1.5 text-[12.5px] font-extrabold ${selectColor}" data-client="${escapedClient}" onchange="assignVehicle(this.getAttribute('data-client'), this.value)">
+                <div class="flex items-center justify-between gap-2 pt-0.5">
+                    <span class="text-[0.72rem] font-extrabold hv-text-muted num-tabular">${d.phone ? escapeHtml(d.phone) : '연락처 없음'}</span>
+                    <select class="rounded-xl px-2.5 py-1.5 text-[0.78rem] font-black ${selectColor}" data-client="${escapeHtml(d.clientName)}" onchange="assignVehicle(this.getAttribute('data-client'), this.value)">
                         ${optionsHtml}
                     </select>
                 </div>
@@ -2645,4 +3012,431 @@ function downloadStockCsv() {
         csv += `"${item.name}",${d.boxes},"${d.details.join(' / ')}",${p.boxes},"${p.details.join(' / ')}",${o.boxes},"${o.details.join(' / ')}",${tot}\n`;
     });
     downloadBlob(csv, "미트포앤GB_일일재고현황표.csv");
+}
+
+
+/* =========================================================================
+   9. [신규] 매입방 & 직원방 카톡 정리·검색 모듈
+   ========================================================================= */
+let purchaseChatItems = [];
+let staffChatItems = [];
+
+const chatRoomState = {
+    purchase: { category: '전체', dateMode: 'all', hideMedia: true },
+    staff: { category: '전체', dateMode: 'all', hideMedia: true }
+};
+
+const PURCHASE_CATEGORIES = ['전체', '매입/입고', '단가/원가', '냉창/유상', '반품/입금', '재고현황', '공지/비번', '일반메모', '사진/미디어'];
+const STAFF_CATEGORIES = ['전체', '배송/현장지시', '매입발주서', '발주체크', '차량/타이어', '반품', '근태/공지', '재고현황', '일반메모', '사진/미디어'];
+
+function isMediaOnlyMessage(content) {
+    const t = String(content || '').trim();
+    return /^(사진(\s*\d+장)?|이모티콘|동영상|음성메시지|파일)$/.test(t);
+}
+
+function classifyPurchaseCategory(content) {
+    const t = String(content || '').trim();
+    if (isMediaOnlyMessage(t)) return '사진/미디어';
+
+    if (/원가내역|단가표/.test(t) || (/\d[\d,]*\s*원/.test(t) && (t.match(/\d[\d,]*\s*원/g) || []).length >= 2)) {
+        return '단가/원가';
+    }
+    if (/유상냉장|유상\(|입고증|냉동전환|냉창|얼릴것|얼려/.test(t)) {
+        return '냉창/유상';
+    }
+    if (/반품|\[Web발신\]|입금/.test(t)) {
+        return '반품/입금';
+    }
+    if (/재고현황|한우사골|돈냉동삼겹/.test(t)) {
+        return '재고현황';
+    }
+    if (/공지|비번|비밀번호/.test(t)) {
+        return '공지/비번';
+    }
+    const hasSupplier = /(토레인|황금비앤피|대산|포크|정담|이나미트|신선|하나에프에스|참좋은미트|삼정푸드|바른푸드|협신|색시포크)/.test(t);
+    const hasInboundVerb = /(입고|매입|출고|도착)/.test(t);
+    const hasWeightRecord = /(특삼|특목|특미|빵삼).*?(포|대)\s*\d/.test(t);
+    if (hasSupplier || hasInboundVerb || hasWeightRecord) {
+        return '매입/입고';
+    }
+    return '일반메모';
+}
+
+function classifyStaffCategory(content) {
+    const t = String(content || '').trim();
+    if (isMediaOnlyMessage(t)) return '사진/미디어';
+
+    if (/재고현황/.test(t)) return '재고현황';
+    if (/^발주체크/.test(t)) return '발주체크';
+    if (/요일발주요|\(작업분\).*도착/.test(t)) return '매입발주서';
+    if (/타이어|윈터|포터|봉고|엔진오일|자동차검사|블랙박스|라이닝|7719|5521|0202|5904|6243|4031|6294|8391|3371|3775|3482/.test(t)) {
+        return '차량/타이어';
+    }
+    if (/반품장|반품/.test(t)) return '반품';
+    if (/연차|휴무|회식|잠바|장바|병원|검사/.test(t)) return '근태/공지';
+    if (/코스|출발|납품|상차|선입선출|바코드|전달사항|비번|비밀번호/.test(t)) return '배송/현장지시';
+    return '일반메모';
+}
+
+function parseRoomKakaoText(text, roomType) {
+    const cleaned = String(text || '').replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '');
+    const lines = cleaned.split(/\r?\n/);
+    const now = new Date();
+    let currentDateFull = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    let currentDisplayDate = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+
+    const pcRegex = /^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일\s+(오전|오후)\s*(\d{1,2}:\d{2}),\s*(.*?)\s*:\s*(.*)$/;
+    const dotInlineRegex = /^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?\s*(?:\([월화수목금토일]\)\s*)?(오전|오후)?\s*(\d{1,2}:\d{2}),\s*(.*?)\s*:\s*(.*)$/;
+    const mobRegex = /^\[(.*?)\]\s*\[(오전|오후)\s*(\d{1,2}:\d{2})\]\s*(.*)$/;
+    const dateLineRegex = /(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
+
+    const items = [];
+    let curItem = null;
+
+    const pushCur = () => {
+        if (!curItem) return;
+        const c = String(curItem.content || '').trim();
+        if (!c || c === '메시지가 삭제되었습니다.' || /^저장한 날짜\s*:/.test(c)) {
+            curItem = null;
+            return;
+        }
+        curItem.category = roomType === 'purchase'
+            ? classifyPurchaseCategory(c)
+            : classifyStaffCategory(c);
+        items.push(curItem);
+        curItem = null;
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        if (/^저장한 날짜\s*:/.test(line) || line === '메시지가 삭제되었습니다.' || line.includes('초대했습니다')) continue;
+
+        if (line.includes('---') && line.includes('년')) {
+            const dm = line.match(dateLineRegex);
+            if (dm) {
+                currentDateFull = `${dm[1]}-${String(dm[2]).padStart(2, '0')}-${String(dm[3]).padStart(2, '0')}`;
+                currentDisplayDate = `${String(dm[2]).padStart(2, '0')}/${String(dm[3]).padStart(2, '0')}`;
+            }
+            continue;
+        }
+
+        if (/^\d{4}년\s*\d{1,2}월\s*\d{1,2}일\s+(오전|오후)\s*\d{1,2}:\d{2}$/.test(line)) continue;
+
+        const mPc = line.match(pcRegex);
+        if (mPc) {
+            pushCur();
+            const y = mPc[1], m = String(mPc[2]).padStart(2, '0'), d = String(mPc[3]).padStart(2, '0');
+            currentDateFull = `${y}-${m}-${d}`;
+            currentDisplayDate = `${m}/${d}`;
+            const timeInfo = convertAmPmTime(mPc[4], mPc[5]);
+            curItem = {
+                dateFull: currentDateFull,
+                dateShort: currentDisplayDate,
+                timeStr: timeInfo.str,
+                timeMins: timeInfo.mins,
+                sender: mPc[6].trim(),
+                content: mPc[7]
+            };
+            continue;
+        }
+
+        const mDot = line.match(dotInlineRegex);
+        if (mDot) {
+            pushCur();
+            const y = mDot[1], m = String(mDot[2]).padStart(2, '0'), d = String(mDot[3]).padStart(2, '0');
+            currentDateFull = `${y}-${m}-${d}`;
+            currentDisplayDate = `${m}/${d}`;
+            const timeInfo = convertAmPmTime(mDot[4] || '', mDot[5]);
+            curItem = {
+                dateFull: currentDateFull,
+                dateShort: currentDisplayDate,
+                timeStr: timeInfo.str,
+                timeMins: timeInfo.mins,
+                sender: mDot[6].trim(),
+                content: mDot[7]
+            };
+            continue;
+        }
+
+        const mMob = line.match(mobRegex);
+        if (mMob) {
+            pushCur();
+            const timeInfo = convertAmPmTime(mMob[2], mMob[3]);
+            curItem = {
+                dateFull: currentDateFull,
+                dateShort: currentDisplayDate,
+                timeStr: timeInfo.str,
+                timeMins: timeInfo.mins,
+                sender: mMob[1].trim(),
+                content: mMob[4]
+            };
+            continue;
+        }
+
+        if (curItem) {
+            curItem.content += '\n' + line;
+        }
+    }
+    pushCur();
+    return items;
+}
+
+function updateChatRoomStatusUI() {
+    const pPill = document.getElementById('pillPurchase');
+    if (pPill) pPill.innerText = `매입: ${purchaseChatItems.length}건`;
+    const sPill = document.getElementById('pillStaff');
+    if (sPill) sPill.innerText = `직원: ${staffChatItems.length}건`;
+    const hp = document.getElementById('home-stat-purchase');
+    if (hp) hp.innerText = `${purchaseChatItems.length}건`;
+    const hs = document.getElementById('home-stat-staff');
+    if (hs) hs.innerText = `${staffChatItems.length}건`;
+}
+
+function restorePurchaseAndStaffChats() {
+    try {
+        const savedP = JSON.parse(localStorage.getItem('mf_saved_purchase_chats') || 'null');
+        if (Array.isArray(savedP) && savedP.length > 0) {
+            purchaseChatItems = savedP;
+            const msgEl = document.getElementById('purchaseLoadMsg');
+            if (msgEl) msgEl.innerText = `💾 이전 저장된 매입방 ${purchaseChatItems.length}건 자동 복원됨`;
+        }
+    } catch (e) {}
+    try {
+        const savedS = JSON.parse(localStorage.getItem('mf_saved_staff_chats') || 'null');
+        if (Array.isArray(savedS) && savedS.length > 0) {
+            staffChatItems = savedS;
+            const msgEl = document.getElementById('staffLoadMsg');
+            if (msgEl) msgEl.innerText = `💾 이전 저장된 직원방 ${staffChatItems.length}건 자동 복원됨`;
+        }
+    } catch (e) {}
+    updateChatRoomStatusUI();
+}
+
+async function loadPurchaseFiles(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    let combined = [];
+    for (let i = 0; i < files.length; i++) {
+        const text = await readFileWithAutoEncoding(files[i]);
+        combined = combined.concat(parseRoomKakaoText(text, 'purchase'));
+    }
+    purchaseChatItems = combined;
+    try { localStorage.setItem('mf_saved_purchase_chats', JSON.stringify(purchaseChatItems)); } catch (e) {}
+    const msgEl = document.getElementById('purchaseLoadMsg');
+    if (msgEl) msgEl.innerText = `✅ 매입방 ${purchaseChatItems.length}건 분석·저장 완료!`;
+    updateChatRoomStatusUI();
+    recordLastUpdatedTime('매입방 카톡 업로드');
+    renderChatRoomTab('purchase');
+    event.target.value = '';
+}
+
+async function loadStaffFiles(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    let combined = [];
+    for (let i = 0; i < files.length; i++) {
+        const text = await readFileWithAutoEncoding(files[i]);
+        combined = combined.concat(parseRoomKakaoText(text, 'staff'));
+    }
+    staffChatItems = combined;
+    try { localStorage.setItem('mf_saved_staff_chats', JSON.stringify(staffChatItems)); } catch (e) {}
+    const msgEl = document.getElementById('staffLoadMsg');
+    if (msgEl) msgEl.innerText = `✅ 직원방 ${staffChatItems.length}건 분석·저장 완료!`;
+    updateChatRoomStatusUI();
+    recordLastUpdatedTime('직원방 카톡 업로드');
+    renderChatRoomTab('staff');
+    event.target.value = '';
+}
+
+function toggleChatRoomDateMode(room) {
+    const st = chatRoomState[room];
+    if (!st) return;
+    st.dateMode = st.dateMode === 'all' ? 'selected' : 'all';
+    const btn = document.getElementById(`btn-${room}-date-mode`);
+    if (btn) {
+        btn.innerText = st.dateMode === 'selected' ? '📅 선택일만' : '📅 전체기간';
+        btn.className = st.dateMode === 'selected'
+            ? 'px-2.5 py-1.5 rounded-xl bg-[#1D4ED8] text-white text-[0.72rem] font-black whitespace-nowrap'
+            : 'px-2.5 py-1.5 rounded-xl hv-pill text-[0.72rem] font-black whitespace-nowrap';
+    }
+    renderChatRoomTab(room);
+}
+
+function toggleChatRoomHideMedia(room) {
+    const st = chatRoomState[room];
+    if (!st) return;
+    st.hideMedia = !st.hideMedia;
+    const btn = document.getElementById(`btn-${room}-hide-media`);
+    if (btn) {
+        btn.innerText = st.hideMedia ? '🖼️ 사진 숨김: ON' : '🖼️ 사진 숨김: OFF';
+        btn.className = st.hideMedia
+            ? 'px-2.5 py-1.5 rounded-xl bg-[#1D4ED8] text-white text-[0.72rem] font-black whitespace-nowrap'
+            : 'px-2.5 py-1.5 rounded-xl hv-pill text-[0.72rem] font-black whitespace-nowrap';
+    }
+    renderChatRoomTab(room);
+}
+
+function setChatRoomCategory(room, cat) {
+    if (!chatRoomState[room]) return;
+    chatRoomState[room].category = cat;
+    renderChatRoomTab(room);
+}
+
+function clearChatRoomSearch(room) {
+    const input = document.getElementById(`${room}-search-input`);
+    if (input) {
+        input.value = '';
+        renderChatRoomTab(room);
+        input.focus();
+    }
+}
+
+function highlightSearchMatch(text, query) {
+    const safe = escapeHtml(text || '');
+    const q = String(query || '').trim();
+    if (!q) return safe;
+    const escQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return safe.replace(new RegExp(`(${escQ})`, 'gi'), '<mark class="hl-qty px-1 py-0.5 rounded bg-amber-200 text-amber-950 font-black">$1</mark>');
+}
+
+function getRoomCategoryBadgeClass(cat) {
+    if (cat === '매입/입고' || cat === '배송/현장지시') return 'hv-badge-blue';
+    if (cat === '단가/원가' || cat === '차량/타이어' || cat === '발주체크') return 'hv-badge-amber';
+    if (cat === '매입발주서' || cat === '재고현황') return 'hv-badge-green';
+    if (cat === '반품/입금' || cat === '반품') return 'bg-rose-100 text-rose-800 border border-rose-200';
+    return 'hv-pill';
+}
+
+function getFilteredRoomItems(room) {
+    const source = room === 'purchase' ? purchaseChatItems : staffChatItems;
+    const st = chatRoomState[room];
+    const targetDate = document.getElementById('orderTargetDate')?.value || '';
+    const query = (document.getElementById(`${room}-search-input`)?.value || '').trim().toLowerCase();
+
+    return source.filter(item => {
+        if (st.dateMode === 'selected' && targetDate && item.dateFull !== targetDate) return false;
+        if (st.hideMedia && item.category === '사진/미디어') return false;
+        if (st.category !== '전체' && item.category !== st.category) return false;
+        if (query) {
+            const hay = `${item.sender || ''} ${item.content || ''} ${item.category || ''}`.toLowerCase();
+            if (!hay.includes(query)) return false;
+        }
+        return true;
+    }).slice().sort((a, b) => {
+        if (a.dateFull !== b.dateFull) return b.dateFull.localeCompare(a.dateFull);
+        return b.timeMins - a.timeMins;
+    });
+}
+
+function renderChatRoomTab(room) {
+    const container = document.getElementById(`${room}-card-list`);
+    const chipsEl = document.getElementById(`${room}-category-chips`);
+    const countEl = document.getElementById(`${room}-header-count`);
+    const searchEl = document.getElementById(`${room}-search-input`);
+    const clearBtn = document.getElementById(`${room}-search-clear`);
+    if (!container) return;
+
+    const query = (searchEl ? searchEl.value : '').trim();
+    if (clearBtn) clearBtn.classList.toggle('hidden', query.length === 0);
+
+    const source = room === 'purchase' ? purchaseChatItems : staffChatItems;
+    const st = chatRoomState[room];
+    const targetDate = document.getElementById('orderTargetDate')?.value || '';
+    const catList = room === 'purchase' ? PURCHASE_CATEGORIES : STAFF_CATEGORIES;
+
+    // 카테고리별 건수 계산 (날짜·사진숨김·검색어 기준 반영)
+    const baseForCounts = source.filter(item => {
+        if (st.dateMode === 'selected' && targetDate && item.dateFull !== targetDate) return false;
+        if (st.hideMedia && item.category === '사진/미디어') return false;
+        if (query) {
+            const hay = `${item.sender || ''} ${item.content || ''} ${item.category || ''}`.toLowerCase();
+            if (!hay.includes(query.toLowerCase())) return false;
+        }
+        return true;
+    });
+
+    if (chipsEl) {
+        chipsEl.innerHTML = catList.map(cat => {
+            if (cat === '사진/미디어' && st.hideMedia) return '';
+            const cnt = cat === '전체'
+                ? baseForCounts.length
+                : baseForCounts.filter(x => x.category === cat).length;
+            const active = st.category === cat;
+            return `
+                <button type="button" onclick="setChatRoomCategory('${room}', '${cat}')"
+                    class="px-3 py-1.5 rounded-full text-[0.74rem] whitespace-nowrap transition shrink-0 num-tabular ${active ? 'font-black bg-[#1D4ED8] text-white' : 'font-extrabold hv-pill'}">
+                    ${escapeHtml(cat)} (${cnt})
+                </button>
+            `;
+        }).join('');
+    }
+
+    const filtered = getFilteredRoomItems(room);
+    if (countEl) {
+        countEl.textContent = `조회 ${filtered.length}건 (전체 ${source.length}건)`;
+    }
+
+    if (source.length === 0) {
+        container.innerHTML = `
+            <div class="hv-card rounded-2xl p-8 text-center">
+                <p class="text-[0.9rem] font-black hv-text-main">불러온 ${room === 'purchase' ? '매입방' : '직원방'} 카톡 대화가 없습니다.</p>
+                <p class="text-[0.76rem] font-semibold hv-text-muted mt-1">[설정] 탭에서 카톡 내보내기(.txt) 파일을 선택해 주세요.</p>
+            </div>`;
+        return;
+    }
+
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="hv-card rounded-2xl p-8 text-center">
+                <p class="text-[0.9rem] font-black hv-text-main">조건에 맞는 메시지가 없습니다.</p>
+                <p class="text-[0.76rem] font-semibold hv-text-muted mt-1">검색어나 카테고리·날짜 필터를 변경해 보세요.</p>
+            </div>`;
+        return;
+    }
+
+    const maxRender = 200;
+    const renderList = filtered.slice(0, maxRender);
+    const moreBanner = filtered.length > maxRender
+        ? `<div class="hv-subbox rounded-xl p-3 text-center text-[0.76rem] font-extrabold hv-text-muted">최신 ${maxRender}건만 표시 중입니다. (검색어로 범위를 좁혀보세요)</div>`
+        : '';
+
+    container.innerHTML = renderList.map(item => {
+        const badgeCls = getRoomCategoryBadgeClass(item.category);
+        const encodedText = encodeURIComponent(item.content || '');
+        return `
+            <article class="hv-card rounded-2xl p-3.5 space-y-2.5">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-[0.78rem] font-extrabold hv-text-sub num-tabular truncate">
+                        작성 ${escapeHtml(item.dateShort)} ${escapeHtml(item.timeStr)} · <b class="hv-text-main">${highlightSearchMatch(item.sender, query)}</b>
+                    </span>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[0.7rem] font-black whitespace-nowrap shrink-0 ${badgeCls}">
+                        ${escapeHtml(item.category)}
+                    </span>
+                </div>
+                <div class="w-full hv-subbox rounded-xl px-3.5 py-2.5 text-[0.88rem] font-bold hv-text-main leading-relaxed whitespace-pre-line keep-all">${highlightSearchMatch(item.content, query)}</div>
+                <div class="flex justify-end">
+                    <button type="button" onclick="copyTextWithToast(decodeURIComponent('${encodedText}'), '내용')"
+                        class="px-3 py-1.5 rounded-xl hv-pill text-[0.74rem] font-black active:scale-[0.97] transition">
+                        📋 내용 복사
+                    </button>
+                </div>
+            </article>
+        `;
+    }).join('') + moreBanner;
+}
+
+function downloadChatRoomCsv(room) {
+    const list = getFilteredRoomItems(room);
+    if (!list.length) {
+        showToast('저장할 내역이 없습니다.');
+        return;
+    }
+    let csv = "\uFEFF작성날짜,작성시간,발신자,카테고리,내용\n";
+    list.forEach(o => {
+        const clean = String(o.content || '').replace(/"/g, '""').replace(/\r?\n/g, ' ');
+        csv += `"${o.dateFull}","${o.timeStr}","${String(o.sender || '').replace(/"/g, '""')}","${o.category}","${clean}"\n`;
+    });
+    const label = room === 'purchase' ? '매입방정리' : '직원방정리';
+    downloadBlob(csv, `미트포앤GB_${label}.csv`);
 }
