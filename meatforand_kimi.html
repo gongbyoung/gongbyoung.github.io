@@ -487,14 +487,6 @@
         .main-menu-btn .mi { font-size: 1.55rem; line-height: 1; }
         .main-menu-btn .md { font-size: 0.78rem; font-weight: 600; color: var(--text-sub); }
         .main-menu-btn:active { transform: scale(0.98); border-color: var(--primary); }
-        .main-menu-btn.wide {
-            grid-column: 1 / -1;
-            background: linear-gradient(135deg, #1E40AF, #2563EB);
-            color: #FFFFFF;
-            border: none;
-            min-height: 78px;
-        }
-        .main-menu-btn.wide .md { color: #DBEAFE; }
 
         /* 배지 */
         .badge {
@@ -512,6 +504,8 @@
         .b-other { background: #64748B; }
         .b-client { background: var(--primary-mid); }
         .b-urgent { background: var(--danger); }
+        .b-merged { background: #7C3AED; }
+        .b-modified { background: #DB2777; }
 
         /* =========================================================
            [모바일 카드형 UI] 발주 / 재고 / 발주현황 / 낱개 / 배차
@@ -530,12 +524,16 @@
             padding: 14px;
             box-shadow: var(--shadow);
         }
+        .order-card.has-merge {
+            border-color: #C4B5FD;
+        }
         .order-card-head {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 8px;
             margin-bottom: 6px;
+            flex-wrap: wrap;
         }
         .order-card-meta {
             font-size: 0.78rem;
@@ -553,6 +551,25 @@
             gap: 6px;
             flex-wrap: wrap;
         }
+        .order-superseded-box {
+            background: var(--danger-bg);
+            border: 1px dashed var(--danger);
+            border-radius: 10px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            text-decoration: line-through;
+            white-space: pre-line;
+        }
+        .order-superseded-label {
+            display: inline-block;
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: var(--danger);
+            text-decoration: none;
+            margin-bottom: 2px;
+        }
         .order-card-body {
             background: var(--surface-sub);
             border: 1px solid var(--border-light);
@@ -565,6 +582,20 @@
             white-space: pre-line;
             word-break: keep-all;
             overflow-wrap: anywhere;
+        }
+        .merge-divider {
+            display: block;
+            margin: 8px 0 4px;
+            padding: 2px 8px;
+            border-radius: 6px;
+            background: #EDE9FE;
+            color: #5B21B6;
+            font-size: 0.76rem;
+            font-weight: 900;
+        }
+        html.dark-mode .merge-divider {
+            background: #3B0764;
+            color: #DDD6FE;
         }
         .hl-qty {
             background: #FEF08A;
@@ -1024,6 +1055,16 @@
             gap: 8px;
             align-items: center;
         }
+        .setting-lock-banner {
+            background: var(--accent-bg);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
         .pill {
             padding: 5px 10px;
             border-radius: 999px;
@@ -1113,7 +1154,7 @@
     (function(){
       try {
         var raw = parseInt(localStorage.getItem('mf_ui_scale') || '100', 10);
-        if (raw > 140) raw = 100; // 기존 zoom:2(200) 저장값 자동 보정
+        if (raw > 140) raw = 100;
         if (!(raw >= 90 && raw <= 140)) raw = 100;
         document.documentElement.style.fontSize = (16 * (raw / 100)) + 'px';
         if (localStorage.getItem('mf_dark_mode') === '1') {
@@ -1132,7 +1173,7 @@
             <div class="hdr-brand" onclick="goHome()" title="메인 메뉴">미트포앤<span class="go">GO</span></div>
             <div class="hdr-date-only">
                 <label for="orderTargetDate" class="hdr-date-label">납품일</label>
-                <input type="date" id="orderTargetDate" class="hdr-input" onchange="onFilterCriteriaChange()" title="납품 기준 날짜">
+                <input type="date" id="orderTargetDate" class="hdr-input" onchange="onTargetDateChange()" title="납품 기준 날짜">
             </div>
         </div>
         <div class="hdr-sub-bar">
@@ -1164,8 +1205,8 @@
             </button>
             <button type="button" class="kpi-card" onclick="switchTab('page2')">
                 <span class="kpi-label">📋 추출 발주 <span>›</span></span>
-                <span class="kpi-val" id="homeMsgCount">0건</span>
-                <span class="kpi-sub">전일·익일 납품 조정</span>
+                <span class="kpi-val" id="homeMsgCount">0업체</span>
+                <span class="kpi-sub">동일업체 추가·수정 자동통합</span>
             </button>
             <button type="button" class="kpi-card" onclick="switchTab('page5')">
                 <span class="kpi-label">📦 발주 낱개 <span>›</span></span>
@@ -1182,7 +1223,7 @@
         <div class="main-menu-grid">
             <button type="button" class="main-menu-btn" onclick="switchTab('page2')">
                 <span class="mi">📋</span>발주 목록
-                <span class="md">카톡 발주 내역 · 전일/익일 이동</span>
+                <span class="md">카톡 발주 내역 · 추가/수정 통합</span>
             </button>
             <button type="button" class="main-menu-btn" onclick="switchTab('page5')">
                 <span class="mi">📦</span>발주 낱개
@@ -1208,8 +1249,8 @@
 
         <div class="notice-card">
             <h4>현장 사용 팁</h4>
-            <div class="notice-item"><span><b>설정</b> 탭에서 카톡 TXT와 재고를 올리면 자동 저장됩니다</span><span class="date">1단계</span></div>
-            <div class="notice-item"><span>우측 상단 <b>가+ 100%</b> 버튼으로 글자 크기를 115%·130%로 키울 수 있습니다</span><span class="date">시인성</span></div>
+            <div class="notice-item"><span>같은 업체의 <b>●추가 / 수정</b> 발주는 같은 납품일 기준으로 자동 합산·적용됩니다</span><span class="date">자동통합</span></div>
+            <div class="notice-item"><span><b>설정</b>에서 고른 추출 시간 창과 화면 설정은 직접 바꾸기 전까지 영구 유지됩니다</span><span class="date">설정유지</span></div>
             <div class="notice-item"><span>스마트폰 뒤로가기 시 앱이 닫히지 않고 홈으로 이동합니다</span><span class="date">편의</span></div>
         </div>
     </div>
@@ -1219,7 +1260,7 @@
         <div class="section-card">
             <h3>💬 1단계: 발주 카카오톡 대화 파일(.txt) 로딩</h3>
             <p>
-                • 스마트폰/PC 내보내기 파일을 모두 인식하며, <b>여기까지 기준</b>으로 당일·익일 납품일을 자동 분리합니다.<br>
+                • 스마트폰/PC 내보내기 파일을 모두 인식하며, 같은 업체의 추가·수정 발주는 자동으로 통합됩니다.<br>
                 • 분석 결과와 수동 납품일 변경 내역은 기기에 자동 저장됩니다.
             </p>
             <div class="upload-zone" onclick="document.getElementById('kakaoFileInput').click()">
@@ -1241,15 +1282,16 @@
 
         <div class="section-card" id="settingsCard">
             <h3>⚙️ 추출·화면 표시 설정</h3>
+            <div class="setting-lock-banner" id="settingLockBanner">🔒 현재 선택한 모든 설정은 브라우저에 자동 저장되어 유지됩니다.</div>
             <div class="settings-grid">
                 <div>
-                    <label>발주 추출 시간 창</label>
-                    <select id="orderTimeMode" class="hdr-select" style="width:100%;height:42px;border:1.5px solid var(--border);background:var(--card);color:var(--text);" onchange="onFilterCriteriaChange()">
-    <option value="smart" selected>여기까지 기준 (납품일 기준 전일~당일 자동 취합)</option>
-    <option value="prev_to_curr">전일 ~ 당일 작성분 전체 보기 (D-1 ~ D)</option>
-    <option value="fullday">당일 작성분만 보기 (D)</option>
-    <option value="all">전체 날짜 보기</option>
-</select>
+                    <label for="orderTimeMode">발주 추출 시간 창</label>
+                    <select id="orderTimeMode" class="hdr-select" style="width:100%;height:42px;border:1.5px solid var(--border);background:var(--card);color:var(--text);" onchange="onTimeModeChange(this.value)">
+                        <option value="smart">여기까지 기준 (납품일 기준 전일~당일 자동 취합)</option>
+                        <option value="prev_to_curr">전일 ~ 당일 작성분 전체 보기 (D-1 ~ D)</option>
+                        <option value="fullday">당일 작성분만 보기 (D)</option>
+                        <option value="all">전체 날짜 보기</option>
+                    </select>
                 </div>
                 <div>
                     <label>글자 크기 & 화면 모드</label>
@@ -1286,7 +1328,7 @@
             <h3>🏢 3단계: 거래처 목록 CSV 관리</h3>
             <p>같은 폴더에 <code>clients.csv</code>가 있으면 자동 로드되며, 내장된 105개 거래처 DB로도 즉시 작동합니다.</p>
             <div class="filter-group" style="margin-bottom:8px;">
-                <input type="text" id="githubCsvUrl" style="flex:1; min-width:200px;" placeholder="https://raw.githubusercontent.com/.../clients.csv">
+                <input type="text" id="githubCsvUrl" style="flex:1; min-width:200px;" placeholder="https://raw.githubusercontent.com/.../clients.csv" onchange="saveUserSettings()">
                 <button type="button" class="btn sm" onclick="loadCsvFromGithub()">🌐 GitHub 불러오기</button>
             </div>
             <div class="btn-row">
@@ -1308,7 +1350,7 @@
                     <button type="button" class="btn sm green" onclick="downloadOrdersCsv()">📥 CSV</button>
                 </div>
             </div>
-            <input type="search" id="orderSearchInput" placeholder="🔍 거래처명 또는 품목 검색 (예: 진안, 암삼겹)" oninput="renderOrdersTable()">
+            <input type="search" id="orderSearchInput" placeholder="🔍 거래처명 또는 품목 검색 (예: 태광, 암삼겹)" oninput="renderOrdersTable()">
         </div>
 
         <div id="orderCardList" class="card-list">
@@ -1403,7 +1445,7 @@
         <div class="filter-bar">
             <div class="filter-bar-top">
                 <h3 style="margin:0; font-size:0.98rem; font-weight:900;">📋 배송처 목록</h3>
-                <select id="dispatchSortMode" onchange="onDispatchSortChange()"
+                <select id="dispatchSortMode" onchange="onDispatchSortChange(this.value)"
                     style="height:38px; padding:4px 10px; border-radius:10px; border:1.5px solid var(--primary); font-weight:800; font-size:0.84rem; background:var(--card); color:var(--text);">
                     <option value="far">기점에서 먼 곳 먼저</option>
                     <option value="near">기점에서 가까운 곳 먼저</option>
