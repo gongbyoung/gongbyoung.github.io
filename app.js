@@ -9,252 +9,237 @@ let allChatItems = [];
 let stockItems = [];
 let showOnlyOrder = true;
 let showOnlyKnownClient = false;
-let stockOnlyPositive = false;
-
-/* 배송차량 7개 고정: 최, 엄, 양, 한, 차, 김, 이 */
-const DEFAULT_VEHICLES = ["최", "엄", "양", "한", "차", "김", "이"];
-let vehicleNames = (() => {
-    try {
-        const saved = JSON.parse(localStorage.getItem('mf_vehicles') || 'null');
-        const isLegacy6 = Array.isArray(saved) && saved.length === 6 && saved[0] === "(차)";
-        if (Array.isArray(saved) && saved.length === 7 && !isLegacy6) {
-            return saved;
-        }
-    } catch (e) {}
-    try { localStorage.setItem('mf_vehicles', JSON.stringify(DEFAULT_VEHICLES)); } catch (e) {}
-    return [...DEFAULT_VEHICLES];
-})();
-
-let dispatchMap = JSON.parse(localStorage.getItem('mf_dispatch') || '{}');
-let manualDelivMap = JSON.parse(localStorage.getItem('mf_manual_deliv_dates') || '{}');
-let looseCheckedMap = JSON.parse(localStorage.getItem('mf_loose_checked') || '{}');
-let selectedVehicleFilter = 'ALL';
-let dispatchSortMode = localStorage.getItem('mf_dispatch_sort') || 'name';
-
-let prevDispatchSnapshot = null;
-let routeSeqMap = {};
 
 /* =========================================================================
-   설정 영구 저장 & 즉시 동기화 (변경 전까지 절대 초기화되지 않도록 전용 키로 보호)
+   ★ 1-B. 추출 알고리즘 설정 & 타사(다른 회사) 커스텀 규칙 엔진
    ========================================================================= */
-const USER_PREFS_KEY = 'mf_user_prefs_v2';
+const ALGO_PRESETS = {
+    meatpoan: {
+        preset: 'meatpoan',
+        cutoffKeywords: '여기까지',
+        itemKeywords: '삼겹,목살,미전지,전지,미삼,등갈비,등뼈,갈비,등심,안심,사태,앞사태,항정,가브리,갈매기,미후지,후지,오겹,우삼겹,차돌,스지,LA,엘에이,살치,부채,토시,안창,장족,미니족,껍데기,돈피,잡육,왕구이,목뼈,사골,오돌뼈,홍두깨,볼라,설도,늑간,알목,두메코,테니쉬,셀렉타,올리멜',
+        unitKeywords: '박스,박,팩,판,키로,kg,덩이,봉,봉지,개,각,마리,벌',
+        ignoreKeywords: '사진,삭제되었습니다,재고현황,발주체크,분류전,입금,반품장,여기까지,팩스 보냈습니다,코드 잡았습니다,단가표,원가내역,자동차검사,타이어,어떤거 주문하신걸까요,어떤걸로 할까요,기존 재고 늑간,정정 해두었습니다,복사해서 했었는데,그냥 박스로주시죠,인사요',
+        autoClientFromSender: false,
+        universalByUnit: false
+    },
+    food: {
+        preset: 'food',
+        cutoffKeywords: '여기까지,마감,주문마감',
+        itemKeywords: '삼겹,목살,미전지,전지,차돌,양파,감자,대파,마늘,쌀,김치,식용유,밀가루,설탕,소금,간장,된장,고추장,참기름,라면,진라면,신라면,두부,콩나물,계란,우유,소주,참이슬,처음처럼,맥주,콜라,사이다,음료,생수,종이컵,냅킨,물티슈,일회용장갑,비닐봉투,락스,세제',
+        unitKeywords: '박스,상자,박,팩,봉,봉지,포대,망,자루,통,병,캔,페트,짝,판,덩이,묶음,다스,갑,롤,줄,단,세트,개,EA,kg,키로,L,리터',
+        ignoreKeywords: '사진,이모티콘,동영상,삭제된 메시지,삭제되었습니다,재고현황,발주체크,입금,단가표,수고하세요,감사합니다,알겠습니다',
+        autoClientFromSender: true,
+        universalByUnit: true
+    },
+    universal: {
+        preset: 'universal',
+        cutoffKeywords: '여기까지,마감,주문마감,발주마감',
+        itemKeywords: '발주,주문,납품,출고,추가주문,추가발주',
+        unitKeywords: '박스,상자,박,팩,봉,봉지,포대,망,자루,통,병,캔,페트,짝,판,덩이,묶음,다스,갑,롤,줄,단,세트,개,각,EA,kg,키로,킬로,L,리터,파렛트,트레이',
+        ignoreKeywords: '사진,이모티콘,동영상,삭제된 메시지,삭제되었습니다,재고현황,발주체크,입금,단가표,수고하셨습니다,감사합니다',
+        autoClientFromSender: true,
+        universalByUnit: true
+    }
+};
 
-function readStoredUserPrefs() {
-    let prefs = {};
+function loadAlgoConfig() {
     try {
-        const legacy = JSON.parse(localStorage.getItem('mf_saved_settings') || 'null');
-        if (legacy && typeof legacy === 'object') prefs = Object.assign(prefs, legacy);
+        const raw = JSON.parse(localStorage.getItem('mf_algo_config') || 'null');
+        if (raw && typeof raw === 'object') {
+            return { ...ALGO_PRESETS.meatpoan, ...raw };
+        }
     } catch (e) {}
-    try {
-        const v2 = JSON.parse(localStorage.getItem(USER_PREFS_KEY) || 'null');
-        if (v2 && typeof v2 === 'object') prefs = Object.assign(prefs, v2);
-    } catch (e) {}
-    return prefs;
+    return { ...ALGO_PRESETS.meatpoan };
 }
 
-function setSelectValueLocked(selectEl, desiredValue) {
-    if (!selectEl || !desiredValue) return;
-    const opts = Array.from(selectEl.options);
-    if (!opts.some(o => o.value === desiredValue)) return;
-    selectEl.value = desiredValue;
-    opts.forEach(o => {
-        o.selected = (o.value === desiredValue);
+let algoConfig = loadAlgoConfig();
+
+function saveAlgoConfigStorage() {
+    try { localStorage.setItem('mf_algo_config', JSON.stringify(algoConfig)); } catch (e) {}
+}
+
+function escapeRegExp(str) {
+    return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function splitCsvKeywords(str) {
+    return String(str || '').split(/[,|\n]/).map(s => s.trim()).filter(Boolean);
+}
+
+function buildKeywordRegex(str, flags = 'i') {
+    const list = splitCsvKeywords(str);
+    if (!list.length) return null;
+    return new RegExp(list.map(escapeRegExp).join('|'), flags);
+}
+
+function renderAlgoSettingsUI() {
+    const cutoffEl = document.getElementById('algoCutoffKeywords');
+    const itemEl = document.getElementById('algoItemKeywords');
+    const unitEl = document.getElementById('algoUnitKeywords');
+    const ignoreEl = document.getElementById('algoIgnoreKeywords');
+    if (cutoffEl) cutoffEl.value = algoConfig.cutoffKeywords || '';
+    if (itemEl) itemEl.value = algoConfig.itemKeywords || '';
+    if (unitEl) unitEl.value = algoConfig.unitKeywords || '';
+    if (ignoreEl) ignoreEl.value = algoConfig.ignoreKeywords || '';
+
+    const btnAuto = document.getElementById('btnToggleAutoClient');
+    if (btnAuto) {
+        const on = Boolean(algoConfig.autoClientFromSender);
+        btnAuto.innerText = on ? '👤 미등록 거래처 자동인식(첫줄/발신자): ON' : '👤 미등록 거래처 자동인식(첫줄/발신자): OFF';
+        btnAuto.className = on
+            ? 'w-full py-2.5 px-3 rounded-xl bg-[#1D4ED8] text-white text-[0.78rem] font-black text-left'
+            : 'w-full py-2.5 px-3 rounded-xl hv-pill text-[0.78rem] font-black text-left';
+    }
+
+    ['meatpoan', 'food', 'universal'].forEach(p => {
+        const btn = document.getElementById('preset' + p.charAt(0).toUpperCase() + p.slice(1));
+        if (!btn) return;
+        const isActive = algoConfig.preset === p;
+        btn.className = isActive
+            ? 'algo-preset-btn py-2 px-1 rounded-xl border-2 border-[#1D4ED8] hv-badge-blue text-[0.74rem] font-black text-center'
+            : 'algo-preset-btn py-2 px-1 rounded-xl border-2 hv-pill text-[0.74rem] font-black text-center';
     });
 }
 
-function saveUserSettings(reasonText) {
-    try {
-        const modeEl = document.getElementById('orderTimeMode');
-        const dateEl = document.getElementById('orderTargetDate');
-        const sortEl = document.getElementById('dispatchSortMode');
-        const ghEl = document.getElementById('githubCsvUrl');
+function toggleAlgoGuideBox() {
+    const box = document.getElementById('algoGuideBox');
+    if (!box) return;
+    box.style.display = (box.style.display === 'none') ? 'block' : 'none';
+}
 
-        const currentPrefs = readStoredUserPrefs();
-        const nextPrefs = {
-            targetDate: dateEl ? (dateEl.value || currentPrefs.targetDate || '') : (currentPrefs.targetDate || ''),
-            timeMode: modeEl ? (modeEl.value || 'smart') : (currentPrefs.timeMode || 'smart'),
-            showOnlyOrder: Boolean(showOnlyOrder),
-            showOnlyKnownClient: Boolean(showOnlyKnownClient),
-            stockOnlyPositive: Boolean(stockOnlyPositive),
-            uiScale: getUiScalePercent(),
-            darkMode: document.documentElement.classList.contains('dark-mode'),
-            dispatchSortMode: sortEl ? (sortEl.value || dispatchSortMode || 'name') : (dispatchSortMode || 'name'),
-            githubCsvUrl: ghEl ? (ghEl.value || '') : (currentPrefs.githubCsvUrl || ''),
-            v3AlphaMigrated: true
-        };
+function applyAlgoPreset(presetKey) {
+    const base = ALGO_PRESETS[presetKey] || ALGO_PRESETS.meatpoan;
+    algoConfig = { ...base };
+    saveAlgoConfigStorage();
+    renderAlgoSettingsUI();
+    reclassifyAndRefreshAll(`프리셋 변경(${presetKey})`);
+    const msgEl = document.getElementById('algoSaveMsg');
+    if (msgEl) msgEl.innerText = `✅ [${presetKey === 'meatpoan' ? '미트포앤 축산' : (presetKey === 'food' ? '식자재·유통' : '타사 범용')}] 프리셋이 적용되었습니다!`;
+}
 
-        localStorage.setItem(USER_PREFS_KEY, JSON.stringify(nextPrefs));
-        localStorage.setItem('mf_saved_settings', JSON.stringify(nextPrefs));
-        localStorage.setItem('mf_ui_scale', String(nextPrefs.uiScale));
-        localStorage.setItem('mf_dark_mode', nextPrefs.darkMode ? '1' : '0');
-        localStorage.setItem('mf_dispatch_sort', nextPrefs.dispatchSortMode);
+function toggleAlgoAutoClient() {
+    algoConfig.autoClientFromSender = !algoConfig.autoClientFromSender;
+    saveAlgoConfigStorage();
+    renderAlgoSettingsUI();
+    reclassifyAndRefreshAll('미등록 거래처 자동인식 전환');
+}
 
-        const banner = document.getElementById('settingLockBanner');
-        if (banner) {
-            const stamp = getNowTimeFormatted();
-            banner.textContent = reasonText
-                ? `🔒 '${reasonText}' 저장 완료 (${stamp}) · 변경 전까지 영구 유지`
-                : `🔒 현재 선택한 모든 설정이 저장되어 유지됩니다 (${stamp})`;
-        }
-    } catch (e) {
-        console.warn('설정 저장 오류:', e);
+function saveAlgoConfigAndReanalyze() {
+    const cutoffEl = document.getElementById('algoCutoffKeywords');
+    const itemEl = document.getElementById('algoItemKeywords');
+    const unitEl = document.getElementById('algoUnitKeywords');
+    const ignoreEl = document.getElementById('algoIgnoreKeywords');
+
+    algoConfig.cutoffKeywords = (cutoffEl ? cutoffEl.value : algoConfig.cutoffKeywords).trim() || '여기까지';
+    algoConfig.itemKeywords = (itemEl ? itemEl.value : algoConfig.itemKeywords).trim();
+    algoConfig.unitKeywords = (unitEl ? unitEl.value : algoConfig.unitKeywords).trim() || '박스,박,팩,개';
+    algoConfig.ignoreKeywords = (ignoreEl ? ignoreEl.value : algoConfig.ignoreKeywords).trim();
+    saveAlgoConfigStorage();
+    reclassifyAndRefreshAll('커스텀 추출 규칙 저장');
+
+    const msgEl = document.getElementById('algoSaveMsg');
+    if (msgEl) {
+        const orderCnt = allChatItems.filter(x => x.type === '발주').length;
+        msgEl.innerText = `✅ 저장 및 재추출 완료! (현재 발주 ${orderCnt}건 추출됨)`;
     }
 }
 
-function restoreUserSettings(preserveTargetDateIfEmpty = false) {
-    const prefs = readStoredUserPrefs();
-
-    if (prefs.timeMode) {
-        const modeEl = document.getElementById('orderTimeMode');
-        setSelectValueLocked(modeEl, prefs.timeMode);
-    }
-
-    if (prefs.targetDate) {
-        const dateEl = document.getElementById('orderTargetDate');
-        if (dateEl && (!preserveTargetDateIfEmpty || !dateEl.value)) {
-            dateEl.value = prefs.targetDate;
-        }
-    }
-
-    if (typeof prefs.showOnlyOrder === 'boolean') {
-        showOnlyOrder = prefs.showOnlyOrder;
-    }
-    if (typeof prefs.showOnlyKnownClient === 'boolean') {
-        showOnlyKnownClient = prefs.showOnlyKnownClient;
-    }
-    if (typeof prefs.stockOnlyPositive === 'boolean') {
-        stockOnlyPositive = prefs.stockOnlyPositive;
-    }
-
-    if (!prefs.v3AlphaMigrated) {
-        dispatchSortMode = 'name';
-        try { localStorage.setItem('mf_dispatch_sort', 'name'); } catch (e) {}
-    } else if (prefs.dispatchSortMode) {
-        dispatchSortMode = prefs.dispatchSortMode;
-    }
-    const sortEl = document.getElementById('dispatchSortMode');
-    setSelectValueLocked(sortEl, dispatchSortMode);
-
-    if (typeof prefs.githubCsvUrl === 'string') {
-        const ghEl = document.getElementById('githubCsvUrl');
-        if (ghEl && !ghEl.value) ghEl.value = prefs.githubCsvUrl;
-    }
-
-    if (typeof prefs.darkMode === 'boolean') {
-        document.documentElement.classList.toggle('dark-mode', prefs.darkMode);
-    }
-    updateDarkModeUI();
-
-    const scaleVal = prefs.uiScale ? parseInt(prefs.uiScale, 10) : getUiScalePercent();
-    applyUiScale(scaleVal, true);
-
-    updateHeaderToggleButtonsUI();
-    updateStockPositiveBtnUI();
+function resetAlgoConfigToDefault() {
+    if (!confirm('추출 알고리즘 규칙을 미트포앤 기본값으로 되돌릴까요?')) return;
+    applyAlgoPreset('meatpoan');
 }
 
-function onTimeModeChange(newVal) {
-    const modeEl = document.getElementById('orderTimeMode');
-    setSelectValueLocked(modeEl, newVal);
-    saveUserSettings('발주 추출 시간 창');
-    showToast('추출 시간 창 설정 저장됨');
+function reclassifyAndRefreshAll(actionLabel) {
+    if (allChatItems.length > 0) {
+        allChatItems.forEach((item, idx) => {
+            item.idx = idx;
+            classifyChatItem(item);
+        });
+        inferDeliveryDatesForAllItems();
+        const orderCnt = allChatItems.filter(x => x.type === '발주').length;
+        const weightCnt = allChatItems.filter(x => x.type === '계근').length;
+        const pill = document.getElementById('pillKakao');
+        if (pill) {
+            pill.innerText = `카톡: 발주 ${orderCnt}건`;
+            pill.classList.add('ok');
+        }
+        const loadMsg = document.getElementById('kakaoLoadMsg');
+        if (loadMsg) {
+            loadMsg.innerText = `✅ 총 ${allChatItems.length}건 분석 완료! (발주 ${orderCnt}건 / 계근 ${weightCnt}건)`;
+        }
+        saveStateToBrowser(actionLabel || '알고리즘 재분석');
+    }
     onFilterCriteriaChange(true);
 }
 
-function onTargetDateChange() {
-    saveUserSettings('납품 기준일');
-    onFilterCriteriaChange(false);
+function testUniversalSample() {
+    applyAlgoPreset('food');
+    const sampleText =
+        `--------------- 2026년 11월 17일 화요일 ---------------\n` +
+        `2026년 11월 17일 오전 8:20, [강남식자재본점] : 진라면 매운맛 5박스\n` +
+        `식용유 18L 3통\n` +
+        `양파 4망\n` +
+        `일회용장갑 10팩\n` +
+        `2026년 11월 17일 오전 9:05, 박팀장(영업부) : 역삼직영점\n` +
+        `쌀 20kg 6포대\n` +
+        `김치 10kg 3박스\n` +
+        `참이슬 4짝\n` +
+        `2026년 11월 17일 오전 11:30, 관리자 : 여기까지\n` +
+        `2026년 11월 17일 오후 2:10, 송파가맹점 : 종이컵 3박스\n` +
+        `냅킨 5묶음\n` +
+        `락스 2통`;
+
+    allChatItems = [];
+    parseSingleKakaoText(sampleText);
+    allChatItems.forEach((item, idx) => { item.idx = idx; });
+    inferDeliveryDatesForAllItems();
+    document.getElementById('orderTargetDate').value = '2026-11-17';
+    saveStateToBrowser('타사 샘플 추출 테스트');
+    reclassifyAndRefreshAll('타사 샘플 추출 테스트');
+    switchTab('orders');
+    showToast('타사 식자재·유통 샘플 추출이 완료되었습니다.');
 }
 
-/* =========================================================================
-   가독성 스케일 & 다크모드 & 토스트 제어
-   ========================================================================= */
-function showToast(msg) {
-    const el = document.getElementById('toastMsg');
-    if (!el) return;
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(el._timer);
-    el._timer = setTimeout(() => el.classList.remove('show'), 2200);
-}
+// 6대 차량 기본 설정, 배차 저장소, 수동 납품일 지정 저장소
+const DEFAULT_VEHICLES = [
+    "1호차 (차)",
+    "2호차 (한)",
+    "3호차 (엄)",
+    "4호차 (최)",
+    "5호차 (양)",
+    "6호차 (김)"
+];
+let vehicleNames = JSON.parse(localStorage.getItem('mf_vehicles') || 'null') || [...DEFAULT_VEHICLES];
+let dispatchMap = JSON.parse(localStorage.getItem('mf_dispatch') || '{}');
+let manualDelivMap = JSON.parse(localStorage.getItem('mf_manual_deliv_dates') || '{}');
+let selectedVehicleFilter = 'ALL';
+let dispatchSortMode = localStorage.getItem('mf_dispatch_sort') || 'far';
 
 function getUiScalePercent() {
-    let v = parseInt(localStorage.getItem('mf_ui_scale') || '100', 10);
-    if (v > 140) v = 100;
-    if ([100, 115, 130].includes(v)) return v;
-    return 100;
+    const v = parseInt(localStorage.getItem('mf_ui_scale') || '200', 10);
+    if ([100, 125, 150, 175, 200].includes(v)) return v;
+    if (v >= 100 && v <= 200) return v;
+    return 200;
 }
 
-function applyUiScale(percent, skipSave) {
-    const p = [100, 115, 130].includes(parseInt(percent, 10)) ? parseInt(percent, 10) : 100;
-    document.documentElement.style.fontSize = (16 * (p / 100)) + 'px';
+function applyUiScale(percent) {
+    const p = Math.max(100, Math.min(200, parseInt(percent, 10) || 200));
+    const scale = p / 100;
+    document.documentElement.style.setProperty('--ui-scale', String(scale));
+    const range = document.getElementById('uiScaleRange');
+    const label = document.getElementById('uiScaleLabel');
+    if (range) range.value = String(p);
+    if (label) label.textContent = p + '%';
     try { localStorage.setItem('mf_ui_scale', String(p)); } catch (e) {}
-
-    const quickBtn = document.getElementById('btnQuickScale');
-    if (quickBtn) {
-        quickBtn.textContent = `가+ ${p}%`;
-        quickBtn.classList.toggle('active', p > 100);
-    }
-    [100, 115, 130].forEach(val => {
-        const b = document.getElementById('btnScale' + val);
-        if (b) {
-            b.className = (val === p) ? 'btn sm' : 'btn sm outline';
-        }
-    });
-    if (!skipSave) saveUserSettings(`글자 크기 ${p}%`);
 }
 
 function setUiScale(percent) {
-    applyUiScale(percent, false);
-    showToast(`글자 크기 ${percent}% 적용`);
+    applyUiScale(percent);
 }
 
-function cycleUiScale() {
-    const cur = getUiScalePercent();
-    const next = cur === 100 ? 115 : (cur === 115 ? 130 : 100);
-    setUiScale(next);
-}
-
-function updateDarkModeUI() {
-    const isDark = document.documentElement.classList.contains('dark-mode');
-    const qBtn = document.getElementById('btnQuickDark');
-    const sBtn = document.getElementById('btnSettingDark');
-    if (qBtn) {
-        qBtn.textContent = isDark ? '☀️ 주간' : '🌙 야간';
-        qBtn.classList.toggle('active', isDark);
-    }
-    if (sBtn) {
-        sBtn.textContent = isDark ? '☀️ 주간모드 전환' : '🌙 야간모드 전환';
-        sBtn.className = isDark ? 'btn sm' : 'btn sm outline';
-    }
-}
-
-function toggleDarkMode() {
-    const isDark = document.documentElement.classList.toggle('dark-mode');
-    try { localStorage.setItem('mf_dark_mode', isDark ? '1' : '0'); } catch (e) {}
-    updateDarkModeUI();
-    saveUserSettings(isDark ? '야간모드' : '주간모드');
-    showToast(isDark ? '야간 고대비 모드 켜짐' : '주간 고대비 모드 켜짐');
-}
-
-function toggleVehicleEditBox() {
-    const grid = document.getElementById('vehicleConfigGrid');
-    if (!grid) return;
-    grid.style.display = (grid.style.display === 'none') ? 'grid' : 'none';
-}
-
-function updateStockPositiveBtnUI() {
-    const btn = document.getElementById('btnStockOnlyPos');
-    if (btn) {
-        btn.textContent = stockOnlyPositive ? '보유만: ON' : '보유만: OFF';
-        btn.className = stockOnlyPositive ? 'btn sm' : 'btn sm outline';
-    }
-}
-
-function toggleStockOnlyPositive() {
-    stockOnlyPositive = !stockOnlyPositive;
-    updateStockPositiveBtnUI();
-    saveUserSettings('재고 보유만 필터');
-    renderStockTable();
+function onUiScaleChange(val) {
+    applyUiScale(val);
 }
 
 const INITIAL_STOCK_TEXT = ``;
@@ -274,17 +259,28 @@ function getNowTimeFormatted() {
 
 function recordLastUpdatedTime(customAction) {
     const stamp = getNowTimeFormatted();
-    localStorage.setItem('mf_last_updated', stamp);
+    try { localStorage.setItem('mf_last_updated', stamp); } catch (e) {}
     const pill = document.getElementById('pillUpdated');
     if (pill) {
         pill.innerText = `🕒 업데이트: ${stamp}`;
         pill.title = customAction ? `마지막 작업: ${customAction} (${stamp})` : `마지막 업데이트: ${stamp}`;
     }
+    const homeBadge = document.getElementById('homeUpdatedBadge');
+    if (homeBadge) {
+        homeBadge.innerText = `${stamp}`;
+    }
 }
 
 function saveStateToBrowser(actionLabel) {
-    saveUserSettings(actionLabel);
     try {
+        const settings = {
+            targetDate: document.getElementById('orderTargetDate').value || '',
+            timeMode: document.getElementById('orderTimeMode').value || 'smart',
+            showOnlyOrder: showOnlyOrder,
+            showOnlyKnownClient: showOnlyKnownClient
+        };
+        localStorage.setItem('mf_saved_settings', JSON.stringify(settings));
+
         const stockRaw = document.getElementById('stockTextarea').value || '';
         if (stockRaw.trim()) {
             localStorage.setItem('mf_saved_stock_text', stockRaw);
@@ -308,14 +304,31 @@ function saveStateToBrowser(actionLabel) {
 }
 
 function restoreStateFromBrowser() {
-    restoreUserSettings(false);
+    try {
+        const savedSettings = JSON.parse(localStorage.getItem('mf_saved_settings') || 'null');
+        if (savedSettings) {
+            if (savedSettings.targetDate) {
+                document.getElementById('orderTargetDate').value = savedSettings.targetDate;
+            }
+            if (savedSettings.timeMode) {
+                document.getElementById('orderTimeMode').value = savedSettings.timeMode;
+            }
+            if (typeof savedSettings.showOnlyOrder === 'boolean') {
+                showOnlyOrder = savedSettings.showOnlyOrder;
+            }
+            if (typeof savedSettings.showOnlyKnownClient === 'boolean') {
+                showOnlyKnownClient = savedSettings.showOnlyKnownClient;
+            }
+        }
+    } catch (e) {}
+
+    updateHeaderToggleButtonsUI();
+    renderAlgoSettingsUI();
 
     const savedStock = localStorage.getItem('mf_saved_stock_text');
     document.getElementById('stockTextarea').value = savedStock && savedStock.trim() ? savedStock : INITIAL_STOCK_TEXT;
     if (document.getElementById('stockTextarea').value.trim()) {
         parseAndApplyStock(false, true);
-    } else {
-        renderStockTable();
     }
 
     try {
@@ -326,75 +339,75 @@ function restoreStateFromBrowser() {
                 item.idx = idx;
                 classifyChatItem(item);
             });
-            resolveSequentialFollowUpClients();
             inferDeliveryDatesForAllItems();
 
             if (!document.getElementById('orderTargetDate').value) {
                 const lastDate = allChatItems[allChatItems.length - 1].dateFull;
                 document.getElementById('orderTargetDate').value = lastDate;
-                saveUserSettings();
             }
 
             const orderCnt = allChatItems.filter(x => x.type === '발주').length;
             const weightCnt = allChatItems.filter(x => x.type === '계근').length;
-            document.getElementById('kakaoLoadMsg').innerText = `💾 이전 저장된 카톡 데이터 자동 복원됨 (총 ${allChatItems.length}건 중 순수발주 ${orderCnt}건 / 계근 ${weightCnt}건)`;
+            const kakaoMsgEl = document.getElementById('kakaoLoadMsg');
+            if (kakaoMsgEl) kakaoMsgEl.innerText = `💾 이전 저장된 카톡 데이터 자동 복원됨 (총 ${allChatItems.length}건 중 순수발주 ${orderCnt}건 / 계근 ${weightCnt}건)`;
             const pill = document.getElementById('pillKakao');
-            pill.innerText = `카톡: 발주 ${orderCnt}건`;
-            pill.classList.add('ok');
+            if (pill) {
+                pill.innerText = `카톡: 발주 ${orderCnt}건`;
+                pill.classList.add('ok');
+            }
         }
     } catch (e) {}
 
-    document.getElementById('pillClient').innerText = `거래처: ${clientDB.length}곳`;
-
     const lastUpd = localStorage.getItem('mf_last_updated');
     if (lastUpd) {
-        document.getElementById('pillUpdated').innerText = `🕒 업데이트: ${lastUpd}`;
+        const pillUpd = document.getElementById('pillUpdated');
+        if (pillUpd) pillUpd.innerText = `🕒 업데이트: ${lastUpd}`;
+        const homeBadge = document.getElementById('homeUpdatedBadge');
+        if (homeBadge) homeBadge.innerText = lastUpd;
     } else {
         recordLastUpdatedTime('초기 로드');
     }
 
+    updateHeaderDateDisplay();
+    syncReadabilityButtonsUI();
+    if (typeof restorePurchaseAndStaffChats === 'function') restorePurchaseAndStaffChats();
     onFilterCriteriaChange(true);
 }
 
 function clearSavedBrowserData() {
-    if (!confirm('브라우저에 자동 저장된 카톡 발주 내역, 수동 납품일 지정, 재고 텍스트, 배차 기록 및 설정을 모두 초기화할까요?')) return;
+    if (!confirm('브라우저에 자동 저장된 카톡 발주 내역, 매입/직원방 내역, 수동 납품일 지정, 재고 텍스트, 배차 기록을 모두 초기화할까요?')) return;
     localStorage.removeItem('mf_saved_chat_items');
+    localStorage.removeItem('mf_saved_purchase_chats');
+    localStorage.removeItem('mf_saved_staff_chats');
     localStorage.removeItem('mf_saved_stock_text');
     localStorage.removeItem('mf_saved_settings');
-    localStorage.removeItem(USER_PREFS_KEY);
     localStorage.removeItem('mf_last_updated');
     localStorage.removeItem('mf_dispatch');
-    localStorage.removeItem('mf_vehicles');
     localStorage.removeItem('mf_manual_deliv_dates');
-    localStorage.removeItem('mf_loose_checked');
-    localStorage.removeItem('mf_ui_scale');
-    localStorage.removeItem('mf_dark_mode');
-    localStorage.removeItem('mf_dispatch_sort');
+    localStorage.removeItem('mf_algo_config');
     location.reload();
 }
 
 window.addEventListener('popstate', (ev) => {
-    const pageId = (ev.state && ev.state.pageId) || (location.hash || '#pageHome').replace(/^#/, '') || 'pageHome';
+    const pageId = (ev.state && ev.state.pageId) || (location.hash || '#home').replace(/^#/, '') || 'home';
     switchTab(pageId, null, true);
 });
 
-window.addEventListener('pageshow', () => {
-    restoreUserSettings(true);
-});
-
 window.addEventListener('DOMContentLoaded', () => {
+    syncReadabilityButtonsUI();
     renderVehicleConfigInputs();
     restoreStateFromBrowser();
+    updateHeaderDateDisplay();
     try {
-        const initial = (location.hash || '#pageHome').replace(/^#/, '') || 'pageHome';
-        history.replaceState({ pageId: 'pageHome' }, '', '#pageHome');
-        if (initial && initial !== 'pageHome' && document.getElementById(initial)) {
+        const initial = (location.hash || '#home').replace(/^#/, '') || 'home';
+        history.replaceState({ pageId: 'home' }, '', '#home');
+        if (initial && initial !== 'home' && document.getElementById('tab-' + initial)) {
             switchTab(initial, null, true);
         } else {
-            switchTab('pageHome', null, true);
+            switchTab('home', null, true);
         }
     } catch (e) {
-        switchTab('pageHome', null, true);
+        switchTab('home', null, true);
     }
 
     fetch('./clients.csv')
@@ -410,44 +423,283 @@ window.addEventListener('DOMContentLoaded', () => {
         .catch(() => {});
 });
 
-/* 탭 전환 함수 */
-function goHome() {
-    switchTab('pageHome');
+let activeTab = 'home';
+let orderFilterMode = 'all';
+let inventoryFilter = 'all';
+let dispatchPendingOnly = false;
+let toastTimer = null;
+let loosePickedMap = {};
+let dispatchDoneMap = {};
+try {
+    loosePickedMap = JSON.parse(localStorage.getItem('mf_loose_picked') || '{}');
+    dispatchDoneMap = JSON.parse(localStorage.getItem('mf_dispatch_done') || '{}');
+} catch (e) {}
+
+function syncReadabilityButtonsUI() {
+    const isLarge = document.documentElement.classList.contains('large-text');
+    const isDark = document.documentElement.classList.contains('dark-mode');
+
+    const btnLarge = document.getElementById('btn-large-text');
+    const setLarge = document.getElementById('settings-toggle-large');
+    if (btnLarge) {
+        btnLarge.className = isLarge
+            ? 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.68rem] font-black bg-amber-300 text-slate-950 border border-amber-200 shadow-xs transition whitespace-nowrap'
+            : 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.68rem] font-extrabold bg-white/15 hover:bg-white/25 text-white border border-white/25 transition whitespace-nowrap';
+        btnLarge.setAttribute('aria-pressed', String(isLarge));
+    }
+    if (setLarge) {
+        setLarge.textContent = isLarge ? 'ON (115%)' : 'OFF';
+        setLarge.className = isLarge
+            ? 'px-3.5 py-2 rounded-xl text-[0.78rem] font-black bg-[#1D4ED8] text-white transition shrink-0'
+            : 'px-3.5 py-2 rounded-xl text-[0.78rem] font-black hv-pill transition shrink-0';
+    }
+
+    const btnDark = document.getElementById('btn-dark-mode');
+    const iconEl = document.getElementById('dark-mode-icon');
+    const labelEl = document.getElementById('dark-mode-label');
+    const setDark = document.getElementById('settings-toggle-dark');
+    if (iconEl) iconEl.textContent = isDark ? '☀️' : '🌙';
+    if (labelEl) labelEl.textContent = isDark ? '주간모드' : '야간모드';
+    if (btnDark) {
+        btnDark.className = isDark
+            ? 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.68rem] font-black bg-slate-900 text-amber-300 border border-slate-700 shadow-xs transition whitespace-nowrap'
+            : 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.68rem] font-extrabold bg-white/15 hover:bg-white/25 text-white border border-white/25 transition whitespace-nowrap';
+        btnDark.setAttribute('aria-pressed', String(isDark));
+    }
+    if (setDark) {
+        setDark.textContent = isDark ? 'ON (야간)' : 'OFF';
+        setDark.className = isDark
+            ? 'px-3.5 py-2 rounded-xl text-[0.78rem] font-black bg-[#1D4ED8] text-white transition shrink-0'
+            : 'px-3.5 py-2 rounded-xl text-[0.78rem] font-black hv-pill transition shrink-0';
+    }
 }
 
-function switchTab(pageId, btnEl, fromPopstate) {
-    const page = document.getElementById(pageId);
-    if (!page) {
-        pageId = 'pageHome';
+function toggleLargeText() {
+    const next = !document.documentElement.classList.contains('large-text');
+    document.documentElement.classList.toggle('large-text', next);
+    try { localStorage.setItem('mf_large_text', next ? '1' : '0'); } catch (e) {}
+    syncReadabilityButtonsUI();
+    showToast(next ? '큰글씨 모드(115% 확대)가 적용되었습니다.' : '기본 글씨 크기로 복원되었습니다.');
+}
+
+function toggleDarkMode() {
+    const next = !document.documentElement.classList.contains('dark-mode');
+    document.documentElement.classList.toggle('dark-mode', next);
+    try { localStorage.setItem('mf_dark_mode', next ? '1' : '0'); } catch (e) {}
+    syncReadabilityButtonsUI();
+    showToast(next ? '야간 / 배송 트럭 다크모드가 활성화되었습니다.' : '주간 고대비 모드로 전환되었습니다.');
+}
+
+function formatDateWithDow(dateStr) {
+    if (!dateStr) return '전체 날짜';
+    const dt = new Date(dateStr + 'T00:00:00');
+    if (isNaN(dt.getTime())) return dateStr;
+    const dows = ['일', '월', '화', '수', '목', '금', '토'];
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    return `${y}. ${m}. ${d} (${dows[dt.getDay()]})`;
+}
+
+function updateHeaderDateDisplay() {
+    const dateVal = document.getElementById('orderTargetDate')?.value || '';
+    const labelEl = document.getElementById('header-date-label');
+    const homeDateEl = document.getElementById('home-brief-date');
+    const formatted = formatDateWithDow(dateVal);
+    if (labelEl) labelEl.textContent = formatted;
+    if (homeDateEl) homeDateEl.textContent = dateVal ? `${formatted} 납품 기준` : '전체 날짜 기준';
+}
+
+function stepDeliveryDate(delta) {
+    const inp = document.getElementById('orderTargetDate');
+    if (!inp) return;
+    let cur = inp.value;
+    if (!cur) {
+        const now = new Date();
+        cur = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     }
-    document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.bottom-nav button').forEach(b => b.classList.remove('active'));
-    const el = document.getElementById(pageId);
-    if (el) el.classList.add('active');
-    if (btnEl) btnEl.classList.add('active');
-    document.querySelectorAll('.tab-btn').forEach(b => {
-        if (b.getAttribute('data-page') === pageId) b.classList.add('active');
+    const next = addDaysToDateStr(cur, delta);
+    inp.value = next;
+    updateHeaderDateDisplay();
+    onFilterCriteriaChange();
+    showToast(`납품 기준일이 ${formatDateWithDow(next)}로 변경되었습니다.`);
+}
+
+function openDateSheet() {
+    const listEl = document.getElementById('date-sheet-options');
+    const modalEl = document.getElementById('date-sheet-modal');
+    const pickerEl = document.getElementById('sheetDatePicker');
+    const curVal = document.getElementById('orderTargetDate')?.value || '';
+    if (pickerEl) pickerEl.value = curVal;
+
+    // 불러온 카톡 내역에 존재하는 납품일 목록 자동 추출
+    const dateCounts = {};
+    allChatItems.forEach(it => {
+        if (it.type === '발주' && it.targetDeliveryDate) {
+            dateCounts[it.targetDeliveryDate] = (dateCounts[it.targetDeliveryDate] || 0) + 1;
+        }
     });
-    document.querySelectorAll('.bottom-nav button').forEach(b => {
-        if (b.getAttribute('data-page') === pageId) b.classList.add('active');
+    const keys = Object.keys(dateCounts).sort().reverse().slice(0, 8);
+    if (listEl) {
+        let html = `
+            <button type="button" onclick="applyDirectDateFromSheet('')" class="w-full px-4 py-3 rounded-2xl flex items-center justify-between text-left transition ${!curVal ? 'hv-badge-blue font-black' : 'hv-subbox font-bold hv-text-main'}">
+                <span class="text-[0.88rem]">전체 날짜 보기</span>
+                <span class="text-[0.72rem] font-extrabold px-2 py-0.5 rounded-full hv-pill">전체</span>
+            </button>
+        `;
+        keys.forEach(dKey => {
+            const active = dKey === curVal;
+            html += `
+                <button type="button" onclick="applyDirectDateFromSheet('${dKey}')" class="w-full px-4 py-3 rounded-2xl flex items-center justify-between text-left transition ${active ? 'hv-badge-blue font-black' : 'hv-subbox font-bold hv-text-main'}">
+                    <span class="text-[0.88rem] num-tabular">${formatDateWithDow(dKey)}</span>
+                    <span class="text-[0.72rem] font-extrabold px-2 py-0.5 rounded-full ${active ? 'bg-[#1D4ED8] text-white' : 'hv-pill'} num-tabular">발주 ${dateCounts[dKey]}건</span>
+                </button>
+            `;
+        });
+        listEl.innerHTML = html;
+    }
+    if (modalEl) modalEl.classList.remove('hidden');
+}
+
+function closeDateSheet() {
+    const modalEl = document.getElementById('date-sheet-modal');
+    if (modalEl) modalEl.classList.add('hidden');
+}
+
+function applyDirectDateFromSheet(val) {
+    const inp = document.getElementById('orderTargetDate');
+    if (inp) inp.value = val || '';
+    updateHeaderDateDisplay();
+    closeDateSheet();
+    onFilterCriteriaChange();
+    showToast(val ? `납품 기준일이 ${formatDateWithDow(val)}로 변경되었습니다.` : '전체 날짜 보기로 전환되었습니다.');
+}
+
+function openMemoSheet(storeName, memoText) {
+    openMemoModal(storeName, memoText);
+}
+
+function closeMemoSheet() {
+    closeMemoModal();
+}
+
+function showToast(message) {
+    const banner = document.getElementById('toast-banner');
+    const msgEl = document.getElementById('toast-message');
+    if (!banner || !msgEl) return;
+    msgEl.textContent = message;
+    banner.classList.remove('opacity-0', 'translate-y-2');
+    banner.classList.add('opacity-100', 'translate-y-0');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        banner.classList.add('opacity-0', 'translate-y-2');
+        banner.classList.remove('opacity-100', 'translate-y-0');
+    }, 2400);
+}
+
+function openMemoModal(storeName, memoText) {
+    const titleEl = document.getElementById('memo-sheet-title') || document.getElementById('memo-modal-title');
+    const bodyEl = document.getElementById('memo-sheet-body') || document.getElementById('memo-modal-body');
+    const modalEl = document.getElementById('memo-sheet-modal') || document.getElementById('memo-modal');
+    if (titleEl) titleEl.textContent = `${storeName} 비번/메모`;
+    if (bodyEl) bodyEl.textContent = memoText;
+    if (modalEl) modalEl.classList.remove('hidden');
+}
+
+function closeMemoModal() {
+    const modalEl = document.getElementById('memo-sheet-modal') || document.getElementById('memo-modal');
+    if (modalEl) modalEl.classList.add('hidden');
+}
+
+function copyTextWithToast(text, message) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {});
+    }
+    try {
+        const tempInput = document.createElement('textarea');
+        tempInput.value = text;
+        tempInput.style.position = 'fixed';
+        tempInput.style.opacity = '0';
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+    } catch (e) {}
+    showToast(message);
+}
+
+function handlePhoneAction(storeName, phone) {
+    copyTextWithToast(phone, `${storeName} 연락처(${phone})가 복사되었습니다.`);
+    try {
+        const telClean = String(phone || '').replace(/[^0-9+*#]/g, '');
+        if (telClean) {
+            window.location.href = `tel:${telClean}`;
+        }
+    } catch (e) {}
+}
+
+function toggleOrderHelp() {
+    const box = document.getElementById('order-help-box');
+    if (box) box.classList.toggle('hidden');
+}
+
+function toggleDispatchMapBox() {
+    const box = document.getElementById('dispatchMapBox');
+    if (!box) return;
+    box.classList.toggle('hidden');
+    if (!box.classList.contains('hidden')) {
+        refreshDispatchMap();
+    }
+}
+
+function toggleVehicleConfigBox() {
+    const box = document.getElementById('vehicleConfigBox');
+    if (box) box.classList.toggle('hidden');
+}
+
+/* 탭 전환 함수 */
+function goHome() {
+    switchTab('home');
+}
+
+function switchTab(tabKey, btnEl, fromPopstate) {
+    if (!document.getElementById('tab-' + tabKey)) {
+        tabKey = 'home';
+    }
+    activeTab = tabKey;
+
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    const targetPanel = document.getElementById('tab-' + tabKey);
+    if (targetPanel) targetPanel.classList.remove('hidden');
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        const isCurrent = btn.dataset.tab === tabKey;
+        const indicator = btn.querySelector('.nav-indicator');
+        if (isCurrent) {
+            btn.style.color = 'var(--accent-blue)';
+            if (indicator) indicator.classList.remove('hidden');
+        } else {
+            btn.style.color = 'var(--text-muted)';
+            if (indicator) indicator.classList.add('hidden');
+        }
     });
 
-    if (pageId === 'page1') restoreUserSettings(true);
-    if (pageId === 'page2') renderOrdersTable();
-    if (pageId === 'page3') renderStockTable();
-    if (pageId === 'page4') renderOrderSummaryTable();
-    if (pageId === 'page6') renderDispatchPage();
-    if (pageId === 'page5') renderLooseTable();
-    if (pageId === 'pageHome') updateHomeSummary();
+    if (tabKey === 'orders') renderOrdersTable();
+    if (tabKey === 'inventory') renderStockTable();
+    if (tabKey === 'summary') renderOrderSummaryTable();
+    if (tabKey === 'dispatch') renderDispatchPage();
+    if (tabKey === 'loose') renderLooseTable();
+    if (tabKey === 'purchase' && typeof renderChatRoomTab === 'function') renderChatRoomTab('purchase');
+    if (tabKey === 'staff' && typeof renderChatRoomTab === 'function') renderChatRoomTab('staff');
+    if (tabKey === 'home') updateHomeSummary();
 
     if (!fromPopstate) {
         try {
-            const hash = '#' + pageId;
+            const hash = '#' + tabKey;
             if (location.hash !== hash) {
-                history.pushState({ pageId }, '', hash);
+                history.pushState({ pageId: tabKey }, '', hash);
             } else {
-                history.replaceState({ pageId }, '', hash);
+                history.replaceState({ pageId: tabKey }, '', hash);
             }
         } catch (e) {}
     }
@@ -455,7 +707,7 @@ function switchTab(pageId, btnEl, fromPopstate) {
 }
 
 function extractLooseLinesFromOrderText(orderText) {
-    const LOOSE_UNIT = /팩|펙|pack|봉지|진공|마리분|마리|두|덩이|덩어리|벌|피스|판|kg|키로|킬로|(?:^|[^가-힣a-z])봉(?:$|[^가-힣a-z])|\bk\b/i;
+    const LOOSE_UNIT = /팩|펙|pack|봉지|진공|마리분|마리|두|덩이|덩어리|벌|피스|판|통|병|캔|망|포대|묶음|kg|키로|킬로|(?:^|[^가-힣a-z])봉(?:$|[^가-힣a-z])|\bk\b/i;
     const lines = String(orderText || '').split('\n').map(l => l.trim()).filter(Boolean);
     const out = [];
     lines.forEach((line) => {
@@ -466,25 +718,25 @@ function extractLooseLinesFromOrderText(orderText) {
         }
         if (!/\d/.test(line)) return;
         if (!LOOSE_UNIT.test(line)) return;
-        if (/(?:박스|빡스|box)/i.test(line) && !/(팩|봉지|진공|마리|kg|키로|덩이|벌|판)/i.test(line)) return;
+        if (/(?:박스|빡스|box)/i.test(line) && !/(팩|봉지|진공|마리|kg|키로|덩이|벌|판|통|병|캔|망|포대|묶음)/i.test(line)) return;
         out.push(line);
     });
     return out;
 }
 
-function toggleLoosePickItem(pickKey) {
-    looseCheckedMap[pickKey] = !looseCheckedMap[pickKey];
-    try { localStorage.setItem('mf_loose_checked', JSON.stringify(looseCheckedMap)); } catch (e) {}
+function toggleLooseItemPicked(itemKey) {
+    if (!itemKey) return;
+    loosePickedMap[itemKey] = !loosePickedMap[itemKey];
     renderLooseTable();
+    updateHomeSummary();
 }
 
 function renderLooseTable() {
-    const container = document.getElementById('looseCardList');
+    const container = document.getElementById('loose-card-list');
     const stats = document.getElementById('looseStats');
+    const pickStatus = document.getElementById('loose-picking-status');
     if (!container) return;
-
-    const targetDateStr = document.getElementById('orderTargetDate').value || 'all';
-    const orders = getActiveOrdersForAggregation();
+    const orders = getFilteredOrderList(true);
     const map = new Map();
     orders.forEach(ord => {
         const lines = extractLooseLinesFromOrderText(ord.content);
@@ -493,97 +745,183 @@ function renderLooseTable() {
         if (!map.has(key)) map.set(key, []);
         lines.forEach(l => map.get(key).push(l));
     });
-
     const rows = Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], 'ko'));
-    if (stats) stats.textContent = rows.length ? `거래처 ${rows.length}곳` : '낱개 발주 없음';
+    if (stats) stats.textContent = rows.length ? `거래처 ${rows.length}곳` : '거래처 0곳';
+
+    let totalItems = 0;
+    let pickedItems = 0;
+    const targetDate = document.getElementById('orderTargetDate')?.value || 'all';
+
+    rows.forEach(([name, lines]) => {
+        lines.forEach((l, lineIdx) => {
+            totalItems++;
+            const k = `${targetDate}::${name}::${lineIdx}::${l}`;
+            if (loosePickedMap[k]) pickedItems++;
+        });
+    });
+
+    if (pickStatus) {
+        pickStatus.textContent = `준비 ${pickedItems} / ${totalItems}건`;
+    }
 
     if (!rows.length) {
-        container.innerHTML = `<div class="empty-box">해당 날짜에 박스 외 낱개(팩·봉·kg 등) 발주가 없습니다.</div>`;
+        container.innerHTML = `
+            <div class="hv-card rounded-2xl p-8 text-center">
+                <p class="text-[0.9rem] font-black hv-text-main">박스 외 낱개(팩·봉·kg 등) 발주가 없습니다.</p>
+                <p class="text-[0.76rem] font-semibold hv-text-muted mt-1">설정에서 카톡 대화를 불러오거나 납품일을 확인하세요.</p>
+            </div>`;
         return;
     }
 
-    container.innerHTML = '';
-    rows.forEach((entry, idx) => {
+    container.innerHTML = rows.map((entry, idx) => {
         const name = entry[0];
         const lines = entry[1];
         let total = 0;
         lines.forEach(l => {
-            const ms = [...l.matchAll(/(\d+(?:\.\d+)?)\s*(?:팩|펙|pack|봉|봉지|진공|마리분|마리|두|덩이|덩어리|벌|피스|판|kg|키로|킬로)/gi)];
+            const ms = [...l.matchAll(/(\d+(?:\.\d+)?)\s*(?:팩|펙|pack|봉|봉지|진공|마리분|마리|두|덩이|덩어리|벌|피스|판|통|병|캔|망|포대|묶음|kg|키로|킬로)/gi)];
             ms.forEach(m => { total += parseFloat(m[1]) || 0; });
         });
 
-        const itemsHtml = lines.map((line, lIdx) => {
-            const pickKey = `${targetDateStr}_${name}_${lIdx}_${line}`;
-            const isChecked = !!looseCheckedMap[pickKey];
+        const clientDoneCount = lines.filter((l, lineIdx) => !!loosePickedMap[`${targetDate}::${name}::${lineIdx}::${l}`]).length;
+        const allClientDone = clientDoneCount === lines.length && lines.length > 0;
+
+        const itemsHtml = lines.map((l, lineIdx) => {
+            const k = `${targetDate}::${name}::${lineIdx}::${l}`;
+            const checked = !!loosePickedMap[k];
+            const encodedKey = encodeURIComponent(k);
             return `
-                <button type="button" class="loose-pick-item ${isChecked ? 'checked' : ''}" data-pkey="${escapeHtml(pickKey)}" onclick="toggleLoosePickItem(this.getAttribute('data-pkey'))">
-                    <span>${escapeHtml(line)}</span>
-                    <span>${isChecked ? '✅ 완료' : '⬜ 확인'}</span>
+                <button type="button" onclick="toggleLooseItemPicked(decodeURIComponent('${encodedKey}'))"
+                    class="w-full flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl border transition text-left ${checked ? 'bg-emerald-50/80 border-emerald-300 opacity-75' : 'hv-subbox hover:border-[#1D4ED8]'}">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="w-5 h-5 rounded-md flex items-center justify-center shrink-0 text-[0.75rem] font-black ${checked ? 'bg-[#047857] text-white' : 'border-2 border-slate-400 bg-white text-transparent'}">✓</span>
+                        <span class="text-[0.84rem] font-extrabold keep-all ${checked ? 'line-through text-emerald-800' : 'hv-text-main'}">${escapeHtml(l)}</span>
+                    </div>
+                    <span class="text-[0.68rem] font-black px-2 py-0.5 rounded-full shrink-0 ${checked ? 'hv-badge-green' : 'hv-badge-amber'}">${checked ? '완료' : '대기'}</span>
                 </button>
             `;
         }).join('');
 
-        const card = document.createElement('div');
-        card.className = 'loose-card';
-        card.innerHTML = `
-            <div class="loose-card-head">
-                <div class="loose-client-title">
-                    <span class="num-circle">${idx + 1}</span>
-                    <span>${escapeHtml(name)}</span>
+        return `
+            <article class="hv-card rounded-2xl p-3.5 space-y-2.5 ${allClientDone ? 'opacity-80' : ''}">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="px-2 py-0.5 rounded-md hv-badge-blue text-[0.72rem] font-black num-tabular shrink-0">${idx + 1}</span>
+                        <h2 class="text-[0.98rem] font-black hv-text-main keep-all">${escapeHtml(name)}</h2>
+                    </div>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full ${allClientDone ? 'hv-badge-green' : 'bg-[#0F172A] text-white'} text-[0.74rem] font-black num-tabular whitespace-nowrap shrink-0">
+                        ${allClientDone ? '피킹완료' : `합계 ${total > 0 ? total : lines.length + '건'}`}
+                    </span>
                 </div>
-                <span class="stock-total-badge">${total > 0 ? `합계 ${total}` : `${lines.length}건`}</span>
-            </div>
-            <div class="loose-chip-list">${itemsHtml}</div>
+                <div class="space-y-1.5 pt-0.5">${itemsHtml}</div>
+            </article>
         `;
-        container.appendChild(card);
-    });
+    }).join('');
 }
 
 function onFilterCriteriaChange(skipSave) {
-    try { renderOrdersTable(); } catch (e) { console.warn(e); }
-    try { renderOrderSummaryTable(); } catch (e) { console.warn(e); }
-    try { renderLooseTable(); } catch (e) { console.warn(e); }
-    try { renderDiffTable(); } catch (e) { console.warn(e); }
-    try { renderDispatchPage(); } catch (e) { console.warn(e); }
-    try { updateHomeSummary(); } catch (e) { console.warn(e); }
+    updateHeaderDateDisplay();
+    renderOrdersTable();
+    renderOrderSummaryTable();
+    renderLooseTable();
+    renderDiffTable();
+    renderDispatchPage();
+    if (activeTab === 'purchase' && typeof renderChatRoomTab === 'function') renderChatRoomTab('purchase');
+    if (activeTab === 'staff' && typeof renderChatRoomTab === 'function') renderChatRoomTab('staff');
+    updateHomeSummary();
     if (!skipSave) {
         saveStateToBrowser('날짜/필터 변경');
     }
 }
 
 function updateHomeSummary() {
+    const targetDate = document.getElementById('orderTargetDate')?.value || '';
+    const briefDate = document.getElementById('home-brief-date');
+    if (briefDate) {
+        briefDate.textContent = targetDate ? `${formatDateWithDow(targetDate)} 납품 기준` : '전체 날짜 기준';
+    }
     try {
-        const dests = getAggregatedDeliveryDestinations();
-        const activeOrders = getActiveOrdersForAggregation();
-        const consolidated = getConsolidatedOrderGroups(getFilteredOrderList(false));
-        const looseOrders = activeOrders.filter(o => extractLooseLinesFromOrderText(o.content).length > 0);
-        const looseClients = new Set(looseOrders.map(o => getCanonicalClientKey(o)));
+        const filteredOrders = getFilteredOrderList(true);
+        const orderCnt = filteredOrders.length;
+        const knownOrderCnt = filteredOrders.filter(o => o.isKnownClient).length;
 
-        let totBoxes = 0;
-        let totLoose = 0;
-        dests.forEach(d => {
-            totBoxes += d.totalBoxes || 0;
-            totLoose += d.totalLoose || 0;
+        const dispatchList = getAggregatedDeliveryDestinations();
+        const dispatchCnt = dispatchList.length;
+        const doneDispatchCnt = dispatchList.filter(d => !!dispatchDoneMap[`${targetDate || 'all'}::${d.clientName}`]).length;
+
+        const looseSet = new Set();
+        let looseTotalCount = 0;
+        let looseDoneCount = 0;
+        filteredOrders.forEach(ord => {
+            const lines = extractLooseLinesFromOrderText(ord.content);
+            if (lines.length > 0) {
+                const name = ord.clientName || '(미지정)';
+                looseSet.add(name);
+                lines.forEach((l, idx) => {
+                    looseTotalCount++;
+                    if (loosePickedMap[`${targetDate || 'all'}::${name}::${idx}::${l}`]) looseDoneCount++;
+                });
+            }
         });
 
-        const elDest = document.getElementById('homeOrderCount');
-        const elBoxSub = document.getElementById('homeBoxLooseSub');
-        const elMsg = document.getElementById('homeMsgCount');
-        const elLoose = document.getElementById('homeLooseCount');
-        const elStock = document.getElementById('homeStockCount');
-        const elHdrInfo = document.getElementById('hdrQuickInfo');
+        const totalStockItems = (typeof stockItems !== 'undefined' && Array.isArray(stockItems)) ? stockItems.length : 0;
+        const inStockItems = (typeof stockItems !== 'undefined' && Array.isArray(stockItems))
+            ? stockItems.filter(s => ((s.brands?.['대산']?.boxes || 0) + (s.brands?.['포크']?.boxes || 0) + (s.brands?.['기타']?.boxes || 0)) > 0).length
+            : 0;
 
-        if (elDest) elDest.textContent = `${dests.length}곳`;
-        if (elBoxSub) elBoxSub.textContent = `총 ${totBoxes}박스 · 낱개 ${totLoose}`;
-        if (elMsg) elMsg.textContent = `${consolidated.length}건`;
-        if (elLoose) elLoose.textContent = `${looseClients.size}곳`;
-        if (elStock) elStock.textContent = `${stockItems.length}품목`;
-        if (elHdrInfo) elHdrInfo.textContent = `발주 ${consolidated.length}건 · 배송 ${dests.length}곳 (${totBoxes}박)`;
+        const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        setEl('home-stat-orders', String(orderCnt));
+        setEl('home-stat-orders-sub', orderCnt > 0 ? `거래처 매칭 ${knownOrderCnt}건` : '대기 중');
+
+        setEl('home-stat-dispatch', String(dispatchCnt));
+        setEl('home-stat-dispatch-sub', dispatchCnt > 0 ? `완료 ${doneDispatchCnt}/${dispatchCnt}곳` : '배차 없음');
+
+        setEl('home-stat-loose', String(looseSet.size));
+        setEl('home-stat-loose-sub', looseTotalCount > 0 ? `준비 ${looseDoneCount}/${looseTotalCount}건` : '피킹 없음');
+
+        setEl('home-stat-inventory', String(totalStockItems));
+        setEl('home-stat-inventory-sub', totalStockItems > 0 ? `재고보유 ${inStockItems}개` : '재고 미등록');
+
+        if (typeof purchaseChatItems !== 'undefined') {
+            setEl('home-stat-purchase', `${purchaseChatItems.length}건`);
+        }
+        if (typeof staffChatItems !== 'undefined') {
+            setEl('home-stat-staff', `${staffChatItems.length}건`);
+        }
+
+        // 하단 내비게이션 실시간 카운트 배지
+        setEl('badge-nav-orders', String(orderCnt));
+        setEl('badge-nav-loose', String(looseSet.size));
+        setEl('badge-nav-dispatch', String(dispatchCnt));
+
+        // 최근 접수 발주 미리보기 (최대 4건)
+        const recentEl = document.getElementById('home-recent-orders');
+        if (recentEl) {
+            if (!filteredOrders.length) {
+                recentEl.innerHTML = `<div class="hv-subbox rounded-xl p-4 text-center text-[0.8rem] font-bold hv-text-muted">해당 납품일 기준 발주가 없습니다.</div>`;
+            } else {
+                const topList = filteredOrders.slice(0, 4);
+                recentEl.innerHTML = topList.map(item => {
+                    const firstLine = (item.content || '').split('\n').map(s => s.trim()).filter(Boolean)[0] || '';
+                    return `
+                        <div class="hv-subbox rounded-xl p-2.5 flex items-center justify-between gap-2.5">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-[0.84rem] font-black hv-text-main keep-all truncate">${escapeHtml(item.clientName || '(미지정)')}</span>
+                                    ${item.isNextDayMoved ? '<span class="hv-badge-amber text-[0.62rem] font-black px-1.5 py-0.5 rounded-md shrink-0">익일</span>' : ''}
+                                </div>
+                                <p class="text-[0.75rem] font-bold hv-text-sub truncate mt-0.5">${escapeHtml(firstLine)}</p>
+                            </div>
+                            <span class="text-[0.7rem] font-extrabold hv-text-muted num-tabular shrink-0">${escapeHtml(item.timeStr || item.dateFull || '')}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
     } catch (e) {}
 }
 
 /* =========================================================================
-   2. 거래처 CSV 파싱 및 매칭 로직 (같은 업체 식별 정규화)
+   2. 거래처 CSV 파싱 및 매칭 로직
    ========================================================================= */
 function loadClientCsvFile(event) {
     const file = event.target.files[0];
@@ -605,7 +943,6 @@ function loadClientCsvFile(event) {
 async function loadCsvFromGithub() {
     const url = document.getElementById('githubCsvUrl').value.trim();
     if (!url) { alert('GitHub Raw CSV URL을 입력해주세요.'); return; }
-    saveUserSettings('GitHub CSV URL');
     try {
         const res = await fetch(url);
         if (!res.ok) throw new Error('네트워크 오류');
@@ -670,15 +1007,17 @@ function processClientCsvText(csvText, isSilentAutoLoad) {
         }
     }
 
-    document.getElementById('clientLoadMsg').innerText = `✅ 거래처 ${addedCount}건 추가 로드 완료! (총 ${clientDB.length}개 활성 거래처)`;
-    document.getElementById('pillClient').innerText = `거래처: ${clientDB.length}곳`;
-    document.getElementById('btnExportCleanCsv').style.display = 'inline-block';
+    const clientMsgEl = document.getElementById('clientLoadMsg');
+    if (clientMsgEl) clientMsgEl.innerText = `✅ 거래처 ${addedCount}건 추가 로드 완료! (총 ${clientDB.length}개 활성 거래처)`;
+    const pillClient = document.getElementById('pillClient');
+    if (pillClient) pillClient.innerText = `거래처: ${clientDB.length}곳`;
+    const btnExport = document.getElementById('btnExportCleanCsv');
+    if (btnExport) btnExport.classList.remove('hidden');
     if (allChatItems.length > 0) {
         allChatItems.forEach((item, idx) => {
             item.idx = idx;
             classifyChatItem(item);
         });
-        resolveSequentialFollowUpClients();
         inferDeliveryDatesForAllItems();
         onFilterCriteriaChange(isSilentAutoLoad);
     }
@@ -692,22 +1031,22 @@ function exportCleanedClientsCsv() {
     downloadBlob(csv, "clients.csv");
 }
 
-function stripActionTagsFromClientToken(tok) {
-    return String(tok || '')
-        .replace(/[●■\*]+/g, '')
-        .replace(/[\(\[\{]?(?:추가|수정|변경|정정|취소|재발주|급)[\)\]\}]?$/g, '')
-        .trim();
-}
-
-function matchClientFromText(text) {
+function matchClientFromText(text, sender = '') {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    if (lines.length === 0) return { matched: false, clientName: "미확인", clientObj: null };
+    if (lines.length === 0) return { matched: false, clientName: sender || "미확인", clientObj: null };
+
+    // 대괄호 [거래처명] 우선 추출 (타사 카톡에서 흔함)
+    const bracketM = lines[0].match(/^\[([^\]]+)\]/);
+    if (bracketM && algoConfig.autoClientFromSender) {
+        const bName = bracketM[1].trim();
+        return { matched: true, clientName: bName, officialName: bName, clientObj: null };
+    }
 
     let candidateLines = [lines[0]];
     if (lines.length > 1) candidateLines.push(lines[1]);
 
     for (let rawLine of candidateLines) {
-        let cleanLine = rawLine.replace(/^(전달:\s*|■+|●+|\*+|내일\s+|오늘\s+|월요일\s+|화요일예약\s+|수요일예약\s+|추가\s+|수정\s+|변경\s+)/g, '').trim();
+        let cleanLine = rawLine.replace(/^(전달:\s*|■+|●+|\*+|내일\s+|오늘\s+|월요일\s+|화요일예약\s+|수요일예약\s+)/g, '').trim();
         let lineNoSpace = cleanLine.replace(/\s+/g, '').toLowerCase();
 
         for (let c of clientDB) {
@@ -721,180 +1060,81 @@ function matchClientFromText(text) {
     }
 
     let firstLine = lines[0].replace(/[●■]/g, ' ').trim();
-    let firstToken = stripActionTagsFromClientToken(firstLine.split(/[\s\.\,\~\(\[\-\:\/]/)[0]);
-    if (/정육|마트|축산|푸드|식당|갈비|감자탕|해장국|면옥|한우|삼겹|소매|택배|주물럭|쌈밥|막창|장어|꼬치|국밥/.test(firstLine)) {
+    let firstToken = firstLine.split(/[\s\.\,\~]/)[0];
+    if (/정육|마트|축산|푸드|식당|갈비|감자탕|해장국|면옥|한우|삼겹|소매|택배|주물럭|쌈밥|막창|장어|꼬치|국밥|본점|직영점|가맹점|상회|유통|점$/.test(firstLine)) {
         return { matched: true, clientName: firstToken, officialName: firstToken, clientObj: null };
     }
+
+    // 타사 자동 거래처 인식 모드: 첫 줄이 숫자/단위 없는 짧은 상호명이면 첫 줄을, 아니면 발신자명 사용
+    if (algoConfig.autoClientFromSender) {
+        if (firstLine.length >= 2 && firstLine.length <= 20 && !/\d/.test(firstLine)) {
+            return { matched: true, clientName: firstLine, officialName: firstLine, clientObj: null };
+        }
+        if (sender && sender.trim()) {
+            const cleanSender = sender.replace(/^\[|\]$/g, '').trim();
+            return { matched: true, clientName: cleanSender, officialName: cleanSender, clientObj: null };
+        }
+    }
+
     return { matched: false, clientName: firstToken || "미확인", officialName: "", clientObj: null };
 }
 
-/* 같은 업체 식별용 정규화 키 */
-function getCanonicalClientKey(item) {
-    if (item && item.clientObj && item.clientObj.name) {
-        return 'DB:' + item.clientObj.name.trim();
-    }
-    const raw = stripActionTagsFromClientToken(item && item.clientName ? item.clientName : '미확인');
-    const norm = raw.replace(/\(주\)|주식회사|\s+/g, '').toLowerCase();
-    return 'RAW:' + (norm || '미확인');
-}
-
-function resolveSequentialFollowUpClients() {
-    for (let i = 1; i < allChatItems.length; i++) {
-        const cur = allChatItems[i];
-        if (cur.type !== '발주') continue;
-        const isUnnamedOrActionOnly = !cur.clientName || cur.clientName === '미확인' || /^(추가|수정|변경|정정|취소)$/.test(cur.clientName);
-        if (!isUnnamedOrActionOnly) continue;
-
-        for (let j = i - 1; j >= 0; j--) {
-            const prev = allChatItems[j];
-            if (prev.dateFull !== cur.dateFull) break;
-            if (cur.timeMins - prev.timeMins > 30) break;
-            if (prev.type === '발주' && prev.sender === cur.sender && prev.clientName && prev.clientName !== '미확인') {
-                cur.clientName = prev.clientName;
-                cur.isKnownClient = prev.isKnownClient;
-                cur.clientObj = prev.clientObj;
-                break;
-            }
-        }
-    }
-}
-
-function detectFollowUpKind(txt) {
-    const t = String(txt || '').trim();
-    if (/(?:전체\s*)?(?:수정|변경|정정)(?:합니다|할게요|해요|요|입니다|건|분)?|(?:기존|이전|아까|방금|앞선)\s*(?:발주|주문|꺼|것)?\s*(?:취소|삭제|빼고|말고)|취소하고|다시\s*발주|재발주/.test(t)) {
-        return 'modify';
-    }
-    return 'add';
-}
-
-function getConsolidatedOrderGroups(rawList) {
-    const groups = [];
-    const groupByKey = new Map();
-
-    rawList.forEach(item => {
-        if (item.type !== '발주') {
-            groups.push({
-                isOrder: false,
-                singleItem: item,
-                items: [item],
-                activeItems: [item],
-                supersededItems: [],
-                clientName: item.clientName,
-                clientObj: item.clientObj,
-                isKnownClient: item.isKnownClient,
-                targetDeliveryDate: item.targetDeliveryDate || item.dateFull,
-                delivShort: item.delivShort || item.dateShort,
-                hasModify: false,
-                hasAdd: false
-            });
-            return;
-        }
-
-        const cKey = getCanonicalClientKey(item);
-        const dDate = item.targetDeliveryDate || item.dateFull;
-        const mergeKey = `${dDate}__${cKey}`;
-
-        let grp = groupByKey.get(mergeKey);
-        if (!grp) {
-            grp = {
-                isOrder: true,
-                mergeKey: mergeKey,
-                canonicalClientKey: cKey,
-                clientName: item.clientName,
-                clientObj: item.clientObj,
-                isKnownClient: item.isKnownClient,
-                targetDeliveryDate: dDate,
-                delivShort: item.delivShort || toShortDate(dDate),
-                items: [],
-                activeItems: [],
-                supersededItems: [],
-                hasModify: false,
-                hasAdd: false
-            };
-            groupByKey.set(mergeKey, grp);
-            groups.push(grp);
-        }
-
-        if (!grp.clientObj && item.clientObj) {
-            grp.clientObj = item.clientObj;
-            grp.isKnownClient = true;
-        }
-        if (item.clientName && item.clientName.length < grp.clientName.length && item.clientName !== '미확인') {
-            grp.clientName = item.clientName;
-        }
-
-        grp.items.push(item);
-    });
-
-    groups.forEach(grp => {
-        if (!grp.isOrder) return;
-        if (grp.items.length === 1) {
-            grp.activeItems = [grp.items[0]];
-            grp.supersededItems = [];
-            return;
-        }
-
-        let active = [];
-        let superseded = [];
-
-        grp.items.forEach((it, idx) => {
-            if (idx === 0) {
-                active.push(it);
-                return;
-            }
-            const kind = detectFollowUpKind(it.content);
-            if (kind === 'modify') {
-                grp.hasModify = true;
-                superseded = superseded.concat(active);
-                active = [it];
-            } else {
-                grp.hasAdd = true;
-                active.push(it);
-            }
-        });
-
-        grp.activeItems = active;
-        grp.supersededItems = superseded;
-    });
-
-    return groups;
-}
-
-function getActiveOrdersForAggregation() {
-    const rawOrders = getFilteredOrderList(true);
-    const groups = getConsolidatedOrderGroups(rawOrders);
-    const activeFlat = [];
-    groups.forEach(grp => {
-        grp.activeItems.forEach(it => activeFlat.push(it));
-    });
-    return activeFlat;
-}
-
 /* =========================================================================
-   3. 카카오톡 대화 파일 파싱 및 스마트 납품일(전일~당일 취합) 자동판별 알고리즘
+   3. 카카오톡 대화 파일 파싱 및 5단계 스마트 납품일 자동판별 알고리즘
    ========================================================================= */
+function readFileWithAutoEncoding(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const buf = e.target.result;
+            let text = new TextDecoder('utf-8', { fatal: false }).decode(buf);
+            if (text.includes('\ufffd')) {
+                try {
+                    const eucText = new TextDecoder('euc-kr', { fatal: false }).decode(buf);
+                    if ((eucText.match(/\ufffd/g) || []).length < (text.match(/\ufffd/g) || []).length) {
+                        text = eucText;
+                    }
+                } catch (err) {}
+            }
+            resolve(text);
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+    });
+}
+
 async function loadKakaoFiles(event) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
     allChatItems = [];
     for (let i = 0; i < files.length; i++) {
-        const text = await new Promise((res, rej) => {
-            const r = new FileReader();
-            r.onload = e => res(e.target.result);
-            r.onerror = rej;
-            r.readAsText(files[i], 'utf-8');
-        });
+        const text = await readFileWithAutoEncoding(files[i]);
         parseSingleKakaoText(text);
     }
 
+    finalizeKakaoLoad('카톡 대화 파일 업로드');
+    event.target.value = '';
+}
+
+function loadKakaoFromPaste() {
+    const raw = (document.getElementById('kakaoPasteTextarea')?.value || '').trim();
+    if (!raw) {
+        alert('붙여넣을 카카오톡 대화 내용을 입력해주세요.');
+        return;
+    }
+    allChatItems = [];
+    parseSingleKakaoText(raw);
+    finalizeKakaoLoad('카톡 원문 붙여넣기 추출');
+}
+
+function finalizeKakaoLoad(actionLabel) {
     allChatItems.sort((a, b) => {
         if (a.dateFull !== b.dateFull) return a.dateFull.localeCompare(b.dateFull);
         return a.timeMins - b.timeMins;
     });
 
     allChatItems.forEach((item, idx) => { item.idx = idx; });
-    resolveSequentialFollowUpClients();
     inferDeliveryDatesForAllItems();
 
     if (allChatItems.length > 0) {
@@ -904,22 +1144,28 @@ async function loadKakaoFiles(event) {
 
     const orderCnt = allChatItems.filter(x => x.type === '발주').length;
     const weightCnt = allChatItems.filter(x => x.type === '계근').length;
-    document.getElementById('kakaoLoadMsg').innerText = `✅ 총 ${allChatItems.length}건 분석 완료! (순수발주 ${orderCnt}건 / 계근 ${weightCnt}건)`;
+    const kakaoMsgEl = document.getElementById('kakaoLoadMsg');
+    if (kakaoMsgEl) kakaoMsgEl.innerText = `✅ 총 ${allChatItems.length}건 분석 및 납품일 자동판별 완료! (순수발주 ${orderCnt}건 / 계근 ${weightCnt}건 분리됨)`;
     const pill = document.getElementById('pillKakao');
-    pill.innerText = `카톡: 발주 ${orderCnt}건`;
-    pill.classList.add('ok');
+    if (pill) {
+        pill.innerText = `카톡: 발주 ${orderCnt}건`;
+        pill.classList.add('ok');
+    }
 
-    saveStateToBrowser('카톡 대화 파일 업로드');
+    updateHeaderDateDisplay();
+    saveStateToBrowser(actionLabel);
     onFilterCriteriaChange(true);
-    showToast(`발주 ${orderCnt}건 분석 완료`);
 }
 
 function parseSingleKakaoText(text) {
-    const lines = text.split(/\r?\n/);
-    let currentDateFull = "2026-10-13";
-    let currentDisplayDate = "10/13";
+    const cleaned = String(text || '').replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '');
+    const lines = cleaned.split(/\r?\n/);
+    const now = new Date();
+    let currentDateFull = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    let currentDisplayDate = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
 
     const pcRegex = /^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일\s+(오전|오후)\s*(\d{1,2}:\d{2}),\s*(.*?)\s*:\s*(.*)$/;
+    const dotInlineRegex = /^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?\s*(?:\([월화수목금토일]\)\s*)?(오전|오후)?\s*(\d{1,2}:\d{2}),\s*(.*?)\s*:\s*(.*)$/;
     const mobRegex = /^\[(.*?)\]\s*\[(오전|오후)\s*(\d{1,2}:\d{2})\]\s*(.*)$/;
     const dateLineRegex = /(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
 
@@ -960,6 +1206,24 @@ function parseSingleKakaoText(text) {
             continue;
         }
 
+        let mDot = line.match(dotInlineRegex);
+        if (mDot) {
+            if (curItem) { classifyChatItem(curItem); allChatItems.push(curItem); }
+            const y = mDot[1], m = String(mDot[2]).padStart(2,'0'), d = String(mDot[3]).padStart(2,'0');
+            currentDateFull = `${y}-${m}-${d}`;
+            currentDisplayDate = `${m}/${d}`;
+            const timeInfo = convertAmPmTime(mDot[4] || '', mDot[5]);
+            curItem = {
+                dateFull: currentDateFull,
+                dateShort: currentDisplayDate,
+                timeStr: timeInfo.str,
+                timeMins: timeInfo.mins,
+                sender: mDot[6].trim(),
+                content: mDot[7]
+            };
+            continue;
+        }
+
         let mMob = line.match(mobRegex);
         if (mMob) {
             if (curItem) { classifyChatItem(curItem); allChatItems.push(curItem); }
@@ -977,6 +1241,15 @@ function parseSingleKakaoText(text) {
 
         if (curItem && !line.includes('카카오톡 대화') && !line.includes('저장한 날짜') && !line.includes('삭제되었습니다')) {
             curItem.content += "\n" + line;
+        } else if (!curItem && !line.includes('카카오톡 대화') && !line.includes('저장한 날짜')) {
+            curItem = {
+                dateFull: currentDateFull,
+                dateShort: currentDisplayDate,
+                timeStr: '09:00',
+                timeMins: 540,
+                sender: '직접입력',
+                content: line
+            };
         }
     }
     if (curItem) { classifyChatItem(curItem); allChatItems.push(curItem); }
@@ -996,27 +1269,24 @@ function convertAmPmTime(ampm, hmStr) {
 
 function classifyChatItem(item) {
     const txt = item.content.trim();
-    const clientMatch = matchClientFromText(txt);
+    const clientMatch = matchClientFromText(txt, item.sender);
     item.clientName = clientMatch.clientName;
     item.isKnownClient = clientMatch.matched;
     item.clientObj = clientMatch.clientObj;
     item.itemKey = `${item.dateFull}_${item.timeStr}_${item.clientName}_${txt.substring(0, 18).replace(/\s+/g, '')}`;
 
-    const ignoreKw = [
-        '사진', '삭제되었습니다', '재고현황', '발주체크', '분류전', '입금', '반품장',
-        '여기까지', '팩스 보냈습니다', '코드 잡았습니다', '단가표', '원가내역',
-        '자동차검사', '타이어', '어떤거 주문하신걸까요', '어떤걸로 할까요', '기존 재고 늑간',
-        '정정 해두었습니다', '복사해서 했었는데', '그냥 박스로주시죠', '인사요'
-    ];
+    // 1단계: 사용자 설정 무시 키워드 필터
+    const ignoreKw = splitCsvKeywords(algoConfig.ignoreKeywords);
     if (ignoreKw.some(k => txt.includes(k))) { item.type = '기타'; return; }
     if (/\(대산\)\s*\d+박|\(포크\)\s*\d+박|나눌꺼요/.test(txt)) { item.type = '기타'; return; }
 
+    // 2단계: 계근(소수점/이력번호) 분리 필터
     let cleanForWeight = txt
         .replace(/010-\d{3,4}-\d{4}|\d{10,11}/g, '')
         .replace(/\d{1,3},\d{3}\s*원?/g, '')
         .replace(/\d+\.\d{3}\s*원?/g, '')
         .replace(/\d+(?:\.\d+)?\s*~\s*\d+(?:\.\d+)?/g, '')
-        .replace(/\d+\.\d+\s*(?:센치|cm|mm|미리|톤|키로|kg|k|작업)/gi, '')
+        .replace(/\d+\.\d+\s*(?:센치|cm|mm|미리|톤|키로|kg|k|L|리터|작업)/gi, '')
         .replace(/작업\s*\d+\.\d+/g, '')
         .replace(/\d+\s*(?:동|호|번지|층|시|구|읍|면|로|길)/g, '')
         .replace(/202\d년?/g, '')
@@ -1038,10 +1308,17 @@ function classifyChatItem(item) {
         item.type = '계근'; return;
     }
 
+    // 3단계: 설정된 품목/단위 키워드로 발주 판별
     const txtNoFax = txt.replace(/팩스/g, '');
-    const meatRegex = /삼겹|목살|미전지|전지|미삼|등갈비|등뼈|갈비|등심|안심|사태|앞사태|항정|가브리|갈매기|미후지|후지|오겹|우삼겹|차돌|스지|LA|엘에이|살치|부채|토시|안창|장족|미니족|껍데기|돈피|잡육|왕구이|목뼈|사골|오돌뼈|홍두깨|볼라|설도|늑간|알목|두메코|테니쉬|셀렉타|올리멜|박스|팩|판|키로|kg|덩이|봉/i;
+    const itemRegex = buildKeywordRegex(algoConfig.itemKeywords, 'i');
+    const unitRegex = buildKeywordRegex(algoConfig.unitKeywords, 'i');
+    const unitPatternStr = splitCsvKeywords(algoConfig.unitKeywords).map(escapeRegExp).join('|');
+    const hasQtyWithUnit = unitPatternStr ? new RegExp(`\\d+\\s*(?:${unitPatternStr})(?![가-힣a-zA-Z])`, 'i').test(txtNoFax) : false;
 
-    if (meatRegex.test(txtNoFax)) {
+    const matchedByItem = itemRegex ? itemRegex.test(txtNoFax) : false;
+    const matchedByUnit = unitRegex ? (algoConfig.universalByUnit ? hasQtyWithUnit : unitRegex.test(txtNoFax)) : false;
+
+    if (matchedByItem || matchedByUnit || hasQtyWithUnit) {
         if (/납품$|반품$|교환인가요|삭제해야해요|단가표요|전체단가표|패스래요|패스요|바꿔달래요|보내야죠|갖고감요|뿐이 안됨|더찍어주세요|두메코입니다|인가요\?$/.test(txt)) {
             item.type = '기타'; return;
         }
@@ -1055,6 +1332,7 @@ function classifyChatItem(item) {
     item.type = '기타';
 }
 
+/* 날짜 더하기 유틸리티 ("YYYY-MM-DD" + days -> "YYYY-MM-DD") */
 function addDaysToDateStr(dateFullStr, days) {
     const dt = new Date(dateFullStr + "T00:00:00");
     dt.setDate(dt.getDate() + days);
@@ -1069,20 +1347,23 @@ function toShortDate(dateFullStr) {
     return `${dateFullStr.substring(5, 7)}/${dateFullStr.substring(8, 10)}`;
 }
 
+/* =========================================================================
+   핵심: 마지막 마감 키워드("여기까지" 등) 기준 납품일 추론 (이후=익일, 이전=당일)
+   ========================================================================= */
 const JS_WEEKDAY_MAP = { '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
 
 function isYeogiKkajiMessage(content) {
     const t = String(content || '').replace(/\s+/g, ' ').trim();
-    return /^여기까지[.!。~]*$/.test(t);
+    const cutoffs = splitCsvKeywords(algoConfig.cutoffKeywords || '여기까지');
+    return cutoffs.some(kw => {
+        const cleanKw = kw.replace(/\s+/g, ' ').trim();
+        return cleanKw && new RegExp(`^${escapeRegExp(cleanKw)}[.!。~]*$`).test(t);
+    });
 }
 
 function inferDeliveryDatesForAllItems() {
     const lastCutoffIdxByDate = {};
-    let latestChatDate = '';
     allChatItems.forEach((it, i) => {
-        if (it.dateFull && it.dateFull > latestChatDate) {
-            latestChatDate = it.dateFull;
-        }
         if (isYeogiKkajiMessage(it.content)) {
             lastCutoffIdxByDate[it.dateFull] = i;
         }
@@ -1154,58 +1435,39 @@ function inferDeliveryDatesForAllItems() {
             if (i > cutIdx) {
                 item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
                 item.delivShort = toShortDate(item.targetDeliveryDate);
-                item.delivReason = '여기까지이후→익일';
+                item.delivReason = '마감선이후→익일';
             } else {
                 item.targetDeliveryDate = item.dateFull;
                 item.delivShort = item.dateShort;
-                item.delivReason = '여기까지이전→당일';
+                item.delivReason = '마감선이전→당일';
             }
             continue;
         }
 
-        if (item.dateFull === latestChatDate) {
-            item.targetDeliveryDate = item.dateFull;
-            item.delivShort = item.dateShort;
-            item.delivReason = '당일작성→당일';
-        } else {
-            item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
-            item.delivShort = toShortDate(item.targetDeliveryDate);
-            item.delivReason = '전일작성→익일';
-        }
+        item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
+        item.delivShort = toShortDate(item.targetDeliveryDate);
+        item.delivReason = '마감선없음→익일';
     }
 }
 
-function shiftGroupDeliveryDate(idxListStr, deltaDays) {
-    const indices = String(idxListStr || '').split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n));
-    if (!indices.length) return;
+function toggleItemDeliveryDate(itemIdx) {
+    const item = allChatItems[itemIdx];
+    if (!item || item.type !== '발주') return;
 
-    let labelName = '';
-    let newTargetLabel = '';
+    const sameDay = item.dateFull;
+    const nextDay = addDaysToDateStr(item.dateFull, 1);
 
-    indices.forEach(itemIdx => {
-        const item = allChatItems[itemIdx];
-        if (!item || item.type !== '발주') return;
-        const base = item.targetDeliveryDate || item.dateFull;
-        const newTarget = addDaysToDateStr(base, deltaDays);
-        manualDelivMap[item.itemKey] = newTarget;
-        labelName = item.clientName;
-        newTargetLabel = toShortDate(newTarget);
-    });
-
+    const newTarget = (item.targetDeliveryDate === sameDay) ? nextDay : sameDay;
+    manualDelivMap[item.itemKey] = newTarget;
     localStorage.setItem('mf_manual_deliv_dates', JSON.stringify(manualDelivMap));
+
     inferDeliveryDatesForAllItems();
-    const dir = deltaDays < 0 ? '전일' : '익일';
-    recordLastUpdatedTime(`${labelName} 납품일 ${dir}(${newTargetLabel})`);
-    showToast(`${labelName} → 납품일 ${newTargetLabel}`);
+    recordLastUpdatedTime(`${item.clientName} 납품일 수동변경(${toShortDate(newTarget)})`);
     onFilterCriteriaChange(true);
 }
 
-function shiftItemDeliveryDate(itemIdx, deltaDays) {
-    shiftGroupDeliveryDate(String(itemIdx), deltaDays);
-}
-
 /* =========================================================================
-   4. [페이지 2] 발주 목록 필터링 (전일~당일 취합 + 동일업체 추가/수정 통합 카드)
+   4. [페이지 2] 발주 목록 필터링 및 상단 헤더 소형 아이콘 토글 제어
    ========================================================================= */
 function getFilteredOrderList(forceOnlyOrder = false) {
     const targetDateStr = document.getElementById('orderTargetDate').value;
@@ -1216,218 +1478,143 @@ function getFilteredOrderList(forceOnlyOrder = false) {
         if (showOnlyKnownClient && !item.isKnownClient) return false;
         if (mode === 'all' || !targetDateStr) return true;
 
-        const prevDateStr = addDaysToDateStr(targetDateStr, -1);
-        const isPrevToCurr = (item.dateFull === prevDateStr || item.dateFull === targetDateStr);
-
         if (mode === 'smart') {
             if (item.type === '발주') {
-                if (item.targetDeliveryDate !== targetDateStr) return false;
-                return isPrevToCurr || item.isManualDeliv || (item.delivReason && item.delivReason.startsWith('명시날짜'));
+                return item.targetDeliveryDate === targetDateStr;
             } else {
-                return isPrevToCurr;
+                return item.dateFull === targetDateStr;
             }
-        }
-
-        if (mode === 'prev_to_curr') {
-            return isPrevToCurr;
         }
 
         if (mode === 'fullday') {
             return item.dateFull === targetDateStr;
         }
 
-        if (mode === 'prev10_to_16') {
-            const isPrevFrom10 = (item.dateFull === prevDateStr && item.timeMins >= 10 * 60);
-            const isCurrTo16 = (item.dateFull === targetDateStr && item.timeMins <= 16 * 60);
-            return isPrevFrom10 || isCurrTo16;
-        }
-        if (mode === 'prev22_to_16') {
-            const isPrevFrom22 = (item.dateFull === prevDateStr && item.timeMins >= 22 * 60);
-            const isCurrTo16 = (item.dateFull === targetDateStr && item.timeMins <= 16 * 60);
-            return isPrevFrom22 || isCurrTo16;
-        }
         return true;
     });
 }
 
-function highlightOrderBody(rawText) {
-    const escaped = escapeHtml(rawText);
-    return escaped.replace(/(\d+(?:\.\d+)?\s*(?:박스|빡스|박|팩|펙|판|봉지|봉|진공|덩이|덩어리|마리분|마리|두|벌|kg|키로|킬로))/gi, '<span class="hl-qty">$1</span>');
+function toggleOrderGuide() {
+    const box = document.getElementById('orders-guide-box');
+    if (box) box.classList.toggle('hidden');
 }
 
-function buildMergedOrderBodyHtml(grp) {
-    if (grp.activeItems.length === 1) {
-        return highlightOrderBody(grp.activeItems[0].content);
-    }
-    return grp.activeItems.map((it, idx) => {
-        if (idx === 0) {
-            return highlightOrderBody(it.content);
-        }
-        const kind = detectFollowUpKind(it.content);
-        const tagText = kind === 'modify' ? `✏️ ${it.timeStr} 수정` : `➕ ${it.timeStr} 추가`;
-        return `<span class="merge-divider">${escapeHtml(tagText)}</span>${highlightOrderBody(it.content)}`;
-    }).join('\n');
+function setOrderFilter(filterKey) {
+    orderFilterMode = filterKey || 'all';
+    document.querySelectorAll('[data-order-chip]').forEach(btn => {
+        const active = btn.getAttribute('data-order-chip') === orderFilterMode;
+        btn.className = active
+            ? 'order-chip px-3 py-1.5 rounded-full text-[0.75rem] font-black bg-[#1D4ED8] text-white transition shrink-0'
+            : 'order-chip px-3 py-1.5 rounded-full text-[0.75rem] font-extrabold hv-pill transition shrink-0';
+    });
+    renderOrdersTable();
 }
 
-function buildMergedOrderPlainText(grp) {
-    if (!grp.isOrder) return grp.singleItem.content;
-    if (grp.activeItems.length === 1) return grp.activeItems[0].content;
-    return grp.activeItems.map((it, idx) => {
-        if (idx === 0) return it.content;
-        const kind = detectFollowUpKind(it.content);
-        return `[${kind === 'modify' ? '수정' : '추가'} ${it.timeStr}] ${it.content}`;
-    }).join(' / ');
+function highlightOrderKeywords(text) {
+    let escaped = escapeHtml(text || '');
+    escaped = escaped.replace(/(서비스|덤|긴급|냉동|냉장|오전|추가|변경|취소|꼭|부탁|직송)/g, '<span class="px-1 py-0.5 rounded bg-amber-200/80 text-amber-950 font-black">$1</span>');
+    return escaped;
 }
 
 function renderOrdersTable() {
-    const container = document.getElementById('orderCardList');
+    const container = document.getElementById('orders-card-list');
     if (!container) return;
-    container.innerHTML = '';
 
-    const rawList = getFilteredOrderList(false);
-    let groups = getConsolidatedOrderGroups(rawList);
+    let list = getFilteredOrderList(false);
+    const targetDateStr = document.getElementById('orderTargetDate')?.value || '';
+    const mode = document.getElementById('orderTimeMode')?.value || 'smart';
+    const modeLabel = mode === 'smart'
+        ? `납품 기준 ${toShortDate(targetDateStr)}`
+        : (mode === 'all' ? '전체 날짜 기준' : `작성일 ${toShortDate(targetDateStr)}`);
 
-    const q = (document.getElementById('orderSearchInput')?.value || '').trim().toLowerCase();
-    if (q) {
-        groups = groups.filter(grp =>
-            (grp.clientName || '').toLowerCase().includes(q) ||
-            grp.items.some(it =>
-                (it.content || '').toLowerCase().includes(q) ||
-                (it.sender || '').toLowerCase().includes(q)
-            )
-        );
+    if (orderFilterMode === 'nextDay') {
+        list = list.filter(i => i.targetDeliveryDate !== i.dateFull || i.isNextDayMoved);
+    } else if (orderFilterMode === 'unmatched') {
+        list = list.filter(i => !i.isKnownClient);
     }
 
-    const targetDateStr = document.getElementById('orderTargetDate').value;
-    const prevDateStr = targetDateStr ? addDaysToDateStr(targetDateStr, -1) : '';
-    const mode = document.getElementById('orderTimeMode').value;
+    const countEl = document.getElementById('orders-header-count');
+    const modeEl = document.getElementById('orders-header-mode');
+    if (countEl) countEl.textContent = `발주 총 ${list.length}건`;
+    if (modeEl) modeEl.textContent = modeLabel;
 
-    let rangeLabel = '전체';
-    if (targetDateStr) {
-        if (mode === 'smart' || mode === 'prev_to_curr') {
-            rangeLabel = `납품 ${toShortDate(targetDateStr)} · 취합 ${toShortDate(prevDateStr)}~${toShortDate(targetDateStr)}`;
-        } else if (mode === 'fullday') {
-            rangeLabel = `당일 작성 ${toShortDate(targetDateStr)}`;
-        }
-    }
-
-    const totalRawMsgs = groups.reduce((acc, g) => acc + g.items.length, 0);
-    const mergedCountNote = totalRawMsgs > groups.length ? ` · 원본 ${totalRawMsgs}건 통합` : '';
-    document.getElementById('orderStats').innerText = `📋 조회된 내역: 총 ${groups.length}건 (${rangeLabel}${mergedCountNote})`;
-
-    if (groups.length === 0) {
-        container.innerHTML = `<div class="empty-box">납품 기준일(${escapeHtml(targetDateStr || '전체')})의 취합 내역이 없습니다.</div>`;
+    if (list.length === 0) {
+        container.innerHTML = `
+            <div class="hv-card rounded-2xl p-8 text-center">
+                <p class="text-[0.9rem] font-black hv-text-main">조회된 발주 내역이 없습니다.</p>
+                <p class="text-[0.76rem] font-semibold hv-text-muted mt-1">상단 납품일(${escapeHtml(targetDateStr || '전체')})을 바꾸거나 [설정]에서 카톡을 불러오세요.</p>
+            </div>`;
         return;
     }
 
-    groups.forEach(grp => {
-        if (!grp.isOrder) {
-            const item = grp.singleItem;
-            const badge = item.type === '계근' ? `<span class="badge b-weight">계근</span>` : `<span class="badge b-other">기타</span>`;
-            const clientBadge = item.isKnownClient ? `<span class="badge b-client">인증</span>` : '';
-            const card = document.createElement('div');
-            card.className = 'order-card';
-            card.innerHTML = `
-                <div class="order-card-head">
-                    <span class="order-card-meta">작성 ${escapeHtml(item.dateShort)} ${escapeHtml(item.timeStr)} · ${escapeHtml(item.sender)}</span>
-                    <div style="display:flex;gap:4px;align-items:center;">${clientBadge}${badge}</div>
+    container.innerHTML = list.map(item => {
+        const typeBadge = item.type === '발주'
+            ? 'hv-badge-green'
+            : (item.type === '계근' ? 'hv-badge-amber' : 'hv-pill');
+        const isNextDay = item.targetDeliveryDate !== item.dateFull;
+        const pillStyle = item.isManualDeliv
+            ? 'bg-purple-100 text-purple-900 border-purple-300'
+            : (isNextDay
+                ? 'hv-badge-amber border-amber-300'
+                : 'hv-badge-blue border-blue-300');
+
+        const delivBtnHtml = item.type === '발주' ? `
+            <button type="button" onclick="toggleItemDeliveryDate(${item.idx})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[0.72rem] font-black active:scale-[0.97] transition whitespace-nowrap num-tabular ${pillStyle}" title="터치하여 당일(${escapeHtml(item.dateShort)}) ↔ 익일 납품일 전환">
+                <span>🚚 납품: ${escapeHtml(item.delivShort)} (${escapeHtml(item.delivReason)})</span>
+                <span>🔄</span>
+            </button>` : '';
+
+        return `
+            <article class="hv-card rounded-2xl p-3.5 space-y-2.5">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+                        <h2 class="text-[1.02rem] font-black hv-text-main keep-all">${escapeHtml(item.clientName)}</h2>
+                        ${item.isKnownClient ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[0.68rem] font-black bg-[#1D4ED8] text-white whitespace-nowrap">인증</span>` : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[0.68rem] font-black hv-badge-amber whitespace-nowrap">미등록</span>`}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[0.68rem] font-black ${typeBadge} whitespace-nowrap">${escapeHtml(item.type)}</span>
+                    </div>
+                    <span class="text-[0.74rem] font-extrabold hv-text-muted whitespace-nowrap shrink-0 num-tabular">${escapeHtml(item.dateShort)} ${escapeHtml(item.timeStr)}</span>
                 </div>
-                <div class="order-card-client">${escapeHtml(item.clientName)}</div>
-                <div class="order-card-body">${highlightOrderBody(item.content)}</div>
-            `;
-            container.appendChild(card);
-            return;
-        }
-
-        const firstItem = grp.items[0];
-        const lastItem = grp.items[grp.items.length - 1];
-        const isMerged = grp.items.length > 1;
-
-        const clientBadge = grp.isKnownClient ? `<span class="badge b-client">인증</span>` : '';
-        let statusBadge = `<span class="badge b-order">발주</span>`;
-        if (grp.hasModify) {
-            statusBadge = `<span class="badge b-modified">수정 적용 (${grp.items.length}건)</span>`;
-        } else if (isMerged) {
-            statusBadge = `<span class="badge b-merged">추가 합산 (${grp.items.length}건)</span>`;
-        }
-
-        let dayTagHtml = '';
-        if (targetDateStr && lastItem.dateFull === prevDateStr) {
-            dayTagHtml = `<span class="badge" style="background:#D97706;">전일</span>`;
-        } else if (targetDateStr && lastItem.dateFull === targetDateStr) {
-            dayTagHtml = `<span class="badge" style="background:#1D4ED8;">당일</span>`;
-        }
-
-        const timeRangeStr = isMerged
-            ? `작성 ${escapeHtml(firstItem.dateShort)} ${escapeHtml(firstItem.timeStr)} → ${escapeHtml(lastItem.timeStr)} · ${escapeHtml(lastItem.sender)}`
-            : `작성 ${escapeHtml(firstItem.dateShort)} ${escapeHtml(firstItem.timeStr)} · ${escapeHtml(firstItem.sender)}`;
-
-        let supersededHtml = '';
-        if (grp.supersededItems.length > 0) {
-            const oldTxt = grp.supersededItems.map(s => `[${s.timeStr}] ${s.content}`).join('\n');
-            supersededHtml = `
-                <div class="order-superseded-box">
-                    <div class="order-superseded-label">수정 전 이전 발주 (집계 제외됨)</div>
-                    <div>${escapeHtml(oldTxt)}</div>
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                    <span class="text-[0.78rem] font-extrabold hv-text-sub">${escapeHtml(item.sender)}</span>
+                    ${delivBtnHtml}
                 </div>
-            `;
-        }
-
-        const hasManual = grp.items.some(it => it.isManualDeliv);
-        const pillClass = hasManual ? 'deliv-pill manual' : 'deliv-pill';
-        const idxListStr = grp.items.map(it => it.idx).join(',');
-
-        const card = document.createElement('div');
-        card.className = 'order-card' + (isMerged ? ' has-merge' : '');
-        card.innerHTML = `
-            <div class="order-card-head">
-                <span class="order-card-meta">${timeRangeStr}</span>
-                <div style="display:flex;gap:4px;align-items:center;">${dayTagHtml}${clientBadge}${statusBadge}</div>
-            </div>
-            <div class="order-card-client">${escapeHtml(grp.clientName)}</div>
-            ${supersededHtml}
-            <div class="order-card-body">${buildMergedOrderBodyHtml(grp)}</div>
-            <div class="order-card-foot">
-                <span class="${pillClass}">🚚 납품 ${escapeHtml(grp.delivShort)} (${escapeHtml(lastItem.delivReason)})</span>
-                <div class="deliv-shift-btns">
-                    <button type="button" class="deliv-shift-btn prev" onclick="shiftGroupDeliveryDate('${idxListStr}', -1)">◀ 전일</button>
-                    <button type="button" class="deliv-shift-btn next" onclick="shiftGroupDeliveryDate('${idxListStr}', 1)">익일 ▶</button>
-                </div>
-            </div>
+                <div class="w-full hv-subbox rounded-xl px-3.5 py-2.5 text-[0.88rem] font-bold hv-text-main leading-relaxed whitespace-pre-line keep-all">${highlightOrderKeywords(item.content)}</div>
+            </article>
         `;
-        container.appendChild(card);
-    });
+    }).join('');
 }
 
 function updateHeaderToggleButtonsUI() {
     const btnOrder = document.getElementById('btnOnlyOrder');
     if (btnOrder) {
         btnOrder.innerText = showOnlyOrder ? "🔍 발주만: ON" : "🔍 발주만: OFF";
-        btnOrder.className = showOnlyOrder ? "btn sm" : "btn sm gray";
+        btnOrder.className = showOnlyOrder
+            ? "py-2.5 px-2 rounded-xl bg-[#1D4ED8] text-white text-[0.78rem] font-black"
+            : "py-2.5 px-2 rounded-xl hv-pill text-[0.78rem] font-black";
     }
     const btnClient = document.getElementById('btnOnlyKnownClient');
     if (btnClient) {
         btnClient.innerText = showOnlyKnownClient ? "🏢 등록거래처: ON" : "🏢 등록거래처: OFF";
-        btnClient.className = showOnlyKnownClient ? "btn sm" : "btn sm gray";
+        btnClient.className = showOnlyKnownClient
+            ? "py-2.5 px-2 rounded-xl bg-[#1D4ED8] text-white text-[0.78rem] font-black"
+            : "py-2.5 px-2 rounded-xl hv-pill text-[0.78rem] font-black";
     }
 }
 
 function toggleOnlyOrder() {
     showOnlyOrder = !showOnlyOrder;
     updateHeaderToggleButtonsUI();
-    saveUserSettings('발주만 보기 필터');
-    onFilterCriteriaChange(true);
+    onFilterCriteriaChange(false);
 }
 
 function toggleKnownClient() {
     showOnlyKnownClient = !showOnlyKnownClient;
     updateHeaderToggleButtonsUI();
-    saveUserSettings('등록거래처 필터');
-    onFilterCriteriaChange(true);
+    onFilterCriteriaChange(false);
 }
 
 /* =========================================================================
-   5. [페이지 3] 일일 재고 현황 텍스트 파서 및 카드 생성
+   5. [페이지 3] 일일 재고 현황 텍스트 파서 및 표 생성
    ========================================================================= */
 function parseAndApplyStock(goTab, skipSave) {
     const raw = document.getElementById('stockTextarea').value;
@@ -1477,19 +1664,20 @@ function parseAndApplyStock(goTab, skipSave) {
         }
     }
 
-    document.getElementById('stockTitleInfo').innerText = `📦 ${stockTitle}`;
+    document.getElementById('stockTitleInfo').innerText = `${stockTitle}`;
     const pill = document.getElementById('pillStock');
-    pill.innerText = `재고: ${stockItems.length}품목`;
-    pill.classList.add('ok');
+    if (pill) {
+        pill.innerText = `재고: ${stockItems.length}품목`;
+        pill.className = 'px-2.5 py-1 rounded-full bg-emerald-600 text-white';
+    }
 
     renderStockTable();
-    updateHomeSummary();
     if (!skipSave) {
         saveStateToBrowser('일일 재고현황 적용');
-        showToast(`재고 ${stockItems.length}품목 적용 완료`);
+        showToast(`재고현황 ${stockItems.length}개 품목이 적용되었습니다.`);
     }
     if (goTab) {
-        switchTab('page3');
+        switchTab('inventory');
     }
 }
 
@@ -1536,60 +1724,106 @@ function parseQtyTokens(itemObj, brandName, qtyStr) {
     itemObj.brands[targetKey].details.push(prefix + qtyStr);
 }
 
-function renderStockTable() {
-    const container = document.getElementById('stockCardList');
-    if (!container) return;
-    container.innerHTML = '';
+function setInventoryFilter(filterType) {
+    inventoryFilter = filterType;
+    document.querySelectorAll('[data-inv-chip]').forEach((chip) => {
+        const active = chip.getAttribute('data-inv-chip') === filterType;
+        chip.className = active
+            ? 'inv-chip px-3 py-1.5 rounded-full text-[0.75rem] font-black bg-[#1D4ED8] text-white transition shrink-0'
+            : 'inv-chip px-3 py-1.5 rounded-full text-[0.75rem] font-extrabold hv-pill transition shrink-0';
+    });
+    renderStockTable();
+}
 
-    const q = (document.getElementById('stockSearchInput')?.value || '').trim().toLowerCase();
+function clearInventorySearch() {
+    const input = document.getElementById('inventory-search-input');
+    if (input) {
+        input.value = '';
+        renderStockTable();
+        input.focus();
+    }
+}
+
+function renderWarehouseCell(label, bObj) {
+    const isEmpty = !bObj || bObj.details.length === 0;
+    const mainTxt = isEmpty ? '-' : `${bObj.boxes}박`;
+    const detailTxt = isEmpty ? '' : bObj.details.map(escapeHtml).join(', ');
+    const mainColor = (isEmpty || bObj.boxes === 0) ? 'hv-text-muted' : 'hv-text-main';
+    return `
+        <div class="hv-subbox rounded-xl px-2.5 py-2 flex flex-col justify-between min-h-[60px]">
+            <span class="text-[0.72rem] font-extrabold hv-text-muted">${label}</span>
+            <div class="mt-1">
+                <div class="text-[0.94rem] font-black ${mainColor} leading-tight num-tabular">${mainTxt}</div>
+                ${detailTxt ? `<div class="text-[0.68rem] font-bold hv-text-sub mt-0.5 leading-tight num-tabular">${detailTxt}</div>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function renderStockTable() {
+    const container = document.getElementById('inventory-card-list');
+    if (!container) return;
+
+    const searchEl = document.getElementById('inventory-search-input');
+    const clearBtn = document.getElementById('inventory-search-clear');
+    const query = (searchEl ? searchEl.value : '').trim().toLowerCase();
+    if (clearBtn) clearBtn.classList.toggle('hidden', query.length === 0);
+
+    if (stockItems.length === 0) {
+        container.innerHTML = `
+            <div class="hv-card rounded-2xl p-8 text-center">
+                <p class="text-[0.9rem] font-black hv-text-main">등록된 일일 재고현황이 없습니다.</p>
+                <p class="text-[0.76rem] font-semibold hv-text-muted mt-1">[설정] 탭에서 재고현황 텍스트를 입력하고 적용해 주세요.</p>
+            </div>`;
+        return;
+    }
+
     const filtered = stockItems.filter(item => {
         const total = item.brands['대산'].boxes + item.brands['포크'].boxes + item.brands['기타'].boxes;
-        if (stockOnlyPositive && total <= 0) return false;
-        if (q && !item.name.toLowerCase().includes(q)) return false;
+        if (query && !item.name.toLowerCase().includes(query)) return false;
+        if (inventoryFilter === 'inStock') return total > 0;
+        if (inventoryFilter === 'zero') return total === 0;
         return true;
     });
 
     if (filtered.length === 0) {
-        container.innerHTML = `<div class="empty-box">${stockItems.length === 0 ? '설정 탭에서 일일 재고현황 텍스트를 입력해주세요.' : '검색 조건에 맞는 재고 품목이 없습니다.'}</div>`;
+        container.innerHTML = `
+            <div class="hv-card rounded-2xl p-8 text-center">
+                <p class="text-[0.9rem] font-black hv-text-main">일치하는 재고 품목이 없습니다.</p>
+                <p class="text-[0.76rem] font-semibold hv-text-muted mt-1">검색어나 필터 조건을 변경해 보세요.</p>
+            </div>`;
         return;
     }
 
-    filtered.forEach(item => {
+    container.innerHTML = filtered.map(item => {
         const d = item.brands['대산'];
         const p = item.brands['포크'];
         const o = item.brands['기타'];
         const total = d.boxes + p.boxes + o.boxes;
+        const badgeClass = total === 0
+            ? 'hv-pill'
+            : 'hv-badge-blue';
 
-        const renderBrandBox = (label, bObj) => {
-            const has = bObj.details.length > 0;
-            return `
-                <div class="brand-box ${has ? 'has-qty' : ''}">
-                    <div class="brand-box-label">${label}</div>
-                    <div class="brand-box-val ${has ? '' : 'zero'}">${has ? `${bObj.boxes}박` : '-'}</div>
-                    ${has ? `<div class="brand-box-detail">${bObj.details.map(escapeHtml).join(', ')}</div>` : ''}
+        return `
+            <article class="hv-card rounded-2xl p-3.5 transition">
+                <div class="flex items-center justify-between gap-2 mb-2.5">
+                    <h2 class="text-[0.98rem] font-black hv-text-main tracking-tight keep-all">${escapeHtml(item.name)}</h2>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[0.76rem] font-black num-tabular ${badgeClass} whitespace-nowrap">
+                        총 ${total}박
+                    </span>
                 </div>
-            `;
-        };
-
-        const card = document.createElement('div');
-        card.className = 'stock-card';
-        card.innerHTML = `
-            <div class="stock-card-head">
-                <span class="stock-item-title">${escapeHtml(item.name)}</span>
-                <span class="stock-total-badge ${total === 0 ? 'zero' : ''}">총 ${total}박</span>
-            </div>
-            <div class="stock-brand-grid">
-                ${renderBrandBox('대산', d)}
-                ${renderBrandBox('포크', p)}
-                ${renderBrandBox('정담·황금·기타', o)}
-            </div>
+                <div class="grid grid-cols-3 gap-2">
+                    ${renderWarehouseCell('대산', d)}
+                    ${renderWarehouseCell('포크', p)}
+                    ${renderWarehouseCell('정담·기타', o)}
+                </div>
+            </article>
         `;
-        container.appendChild(card);
-    });
+    }).join('');
 }
 
 /* =========================================================================
-   6. 품목별 발주 집계 엔진 (유효 적용된 발주만 집계)
+   6. 품목별 발주 집계 엔진 (4페이지 일일 발주 현황표)
    ========================================================================= */
 const ITEM_MATCH_RULES = [
     { key: "특미삼", regex: /특미삼/ },
@@ -1627,7 +1861,7 @@ const ITEM_MATCH_RULES = [
 ];
 
 function computeOrderAggregation() {
-    const orders = getActiveOrdersForAggregation();
+    const orders = getFilteredOrderList(true);
     const summaryMap = {};
 
     stockItems.forEach(s => {
@@ -1691,66 +1925,53 @@ function computeOrderAggregation() {
 }
 
 /* =========================================================================
-   7. [페이지 4] 일일 발주 현황표 모바일/데스크탑 카드 렌더링
+   7. [페이지 4] 일일 발주 현황표 렌더링
    ========================================================================= */
 function renderOrderSummaryTable() {
-    const container = document.getElementById('orderSummaryCardList');
+    const container = document.getElementById('order-summary-card-list');
     if (!container) return;
-    container.innerHTML = '';
 
     const tDate = document.getElementById('orderTargetDate').value || '전체';
-    const prevDate = tDate !== '전체' ? addDaysToDateStr(tDate, -1) : '';
-    document.getElementById('orderSummaryDateInfo').innerText = prevDate
-        ? `납품 기준일: ${tDate} (취합: ${toShortDate(prevDate)} 전일 ~ ${toShortDate(tDate)} 당일)`
-        : `납품 기준일: ${tDate}`;
+    const infoEl = document.getElementById('orderSummaryDateInfo');
+    if (infoEl) infoEl.innerText = `납품 기준일: ${tDate}`;
 
     const summaryMap = computeOrderAggregation();
     const keys = Object.keys(summaryMap);
-
-    if (keys.length === 0) {
-        container.innerHTML = `<div class="empty-box">설정 탭에서 재고현황 텍스트와 카톡 발주를 먼저 등록해주세요.</div>`;
+    if (!keys.length) {
+        container.innerHTML = `<div class="bg-white rounded-2xl border border-slate-200/80 p-8 text-center text-[13px] font-bold text-slate-500">재고현황을 먼저 적용하시면 품목별 발주 집계표가 표시됩니다.</div>`;
         return;
     }
 
-    keys.forEach(itemName => {
+    container.innerHTML = keys.map(itemName => {
         const g = summaryMap[itemName];
         const d = g['대산'], p = g['포크'], o = g['기타'];
         const totBox = d.orderBox + p.orderBox + o.orderBox;
         const totPack = d.orderPack + p.orderPack + o.orderPack;
 
-        const renderBrandOrderBox = (label, bObj) => {
-            const has = bObj.orderBox > 0 || bObj.orderPack > 0;
-            let valTxt = '0박';
-            if (has) {
-                valTxt = `${bObj.orderBox}박` + (bObj.orderPack > 0 ? ` +${bObj.orderPack}팩` : '');
-            }
-            return `
-                <div class="brand-box ${has ? 'has-qty' : ''}">
-                    <div class="brand-box-label">${label}</div>
-                    <div class="brand-box-val ${has ? '' : 'zero'}">${valTxt}</div>
-                    ${has ? `<div class="brand-box-detail">${bObj.clients.map(escapeHtml).join(', ')}</div>` : ''}
-                </div>
-            `;
-        };
-
-        let totLabel = `총 ${totBox}박`;
-        if (totPack > 0) totLabel += ` + ${totPack}팩`;
-
-        const card = document.createElement('div');
-        card.className = 'stock-card';
-        card.innerHTML = `
-            <div class="stock-card-head">
-                <span class="stock-item-title">${escapeHtml(itemName)}</span>
-                <span class="stock-total-badge ${(totBox === 0 && totPack === 0) ? 'zero' : ''}">${totLabel}</span>
-            </div>
-            <div class="stock-brand-grid">
-                ${renderBrandOrderBox('대산', d)}
-                ${renderBrandOrderBox('포크', p)}
-                ${renderBrandOrderBox('정담·황금·기타', o)}
+        const cell = (label, bObj) => `
+            <div class="bg-slate-50 rounded-xl px-2 py-2 border border-slate-100">
+                <div class="text-[11px] font-bold text-slate-500">${label}</div>
+                <div class="text-[13px] font-extrabold ${bObj.orderBox > 0 ? 'text-emerald-600' : 'text-slate-400'} mt-0.5">${bObj.orderBox}박${bObj.orderPack > 0 ? ` +${bObj.orderPack}` : ''}</div>
+                ${bObj.clients.length ? `<div class="text-[10.5px] text-slate-500 mt-0.5 leading-tight">${bObj.clients.map(escapeHtml).join(', ')}</div>` : ''}
             </div>
         `;
-        container.appendChild(card);
-    });
+
+        return `
+            <article class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-3.5 space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                    <h2 class="text-[15px] font-extrabold text-slate-900">${escapeHtml(itemName)}</h2>
+                    <span class="px-2.5 py-0.5 rounded-full text-[12px] font-extrabold bg-blue-50 text-[#1677FF] border border-blue-200">
+                        총 ${totBox}박${totPack > 0 ? ` + ${totPack}팩` : ''}
+                    </span>
+                </div>
+                <div class="grid grid-cols-3 gap-1.5">
+                    ${cell('대산', d)}
+                    ${cell('포크', p)}
+                    ${cell('기타', o)}
+                </div>
+            </article>
+        `;
+    }).join('');
 }
 
 function copyKakaoOrderCheckText() {
@@ -1765,7 +1986,7 @@ function copyKakaoOrderCheckText() {
         lines.push(`${itemName} ${bStr} ${pStr}`);
     });
     navigator.clipboard.writeText(lines.join('\n')).then(() => {
-        showToast("카톡용 '발주체크' 텍스트 복사 완료!");
+        alert("카톡용 '발주체크' 요약 텍스트가 클립보드에 복사되었습니다!");
     });
 }
 
@@ -1779,51 +2000,79 @@ function downloadOrderSummaryCsv() {
         const totPack = d.orderPack + p.orderPack + o.orderPack;
         csv += `"${itemName}",${d.orderBox},"${d.clients.join(' / ')}",${p.orderBox},"${p.clients.join(' / ')}",${o.orderBox},"${o.clients.join(' / ')}",${totBox},${totPack}\n`;
     });
-    downloadBlob(csv, "미트포앤_일일발주현황표.csv");
+    downloadBlob(csv, "미트포앤GB_일일발주현황표.csv");
 }
 
-/* =========================================================================
-   8. 잔여재고 테이블 (하위 호환 유지)
-   ========================================================================= */
 function renderDiffTable() {
     const tbody = document.getElementById('diffTableBody');
     if (!tbody) return;
     tbody.innerHTML = '';
-}
 
-function downloadDiffCsv() {
     const summaryMap = computeOrderAggregation();
-    let csv = "\uFEFF품목명,브랜드,현재재고(박스),금일발주(박스),소분/팩발주,차감후잔여재고(박스),발주거래처내역\n";
+
     Object.keys(summaryMap).forEach(itemName => {
         const bGroup = summaryMap[itemName];
         ['대산', '포크', '기타'].forEach(br => {
-            const d = bGroup[br];
-            if (d.stock === 0 && d.orderBox === 0 && d.orderPack === 0) return;
-            const rem = d.stock - d.orderBox;
-            csv += `"${itemName}","${br}",${d.stock},${d.orderBox},${d.orderPack},${rem},"${d.clients.join(', ')}"\n`;
+            const data = bGroup[br];
+            if (data.stock === 0 && data.orderBox === 0 && data.orderPack === 0) return;
+
+            const remain = data.stock - data.orderBox;
+            const remainClass = remain < 0 ? 'num-neg' : (remain > 0 ? 'num-pos' : 'num-zero');
+            const remainText = remain < 0 ? `${remain}박 (부족!)` : `${remain}박`;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><b>${escapeHtml(itemName)}</b></td>
+                <td>${escapeHtml(br)}</td>
+                <td><b>${data.stock}박</b></td>
+                <td><b>${data.orderBox}박</b></td>
+                <td>${data.orderPack > 0 ? data.orderPack + '팩(건)' : '-'}</td>
+                <td class="${remainClass}">${remainText}</td>
+                <td style="font-size:11px; color:#4b5563;">${data.clients.map(escapeHtml).join(', ') || '-'}</td>
+            `;
+            tbody.appendChild(tr);
         });
     });
-    downloadBlob(csv, "미트포앤_발주차감_잔여재고표.csv");
 }
+
 /* =========================================================================
-   9. 배차 지도 (vWorld WMTS 타일 + vWorld JSONP 지오코딩)
+   9. [페이지 6] 당일 배송처 목록 및 6대 차량 기사 배차 관리 + 지도
    ========================================================================= */
 const VWORLD_KEY = '3351CCD7-07E8-40AB-97D0-243A592B74C3';
-const VEHICLE_PIN_COLORS = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00acc1', '#d81b60'];
-const COLOR_UNASSIGNED = '#9e9e9e';
+const VEHICLE_PIN_COLORS = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00acc1'];
+const COLOR_UNASSIGNED = '#757575';
 const COLOR_PICKUP = '#795548';
-const DEPOT = { name: '미트포앤', lat: 37.3485, lng: 126.7425, addr: '경기도 시흥시 하상로8번길 7' };
+
+const DEPOT = {
+    name: '미트포앤(기점)',
+    lat: 37.3926,
+    lng: 126.8132,
+    addr: '경기도 시흥시 하상로8번길 7'
+};
 
 let dispatchMapObj = null;
 let dispatchLayer = null;
+let vworldBaseLayer = null;
+let vworldSatGroup = null;
+let isSatelliteMode = false;
+let showPinLabels = true;
 let selectedMapClient = null;
+let mapMarkersByClient = {};
+let mapRefreshSeq = 0;
 
-// 기존 Photon 오류 캐시와 분리된 vWorld 전용 캐시
-const GEO_CACHE_KEY = 'mf_geo_cache_vworld_v1';
-const geoCache = JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || '{}');
+const GEO_CACHE_STORAGE_KEY = 'mf_geo_cache_vworld_v3';
+let geoCache = JSON.parse(localStorage.getItem(GEO_CACHE_STORAGE_KEY) || '{}');
 
 function saveGeoCache() {
-    try { localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(geoCache)); } catch (e) {}
+    try { localStorage.setItem(GEO_CACHE_STORAGE_KEY, JSON.stringify(geoCache)); } catch (e) {}
+}
+
+function clearGeoCacheAndReload() {
+    if (!confirm('저장된 주소 좌표를 모두 지우고 VWorld에서 새로 좌표를 받아올까요?')) return;
+    geoCache = {};
+    localStorage.removeItem(GEO_CACHE_STORAGE_KEY);
+    localStorage.removeItem('mf_geo_cache');
+    refreshDispatchMap();
 }
 
 function pinColorForCode(code) {
@@ -1835,133 +2084,199 @@ function pinColorForCode(code) {
     return COLOR_UNASSIGNED;
 }
 
-function makePinIcon(color) {
-    const html = `<div style="width:18px;height:18px;border-radius:50% 50% 50% 0;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);transform:rotate(-45deg);"></div>`;
-    return L.divIcon({ className: '', html, iconSize: [18, 18], iconAnchor: [9, 18], popupAnchor: [0, -16] });
+function makePinIcon(color, isDepot = false) {
+    const size = isDepot ? 24 : 20;
+    const html = `<div style="width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;background:${color};border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.45);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;">
+        <div style="width:${isDepot ? 8 : 6}px;height:${isDepot ? 8 : 6}px;border-radius:50%;background:#fff;transform:rotate(45deg);"></div>
+    </div>`;
+    return L.divIcon({
+        className: '',
+        html,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size],
+        popupAnchor: [0, -size + 2]
+    });
 }
 
-/* 한국 거래처 주소 정제 (괄호·쉼표 뒤 상호·층/호수 제거) */
-function buildVWorldAddressCandidates(rawAddr) {
-    const base = String(rawAddr || '').trim();
-    if (!base) return [];
+function normalizeKoreanAddress(rawAddr) {
+    if (!rawAddr || !String(rawAddr).trim()) return null;
+    let raw = String(rawAddr).trim();
 
-    // 1) 괄호·대괄호 제거 후 쉼표 앞 핵심 주소만 추출
-    let core = base
-        .replace(/\([^\)]*\)/g, ' ')
-        .replace(/\[[^\]]*\]/g, ' ')
-        .split(',')[0]
-        .replace(/번지/g, '')
-        .replace(/\./g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+    let parenParcelHint = '';
+    const parenMatch = raw.match(/\(([가-힣0-9]+(?:동|리|가))\s*(\d+(?:-\d+)?)\)/);
+    if (parenMatch) {
+        parenParcelHint = `${parenMatch[1]} ${parenMatch[2]}`;
+    }
 
-    // 2) 끝부분 층·호수·상가·일부호 제거
-    let stripped = core
-        .replace(/\s+(?:지하|지층|상가동|제상가동|나동|[A-Za-z]동|\d+동)?\s*(?:B?\d+(?:[-~]\d+)?층|B?\d+(?:[-~]\d+)?호|일부호|외\s*\d+개).*$/i, '')
-        .replace(/([가-힣])(\d)/g, '$1 $2') // 예: 정왕동1738-1 -> 정왕동 1738-1
-        .replace(/(\d+번길)\s+(\d)/g, '$1 $2')
-        .replace(/\s+/g, ' ')
-        .trim();
+    let s = raw.replace(/\([^)]*\)?/g, ' ');
+    s = s.split(',')[0];
+    s = s.replace(/\.(?=\s*[가-힣a-zA-Z]|\s*\d+동|\s*\d+호|\s*\d+층).*$/, '');
+    s = s.replace(/(대로|로|길)\s*(\d+)\s*(번길|번안길|길)\s*-\s*(\d+)/g, '$1$2$3 $4');
+    s = s.replace(/([가-힣0-9]+(?:대로|로|길))\s+(\d+(?:번길|번안길|길))/g, '$1$2');
+    s = s.replace(/(대로|번길|번안길|로|길)(\d+(?:-\d+)?)(?!\d|\s*(?:번길|번안길|길|로))/g, '$1 $2');
+    s = s.replace(/([가-힣]+(?:동|읍|면|리|가))(\d+(?:-\d+)?)(?!\d|\s*(?:대로|번길|번안길|로|길))/g, '$1 $2');
 
-    // 3) 도로명+건물번호까지만 자른 초간단 후보 (예: "...병점중앙로 195")
-    const roadCut = stripped.match(/^(.*?(?:대로|로|길)\s*\d+(?:-\d+)?)/);
-    const parcelCut = stripped.match(/^(.*?(?:동|읍|면|리|가)\s*\d+(?:-\d+)?)/);
+    const candidates = [];
 
-    const list = [];
-    const pushUnique = (s) => {
-        const v = String(s || '').trim();
-        if (v.length >= 5 && !list.includes(v)) list.push(v);
-    };
+    const mRoad = s.match(/^(.*?[가-힣0-9]+(?:대로|로|길)(?:\d+(?:번길|번안길|길))?\s+\d+(?:-\d+)?)/);
+    if (mRoad) {
+        const cleanRoad = mRoad[1].replace(/\s+/g, ' ').trim();
+        const noDongRoad = cleanRoad.replace(/(\S+[시군구])\s+[가-힣0-9]+(?:동|읍|면)\s+(\S+(?:대로|번길|번안길|로|길)\s+\d+(?:-\d+)?)$/, '$1 $2');
+        if (noDongRoad !== cleanRoad) {
+            candidates.push({ addr: noDongRoad, type: 'ROAD' });
+        }
+        candidates.push({ addr: cleanRoad, type: 'ROAD' });
+    }
 
-    if (roadCut) pushUnique(roadCut[1]);
-    if (parcelCut) pushUnique(parcelCut[1]);
-    pushUnique(stripped);
-    pushUnique(core);
-    return list;
+    const mParcel = s.match(/^(.*?(?:동|읍|면|리|가)\s+(?:산\s*)?\d+(?:-\d+)?)/);
+    if (mParcel) {
+        const cleanParcel = mParcel[1].replace(/\s+/g, ' ').trim();
+        candidates.push({ addr: cleanParcel, type: 'PARCEL' });
+    }
+
+    if (parenParcelHint) {
+        const prefixMatch = s.match(/^([가-힣]+(?:도|특별시|광역시|시)\s+[가-힣]+(?:시|군|구)(?:\s+[가-힣]+구)?)/);
+        if (prefixMatch) {
+            candidates.push({ addr: `${prefixMatch[1]} ${parenParcelHint}`, type: 'PARCEL' });
+        }
+    }
+
+    if (candidates.length === 0) {
+        const fallback = s.replace(/\s+(?:\d+층|지층|지하\d*층?|\d+호|일부호|상가동).*$/g, '').replace(/\s+/g, ' ').trim();
+        candidates.push({ addr: fallback, type: 'ROAD' });
+        candidates.push({ addr: fallback, type: 'PARCEL' });
+    }
+
+    return candidates;
 }
 
-/* CORS 회피용 vWorld JSONP 호출기 */
-function vworldJsonpRequest(url, timeoutMs = 4500) {
+function fetchJsonp(url, timeoutMs = 4500) {
     return new Promise((resolve) => {
-        const cbName = '__vw_cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+        const cbName = 'vw_cb_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
         const script = document.createElement('script');
-        let done = false;
+        let timer = null;
 
-        const cleanup = () => {
-            if (script.parentNode) script.parentNode.removeChild(script);
+        function cleanup() {
+            if (timer) clearTimeout(timer);
             try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
-        };
+            if (script.parentNode) script.parentNode.removeChild(script);
+        }
 
-        const timer = setTimeout(() => {
-            if (done) return;
-            done = true;
-            cleanup();
-            resolve(null);
-        }, timeoutMs);
-
-        window[cbName] = (data) => {
-            if (done) return;
-            done = true;
-            clearTimeout(timer);
+        window[cbName] = function(data) {
             cleanup();
             resolve(data);
         };
 
-        script.onerror = () => {
-            if (done) return;
-            done = true;
-            clearTimeout(timer);
+        script.onerror = function() {
             cleanup();
             resolve(null);
         };
 
-        script.src = `${url}&callback=${cbName}`;
+        timer = setTimeout(() => {
+            cleanup();
+            resolve(null);
+        }, timeoutMs);
+
+        const sep = url.includes('?') ? '&' : '?';
+        script.src = `${url}${sep}callback=${cbName}`;
         document.head.appendChild(script);
     });
 }
 
-async function queryVWorldSingle(addrStr, type) {
-    const url = `https://api.vworld.kr/req/address?service=address&request=getcoord&version=2.0&crs=epsg:4326&address=${encodeURIComponent(addrStr)}&refine=true&simple=false&format=json&type=${type}&key=${encodeURIComponent(VWORLD_KEY)}`;
-    const data = await vworldJsonpRequest(url);
-    if (!data || !data.response) return null;
-
-    if (data.response.status === 'OK' && data.response.result && data.response.result.point) {
-        const lng = parseFloat(data.response.result.point.x);
-        const lat = parseFloat(data.response.result.point.y);
-        // 대한민국 좌표 범위 유효성 검증
-        if (lat >= 33 && lat <= 39 && lng >= 124 && lng <= 132) {
-            return { lat, lng, source: 'vworld' };
+async function vworldAddressCoord(addrStr, typeStr) {
+    const q = encodeURIComponent(addrStr);
+    const url = `https://api.vworld.kr/req/address?service=address&request=getcoord&version=2.0&crs=epsg:4326&address=${q}&refine=true&simple=false&format=json&type=${typeStr}&key=${VWORLD_KEY}`;
+    const data = await fetchJsonp(url);
+    if (data && data.response && data.response.status === 'OK' && data.response.result && data.response.result.point) {
+        const pt = data.response.result.point;
+        const lng = parseFloat(pt.x);
+        const lat = parseFloat(pt.y);
+        const refined = (data.response.refined && data.response.refined.text) ? data.response.refined.text : addrStr;
+        if (!isNaN(lat) && !isNaN(lng)) {
+            return { lat, lng, refinedAddr: refined, source: `VWorld(${typeStr})` };
         }
     }
     return null;
 }
 
-/* vWorld 주소 → 좌표 변환 (도로명/지번 자동 전환 + 캐시 저장) */
-async function geocodeAddress(address) {
-    if (!address) return null;
-    const key = address.trim();
-    if (geoCache[key] && geoCache[key].lat != null) {
-        return geoCache[key];
+async function vworldSearchCoord(queryStr, searchType = 'address', category = 'ROAD') {
+    const q = encodeURIComponent(queryStr);
+    let url = `https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=EPSG:4326&size=1&page=1&query=${q}&type=${searchType}&format=json&key=${VWORLD_KEY}`;
+    if (searchType === 'address' && category) {
+        url += `&category=${category}`;
     }
-
-    const candidates = buildVWorldAddressCandidates(key);
-    for (const cand of candidates) {
-        const isRoadLike = /(?:대로|로|길)\s*\d/.test(cand);
-        const types = isRoadLike ? ['road', 'parcel'] : ['parcel', 'road'];
-
-        for (const t of types) {
-            const pos = await queryVWorldSingle(cand, t);
-            if (pos) {
-                geoCache[key] = pos;
-                saveGeoCache();
-                return pos;
+    const data = await fetchJsonp(url);
+    if (data && data.response && data.response.status === 'OK' &&
+        data.response.result && data.response.result.items && data.response.result.items.length > 0) {
+        const item = data.response.result.items[0];
+        if (item.point) {
+            const lng = parseFloat(item.point.x);
+            const lat = parseFloat(item.point.y);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                return { lat, lng, refinedAddr: queryStr, source: `VWorld검색(${searchType})` };
             }
         }
     }
     return null;
 }
 
-/* Leaflet 지도 초기화 (vWorld Base 타일 적용 + 도메인 차단 시 OSM 자동 폴백) */
+async function geocodeAddress(rawAddress) {
+    if (!rawAddress || !String(rawAddress).trim()) return null;
+    const cacheKey = String(rawAddress).trim();
+
+    if (geoCache[cacheKey] && geoCache[cacheKey].lat && geoCache[cacheKey].lng) {
+        return geoCache[cacheKey];
+    }
+
+    const candidates = normalizeKoreanAddress(cacheKey);
+    if (!candidates || candidates.length === 0) return null;
+
+    for (const cand of candidates) {
+        let res = await vworldAddressCoord(cand.addr, cand.type);
+        if (res) {
+            geoCache[cacheKey] = res;
+            saveGeoCache();
+            return res;
+        }
+        const altType = cand.type === 'ROAD' ? 'PARCEL' : 'ROAD';
+        res = await vworldAddressCoord(cand.addr, altType);
+        if (res) {
+            geoCache[cacheKey] = res;
+            saveGeoCache();
+            return res;
+        }
+    }
+
+    const primaryAddr = candidates[0].addr;
+    let searchRes = await vworldSearchCoord(primaryAddr, 'address', 'ROAD')
+                 || await vworldSearchCoord(primaryAddr, 'address', 'PARCEL')
+                 || await vworldSearchCoord(primaryAddr, 'place', '');
+    if (searchRes) {
+        geoCache[cacheKey] = searchRes;
+        saveGeoCache();
+        return searchRes;
+    }
+
+    try {
+        const q = encodeURIComponent(primaryAddr);
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=kr&limit=1&q=${q}`);
+        const arr = await r.json();
+        if (Array.isArray(arr) && arr.length > 0 && arr[0].lat && arr[0].lon) {
+            const pos = {
+                lat: parseFloat(arr[0].lat),
+                lng: parseFloat(arr[0].lon),
+                refinedAddr: primaryAddr,
+                source: 'OSM(정제폴백)'
+            };
+            geoCache[cacheKey] = pos;
+            saveGeoCache();
+            return pos;
+        }
+    } catch (e) {}
+
+    return null;
+}
+
 function ensureDispatchMap() {
     const el = document.getElementById('dispatchMap');
     if (!el || typeof L === 'undefined') return null;
@@ -1972,68 +2287,100 @@ function ensureDispatchMap() {
 
     dispatchMapObj = L.map(el, { zoomControl: true }).setView([DEPOT.lat, DEPOT.lng], 11);
 
-    const vworldBase = L.tileLayer(
-        `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_KEY}/Base/{z}/{y}/{x}.png`,
-        {
-            minZoom: 6,
-            maxZoom: 19,
-            attribution: '&copy; VWorld (국토교통부)'
-        }
-    );
+    vworldBaseLayer = L.tileLayer(`https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_KEY}/Base/{z}/{y}/{x}.png`, {
+        maxZoom: 19,
+        minZoom: 6,
+        attribution: '&copy; 국토교통부 VWorld'
+    });
+
+    const satTile = L.tileLayer(`https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_KEY}/Satellite/{z}/{y}/{x}.jpeg`, {
+        maxZoom: 19,
+        minZoom: 6,
+        attribution: '&copy; 국토교통부 VWorld'
+    });
+    const hybridTile = L.tileLayer(`https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_KEY}/Hybrid/{z}/{y}/{x}.png`, {
+        maxZoom: 19,
+        minZoom: 6
+    });
+    vworldSatGroup = L.layerGroup([satTile, hybridTile]);
 
     let tileErrCount = 0;
-    let fallbackApplied = false;
-    vworldBase.on('tileerror', () => {
+    vworldBaseLayer.on('tileerror', () => {
         tileErrCount++;
-        if (tileErrCount >= 4 && !fallbackApplied) {
-            fallbackApplied = true;
-            dispatchMapObj.removeLayer(vworldBase);
+        if (tileErrCount === 5) {
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
                 attribution: '&copy; OpenStreetMap'
             }).addTo(dispatchMapObj);
-            const st = document.getElementById('mapStatus');
-            if (st) st.textContent = '⚠️ vWorld 타일 도메인 미등록 → 기본 지도로 전환됨';
         }
     });
 
-    vworldBase.addTo(dispatchMapObj);
+    vworldBaseLayer.addTo(dispatchMapObj);
     dispatchLayer = L.layerGroup().addTo(dispatchMapObj);
+
+    geocodeAddress(DEPOT.addr).then(pos => {
+        if (pos && pos.lat && pos.lng) {
+            DEPOT.lat = pos.lat;
+            DEPOT.lng = pos.lng;
+        }
+    });
+
     return dispatchMapObj;
+}
+
+function toggleVworldMapLayer() {
+    const map = ensureDispatchMap();
+    if (!map) return;
+    isSatelliteMode = !isSatelliteMode;
+    const btn = document.getElementById('btnMapLayerToggle');
+    if (isSatelliteMode) {
+        if (vworldBaseLayer) map.removeLayer(vworldBaseLayer);
+        if (vworldSatGroup) vworldSatGroup.addTo(map);
+        if (btn) btn.innerText = '🗺️ 일반지도';
+    } else {
+        if (vworldSatGroup) map.removeLayer(vworldSatGroup);
+        if (vworldBaseLayer) vworldBaseLayer.addTo(map);
+        if (btn) btn.innerText = '🛰️ 위성지도';
+    }
+}
+
+function togglePinLabels() {
+    showPinLabels = !showPinLabels;
+    const btn = document.getElementById('btnPinLabelToggle');
+    if (btn) {
+        btn.innerText = showPinLabels ? '🏷️ 상호명: ON' : '🏷️ 상호명: OFF';
+        btn.className = showPinLabels ? 'btn green' : 'btn gray';
+    }
+    refreshDispatchMap();
 }
 
 function renderMapLegend() {
     const el = document.getElementById('mapLegend');
     if (!el) return;
-    let html = `<span><i class="pin-dot" style="background:#d32f2f"></i> 기점</span>`;
-    for (let i = 0; i < vehicleNames.length; i++) {
-        html += `<span><i class="pin-dot" style="background:${VEHICLE_PIN_COLORS[i]}"></i> ${escapeHtml(vehicleNames[i])}</span>`;
+    let html = `<span><i class="pin-dot" style="background:#d32f2f"></i> 기점(미트포앤)</span>`;
+    for (let i = 0; i < 6; i++) {
+        html += `<span><i class="pin-dot" style="background:${VEHICLE_PIN_COLORS[i]}"></i> ${escapeHtml(vehicleNames[i] || (i+1)+'호차')}</span>`;
     }
     html += `<span><i class="pin-dot" style="background:${COLOR_UNASSIGNED}"></i> 미배차</span>`;
     el.innerHTML = html;
 }
 
-/* 지도 아래 배송업체 버튼: 항상 가나다순 + 3열 그리드 */
 function renderClientChips(destinations) {
     const row = document.getElementById('clientChipRow');
     const bar = document.getElementById('quickVehicleBar');
     if (!row || !bar) return;
 
-    const alphaSorted = destinations.slice().sort((a, b) =>
-        String(a.clientName).localeCompare(String(b.clientName), 'ko')
-    );
-
-    row.innerHTML = alphaSorted.map(d => {
+    row.innerHTML = destinations.map(d => {
         const code = dispatchMap[d.clientName] || 'UNASSIGNED';
         let cls = 'client-chip';
         if (code.startsWith('V')) cls += ' has-' + code.toLowerCase();
         if (selectedMapClient === d.clientName) cls += ' selected';
-        return `<button type="button" class="${cls}" data-client="${escapeHtml(d.clientName)}" onclick="selectMapClient(this.getAttribute('data-client'))" title="${escapeHtml(d.clientName)}">${escapeHtml(d.clientName)}</button>`;
+        return `<button type="button" class="${cls}" data-client="${escapeHtml(d.clientName)}" onclick="selectMapClient(this.getAttribute('data-client'))">${escapeHtml(d.clientName)}</button>`;
     }).join('');
 
     let barHtml = '';
-    for (let i = 0; i < vehicleNames.length; i++) {
-        barHtml += `<button type="button" class="qv-btn" style="border-color:${VEHICLE_PIN_COLORS[i]};color:${VEHICLE_PIN_COLORS[i]}" onclick="assignSelectedToVehicle('V${i}')">${escapeHtml(vehicleNames[i])}</button>`;
+    for (let i = 0; i < 6; i++) {
+        barHtml += `<button type="button" class="qv-btn" style="border-color:${VEHICLE_PIN_COLORS[i]};color:${VEHICLE_PIN_COLORS[i]}" onclick="assignSelectedToVehicle('V${i}')">${escapeHtml(vehicleNames[i] || (i+1)+'호차')}</button>`;
     }
     barHtml += `<button type="button" class="qv-btn" onclick="assignSelectedToVehicle('UNASSIGNED')">미배차</button>`;
     barHtml += `<button type="button" class="qv-btn" onclick="assignSelectedToVehicle('PICKUP')">방문/택배</button>`;
@@ -2043,7 +2390,7 @@ function renderClientChips(destinations) {
     if (hint) {
         hint.textContent = selectedMapClient
             ? `선택: ${selectedMapClient} → 아래 차량 버튼을 누르세요`
-            : '거래처 버튼을 선택한 뒤 차량을 지정하세요.';
+            : '거래처 버튼을 선택한 뒤 차량을 지정하세요. (클릭 시 지도에서 해당 핀으로 이동합니다)';
     }
 }
 
@@ -2054,6 +2401,12 @@ function selectMapClient(name) {
     });
     const hint = document.getElementById('selectedClientHint');
     if (hint) hint.textContent = `선택: ${name} → 아래 차량 버튼을 누르세요`;
+
+    const marker = mapMarkersByClient[name];
+    if (marker && dispatchMapObj) {
+        dispatchMapObj.flyTo(marker.getLatLng(), Math.max(dispatchMapObj.getZoom(), 14), { duration: 0.5 });
+        marker.openPopup();
+    }
 }
 
 function assignSelectedToVehicle(code) {
@@ -2067,39 +2420,43 @@ function assignSelectedToVehicle(code) {
 async function refreshDispatchMap() {
     const map = ensureDispatchMap();
     if (!map || !dispatchLayer) return;
+    const mySeq = ++mapRefreshSeq;
+
     dispatchLayer.clearLayers();
+    mapMarkersByClient = {};
     renderMapLegend();
 
     const destinations = getAggregatedDeliveryDestinations();
     const status = document.getElementById('mapStatus');
-    if (status) status.textContent = `vWorld 좌표 조회 중 (0/${destinations.length})...`;
+    if (status) status.textContent = `VWorld 정밀 좌표 조회 중... (0/${destinations.length})`;
 
-    L.marker([DEPOT.lat, DEPOT.lng], { icon: makePinIcon('#d32f2f') })
-        .bindPopup(`<b>${DEPOT.name}</b><br>${DEPOT.addr}`)
-        .addTo(dispatchLayer);
+    const depotMarker = L.marker([DEPOT.lat, DEPOT.lng], { icon: makePinIcon('#d32f2f', true) })
+        .bindPopup(`<b>🏭 ${DEPOT.name}</b><br>${DEPOT.addr}`);
+    if (showPinLabels) {
+        depotMarker.bindTooltip('🏭 미트포앤', { permanent: true, direction: 'top', offset: [0, -22], className: 'vworld-pin-label' });
+    }
+    depotMarker.addTo(dispatchLayer);
 
-    let okVWorld = 0;
-    let fallbackCnt = 0;
+    let ok = 0, fail = 0;
+    const failedNames = [];
     const bounds = [[DEPOT.lat, DEPOT.lng]];
 
-    for (let i = 0; i < destinations.length; i++) {
-        const d = destinations[i];
-        let pos = null;
-        let isEstimated = false;
-
-        if (d.addr) {
-            pos = await geocodeAddress(d.addr);
+    for (let idx = 0; idx < destinations.length; idx++) {
+        if (mySeq !== mapRefreshSeq) return;
+        const d = destinations[idx];
+        if (!d.addr) {
+            fail++;
+            failedNames.push(`${d.clientName}(주소미등록)`);
+            continue;
         }
+        const pos = await geocodeAddress(d.addr);
+        if (mySeq !== mapRefreshSeq) return;
+        if (status) status.textContent = `VWorld 좌표 조회 중... (${idx + 1}/${destinations.length})`;
+
         if (!pos) {
-            pos = resolveCoordForDispatch(d);
-            isEstimated = true;
-            fallbackCnt++;
-        } else {
-            okVWorld++;
-        }
-
-        if (status && (i % 3 === 0 || i === destinations.length - 1)) {
-            status.textContent = `vWorld 좌표 조회 중 (${i + 1}/${destinations.length})...`;
+            fail++;
+            failedNames.push(d.clientName);
+            continue;
         }
 
         const code = dispatchMap[d.clientName] || 'UNASSIGNED';
@@ -2107,33 +2464,1339 @@ async function refreshDispatchMap() {
         const vLabel = code.startsWith('V')
             ? (vehicleNames[parseInt(code.substring(1), 10)] || code)
             : (code === 'PICKUP' ? '방문/택배' : '미배차');
-        const seqTxt = (code.startsWith('V') && routeSeqMap[d.clientName]) ? ` (코스 ${routeSeqMap[d.clientName]}번)` : '';
-        const accTag = isEstimated ? '<br><small style="color:#d97706;">※ 동/구 중심 추정좌표</small>' : '';
 
-        L.marker([pos.lat, pos.lng], { icon: makePinIcon(color) })
-            .bindPopup(`<b>${escapeHtml(d.clientName)}</b><br>${escapeHtml(d.addr || '주소 미등록')}${accTag}<br><span style="color:${color};font-weight:700;">${escapeHtml(vLabel)}${seqTxt}</span><br>📦 ${d.totalBoxes} / 낱개 ${d.totalLoose}`)
-            .addTo(dispatchLayer);
+        const searchAddr = encodeURIComponent(pos.refinedAddr || d.addr);
+        const kakaoUrl = `https://map.kakao.com/link/map/${encodeURIComponent(d.clientName)},${pos.lat},${pos.lng}`;
+        const naverUrl = `https://map.naver.com/p/search/${searchAddr}`;
+
+        const popupHtml = `
+            <div style="min-width:200px;line-height:1.45;">
+                <b style="font-size:14px;color:#111;">${escapeHtml(d.clientName)}</b>
+                <span style="display:inline-block;margin-left:4px;padding:1px 6px;border-radius:10px;background:${color};color:#fff;font-size:11px;font-weight:700;">${escapeHtml(vLabel)}</span>
+                <div style="font-size:12px;color:#374151;margin-top:4px;">📍 원본: ${escapeHtml(d.addr)}</div>
+                <div style="font-size:11px;color:#059669;font-weight:700;">✅ 매칭: ${escapeHtml(pos.refinedAddr || d.addr)} (${escapeHtml(pos.source || 'VWorld')})</div>
+                ${d.note ? `<div style="font-size:11.5px;color:#b45309;font-weight:700;margin-top:2px;">🔑 ${escapeHtml(d.note)}</div>` : ''}
+                <div style="font-size:12px;margin-top:4px;font-weight:700;">📦 ${d.totalBoxes}박스 / 낱개 ${d.totalLoose}</div>
+                <div class="map-ext-links">
+                    <a class="kakao" href="${kakaoUrl}" target="_blank" rel="noopener">카카오맵</a>
+                    <a class="naver" href="${naverUrl}" target="_blank" rel="noopener">네이버지도</a>
+                </div>
+            </div>
+        `;
+
+        const marker = L.marker([pos.lat, pos.lng], { icon: makePinIcon(color, false) }).bindPopup(popupHtml);
+        if (showPinLabels) {
+            marker.bindTooltip(escapeHtml(d.clientName), {
+                permanent: true,
+                direction: 'top',
+                offset: [0, -18],
+                className: 'vworld-pin-label'
+            });
+        }
+        marker.on('click', () => {
+            selectedMapClient = d.clientName;
+            document.querySelectorAll('.client-chip').forEach(btn => {
+                btn.classList.toggle('selected', btn.getAttribute('data-client') === d.clientName);
+            });
+            const hint = document.getElementById('selectedClientHint');
+            if (hint) hint.textContent = `선택: ${d.clientName} → 아래 차량 버튼을 누르세요`;
+        });
+
+        marker.addTo(dispatchLayer);
+        mapMarkersByClient[d.clientName] = marker;
         bounds.push([pos.lat, pos.lng]);
+        ok++;
     }
+
+    if (mySeq !== mapRefreshSeq) return;
 
     if (bounds.length > 1) {
-        try { map.fitBounds(bounds, { padding: [28, 28], maxZoom: 13 }); } catch (e) {}
+        try { map.fitBounds(bounds, { padding: [32, 32], maxZoom: 14 }); } catch (e) {}
     }
+
     if (status) {
-        status.textContent = `vWorld 정밀좌표 ${okVWorld}곳` + (fallbackCnt ? ` · 추정좌표 ${fallbackCnt}곳` : '');
+        status.textContent = `✅ VWorld 표시 ${ok}곳` + (fail ? ` · 확인필요 ${fail}곳 (${failedNames.join(', ')})` : '');
     }
     setTimeout(() => map.invalidateSize(), 100);
 
-    if ((dispatchSortMode === 'far' || dispatchSortMode === 'near') && okVWorld > 0) {
-        const container = document.getElementById('dispatchCardList');
-        if (container && !container.dataset.resortLock) {
-            container.dataset.resortLock = '1';
+    if ((dispatchSortMode === 'far' || dispatchSortMode === 'near') && ok > 0) {
+        const listEl = document.getElementById('dispatch-card-list');
+        if (listEl && !listEl.dataset.resortLock) {
+            listEl.dataset.resortLock = '1';
             setTimeout(() => {
-                delete container.dataset.resortLock;
+                delete listEl.dataset.resortLock;
                 const sorted = sortDestinations(getAggregatedDeliveryDestinations(), dispatchSortMode);
                 renderClientChips(sorted);
-                redrawDispatchCardsOnly(sorted);
+                redrawDispatchTableOnly(sorted);
             }, 50);
         }
     }
+}
+
+let dispatchShowPendingOnly = false;
+
+function toggleDispatchPendingOnly() {
+    dispatchShowPendingOnly = !dispatchShowPendingOnly;
+    const btn = document.getElementById('btn-disp-pending');
+    if (btn) {
+        btn.className = dispatchShowPendingOnly
+            ? 'px-3 py-1.5 rounded-full text-[0.74rem] font-black bg-[#1D4ED8] text-white transition shrink-0'
+            : 'px-3 py-1.5 rounded-full text-[0.74rem] font-extrabold hv-pill transition shrink-0';
+    }
+    renderDispatchPage();
+}
+
+function toggleDispatchCompleted(clientName) {
+    if (!clientName) return;
+    const targetDate = document.getElementById('orderTargetDate')?.value || 'all';
+    const key = `${targetDate}::${clientName}`;
+    dispatchDoneMap[key] = !dispatchDoneMap[key];
+    renderDispatchPage();
+    if (activeTab === 'purchase' && typeof renderChatRoomTab === 'function') renderChatRoomTab('purchase');
+    if (activeTab === 'staff' && typeof renderChatRoomTab === 'function') renderChatRoomTab('staff');
+    updateHomeSummary();
+    showToast(dispatchDoneMap[key] ? `${clientName} 배송 완료 처리` : `${clientName} 배송 완료 해제`);
+}
+
+function redrawDispatchTableOnly(destinations) {
+    const container = document.getElementById('dispatch-card-list');
+    if (!container) return;
+
+    const targetDate = document.getElementById('orderTargetDate')?.value || 'all';
+
+    let filteredDests = destinations.filter(d => {
+        const assigned = dispatchMap[d.clientName] || 'UNASSIGNED';
+        if (selectedVehicleFilter !== 'ALL' && assigned !== selectedVehicleFilter) return false;
+        return true;
+    });
+
+    const totalCount = filteredDests.length;
+    const doneCount = filteredDests.filter(d => !!dispatchDoneMap[`${targetDate}::${d.clientName}`]).length;
+    const progressBadge = document.getElementById('dispatch-progress-badge');
+    if (progressBadge) {
+        progressBadge.textContent = `완료 ${doneCount}/${totalCount}`;
+    }
+
+    if (dispatchShowPendingOnly) {
+        filteredDests = filteredDests.filter(d => !dispatchDoneMap[`${targetDate}::${d.clientName}`]);
+    }
+
+    if (filteredDests.length === 0) {
+        container.innerHTML = `
+            <div class="hv-card rounded-2xl p-8 text-center">
+                <p class="text-[0.9rem] font-black hv-text-main">${dispatchShowPendingOnly ? '남은 미완료 배차가 없습니다.' : '당일 배차할 거래처가 없습니다.'}</p>
+                <p class="text-[0.76rem] font-semibold hv-text-muted mt-1">상단 납품일을 확인하거나 [설정]에서 카톡을 불러오세요.</p>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = filteredDests.map((d, idx) => {
+        const curVal = dispatchMap[d.clientName] || 'UNASSIGNED';
+        const pinCol = pinColorForCode(curVal);
+        const dist = getCachedDistKm(d.addr);
+        const city = extractCityFromAddr(d.addr);
+        const distTxt = dist != null ? ` · ${dist.toFixed(1)}km` : '';
+        const isDone = !!dispatchDoneMap[`${targetDate}::${d.clientName}`];
+
+        let optionsHtml = `<option value="UNASSIGNED" ${curVal === 'UNASSIGNED' ? 'selected' : ''}>-- 미배차 --</option>`;
+        for (let i = 0; i < 6; i++) {
+            const vCode = `V${i}`;
+            optionsHtml += `<option value="${vCode}" ${curVal === vCode ? 'selected' : ''}>🚚 ${escapeHtml(vehicleNames[i])}</option>`;
+        }
+        optionsHtml += `<option value="PICKUP" ${curVal === 'PICKUP' ? 'selected' : ''}>📦 방문/택배</option>`;
+
+        const selectColor = curVal === 'UNASSIGNED'
+            ? 'hv-subbox hv-text-main'
+            : 'bg-emerald-50 border-2 border-emerald-500 text-emerald-900';
+
+        const encodedClient = encodeURIComponent(d.clientName);
+        const encodedPhone = encodeURIComponent(d.phone || '');
+        const encodedAddr = encodeURIComponent(d.addr || '');
+        const encodedMemo = encodeURIComponent(d.note || '');
+
+        return `
+            <article class="hv-card rounded-2xl p-3.5 space-y-2.5 transition ${isDone ? 'opacity-70' : ''}">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-start gap-2 min-w-0">
+                        <span class="w-6 h-6 rounded-full bg-[#0F172A] text-white text-[0.74rem] font-black flex items-center justify-center shrink-0 num-tabular mt-0.5">${idx + 1}</span>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <span class="pin-dot shrink-0" style="background:${pinCol};"></span>
+                                <h2 class="text-[1.02rem] font-black hv-text-main keep-all ${isDone ? 'line-through' : ''}">${escapeHtml(d.clientName)}</h2>
+                                ${d.isUrgent ? `<span class="px-1.5 py-0.5 rounded-full bg-[#DC2626] text-white text-[0.66rem] font-black">급/오전</span>` : ''}
+                                ${isDone ? `<span class="hv-badge-green px-2 py-0.5 rounded-full text-[0.66rem] font-black">완료</span>` : ''}
+                            </div>
+                            <span class="inline-flex items-center mt-1 px-2 py-0.5 rounded-md hv-pill text-[0.7rem] font-extrabold num-tabular">${escapeHtml(city)}${distTxt}</span>
+                        </div>
+                    </div>
+
+                    <div class="shrink-0 hv-badge-blue px-2.5 py-1 rounded-xl text-right whitespace-nowrap num-tabular">
+                        <span class="text-[0.76rem] font-black">📦 ${d.totalBoxes}박스</span>
+                        ${d.totalLoose > 0 ? `<span class="mx-0.5 opacity-50">·</span><span class="text-[0.76rem] font-black text-[#B45309]">낱개 ${d.totalLoose}</span>` : ''}
+                    </div>
+                </div>
+
+                <div class="w-full hv-subbox rounded-xl px-3 py-2 text-[0.82rem] font-bold hv-text-main leading-snug keep-all">
+                    📍 ${d.addr ? escapeHtml(d.addr) : '<span class="hv-text-muted">주소 미등록</span>'}
+                </div>
+
+                <div class="grid grid-cols-4 gap-1.5 pt-0.5">
+                    <button type="button" onclick="handlePhoneAction(decodeURIComponent('${encodedClient}'), decodeURIComponent('${encodedPhone}'))"
+                        class="py-2 px-1 rounded-xl text-[0.74rem] font-black transition text-center whitespace-nowrap ${d.phone ? 'hv-badge-blue active:scale-[0.97]' : 'hv-pill opacity-40'}">
+                        📞 전화
+                    </button>
+                    <button type="button" onclick="copyTextWithToast(decodeURIComponent('${encodedAddr}'), '주소')"
+                        class="py-2 px-1 rounded-xl text-[0.74rem] font-black transition text-center whitespace-nowrap ${d.addr ? 'hv-pill active:scale-[0.97]' : 'hv-pill opacity-40'}">
+                        📋 주소복사
+                    </button>
+                    <button type="button" onclick="openMemoSheet(decodeURIComponent('${encodedClient}'), decodeURIComponent('${encodedMemo}'))"
+                        class="py-2 px-1 rounded-xl text-[0.74rem] font-black transition text-center whitespace-nowrap ${d.note ? 'hv-badge-amber active:scale-[0.97]' : 'hv-pill opacity-60'}">
+                        🔑 비번/메모
+                    </button>
+                    <button type="button" onclick="toggleDispatchCompleted(decodeURIComponent('${encodedClient}'))"
+                        class="py-2 px-1 rounded-xl text-[0.74rem] font-black transition text-center whitespace-nowrap ${isDone ? 'bg-[#047857] text-white' : 'hv-pill active:scale-[0.97]'}">
+                        ${isDone ? '✓ 완료됨' : '✓ 완료'}
+                    </button>
+                </div>
+
+                <div class="flex items-center justify-between gap-2 pt-0.5">
+                    <span class="text-[0.72rem] font-extrabold hv-text-muted num-tabular">${d.phone ? escapeHtml(d.phone) : '연락처 없음'}</span>
+                    <select class="rounded-xl px-2.5 py-1.5 text-[0.78rem] font-black ${selectColor}" data-client="${escapeHtml(d.clientName)}" onchange="assignVehicle(this.getAttribute('data-client'), this.value)">
+                        ${optionsHtml}
+                    </select>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+function fitDispatchMap() {
+    if (!dispatchMapObj || !dispatchLayer) return;
+    const layers = [];
+    dispatchLayer.eachLayer(l => { if (l.getLatLng) layers.push(l.getLatLng()); });
+    if (layers.length) {
+        try { dispatchMapObj.fitBounds(L.latLngBounds(layers), { padding: [32, 32], maxZoom: 14 }); } catch (e) {}
+    }
+}
+
+function renderVehicleConfigInputs() {
+    const grid = document.getElementById('vehicleConfigGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    for (let i = 0; i < 6; i++) {
+        const div = document.createElement('div');
+        div.className = 'flex flex-col gap-1';
+        div.innerHTML = `
+            <span class="text-[11px] font-bold text-[#1677FF]">🚚 ${i + 1}호차</span>
+            <input type="text" class="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-[12.5px] font-bold" value="${escapeHtml(vehicleNames[i])}" onchange="updateVehicleName(${i}, this.value)">
+        `;
+        grid.appendChild(div);
+    }
+}
+
+function updateVehicleName(idx, newVal) {
+    vehicleNames[idx] = newVal.trim() || `${idx + 1}호차`;
+    localStorage.setItem('mf_vehicles', JSON.stringify(vehicleNames));
+    recordLastUpdatedTime('차량 기사명 변경');
+    renderDispatchPage();
+}
+
+function countOrderBoxesAndLoose(orderText) {
+    const lines = orderText.split('\n').map(l => l.trim()).filter(Boolean);
+    let totalBoxes = 0;
+    let totalLoose = 0;
+
+    lines.forEach((line, idx) => {
+        if (/010-\d{3,4}-\d{4}|안녕하|발주드리려고|부탁드립|부탁해요|보내주세요|보내주세여|이상입니다|감사합니다|주문합니다|주문드립니다|방문예정|들리겠습니다|차차장님|우편함에|넣어주세요|기름 적은거로/.test(line)) {
+            if (!/(삼겹|목살|미전지|전지|미삼|등갈비|등뼈|갈비|등심|안심|사태|항정|가브리|갈매기|미후지|후지|오겹|우삼겹|차돌|스지|살치|부채|장족|미니족|돈피|잡육|왕구이|목뼈|사골|오돌뼈|홍두깨|볼라|설도|늑간|알목|두메코|테니쉬|셀렉타|올리멜|주물럭|제육)/.test(line)) {
+                return;
+            }
+        }
+        if (idx === 0 && !/\d+\s*(박스|빡스|박|box|팩|펙|판|봉|덩이|벌|통|병|캔|망|포대|묶음|짝)/i.test(line)) {
+            return;
+        }
+
+        let s = line;
+        s = s.replace(/\((\d+)\s*박스(?:로[^\)]*)?\)/g, ' $1박스 ');
+        s = s.replace(/\([^\)]*\)/g, ' ').replace(/\[[^\]]*\]/g, ' ');
+        s = s.replace(/[+-]?\d{1,3}(?:,\d{3})+(?:원|행사|할인|납)?/g, ' ');
+        s = s.replace(/\d+\.\d{3}(?:원)?/g, ' ').replace(/-\d+할인/g, ' ');
+        s = s.replace(/\d+(?:\.\d+)?\s*(?:mm|미리|센치|cm)/gi, ' ');
+        s = s.replace(/\d{1,2}월\s*\d{1,2}일(?:자로)?|\d{1,2}\/\d{1,2}|\d{1,2}일(?:자|자로|재고|진|포크|암삼|대산)?/g, ' ');
+        s = s.replace(/\d+\s*~\s*\d+\s*(?:키로|kg)?(?:대)?/gi, ' ');
+        s = s.replace(/\d+\s*(?:키로|kg)\s*(?:대|이상)/gi, ' ');
+        s = s.replace(/(?:미삼|삼겹|암삼|암미삼)\s*1[6789]키로/g, '미삼 ');
+        s = s.replace(/\d+호점|1\+\+/g, ' ');
+        s = s.replace(/한박스/g, '1박스').replace(/한판/g, '1판').replace(/한덩이/g, '1덩이').replace(/한덩어리/g, '1덩어리');
+        s = s.replace(/두마리분/g, '2마리분').replace(/한마리분/g, '1마리분').replace(/한마리반/g, '1마리분');
+
+        const boxMatches = [...s.matchAll(/(\d+)\s*(?:박스|빡스|박|box|b)(?![a-zA-Z])/gi)];
+        const halfBox = s.includes('반박스') ? 1 : 0;
+
+        let sRem = s.replace(/\d+\s*(?:박스|빡스|박|box|b)(?![a-zA-Z])/gi, ' ').replace(/반박스/g, ' ');
+        const looseMatches = [...sRem.matchAll(/(\d+)\s*(?:팩|펙|판|봉|봉지|덩이|덩어리|진공|벌|두|마리분|마리|피스|p|개|통|병|캔|망|포대|묶음|짝)/gi)];
+
+        if (boxMatches.length > 0 || halfBox > 0 || looseMatches.length > 0) {
+            boxMatches.forEach(m => { totalBoxes += parseInt(m[1], 10); });
+            totalBoxes += halfBox;
+            looseMatches.forEach(m => { totalLoose += parseInt(m[1], 10); });
+        } else {
+            const kgMatches = [...sRem.matchAll(/(\d+(?:\.\d+)?)\s*(?:kg|키로|킬|k)(?![a-zA-Z])/gi)];
+            if (kgMatches.length > 0) {
+                totalLoose += kgMatches.length;
+            } else {
+                const bareNums = [...sRem.matchAll(/(?:^|[^\d])(\d{1,2})(?!\d)/g)];
+                if (bareNums.length > 0 && /(삼겹|목살|목심|미전지|전지|미삼|등갈비|등뼈|목뼈|갈비|등심|안심|사태|항정|가브리|갈매기|미후지|후지|오겹|우삼겹|차돌|스지)/i.test(s)) {
+                    totalBoxes += parseInt(bareNums[0][1], 10);
+                }
+            }
+        }
+    });
+
+    return { boxes: totalBoxes, loose: totalLoose };
+}
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const toR = d => d * Math.PI / 180;
+    const dLat = toR(lat2 - lat1);
+    const dLng = toR(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(toR(lat1)) * Math.cos(toR(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function extractCityFromAddr(addr) {
+    if (!addr) return '주소미상';
+    const s = String(addr).replace(/\s+/g, ' ').trim();
+    let m = s.match(/(서울|부산|대구|인천|광주|대전|울산|세종)(?:특별시|광역시|시)?\s*([가-힣]+(?:구|군))?/);
+    if (m) {
+        if (m[1] === '세종') return '세종시';
+        return m[2] ? `${m[1]} ${m[2]}` : `${m[1]}시`;
+    }
+    m = s.match(/([가-힣]+도)\s*([가-힣]+시|[가-힣]+군)/);
+    if (m) return m[2];
+    m = s.match(/([가-힣]+시|[가-힣]+군)\s*([가-힣]+구)?/);
+    if (m) return m[2] ? `${m[1]} ${m[2]}` : m[1];
+    m = s.match(/([가-힣]+구)/);
+    if (m) return m[1];
+    return '주소미상';
+}
+
+function getCachedDistKm(addr) {
+    if (!addr) return null;
+    const key = addr.trim();
+    const pos = geoCache[key];
+    if (!pos || pos.lat == null || pos.lng == null) return null;
+    return haversineKm(DEPOT.lat, DEPOT.lng, pos.lat, pos.lng);
+}
+
+function sortDestinations(list, mode) {
+    const arr = list.slice();
+    const m = mode || dispatchSortMode || 'city';
+
+    if (m === 'city') {
+        arr.sort((a, b) => {
+            const ca = extractCityFromAddr(a.addr);
+            const cb = extractCityFromAddr(b.addr);
+            if (ca === '주소미상' && cb !== '주소미상') return 1;
+            if (cb === '주소미상' && ca !== '주소미상') return -1;
+            const c = ca.localeCompare(cb, 'ko');
+            if (c !== 0) return c;
+            const aa = String(a.addr || '').localeCompare(String(b.addr || ''), 'ko');
+            if (aa !== 0) return aa;
+            return String(a.clientName).localeCompare(String(b.clientName), 'ko');
+        });
+        return arr;
+    }
+
+    if (m === 'boxes') {
+        arr.sort((a, b) => {
+            const dbx = (b.totalBoxes || 0) - (a.totalBoxes || 0);
+            if (dbx !== 0) return dbx;
+            const dl = (b.totalLoose || 0) - (a.totalLoose || 0);
+            if (dl !== 0) return dl;
+            return String(a.clientName).localeCompare(String(b.clientName), 'ko');
+        });
+        return arr;
+    }
+
+    if (m === 'vehicle') {
+        const rank = (code) => {
+            if (/^V[0-5]$/.test(code)) return parseInt(code.slice(1), 10);
+            if (code === 'UNASSIGNED' || !code) return 50;
+            if (code === 'PICKUP') return 60;
+            return 70;
+        };
+        arr.sort((a, b) => {
+            const ca = dispatchMap[a.clientName] || 'UNASSIGNED';
+            const cb = dispatchMap[b.clientName] || 'UNASSIGNED';
+            const ra = rank(ca), rb = rank(cb);
+            if (ra !== rb) return ra - rb;
+            const cityCmp = extractCityFromAddr(a.addr).localeCompare(extractCityFromAddr(b.addr), 'ko');
+            if (cityCmp !== 0) return cityCmp;
+            return String(a.clientName).localeCompare(String(b.clientName), 'ko');
+        });
+        return arr;
+    }
+
+    arr.sort((a, b) => {
+        const da = getCachedDistKm(a.addr);
+        const db = getCachedDistKm(b.addr);
+        const aMiss = da == null;
+        const bMiss = db == null;
+        if (aMiss && bMiss) {
+            return String(a.clientName).localeCompare(String(b.clientName), 'ko');
+        }
+        if (aMiss) return 1;
+        if (bMiss) return -1;
+        if (m === 'far') return db - da;
+        return da - db;
+    });
+    return arr;
+}
+
+function onDispatchSortChange() {
+    const sel = document.getElementById('dispatchSortMode');
+    if (sel) {
+        dispatchSortMode = sel.value || 'city';
+        localStorage.setItem('mf_dispatch_sort', dispatchSortMode);
+    }
+    renderDispatchPage();
+}
+
+function getAggregatedDeliveryDestinations() {
+    const orders = getFilteredOrderList(true);
+    const destMap = new Map();
+
+    orders.forEach(ord => {
+        const key = ord.clientName;
+        if (!destMap.has(key)) {
+            destMap.set(key, {
+                clientName: key,
+                officialName: ord.clientObj ? ord.clientObj.name : key,
+                addr: ord.clientObj ? ord.clientObj.addr : '',
+                phone: ord.clientObj ? ord.clientObj.phone : '',
+                note: ord.clientObj ? ord.clientObj.note : '',
+                totalBoxes: 0,
+                totalLoose: 0,
+                isUrgent: false
+            });
+        }
+        const entry = destMap.get(key);
+        const cnt = countOrderBoxesAndLoose(ord.content);
+        entry.totalBoxes += cnt.boxes;
+        entry.totalLoose += cnt.loose;
+        if (/급|일찍|오전/.test(ord.content)) entry.isUrgent = true;
+    });
+
+    return Array.from(destMap.values());
+}
+
+function formatBoxLooseSummary(boxes, loose) {
+    if (boxes > 0 && loose > 0) {
+        return `<b style="color:var(--primary); font-size:13px;">📦 ${boxes}박스</b> <span style="color:#9ca3af;">/</span> <b style="color:var(--warn); font-size:13px;">낱개 ${loose}</b>`;
+    } else if (boxes > 0) {
+        return `<b style="color:var(--primary); font-size:13px;">📦 ${boxes}박스</b>`;
+    } else if (loose > 0) {
+        return `<b style="color:var(--warn); font-size:13px;">낱개 ${loose}</b>`;
+    }
+    return `<span class="num-zero">-</span>`;
+}
+
+function renderDispatchPage() {
+    const destinationsRaw = getAggregatedDeliveryDestinations();
+    let destinations = sortDestinations(destinationsRaw, dispatchSortMode);
+    const cardList = document.getElementById('dispatch-card-list');
+    const statBar = document.getElementById('vehicleStatBar');
+    if (!cardList || !statBar) return;
+    statBar.innerHTML = '';
+
+    const sortSel = document.getElementById('dispatchSortMode');
+    if (sortSel && sortSel.value !== dispatchSortMode) sortSel.value = dispatchSortMode;
+
+    const counts = { 'ALL': destinations.length, 'UNASSIGNED': 0, 'PICKUP': 0 };
+    for (let i = 0; i < 6; i++) counts[`V${i}`] = 0;
+
+    destinations.forEach(d => {
+        const assigned = dispatchMap[d.clientName] || 'UNASSIGNED';
+        if (counts[assigned] !== undefined) counts[assigned]++;
+        else counts['UNASSIGNED']++;
+    });
+
+    const chips = [
+        { code: 'ALL', label: `전체 (${counts['ALL']})` },
+        { code: 'UNASSIGNED', label: `미배차 (${counts['UNASSIGNED']})` },
+        ...vehicleNames.map((vName, idx) => ({ code: `V${idx}`, label: `${vName} (${counts['V'+idx]})` })),
+        { code: 'PICKUP', label: `방문/택배 (${counts['PICKUP']})` }
+    ];
+
+    chips.forEach(ch => {
+        const span = document.createElement('button');
+        span.type = 'button';
+        const isActive = selectedVehicleFilter === ch.code;
+        span.className = isActive
+            ? 'px-3 py-1.5 rounded-full text-[0.74rem] font-black bg-[#1D4ED8] text-white shrink-0 transition num-tabular'
+            : 'px-3 py-1.5 rounded-full text-[0.74rem] font-extrabold hv-pill shrink-0 transition num-tabular';
+        span.innerText = ch.label;
+        span.onclick = () => { selectedVehicleFilter = ch.code; renderDispatchPage(); };
+        statBar.appendChild(span);
+    });
+
+    const routeHint = document.getElementById('routeOrderHint');
+    const routeDriverEl = document.getElementById('routeOrderDriverName');
+    if (/^V[0-5]$/.test(selectedVehicleFilter) && typeof sortVehicleRouteOrder === 'function') {
+        const vIdx = parseInt(selectedVehicleFilter.slice(1), 10);
+        if (routeHint) routeHint.classList.remove('hidden');
+        if (routeDriverEl) routeDriverEl.textContent = vehicleNames[vIdx] || `${vIdx + 1}호차`;
+        destinations = sortVehicleRouteOrder(destinations);
+    } else {
+        if (routeHint) routeHint.classList.add('hidden');
+    }
+
+    const mapBox = document.getElementById('dispatchMapBox');
+    if (mapBox && !mapBox.classList.contains('hidden')) {
+        refreshDispatchMap();
+    }
+    redrawDispatchTableOnly(destinations);
+    if (typeof renderDispatchBoardSummary === 'function') {
+        renderDispatchBoardSummary(destinationsRaw);
+    }
+}
+
+function assignVehicle(clientName, vCode) {
+    dispatchMap[clientName] = vCode;
+    localStorage.setItem('mf_dispatch', JSON.stringify(dispatchMap));
+    recordLastUpdatedTime(`${clientName} 배차 지정`);
+    renderDispatchPage();
+}
+
+function downloadDispatchCsv() {
+    const destinations = getAggregatedDeliveryDestinations();
+    let csv = "\uFEFF순번,납품거래처명,정식상호,배차차량,주소,연락처,출입비번/비고,박스수,낱개수\n";
+    destinations.forEach((d, idx) => {
+        const code = dispatchMap[d.clientName] || 'UNASSIGNED';
+        let vLabel = '미배차';
+        if (code.startsWith('V')) vLabel = vehicleNames[parseInt(code.substring(1), 10)];
+        else if (code === 'PICKUP') vLabel = '직접방문/택배';
+
+        csv += `${idx + 1},"${d.clientName}","${d.officialName}","${vLabel}","${d.addr}","${d.phone}","${d.note}",${d.totalBoxes},${d.totalLoose}\n`;
+    });
+    downloadBlob(csv, "미트포앤GB_당일배송처_배차목록.csv");
+}
+
+function escapeHtml(str) {
+    return String(str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function downloadBlob(csvContent, filename) {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const isAndroidWebView = Boolean(window.Capacitor) || /wv|Android.*Version\/[0-9.]+/i.test(navigator.userAgent);
+    if (isAndroidWebView && navigator.canShare) {
+        try {
+            const file = new File([blob], filename, { type: 'text/csv;charset=utf-8;' });
+            if (navigator.canShare({ files: [file] })) {
+                navigator.share({ files: [file], title: filename }).catch(() => {});
+                return;
+            }
+        } catch (e) {}
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+}
+
+function downloadOrdersCsv() {
+    const list = getFilteredOrderList(false);
+    let csv = "\uFEFF작성날짜,작성시간,납품기준일,판별사유,거래처,발신자,판별구분,발주내용\n";
+    list.forEach(o => {
+        const clean = o.content.replace(/"/g, '""').replace(/\n/g, ' ');
+        csv += `"${o.dateShort}","${o.timeStr}","${o.delivShort||''}","${o.delivReason||''}","${o.clientName}","${o.sender}","${o.type}","${clean}"\n`;
+    });
+    downloadBlob(csv, "미트포앤GB_추출발주목록.csv");
+}
+
+function downloadStockCsv() {
+    let csv = "\uFEFF품목명,대산(박스),대산(상세),포크(박스),포크(상세),기타(박스),기타(상세),총합계(박스)\n";
+    stockItems.forEach(item => {
+        const d = item.brands['대산'], p = item.brands['포크'], o = item.brands['기타'];
+        const tot = d.boxes + p.boxes + o.boxes;
+        csv += `"${item.name}",${d.boxes},"${d.details.join(' / ')}",${p.boxes},"${p.details.join(' / ')}",${o.boxes},"${o.details.join(' / ')}",${tot}\n`;
+    });
+    downloadBlob(csv, "미트포앤GB_일일재고현황표.csv");
+}
+
+
+/* =========================================================================
+   9. [신규] 매입방 & 직원방 카톡 정리·검색 모듈
+   ========================================================================= */
+let purchaseChatItems = [];
+let staffChatItems = [];
+
+const chatRoomState = {
+    purchase: { category: '전체', dateMode: 'all', hideMedia: true },
+    staff: { category: '전체', dateMode: 'all', hideMedia: true }
+};
+
+const PURCHASE_CATEGORIES = ['전체', '매입/입고', '단가/원가', '냉창/유상', '반품/입금', '재고현황', '공지/비번', '일반메모', '사진/미디어'];
+const STAFF_CATEGORIES = ['전체', '배송/현장지시', '매입발주서', '발주체크', '차량/타이어', '반품', '근태/공지', '재고현황', '일반메모', '사진/미디어'];
+
+function isMediaOnlyMessage(content) {
+    const t = String(content || '').trim();
+    return /^(사진(\s*\d+장)?|이모티콘|동영상|음성메시지|파일)$/.test(t);
+}
+
+function classifyPurchaseCategory(content) {
+    const t = String(content || '').trim();
+    if (isMediaOnlyMessage(t)) return '사진/미디어';
+
+    if (/원가내역|단가표/.test(t) || (/\d[\d,]*\s*원/.test(t) && (t.match(/\d[\d,]*\s*원/g) || []).length >= 2)) {
+        return '단가/원가';
+    }
+    if (/유상냉장|유상\(|입고증|냉동전환|냉창|얼릴것|얼려/.test(t)) {
+        return '냉창/유상';
+    }
+    if (/반품|\[Web발신\]|입금/.test(t)) {
+        return '반품/입금';
+    }
+    if (/재고현황|한우사골|돈냉동삼겹/.test(t)) {
+        return '재고현황';
+    }
+    if (/공지|비번|비밀번호/.test(t)) {
+        return '공지/비번';
+    }
+    const hasSupplier = /(토레인|황금비앤피|대산|포크|정담|이나미트|신선|하나에프에스|참좋은미트|삼정푸드|바른푸드|협신|색시포크)/.test(t);
+    const hasInboundVerb = /(입고|매입|출고|도착)/.test(t);
+    const hasWeightRecord = /(특삼|특목|특미|빵삼).*?(포|대)\s*\d/.test(t);
+    if (hasSupplier || hasInboundVerb || hasWeightRecord) {
+        return '매입/입고';
+    }
+    return '일반메모';
+}
+
+function classifyStaffCategory(content) {
+    const t = String(content || '').trim();
+    if (isMediaOnlyMessage(t)) return '사진/미디어';
+
+    if (/재고현황/.test(t)) return '재고현황';
+    if (/^발주체크/.test(t)) return '발주체크';
+    if (/요일발주요|\(작업분\).*도착/.test(t)) return '매입발주서';
+    if (/타이어|윈터|포터|봉고|엔진오일|자동차검사|블랙박스|라이닝|7719|5521|0202|5904|6243|4031|6294|8391|3371|3775|3482/.test(t)) {
+        return '차량/타이어';
+    }
+    if (/반품장|반품/.test(t)) return '반품';
+    if (/연차|휴무|회식|잠바|장바|병원|검사/.test(t)) return '근태/공지';
+    if (/코스|출발|납품|상차|선입선출|바코드|전달사항|비번|비밀번호/.test(t)) return '배송/현장지시';
+    return '일반메모';
+}
+
+function parseRoomKakaoText(text, roomType) {
+    const cleaned = String(text || '').replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '');
+    const lines = cleaned.split(/\r?\n/);
+    const now = new Date();
+    let currentDateFull = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    let currentDisplayDate = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+
+    const pcRegex = /^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일\s+(오전|오후)\s*(\d{1,2}:\d{2}),\s*(.*?)\s*:\s*(.*)$/;
+    const dotInlineRegex = /^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?\s*(?:\([월화수목금토일]\)\s*)?(오전|오후)?\s*(\d{1,2}:\d{2}),\s*(.*?)\s*:\s*(.*)$/;
+    const mobRegex = /^\[(.*?)\]\s*\[(오전|오후)\s*(\d{1,2}:\d{2})\]\s*(.*)$/;
+    const dateLineRegex = /(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
+
+    const items = [];
+    let curItem = null;
+
+    const pushCur = () => {
+        if (!curItem) return;
+        const c = String(curItem.content || '').trim();
+        if (!c || c === '메시지가 삭제되었습니다.' || /^저장한 날짜\s*:/.test(c)) {
+            curItem = null;
+            return;
+        }
+        curItem.category = roomType === 'purchase'
+            ? classifyPurchaseCategory(c)
+            : classifyStaffCategory(c);
+        items.push(curItem);
+        curItem = null;
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        if (/^저장한 날짜\s*:/.test(line) || line === '메시지가 삭제되었습니다.' || line.includes('초대했습니다')) continue;
+
+        if (line.includes('---') && line.includes('년')) {
+            const dm = line.match(dateLineRegex);
+            if (dm) {
+                currentDateFull = `${dm[1]}-${String(dm[2]).padStart(2, '0')}-${String(dm[3]).padStart(2, '0')}`;
+                currentDisplayDate = `${String(dm[2]).padStart(2, '0')}/${String(dm[3]).padStart(2, '0')}`;
+            }
+            continue;
+        }
+
+        if (/^\d{4}년\s*\d{1,2}월\s*\d{1,2}일\s+(오전|오후)\s*\d{1,2}:\d{2}$/.test(line)) continue;
+
+        const mPc = line.match(pcRegex);
+        if (mPc) {
+            pushCur();
+            const y = mPc[1], m = String(mPc[2]).padStart(2, '0'), d = String(mPc[3]).padStart(2, '0');
+            currentDateFull = `${y}-${m}-${d}`;
+            currentDisplayDate = `${m}/${d}`;
+            const timeInfo = convertAmPmTime(mPc[4], mPc[5]);
+            curItem = {
+                dateFull: currentDateFull,
+                dateShort: currentDisplayDate,
+                timeStr: timeInfo.str,
+                timeMins: timeInfo.mins,
+                sender: mPc[6].trim(),
+                content: mPc[7]
+            };
+            continue;
+        }
+
+        const mDot = line.match(dotInlineRegex);
+        if (mDot) {
+            pushCur();
+            const y = mDot[1], m = String(mDot[2]).padStart(2, '0'), d = String(mDot[3]).padStart(2, '0');
+            currentDateFull = `${y}-${m}-${d}`;
+            currentDisplayDate = `${m}/${d}`;
+            const timeInfo = convertAmPmTime(mDot[4] || '', mDot[5]);
+            curItem = {
+                dateFull: currentDateFull,
+                dateShort: currentDisplayDate,
+                timeStr: timeInfo.str,
+                timeMins: timeInfo.mins,
+                sender: mDot[6].trim(),
+                content: mDot[7]
+            };
+            continue;
+        }
+
+        const mMob = line.match(mobRegex);
+        if (mMob) {
+            pushCur();
+            const timeInfo = convertAmPmTime(mMob[2], mMob[3]);
+            curItem = {
+                dateFull: currentDateFull,
+                dateShort: currentDisplayDate,
+                timeStr: timeInfo.str,
+                timeMins: timeInfo.mins,
+                sender: mMob[1].trim(),
+                content: mMob[4]
+            };
+            continue;
+        }
+
+        if (curItem) {
+            curItem.content += '\n' + line;
+        }
+    }
+    pushCur();
+    return items;
+}
+
+function updateChatRoomStatusUI() {
+    const pPill = document.getElementById('pillPurchase');
+    if (pPill) pPill.innerText = `매입: ${purchaseChatItems.length}건`;
+    const sPill = document.getElementById('pillStaff');
+    if (sPill) sPill.innerText = `직원: ${staffChatItems.length}건`;
+    const hp = document.getElementById('home-stat-purchase');
+    if (hp) hp.innerText = `${purchaseChatItems.length}건`;
+    const hs = document.getElementById('home-stat-staff');
+    if (hs) hs.innerText = `${staffChatItems.length}건`;
+}
+
+function restorePurchaseAndStaffChats() {
+    try {
+        const savedP = JSON.parse(localStorage.getItem('mf_saved_purchase_chats') || 'null');
+        if (Array.isArray(savedP) && savedP.length > 0) {
+            purchaseChatItems = savedP;
+            const msgEl = document.getElementById('purchaseLoadMsg');
+            if (msgEl) msgEl.innerText = `💾 이전 저장된 매입방 ${purchaseChatItems.length}건 자동 복원됨`;
+        }
+    } catch (e) {}
+    try {
+        const savedS = JSON.parse(localStorage.getItem('mf_saved_staff_chats') || 'null');
+        if (Array.isArray(savedS) && savedS.length > 0) {
+            staffChatItems = savedS;
+            const msgEl = document.getElementById('staffLoadMsg');
+            if (msgEl) msgEl.innerText = `💾 이전 저장된 직원방 ${staffChatItems.length}건 자동 복원됨`;
+        }
+    } catch (e) {}
+    updateChatRoomStatusUI();
+}
+
+async function loadPurchaseFiles(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    let combined = [];
+    for (let i = 0; i < files.length; i++) {
+        const text = await readFileWithAutoEncoding(files[i]);
+        combined = combined.concat(parseRoomKakaoText(text, 'purchase'));
+    }
+    purchaseChatItems = combined;
+    try { localStorage.setItem('mf_saved_purchase_chats', JSON.stringify(purchaseChatItems)); } catch (e) {}
+    const msgEl = document.getElementById('purchaseLoadMsg');
+    if (msgEl) msgEl.innerText = `✅ 매입방 ${purchaseChatItems.length}건 분석·저장 완료!`;
+    updateChatRoomStatusUI();
+    recordLastUpdatedTime('매입방 카톡 업로드');
+    renderChatRoomTab('purchase');
+    event.target.value = '';
+}
+
+async function loadStaffFiles(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    let combined = [];
+    for (let i = 0; i < files.length; i++) {
+        const text = await readFileWithAutoEncoding(files[i]);
+        combined = combined.concat(parseRoomKakaoText(text, 'staff'));
+    }
+    staffChatItems = combined;
+    try { localStorage.setItem('mf_saved_staff_chats', JSON.stringify(staffChatItems)); } catch (e) {}
+    const msgEl = document.getElementById('staffLoadMsg');
+    if (msgEl) msgEl.innerText = `✅ 직원방 ${staffChatItems.length}건 분석·저장 완료!`;
+    updateChatRoomStatusUI();
+    recordLastUpdatedTime('직원방 카톡 업로드');
+    renderChatRoomTab('staff');
+    event.target.value = '';
+}
+
+function toggleChatRoomDateMode(room) {
+    const st = chatRoomState[room];
+    if (!st) return;
+    st.dateMode = st.dateMode === 'all' ? 'selected' : 'all';
+    const btn = document.getElementById(`btn-${room}-date-mode`);
+    if (btn) {
+        btn.innerText = st.dateMode === 'selected' ? '📅 선택일만' : '📅 전체기간';
+        btn.className = st.dateMode === 'selected'
+            ? 'px-2.5 py-1.5 rounded-xl bg-[#1D4ED8] text-white text-[0.72rem] font-black whitespace-nowrap'
+            : 'px-2.5 py-1.5 rounded-xl hv-pill text-[0.72rem] font-black whitespace-nowrap';
+    }
+    renderChatRoomTab(room);
+}
+
+function toggleChatRoomHideMedia(room) {
+    const st = chatRoomState[room];
+    if (!st) return;
+    st.hideMedia = !st.hideMedia;
+    const btn = document.getElementById(`btn-${room}-hide-media`);
+    if (btn) {
+        btn.innerText = st.hideMedia ? '🖼️ 사진 숨김: ON' : '🖼️ 사진 숨김: OFF';
+        btn.className = st.hideMedia
+            ? 'px-2.5 py-1.5 rounded-xl bg-[#1D4ED8] text-white text-[0.72rem] font-black whitespace-nowrap'
+            : 'px-2.5 py-1.5 rounded-xl hv-pill text-[0.72rem] font-black whitespace-nowrap';
+    }
+    renderChatRoomTab(room);
+}
+
+function setChatRoomCategory(room, cat) {
+    if (!chatRoomState[room]) return;
+    chatRoomState[room].category = cat;
+    renderChatRoomTab(room);
+}
+
+function clearChatRoomSearch(room) {
+    const input = document.getElementById(`${room}-search-input`);
+    if (input) {
+        input.value = '';
+        renderChatRoomTab(room);
+        input.focus();
+    }
+}
+
+function highlightSearchMatch(text, query) {
+    const safe = escapeHtml(text || '');
+    const q = String(query || '').trim();
+    if (!q) return safe;
+    const escQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return safe.replace(new RegExp(`(${escQ})`, 'gi'), '<mark class="hl-qty px-1 py-0.5 rounded bg-amber-200 text-amber-950 font-black">$1</mark>');
+}
+
+function getRoomCategoryBadgeClass(cat) {
+    if (cat === '매입/입고' || cat === '배송/현장지시') return 'hv-badge-blue';
+    if (cat === '단가/원가' || cat === '차량/타이어' || cat === '발주체크') return 'hv-badge-amber';
+    if (cat === '매입발주서' || cat === '재고현황') return 'hv-badge-green';
+    if (cat === '반품/입금' || cat === '반품') return 'bg-rose-100 text-rose-800 border border-rose-200';
+    return 'hv-pill';
+}
+
+function getFilteredRoomItems(room) {
+    const source = room === 'purchase' ? purchaseChatItems : staffChatItems;
+    const st = chatRoomState[room];
+    const targetDate = document.getElementById('orderTargetDate')?.value || '';
+    const query = (document.getElementById(`${room}-search-input`)?.value || '').trim().toLowerCase();
+
+    return source.filter(item => {
+        if (st.dateMode === 'selected' && targetDate && item.dateFull !== targetDate) return false;
+        if (st.hideMedia && item.category === '사진/미디어') return false;
+        if (st.category !== '전체' && item.category !== st.category) return false;
+        if (query) {
+            const hay = `${item.sender || ''} ${item.content || ''} ${item.category || ''}`.toLowerCase();
+            if (!hay.includes(query)) return false;
+        }
+        return true;
+    }).slice().sort((a, b) => {
+        if (a.dateFull !== b.dateFull) return b.dateFull.localeCompare(a.dateFull);
+        return b.timeMins - a.timeMins;
+    });
+}
+
+function renderChatRoomTab(room) {
+    const container = document.getElementById(`${room}-card-list`);
+    const chipsEl = document.getElementById(`${room}-category-chips`);
+    const countEl = document.getElementById(`${room}-header-count`);
+    const searchEl = document.getElementById(`${room}-search-input`);
+    const clearBtn = document.getElementById(`${room}-search-clear`);
+    if (!container) return;
+
+    const query = (searchEl ? searchEl.value : '').trim();
+    if (clearBtn) clearBtn.classList.toggle('hidden', query.length === 0);
+
+    const source = room === 'purchase' ? purchaseChatItems : staffChatItems;
+    const st = chatRoomState[room];
+    const targetDate = document.getElementById('orderTargetDate')?.value || '';
+    const catList = room === 'purchase' ? PURCHASE_CATEGORIES : STAFF_CATEGORIES;
+
+    // 카테고리별 건수 계산 (날짜·사진숨김·검색어 기준 반영)
+    const baseForCounts = source.filter(item => {
+        if (st.dateMode === 'selected' && targetDate && item.dateFull !== targetDate) return false;
+        if (st.hideMedia && item.category === '사진/미디어') return false;
+        if (query) {
+            const hay = `${item.sender || ''} ${item.content || ''} ${item.category || ''}`.toLowerCase();
+            if (!hay.includes(query.toLowerCase())) return false;
+        }
+        return true;
+    });
+
+    if (chipsEl) {
+        chipsEl.innerHTML = catList.map(cat => {
+            if (cat === '사진/미디어' && st.hideMedia) return '';
+            const cnt = cat === '전체'
+                ? baseForCounts.length
+                : baseForCounts.filter(x => x.category === cat).length;
+            const active = st.category === cat;
+            return `
+                <button type="button" onclick="setChatRoomCategory('${room}', '${cat}')"
+                    class="px-3 py-1.5 rounded-full text-[0.74rem] whitespace-nowrap transition shrink-0 num-tabular ${active ? 'font-black bg-[#1D4ED8] text-white' : 'font-extrabold hv-pill'}">
+                    ${escapeHtml(cat)} (${cnt})
+                </button>
+            `;
+        }).join('');
+    }
+
+    const filtered = getFilteredRoomItems(room);
+    if (countEl) {
+        countEl.textContent = `조회 ${filtered.length}건 (전체 ${source.length}건)`;
+    }
+
+    if (source.length === 0) {
+        container.innerHTML = `
+            <div class="hv-card rounded-2xl p-8 text-center">
+                <p class="text-[0.9rem] font-black hv-text-main">불러온 ${room === 'purchase' ? '매입방' : '직원방'} 카톡 대화가 없습니다.</p>
+                <p class="text-[0.76rem] font-semibold hv-text-muted mt-1">[설정] 탭에서 카톡 내보내기(.txt) 파일을 선택해 주세요.</p>
+            </div>`;
+        return;
+    }
+
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="hv-card rounded-2xl p-8 text-center">
+                <p class="text-[0.9rem] font-black hv-text-main">조건에 맞는 메시지가 없습니다.</p>
+                <p class="text-[0.76rem] font-semibold hv-text-muted mt-1">검색어나 카테고리·날짜 필터를 변경해 보세요.</p>
+            </div>`;
+        return;
+    }
+
+    const maxRender = 200;
+    const renderList = filtered.slice(0, maxRender);
+    const moreBanner = filtered.length > maxRender
+        ? `<div class="hv-subbox rounded-xl p-3 text-center text-[0.76rem] font-extrabold hv-text-muted">최신 ${maxRender}건만 표시 중입니다. (검색어로 범위를 좁혀보세요)</div>`
+        : '';
+
+    container.innerHTML = renderList.map(item => {
+        const badgeCls = getRoomCategoryBadgeClass(item.category);
+        const encodedText = encodeURIComponent(item.content || '');
+        return `
+            <article class="hv-card rounded-2xl p-3.5 space-y-2.5">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-[0.78rem] font-extrabold hv-text-sub num-tabular truncate">
+                        작성 ${escapeHtml(item.dateShort)} ${escapeHtml(item.timeStr)} · <b class="hv-text-main">${highlightSearchMatch(item.sender, query)}</b>
+                    </span>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[0.7rem] font-black whitespace-nowrap shrink-0 ${badgeCls}">
+                        ${escapeHtml(item.category)}
+                    </span>
+                </div>
+                <div class="w-full hv-subbox rounded-xl px-3.5 py-2.5 text-[0.88rem] font-bold hv-text-main leading-relaxed whitespace-pre-line keep-all">${highlightSearchMatch(item.content, query)}</div>
+                <div class="flex justify-end">
+                    <button type="button" onclick="copyTextWithToast(decodeURIComponent('${encodedText}'), '내용')"
+                        class="px-3 py-1.5 rounded-xl hv-pill text-[0.74rem] font-black active:scale-[0.97] transition">
+                        📋 내용 복사
+                    </button>
+                </div>
+            </article>
+        `;
+    }).join('') + moreBanner;
+}
+
+function downloadChatRoomCsv(room) {
+    const list = getFilteredRoomItems(room);
+    if (!list.length) {
+        showToast('저장할 내역이 없습니다.');
+        return;
+    }
+    let csv = "\uFEFF작성날짜,작성시간,발신자,카테고리,내용\n";
+    list.forEach(o => {
+        const clean = String(o.content || '').replace(/"/g, '""').replace(/\r?\n/g, ' ');
+        csv += `"${o.dateFull}","${o.timeStr}","${String(o.sender || '').replace(/"/g, '""')}","${o.category}","${clean}"\n`;
+    });
+    const label = room === 'purchase' ? '매입방정리' : '직원방정리';
+    downloadBlob(csv, `미트포앤GB_${label}.csv`);
+}
+
+
+/* =========================================================================
+   10. [신규] 자동배차(권역패턴 + 원/근거리 균형) & 기사별 배송순번 정렬 모듈
+   ========================================================================= */
+try { localStorage.removeItem('mf_geo_cache'); } catch (e) {}
+
+function getCachedPos(addr) {
+    if (!addr || !String(addr).trim()) return null;
+    const pos = geoCache[String(addr).trim()];
+    if (pos && pos.lat != null && pos.lng != null) return pos;
+    return null;
+}
+
+function getDepotBearingDeg(addr) {
+    const pos = getCachedPos(addr);
+    if (!pos) return 999;
+    const dLat = pos.lat - DEPOT.lat;
+    const dLng = pos.lng - DEPOT.lng;
+    return (Math.atan2(dLng, dLat) * 180 / Math.PI + 360) % 360;
+}
+
+function sortVehicleRouteOrder(list) {
+    const arr = list.slice();
+    const withPos = [];
+    const withoutPos = [];
+    arr.forEach(d => {
+        const pos = getCachedPos(d.addr);
+        if (pos) withPos.push({ d, pos });
+        else withoutPos.push(d);
+    });
+
+    // 급/오전 우선 + 기점(DEPOT)에서 최근접 이웃 경로(Nearest Neighbor) 순서로 1→2→3 코스 생성
+    const ordered = [];
+    const remaining = withPos.slice();
+    let curLat = DEPOT.lat;
+    let curLng = DEPOT.lng;
+
+    // 급/오전 건은 가장 먼저 출발하되 그 안에서도 가까운 순
+    const urgentPool = remaining.filter(x => x.d.isUrgent);
+    const normalPool = remaining.filter(x => !x.d.isUrgent);
+
+    const pickNearest = (pool) => {
+        while (pool.length > 0) {
+            let bestIdx = 0;
+            let bestDist = Infinity;
+            for (let i = 0; i < pool.length; i++) {
+                const dist = haversineKm(curLat, curLng, pool[i].pos.lat, pool[i].pos.lng);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    bestIdx = i;
+                }
+            }
+            const chosen = pool.splice(bestIdx, 1)[0];
+            ordered.push(chosen.d);
+            curLat = chosen.pos.lat;
+            curLng = chosen.pos.lng;
+        }
+    };
+
+    pickNearest(urgentPool);
+    pickNearest(normalPool);
+
+    withoutPos.sort((a, b) => {
+        if (a.isUrgent !== b.isUrgent) return a.isUrgent ? -1 : 1;
+        return String(a.clientName).localeCompare(String(b.clientName), 'ko');
+    });
+
+    return ordered.concat(withoutPos);
+}
+
+async function ensureGeoCoordsForDestinations(destinations) {
+    const missing = destinations.filter(d => d.addr && !getCachedPos(d.addr));
+    if (missing.length === 0) return;
+    showToast(`VWorld 좌표 조회 중 (${missing.length}곳)...`);
+    for (let i = 0; i < missing.length; i++) {
+        try {
+            await geocodeAddress(missing[i].addr);
+        } catch (e) {}
+    }
+}
+
+function findVehicleCodeByKeywords(keywords, fallbackIdx) {
+    for (const kw of keywords) {
+        for (let i = 0; i < vehicleNames.length; i++) {
+            if (String(vehicleNames[i] || '').includes(kw)) return `V${i}`;
+        }
+    }
+    const idx = Math.min(fallbackIdx, vehicleNames.length - 1);
+    return `V${Math.max(0, idx)}`;
+}
+
+function matchPatternVehicleCode(dest) {
+    const name = String(dest.clientName || '');
+    const addr = String(dest.addr || '');
+    const text = `${name} ${addr}`;
+
+    // 화이트보드 실전 권역·고정 거래처 패턴
+    const vCha = findVehicleCodeByKeywords(['차'], 0);
+    const vHan = findVehicleCodeByKeywords(['한'], 1);
+    const vEom = findVehicleCodeByKeywords(['엄', '임'], 2);
+    const vChoi = findVehicleCodeByKeywords(['최', '김', '이'], 3);
+    const vYang = findVehicleCodeByKeywords(['양'], 4);
+
+    // 1) 안산·시흥 근거리 고정 (차)
+    if (/(큐앤씨|본오|고잔|와동|다온|스타|한마음|삼겹연구|오늘은고기|유포리|예서|삼시|쌈|구워랑|갈비면옥|풍년|농민)/.test(name) || /(안산|상록구|단원구|시흥)/.test(addr)) {
+        return vCha;
+    }
+    // 2) 남부·수원·화성·동탄·성남·판교·평택·음성·충주 원거리 (한)
+    if (/(평택|충주|음성|동탄|부곡|상미|거시기|송정|율전|진안|현동환|한돈N|원본|삼평|태광|푸른|돌쇠|장안|구들장|원산|형제)/.test(name) || /(평택|충주|음성|화성|동탄|수원|오산|용인|성남|분당|판교|의왕|군포)/.test(addr)) {
+        return vHan;
+    }
+    // 3) 광명·금천·구로·신길·안양 서남부 (엄/임)
+    if (/(성대|신길|삼대|광명|소하|토종|참새|대박|가리봉|금천|정성|봉천|소문난)/.test(name) || /(광명|금천|구로|영등포|관악|동작|안양)/.test(addr)) {
+        return vEom;
+    }
+    // 4) 부천·역곡·화곡·강서·인천 서북부 (양)
+    if (/(역곡|화곡|원대성|맛있는|원신|신학|주안|인천|막뚱이|한결|참예소|이모네|전설은행|김치|한우세상|대반전)/.test(name) || /(부천|강서|양천|인천|부평|미추홀|남동)/.test(addr)) {
+        return vYang;
+    }
+    // 5) 기타 서울·수도권 외곽 지원 (최)
+    if (/(서울|마포|강남|서초|송파|강동|강북|노원|도봉|은평|성북|동대문|중랑|광진|성동|용산|종로|중구|김포|고양|파주)/.test(text)) {
+        return vChoi;
+    }
+    return null;
+}
+
+async function runAutoDispatch(mode) {
+    const destinations = getAggregatedDeliveryDestinations();
+    if (!destinations.length) {
+        showToast('배차할 거래처가 없습니다.');
+        return;
+    }
+
+    const keepManual = document.getElementById('chkKeepManualDispatch')?.checked !== false;
+    await ensureGeoCoordsForDestinations(destinations);
+
+    const vehicleCount = Math.max(2, vehicleNames.length);
+    const loads = {};
+    for (let i = 0; i < vehicleCount; i++) {
+        loads[`V${i}`] = { boxes: 0, count: 0 };
+    }
+
+    const targets = [];
+    destinations.forEach(d => {
+        const cur = dispatchMap[d.clientName] || 'UNASSIGNED';
+        if (keepManual && cur !== 'UNASSIGNED') {
+            if (loads[cur]) {
+                loads[cur].boxes += (d.totalBoxes || 1);
+                loads[cur].count += 1;
+            }
+        } else {
+            targets.push(d);
+        }
+    });
+
+    if (targets.length === 0) {
+        showToast('미배차 거래처가 없습니다. (수동 배정 유지됨)');
+        return;
+    }
+
+    const pickLightest = (poolCodes) => {
+        let best = poolCodes[0];
+        let bestScore = Infinity;
+        poolCodes.forEach(code => {
+            const l = loads[code] || { boxes: 0, count: 0 };
+            const score = l.boxes * 1.0 + l.count * 3.0;
+            if (score < bestScore) {
+                bestScore = score;
+                best = code;
+            }
+        });
+        return best;
+    };
+
+    const allVCodes = Array.from({ length: vehicleCount }, (_, i) => `V${i}`);
+
+    if (mode === 'pattern') {
+        const unmatched = [];
+        targets.forEach(d => {
+            const matched = matchPatternVehicleCode(d);
+            if (matched && loads[matched]) {
+                dispatchMap[d.clientName] = matched;
+                loads[matched].boxes += (d.totalBoxes || 1);
+                loads[matched].count += 1;
+            } else {
+                unmatched.push(d);
+            }
+        });
+
+        // 미매칭 거래처는 거리/부하 균형으로 배정
+        unmatched.sort((a, b) => (getCachedDistKm(b.addr) || 0) - (getCachedDistKm(a.addr) || 0));
+        unmatched.forEach(d => {
+            const code = pickLightest(allVCodes);
+            dispatchMap[d.clientName] = code;
+            loads[code].boxes += (d.totalBoxes || 1);
+            loads[code].count += 1;
+        });
+    } else {
+        // ② 원거리 3~4대 + 근거리 2~3대 균형 배차 루틴
+        const nearCount = vehicleCount >= 5 ? 2 : 1; // 6대 기준: 원거리 4대 + 근거리 2대 (또는 3+3 유동)
+        const vCha = findVehicleCodeByKeywords(['차'], 0);
+        const vKim = findVehicleCodeByKeywords(['김', '이'], vehicleCount - 1);
+        const nearVehicles = [...new Set([vCha, vKim])].slice(0, nearCount);
+        const farVehicles = allVCodes.filter(c => !nearVehicles.includes(c));
+        if (farVehicles.length === 0) farVehicles.push(allVCodes[0]);
+
+        // 거리순 정렬 (원거리 -> 근거리)
+        const withDist = targets.map(d => ({
+            d,
+            dist: getCachedDistKm(d.addr),
+            bearing: getDepotBearingDeg(d.addr)
+        }));
+        withDist.sort((a, b) => (b.dist ?? -1) - (a.dist ?? -1));
+
+        const splitIdx = Math.max(1, Math.round(withDist.length * (farVehicles.length / vehicleCount)));
+        const farGroup = withDist.slice(0, splitIdx);
+        const nearGroup = withDist.slice(splitIdx);
+
+        // 원거리 그룹은 방위각(방향) 순으로 정렬해 인접 권역끼리 3~4대에 묶음
+        farGroup.sort((a, b) => a.bearing - b.bearing);
+        const farChunkSize = Math.max(1, Math.ceil(farGroup.length / farVehicles.length));
+        farGroup.forEach((item, idx) => {
+            const vIdx = Math.min(farVehicles.length - 1, Math.floor(idx / farChunkSize));
+            const code = farVehicles[vIdx];
+            dispatchMap[item.d.clientName] = code;
+            loads[code].boxes += (item.d.totalBoxes || 1);
+            loads[code].count += 1;
+        });
+
+        // 근거리 그룹은 2~3대 근거리 전담 차량에 박스/건수 균형 배정
+        nearGroup.sort((a, b) => a.bearing - b.bearing);
+        nearGroup.forEach(item => {
+            const code = pickLightest(nearVehicles);
+            dispatchMap[item.d.clientName] = code;
+            loads[code].boxes += (item.d.totalBoxes || 1);
+            loads[code].count += 1;
+        });
+    }
+
+    localStorage.setItem('mf_dispatch', JSON.stringify(dispatchMap));
+    recordLastUpdatedTime(mode === 'pattern' ? '권역 패턴 자동배차' : '원·근거리 균형 자동배차');
+    renderDispatchPage();
+    showToast(`${mode === 'pattern' ? '권역 패턴' : '원·근거리 균형'} 자동배차 완료 (${targets.length}곳 배정)`);
+}
+
+function resetAllDispatchToUnassigned() {
+    if (!confirm('현재 모든 배차 지정을 미배차 상태로 초기화할까요?')) return;
+    dispatchMap = {};
+    localStorage.setItem('mf_dispatch', JSON.stringify(dispatchMap));
+    selectedVehicleFilter = 'ALL';
+    recordLastUpdatedTime('배차 초기화');
+    renderDispatchPage();
+    showToast('모든 배차를 미배차로 초기화했습니다.');
+}
+
+
+function renderDispatchBoardSummary(destinationsRaw) {
+    const board = document.getElementById('dispatch-board-summary');
+    if (!board) return;
+
+    const list = destinationsRaw || getAggregatedDeliveryDestinations();
+    if (!list.length) {
+        board.innerHTML = `<div class="text-[0.8rem] font-bold hv-text-muted text-center py-2">배차된 거래처가 없습니다.</div>`;
+        return;
+    }
+
+    const columns = [];
+    for (let i = 0; i < vehicleNames.length; i++) {
+        const code = `V${i}`;
+        const items = sortVehicleRouteOrder(list.filter(d => (dispatchMap[d.clientName] || 'UNASSIGNED') === code));
+        if (items.length > 0) {
+            columns.push({
+                title: vehicleNames[i] || `${i + 1}호차`,
+                color: VEHICLE_PIN_COLORS[i] || '#1D4ED8',
+                items
+            });
+        }
+    }
+    const pickupItems = list.filter(d => dispatchMap[d.clientName] === 'PICKUP');
+    if (pickupItems.length > 0) {
+        columns.push({ title: '방문/택배', color: '#64748B', items: pickupItems });
+    }
+    const unassignedItems = list.filter(d => !dispatchMap[d.clientName] || dispatchMap[d.clientName] === 'UNASSIGNED');
+    if (unassignedItems.length > 0) {
+        columns.push({ title: '미배차', color: '#B45309', items: unassignedItems });
+    }
+
+    const targetDate = document.getElementById('orderTargetDate')?.value || 'all';
+    const maxRows = Math.max(1, ...columns.map(c => c.items.length));
+
+    const headerHtml = columns.map(col => `
+        <th class="px-2.5 py-2 text-left text-[0.78rem] font-black whitespace-nowrap border-b-2 border-slate-200" style="color:${col.color};">
+            ${escapeHtml(col.title)} <span class="text-[0.68rem] opacity-80 num-tabular">(${col.items.length})</span>
+        </th>
+    `).join('');
+
+    let rowsHtml = '';
+    for (let r = 0; r < maxRows; r++) {
+        const cells = columns.map(col => {
+            const d = col.items[r];
+            if (!d) return `<td class="px-2.5 py-1 text-[0.76rem] border-b border-slate-100"></td>`;
+            const isDone = !!dispatchDoneMap[`${targetDate}::${d.clientName}`];
+            return `
+                <td class="px-2.5 py-1.5 text-[0.78rem] font-extrabold hv-text-main whitespace-nowrap border-b border-slate-100 ${isDone ? 'line-through opacity-50' : ''}">
+                    ${d.isUrgent ? '<span class="text-[#DC2626] font-black mr-0.5">급</span>' : ''}${escapeHtml(d.clientName)}
+                </td>
+            `;
+        }).join('');
+        rowsHtml += `<tr>${cells}</tr>`;
+    }
+
+    board.innerHTML = `
+        <div class="flex items-center justify-between gap-2">
+            <h2 class="text-[0.9rem] font-black hv-text-main">📋 기사별 배차 한눈에 보기</h2>
+            <button type="button" onclick="copyDispatchBoardText()" class="px-2.5 py-1 rounded-xl hv-badge-blue text-[0.72rem] font-black shrink-0">📋 요약 복사</button>
+        </div>
+        <div class="overflow-x-auto hv-subbox rounded-xl">
+            <table class="w-full border-collapse">
+                <thead><tr>${headerHtml}</tr></thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function copyDispatchBoardText() {
+    const list = getAggregatedDeliveryDestinations();
+    const lines = [];
+    for (let i = 0; i < vehicleNames.length; i++) {
+        const code = `V${i}`;
+        const items = sortVehicleRouteOrder(list.filter(d => (dispatchMap[d.clientName] || 'UNASSIGNED') === code));
+        if (items.length > 0) {
+            lines.push(`[${vehicleNames[i]}] ${items.map(d => d.clientName).join(', ')}`);
+        }
+    }
+    const pickupItems = list.filter(d => dispatchMap[d.clientName] === 'PICKUP');
+    if (pickupItems.length > 0) {
+        lines.push(`[방문/택배] ${pickupItems.map(d => d.clientName).join(', ')}`);
+    }
+    const unassignedItems = list.filter(d => !dispatchMap[d.clientName] || dispatchMap[d.clientName] === 'UNASSIGNED');
+    if (unassignedItems.length > 0) {
+        lines.push(`[미배차] ${unassignedItems.map(d => d.clientName).join(', ')}`);
+    }
+    copyTextWithToast(lines.join('\n'), '배차 요약표');
 }
