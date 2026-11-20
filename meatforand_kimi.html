@@ -1,1703 +1,1015 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
-    <title>미트포앤 GO · 발주·재고·배차</title>
-    <style>
-        :root {
-            --primary: #1D4ED8;
-            --primary-mid: #2563EB;
-            --primary-dark: #1E3A8A;
-            --primary-light: #EFF6FF;
-            --go: #FACC15;
-            --accent: #059669;
-            --accent-bg: #ECFDF5;
-            --warn: #D97706;
-            --warn-bg: #FFFBEB;
-            --danger: #DC2626;
-            --danger-bg: #FEF2F2;
-            --bg: #EEF2F6;
-            --card: #FFFFFF;
-            --surface-sub: #F8FAFC;
-            --text: #0F172A;
-            --text-sub: #475569;
-            --text-muted: #64748B;
-            --border: #CBD5E1;
-            --border-light: #E2E8F0;
-            --shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#1D4ED8" />
+  <title>미트포앤 GB — 현장 고시인성 물류·재고 시스템</title>
 
-        html.dark-mode {
-            --primary: #60A5FA;
-            --primary-mid: #3B82F6;
-            --primary-dark: #1E293B;
-            --primary-light: #1E293B;
-            --go: #FACC15;
-            --accent: #34D399;
-            --accent-bg: #064E3B;
-            --warn: #FBBF24;
-            --warn-bg: #451A03;
-            --danger: #F87171;
-            --danger-bg: #450A0A;
-            --bg: #0B1120;
-            --card: #151F32;
-            --surface-sub: #1E293B;
-            --text: #F8FAFC;
-            --text-sub: #CBD5E1;
-            --text-muted: #94A3B8;
-            --border: #334155;
-            --border-light: #1E293B;
-            --shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-        }
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
 
-        * {
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
+  <!-- Pretendard 한글 웹폰트 (오프라인 시 시스템 고딕 자동 폴백) -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 
-        html {
-            font-size: 16px;
-            -webkit-text-size-adjust: 100%;
-        }
+  <!-- Leaflet 지도 -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-        body {
-            font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
-            margin: 0;
-            padding: 0;
-            background: var(--bg);
-            color: var(--text);
-            font-size: 0.9375rem;
-            line-height: 1.45;
-            word-break: keep-all;
-            overflow-wrap: break-word;
-            padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Roboto', 'sans-serif'],
+          }
         }
+      }
+    };
+  </script>
 
-        .tabular {
-            font-variant-numeric: tabular-nums;
-        }
+  <style>
+    /* ==========================================================================
+       [1. WCAG AAA HIGH-CONTRAST DESIGN TOKENS & THEME VARIABLES]
+       ========================================================================== */
+    :root {
+      --bg-canvas: #EEF2F6;
+      --bg-card: #FFFFFF;
+      --bg-sub: #F8FAFC;
+      --bg-pill: #F1F5F9;
+      --border-card: #CBD5E1;
+      --border-sub: #E2E8F0;
+      --text-primary: #0F172A;
+      --text-secondary: #334155;
+      --text-muted: #475569;
+      --accent-blue: #1D4ED8;
+      --accent-blue-bg: #DBEAFE;
+      --accent-blue-border: #93C5FD;
+      --accent-green: #047857;
+      --accent-green-bg: #D1FAE5;
+      --accent-green-border: #6EE7B7;
+      --accent-amber: #B45309;
+      --accent-amber-bg: #FEF3C7;
+      --accent-amber-border: #FCD34D;
+      --nav-bg: rgba(255, 255, 255, 0.97);
+    }
 
-        .app-container {
-            max-width: 540px;
-            margin: 0 auto;
-            min-height: 100vh;
-            background: var(--bg);
-        }
+    html.dark-mode {
+      --bg-canvas: #090D16;
+      --bg-card: #111827;
+      --bg-sub: #1E293B;
+      --bg-pill: #1E293B;
+      --border-card: #334155;
+      --border-sub: #334155;
+      --text-primary: #F8FAFC;
+      --text-secondary: #E2E8F0;
+      --text-muted: #94A3B8;
+      --accent-blue: #60A5FA;
+      --accent-blue-bg: rgba(30, 58, 138, 0.55);
+      --accent-blue-border: #3B82F6;
+      --accent-green: #34D399;
+      --accent-green-bg: rgba(6, 78, 59, 0.55);
+      --accent-green-border: #10B981;
+      --accent-amber: #FBBF24;
+      --accent-amber-bg: rgba(120, 53, 15, 0.55);
+      --accent-amber-border: #F59E0B;
+      --nav-bg: rgba(17, 24, 39, 0.97);
+    }
 
-        @media (min-width: 900px) {
-            .app-container { max-width: 1380px; }
-            body { padding-bottom: 28px; }
-        }
+    html {
+      font-size: 16px;
+      transition: font-size 0.15s ease;
+    }
+    html.large-text {
+      font-size: 18.4px; /* 115% 현장 고시인성 스케일 */
+    }
 
-        /* 상단 고정 헤더 */
-        .app-header {
-            background: linear-gradient(135deg, #1E40AF 0%, #1D4ED8 100%);
-            color: #FFFFFF;
-            padding: 10px 14px;
-            padding-top: max(10px, env(safe-area-inset-top));
-            position: sticky;
-            top: 0;
-            z-index: 50;
-            box-shadow: 0 3px 12px rgba(15, 23, 42, 0.22);
-        }
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-        .hdr-top-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-        }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+      -webkit-font-smoothing: antialiased;
+      color: var(--text-primary);
+    }
 
-        .hdr-brand {
-            font-size: 1.2rem;
-            font-weight: 900;
-            color: #FFFFFF;
-            letter-spacing: -0.4px;
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-            cursor: pointer;
-            user-select: none;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-        .hdr-brand .go { color: var(--go); }
-        .hdr-brand:active { opacity: 0.85; }
+    .num-tabular {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "cv05" 1;
+    }
 
-        .hdr-date-only {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-shrink: 0;
-        }
+    .app-canvas {
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+    }
+    .hv-card {
+      background-color: var(--bg-card);
+      border: 1.5px solid var(--border-card);
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+    }
+    .hv-subbox {
+      background-color: var(--bg-sub);
+      border: 1px solid var(--border-sub);
+      color: var(--text-primary);
+    }
+    .hv-pill {
+      background-color: var(--bg-pill);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-sub);
+    }
+    .hv-text-main { color: var(--text-primary); }
+    .hv-text-sub { color: var(--text-secondary); }
+    .hv-text-muted { color: var(--text-muted); }
+    .hv-badge-blue {
+      background-color: var(--accent-blue-bg);
+      color: var(--accent-blue);
+      border: 1.5px solid var(--accent-blue-border);
+    }
+    .hv-badge-green {
+      background-color: var(--accent-green-bg);
+      color: var(--accent-green);
+      border: 1.5px solid var(--accent-green-border);
+    }
+    .hv-badge-amber {
+      background-color: var(--accent-amber-bg);
+      color: var(--accent-amber);
+      border: 1.5px solid var(--accent-amber-border);
+    }
+    .hv-bottom-nav {
+      background-color: var(--nav-bg);
+      border-top: 1.5px solid var(--border-card);
+    }
 
-        .hdr-date-label {
-            font-size: 0.78rem;
-            font-weight: 800;
-            color: #DBEAFE;
-            white-space: nowrap;
-        }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        .hdr-input, .hdr-select {
-            padding: 6px 10px;
-            font-size: 0.88rem;
-            border-radius: 10px;
-            border: 1.5px solid rgba(255,255,255,0.4);
-            background: #FFFFFF;
-            color: #0F172A;
-            font-weight: 800;
-            height: 36px;
-            cursor: pointer;
-            font-variant-numeric: tabular-nums;
-        }
+    .tab-panel { animation: panelFadeIn 0.16s ease-out; }
+    @keyframes panelFadeIn {
+      from { opacity: 0; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
-        .hdr-sub-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 6px;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid rgba(255,255,255,0.16);
-        }
+    /* 상·하단 안전 영역(Safe Area) 완벽 대응 */
+    .header-safe-top {
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+    .pb-safe-nav {
+      padding-bottom: calc(5.8rem + env(safe-area-inset-bottom, 0px));
+    }
+    .bottom-bar-safe {
+      padding-bottom: calc(0.45rem + env(safe-area-inset-bottom, 0px));
+    }
 
-        .hdr-quick-info {
-            font-size: 0.78rem;
-            font-weight: 700;
-            color: #E0F2FE;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .hdr-a11y-btns {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-shrink: 0;
-        }
-
-        .a11y-chip-btn {
-            border: 1px solid rgba(255,255,255,0.35);
-            background: rgba(255,255,255,0.15);
-            color: #FFFFFF;
-            border-radius: 999px;
-            padding: 4px 10px;
-            font-size: 0.75rem;
-            font-weight: 800;
-            height: 28px;
-            cursor: pointer;
-            white-space: nowrap;
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-        }
-        .a11y-chip-btn.active {
-            background: var(--go);
-            color: #0F172A;
-            border-color: var(--go);
-        }
-
-        /* 데스크톱 상단 탭 (8개) */
-        .tab-nav {
-            display: none;
-            background: var(--card);
-            border-bottom: 1px solid var(--border);
-        }
-        .tab-btn {
-            flex: 1;
-            padding: 13px 8px;
-            border: none;
-            background: transparent;
-            font-size: 0.92rem;
-            font-weight: 800;
-            color: var(--text-sub);
-            cursor: pointer;
-            border-bottom: 3px solid transparent;
-            white-space: nowrap;
-        }
-        .tab-btn.active {
-            color: var(--primary);
-            border-bottom-color: var(--primary);
-            background: var(--primary-light);
-        }
-
-        @media (min-width: 900px) {
-            .tab-nav { display: flex; position: sticky; top: 82px; z-index: 40; }
-            .bottom-nav { display: none !important; }
-        }
-
-        /* 모바일 하단 8개 고정 네비게이션 */
-        .bottom-nav {
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 60;
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            background: var(--card);
-            border-top: 1.5px solid var(--border);
-            box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.08);
-            padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
-            max-width: 540px;
-            margin: 0 auto;
-        }
-
-        .bottom-nav button {
-            position: relative;
-            border: none;
-            background: transparent;
-            padding: 7px 1px 4px;
-            font-size: 0.65rem;
-            font-weight: 800;
-            color: var(--text-muted);
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 2px;
-            white-space: nowrap;
-        }
-        .bottom-nav button svg {
-            width: 18px;
-            height: 18px;
-            stroke: currentColor;
-            fill: none;
-            stroke-width: 2.1;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-        .bottom-nav button.active {
-            color: var(--primary);
-        }
-        .bottom-nav button.active::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 14%;
-            right: 14%;
-            height: 3px;
-            border-radius: 0 0 3px 3px;
-            background: var(--primary);
-        }
-
-        .tab-page {
-            display: none;
-            padding: 12px;
-        }
-        .tab-page.active {
-            display: block;
-        }
-
-        /* 공통 카드 & 버튼 */
-        .section-card {
-            border: 1px solid var(--border-light);
-            border-radius: 16px;
-            padding: 15px;
-            margin-bottom: 12px;
-            background: var(--card);
-            box-shadow: var(--shadow);
-        }
-        .section-card h3 {
-            margin: 0 0 8px 0;
-            color: var(--text);
-            font-size: 1.02rem;
-            font-weight: 800;
-        }
-        .section-card p {
-            margin: 0 0 10px 0;
-            color: var(--text-sub);
-            font-size: 0.85rem;
-            line-height: 1.5;
-        }
-
-        .upload-zone {
-            border: 2px dashed var(--primary-mid);
-            background: var(--primary-light);
-            padding: 18px 14px;
-            text-align: center;
-            border-radius: 14px;
-            cursor: pointer;
-            margin-bottom: 8px;
-        }
-        .upload-zone input { display: none; }
-        .upload-zone b {
-            color: var(--primary);
-            font-size: 0.94rem;
-            display: block;
-        }
-
-        textarea {
-            width: 100%;
-            height: 160px;
-            padding: 12px;
-            border: 1.5px solid var(--border);
-            border-radius: 12px;
-            font-family: inherit;
-            font-size: 0.9rem;
-            resize: vertical;
-            background: var(--surface-sub);
-            color: var(--text);
-        }
-
-        input[type="text"], input[type="search"] {
-            padding: 10px 12px;
-            border: 1.5px solid var(--border);
-            border-radius: 12px;
-            font-size: 0.92rem;
-            background: var(--card);
-            color: var(--text);
-            width: 100%;
-        }
-
-        .btn-row {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-top: 10px;
-        }
-
-        .btn {
-            background: var(--primary-mid);
-            color: #FFFFFF;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 12px;
-            font-size: 0.88rem;
-            font-weight: 800;
-            cursor: pointer;
-            min-height: 42px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
-        }
-        .btn.green { background: var(--accent); color: #FFFFFF; }
-        .btn.orange { background: var(--warn); color: #FFFFFF; }
-        .btn.gray { background: #64748B; color: #FFFFFF; }
-        .btn.outline {
-            background: var(--card);
-            color: var(--text);
-            border: 1.5px solid var(--border);
-        }
-        .btn.red { background: var(--danger); color: #FFFFFF; }
-        .btn.sm {
-            min-height: 36px;
-            padding: 6px 12px;
-            font-size: 0.82rem;
-            border-radius: 10px;
-        }
-        .btn:active { opacity: 0.88; transform: scale(0.98); }
-
-        .filter-bar {
-            background: var(--card);
-            border: 1px solid var(--border-light);
-            padding: 12px 14px;
-            border-radius: 16px;
-            margin-bottom: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            box-shadow: var(--shadow);
-        }
-        .filter-bar-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .filter-group {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-
-        /* 홈 대시보드 */
-        .home-kpi-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 14px;
-        }
-        @media (min-width: 900px) {
-            .home-kpi-grid { grid-template-columns: repeat(4, 1fr); }
-        }
-        .kpi-card {
-            background: var(--card);
-            border: 1.5px solid var(--border-light);
-            border-radius: 16px;
-            padding: 14px;
-            box-shadow: var(--shadow);
-            cursor: pointer;
-            text-align: left;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .kpi-card:active { transform: scale(0.98); border-color: var(--primary); }
-        .kpi-label {
-            font-size: 0.8rem;
-            font-weight: 800;
-            color: var(--text-sub);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .kpi-val {
-            font-size: 1.45rem;
-            font-weight: 900;
-            color: var(--primary);
-            font-variant-numeric: tabular-nums;
-            line-height: 1.2;
-        }
-        .kpi-sub {
-            font-size: 0.76rem;
-            font-weight: 700;
-            color: var(--text-muted);
-        }
-
-        .main-menu-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 14px;
-        }
-        @media (min-width: 600px) {
-            .main-menu-grid { grid-template-columns: repeat(4, 1fr); }
-        }
-        .main-menu-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            justify-content: center;
-            gap: 6px;
-            min-height: 94px;
-            padding: 14px;
-            border-radius: 16px;
-            cursor: pointer;
-            background: var(--card);
-            box-shadow: var(--shadow);
-            text-align: left;
-            font-weight: 900;
-            font-size: 1rem;
-            color: var(--text);
-            border: 1.5px solid var(--border-light);
-        }
-        .main-menu-btn .mi { font-size: 1.5rem; line-height: 1; }
-        .main-menu-btn .md { font-size: 0.76rem; font-weight: 600; color: var(--text-sub); }
-        .main-menu-btn:active { transform: scale(0.98); border-color: var(--primary); }
-
-        /* 배지 */
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 3px 8px;
-            border-radius: 999px;
-            font-size: 0.72rem;
-            font-weight: 800;
-            color: #FFFFFF;
-            white-space: nowrap;
-        }
-        .b-order { background: var(--accent); }
-        .b-weight { background: var(--warn); }
-        .b-other { background: #64748B; }
-        .b-client { background: var(--primary-mid); }
-        .b-urgent { background: var(--danger); }
-        .b-merged { background: #7C3AED; }
-        .b-modified { background: #DB2777; }
-        .b-cat-purchase { background: #0284C7; }
-        .b-cat-price { background: #7C3AED; }
-        .b-cat-cold { background: #0F766E; }
-        .b-cat-return { background: #DC2626; }
-        .b-cat-stock { background: #059669; }
-        .b-cat-notice { background: #D97706; }
-        .b-cat-car { background: #EA580C; }
-
-        /* =========================================================
-           [모바일: 1열 카드 / 데스크탑: 바둑판 다열 그리드]
-           ========================================================= */
-        .card-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        @media (min-width: 900px) {
-            #orderCardList,
-            #looseCardList {
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 12px;
-                align-items: stretch;
-            }
-            #dispatchCardList,
-            #stockCardList,
-            #orderSummaryCardList {
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 12px;
-                align-items: stretch;
-            }
-            #purchaseCardList,
-            #staffCardList {
-                display: grid;
-                grid-template-columns: repeat(2, 1fr);
-                gap: 12px;
-                align-items: stretch;
-            }
-            .card-list .empty-box {
-                grid-column: 1 / -1;
-            }
-        }
-        @media (min-width: 1240px) {
-            #orderCardList,
-            #looseCardList {
-                grid-template-columns: repeat(4, 1fr);
-            }
-            #purchaseCardList,
-            #staffCardList {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-
-        /* 1) 발주 · 매입 · 직원 메시지 카드 */
-        .order-card {
-            background: var(--card);
-            border: 1.5px solid var(--border-light);
-            border-radius: 16px;
-            padding: 14px;
-            box-shadow: var(--shadow);
-            display: flex;
-            flex-direction: column;
-        }
-        @media (min-width: 900px) {
-            .order-card {
-                padding: 11px 12px;
-            }
-            .order-card .order-card-body {
-                flex: 1;
-                padding: 9px 10px;
-                font-size: 0.9rem;
-                line-height: 1.45;
-            }
-            .order-card .order-card-client {
-                font-size: 1.02rem;
-                margin-bottom: 6px;
-            }
-        }
-        .order-card.has-merge {
-            border-color: #C4B5FD;
-        }
-        .order-card-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 6px;
-            margin-bottom: 6px;
-            flex-wrap: wrap;
-        }
-        .order-card-meta {
-            font-size: 0.76rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            font-variant-numeric: tabular-nums;
-        }
-        .order-card-client {
-            font-size: 1.08rem;
-            font-weight: 900;
-            color: var(--primary);
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-        .order-superseded-box {
-            background: var(--danger-bg);
-            border: 1px dashed var(--danger);
-            border-radius: 10px;
-            padding: 8px 10px;
-            margin-bottom: 8px;
-            font-size: 0.82rem;
-            color: var(--text-muted);
-            text-decoration: line-through;
-            white-space: pre-line;
-        }
-        .order-superseded-label {
-            display: inline-block;
-            font-size: 0.72rem;
-            font-weight: 800;
-            color: var(--danger);
-            text-decoration: none;
-            margin-bottom: 2px;
-        }
-        .order-card-body {
-            background: var(--surface-sub);
-            border: 1px solid var(--border-light);
-            border-radius: 12px;
-            padding: 12px;
-            font-size: 0.96rem;
-            font-weight: 600;
-            line-height: 1.55;
-            color: var(--text);
-            white-space: pre-line;
-            word-break: keep-all;
-            overflow-wrap: anywhere;
-        }
-        .chat-body-scroll {
-            max-height: 260px;
-            overflow-y: auto;
-        }
-        .merge-divider {
-            display: block;
-            margin: 8px 0 4px;
-            padding: 2px 8px;
-            border-radius: 6px;
-            background: #EDE9FE;
-            color: #5B21B6;
-            font-size: 0.76rem;
-            font-weight: 900;
-        }
-        html.dark-mode .merge-divider {
-            background: #3B0764;
-            color: #DDD6FE;
-        }
-        .hl-qty, mark.hl-qty {
-            background: #FEF08A;
-            color: #854D0E;
-            font-weight: 900;
-            padding: 1px 4px;
-            border-radius: 5px;
-        }
-        html.dark-mode .hl-qty, html.dark-mode mark.hl-qty {
-            background: #713F12;
-            color: #FEF08A;
-        }
-        .order-card-foot {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 6px;
-            margin-top: 10px;
-            padding-top: 9px;
-            border-top: 1px dashed var(--border);
-            flex-wrap: wrap;
-        }
-        .deliv-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 8px;
-            border-radius: 9px;
-            font-size: 0.76rem;
-            font-weight: 800;
-            background: var(--primary-light);
-            color: var(--primary);
-            font-variant-numeric: tabular-nums;
-        }
-        .deliv-pill.manual {
-            background: #F3E8FF;
-            color: #6B21A8;
-        }
-        .deliv-shift-btns {
-            display: inline-flex;
-            gap: 4px;
-        }
-        .deliv-shift-btn {
-            min-width: 48px;
-            height: 30px;
-            padding: 0 8px;
-            border-radius: 8px;
-            font-size: 0.76rem;
-            font-weight: 800;
-            border: 1.5px solid var(--border);
-            background: var(--card);
-            color: var(--text);
-            cursor: pointer;
-        }
-        .deliv-shift-btn.prev {
-            border-color: #93C5FD;
-            background: #EFF6FF;
-            color: #1D4ED8;
-        }
-        .deliv-shift-btn.next {
-            border-color: #FCD34D;
-            background: #FFFBEB;
-            color: #B45309;
-        }
-        .deliv-shift-btn:active { transform: scale(0.96); }
-
-        /* 2) 재고 & 발주현황 3열 균등 카드 */
-        .stock-card {
-            background: var(--card);
-            border: 1.5px solid var(--border-light);
-            border-radius: 16px;
-            padding: 13px 14px;
-            box-shadow: var(--shadow);
-        }
-        .stock-card-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-        .stock-item-title {
-            font-size: 1.05rem;
-            font-weight: 900;
-            color: var(--text);
-        }
-        .stock-total-badge {
-            background: var(--primary-light);
-            color: var(--primary);
-            border: 1px solid #BFDBFE;
-            padding: 4px 10px;
-            border-radius: 999px;
-            font-size: 0.86rem;
-            font-weight: 900;
-            white-space: nowrap;
-            font-variant-numeric: tabular-nums;
-        }
-        .stock-total-badge.zero {
-            background: var(--surface-sub);
-            color: var(--text-muted);
-            border-color: var(--border-light);
-        }
-        .stock-brand-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 7px;
-        }
-        .brand-box {
-            background: var(--surface-sub);
-            border: 1px solid var(--border-light);
-            border-radius: 11px;
-            padding: 8px 8px;
-            min-height: 62px;
-        }
-        .brand-box.has-qty {
-            border-color: #93C5FD;
-            background: var(--card);
-        }
-        .brand-box-label {
-            font-size: 0.72rem;
-            font-weight: 800;
-            color: var(--text-muted);
-            margin-bottom: 3px;
-        }
-        .brand-box-val {
-            font-size: 0.96rem;
-            font-weight: 900;
-            color: var(--text);
-            font-variant-numeric: tabular-nums;
-        }
-        .brand-box-val.zero {
-            color: var(--text-muted);
-            font-weight: 600;
-        }
-        .brand-box-detail {
-            margin-top: 3px;
-            font-size: 0.74rem;
-            font-weight: 600;
-            color: var(--text-sub);
-            line-height: 1.35;
-            word-break: keep-all;
-        }
-
-        /* 3) 발주 낱개 피킹 카드 */
-        .loose-card {
-            background: var(--card);
-            border: 1.5px solid var(--border-light);
-            border-radius: 16px;
-            padding: 14px;
-            box-shadow: var(--shadow);
-            display: flex;
-            flex-direction: column;
-        }
-        @media (min-width: 900px) {
-            .loose-card { padding: 11px 12px; }
-            .loose-pick-item { padding: 8px 10px; font-size: 0.88rem; }
-        }
-        .loose-card-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-        .loose-client-title {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 1.05rem;
-            font-weight: 900;
-            color: var(--primary);
-        }
-        .num-circle {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: var(--primary);
-            color: #FFFFFF;
-            font-size: 0.78rem;
-            font-weight: 900;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            font-variant-numeric: tabular-nums;
-        }
-        .loose-chip-list {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .loose-pick-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            padding: 10px 12px;
-            border-radius: 12px;
-            border: 1.5px solid var(--border-light);
-            background: var(--surface-sub);
-            font-size: 0.94rem;
-            font-weight: 800;
-            color: var(--text);
-            cursor: pointer;
-            text-align: left;
-        }
-        .loose-pick-item.checked {
-            background: var(--accent-bg);
-            border-color: var(--accent);
-            color: var(--accent);
-            text-decoration: line-through;
-        }
-
-        /* 4) 배차 카드 & 자동배차 제어 패널 */
-        .auto-dispatch-box {
-            background: var(--primary-light);
-            border: 1.5px solid #93C5FD;
-        }
-        .auto-dispatch-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
-            margin-top: 8px;
-        }
-        .route-seq-badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 2px 7px;
-            border-radius: 999px;
-            background: #0F172A;
-            color: #FACC15;
-            font-size: 0.72rem;
-            font-weight: 900;
-            font-variant-numeric: tabular-nums;
-        }
-        .dispatch-card {
-            background: var(--card);
-            border: 1.5px solid var(--border-light);
-            border-radius: 16px;
-            padding: 14px;
-            box-shadow: var(--shadow);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-        .dispatch-card-head {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 8px;
-            margin-bottom: 8px;
-        }
-        .dispatch-client-block {
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-        }
-        .dispatch-client-name {
-            font-size: 1.06rem;
-            font-weight: 900;
-            color: var(--text);
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            flex-wrap: wrap;
-        }
-        .dispatch-sub-meta {
-            font-size: 0.78rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            margin-top: 2px;
-            font-variant-numeric: tabular-nums;
-        }
-        .cargo-badge-box {
-            background: var(--primary-light);
-            border: 1px solid #BFDBFE;
-            border-radius: 12px;
-            padding: 6px 10px;
-            text-align: right;
-            white-space: nowrap;
-            flex-shrink: 0;
-            font-variant-numeric: tabular-nums;
-        }
-        .dispatch-addr-box {
-            background: var(--surface-sub);
-            border: 1px solid var(--border-light);
-            border-radius: 12px;
-            padding: 10px 12px;
-            font-size: 0.86rem;
-            line-height: 1.45;
-            color: var(--text);
-            margin-bottom: 8px;
-        }
-        .dispatch-note-box {
-            background: var(--warn-bg);
-            border: 1px solid #FCD34D;
-            color: #92400E;
-            border-radius: 10px;
-            padding: 8px 10px;
-            font-size: 0.84rem;
-            font-weight: 800;
-            margin-bottom: 8px;
-        }
-        html.dark-mode .dispatch-note-box {
-            color: #FDE68A;
-            border-color: #B45309;
-        }
-        .dispatch-actions-row {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 8px;
-        }
-        .dispatch-mini-btn {
-            flex: 1;
-            min-height: 36px;
-            border-radius: 10px;
-            border: 1.5px solid var(--border);
-            background: var(--card);
-            color: var(--text);
-            font-size: 0.8rem;
-            font-weight: 800;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-            cursor: pointer;
-        }
-        .dispatch-mini-btn:active { background: var(--primary-light); }
-
-        .dispatch-select {
-            width: 100%;
-            padding: 10px 12px;
-            font-weight: 900;
-            border-radius: 12px;
-            border: 2px solid var(--border);
-            background: var(--card);
-            color: var(--text);
-            cursor: pointer;
-            min-height: 44px;
-            font-size: 0.92rem;
-        }
-        .dispatch-select.assigned {
-            border-color: var(--accent);
-            background: var(--accent-bg);
-            color: var(--accent);
-        }
-
-        /* 차량 설정 & 지도 */
-        .vehicle-config-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-            margin-bottom: 12px;
-            background: var(--primary-light);
-            padding: 12px;
-            border-radius: 14px;
-        }
-        @media (min-width: 900px) {
-            .vehicle-config-grid {
-                grid-template-columns: repeat(7, 1fr);
-            }
-        }
-        .vehicle-config-item {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .vehicle-config-item span {
-            font-size: 0.78rem;
-            font-weight: 800;
-            color: var(--primary);
-        }
-        .vehicle-config-item input {
-            padding: 8px 10px;
-            font-size: 0.9rem;
-            font-weight: 800;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            text-align: center;
-        }
-        .vehicle-stat-bar, .cat-chip-bar {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-        .v-stat-chip {
-            padding: 7px 12px;
-            border-radius: 999px;
-            background: var(--card);
-            font-size: 0.8rem;
-            font-weight: 800;
-            cursor: pointer;
-            border: 1.5px solid var(--border);
-            color: var(--text);
-        }
-        .v-stat-chip.active {
-            background: var(--primary-mid);
-            color: #FFFFFF;
-            border-color: var(--primary-mid);
-        }
-
-        #dispatchMap {
-            width: 100%;
-            height: 36vh;
-            min-height: 220px;
-            border-radius: 14px;
-            z-index: 1;
-            border: 1px solid var(--border);
-        }
-        .map-legend {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            font-size: 0.78rem;
-            font-weight: 800;
-            margin: 6px 0 8px;
-        }
-        .map-legend span { display: inline-flex; align-items: center; gap: 4px; }
-        .pin-dot {
-            width: 11px;
-            height: 11px;
-            border-radius: 50%;
-            display: inline-block;
-            border: 1px solid rgba(0,0,0,.2);
-            flex-shrink: 0;
-        }
-
-        /* 배차현황 배송업체 선택 버튼: 3열 고정 바둑판 (가나다순) */
-        .client-chip-row {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 7px;
-            margin: 10px 0;
-        }
-        .client-chip {
-            width: 100%;
-            border: 1.5px solid var(--border);
-            background: var(--card);
-            border-radius: 11px;
-            padding: 9px 8px;
-            font-size: 0.84rem;
-            font-weight: 800;
-            cursor: pointer;
-            min-height: 40px;
-            color: var(--text);
-            text-align: center;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .client-chip.selected {
-            border-color: var(--primary);
-            background: var(--primary-light);
-            color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.28);
-        }
-        .client-chip.has-v0 { border-color: #e53935; background: #ffebee; color: #b71c1c; }
-        .client-chip.has-v1 { border-color: #1e88e5; background: #e3f2fd; color: #0d47a1; }
-        .client-chip.has-v2 { border-color: #43a047; background: #e8f5e9; color: #1b5e20; }
-        .client-chip.has-v3 { border-color: #fb8c00; background: #fff3e0; color: #e65100; }
-        .client-chip.has-v4 { border-color: #8e24aa; background: #f3e5f5; color: #4a148c; }
-        .client-chip.has-v5 { border-color: #00acc1; background: #e0f7fa; color: #006064; }
-        .client-chip.has-v6 { border-color: #d81b60; background: #fce4ec; color: #880e4f; }
-
-        /* 7개 차량(최,엄,양,한,차,김,이) + 미배차 + 방문/택배 = 9개 버튼 */
-        .quick-vehicle-bar {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 6px;
-            margin-bottom: 8px;
-        }
-        @media (min-width: 900px) {
-            .quick-vehicle-bar {
-                grid-template-columns: repeat(9, 1fr);
-            }
-        }
-        .qv-btn {
-            min-height: 40px;
-            border-radius: 10px;
-            border: 2px solid var(--border);
-            background: var(--card);
-            font-weight: 900;
-            font-size: 0.84rem;
-            cursor: pointer;
-            color: var(--text);
-        }
-
-        .settings-grid { display: grid; gap: 12px; }
-        .settings-grid label {
-            display: block;
-            font-size: 0.82rem;
-            font-weight: 800;
-            color: var(--text-sub);
-            margin-bottom: 5px;
-        }
-        .settings-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
-        }
-        .setting-lock-banner {
-            background: var(--accent-bg);
-            border: 1px solid var(--accent);
-            color: var(--accent);
-            border-radius: 10px;
-            padding: 8px 12px;
-            font-size: 0.8rem;
-            font-weight: 800;
-            margin-bottom: 10px;
-        }
-        .pill {
-            padding: 5px 10px;
-            border-radius: 999px;
-            font-size: 0.78rem;
-            font-weight: 800;
-            background: var(--surface-sub);
-            border: 1px solid var(--border);
-            color: var(--text);
-        }
-        .pill.ok {
-            background: var(--accent);
-            color: #FFFFFF;
-            border-color: var(--accent);
-        }
-        .pill.time {
-            background: #1E3A8A;
-            color: #FDE68A;
-            border-color: #1E3A8A;
-        }
-
-        .empty-box {
-            background: var(--card);
-            border: 1.5px dashed var(--border);
-            border-radius: 16px;
-            padding: 28px 16px;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.92rem;
-            font-weight: 700;
-        }
-
-        .notice-card {
-            background: var(--card);
-            border: 1px solid var(--border-light);
-            border-radius: 16px;
-            padding: 14px 16px;
-            box-shadow: var(--shadow);
-        }
-        .notice-card h4 {
-            margin: 0 0 8px;
-            font-size: 0.92rem;
-            font-weight: 800;
-        }
-        .notice-item {
-            display: flex;
-            justify-content: space-between;
-            gap: 8px;
-            padding: 8px 0;
-            border-bottom: 1px solid var(--border-light);
-            font-size: 0.84rem;
-            color: var(--text-sub);
-        }
-        .notice-item:last-child { border-bottom: none; }
-        .notice-item .date { color: var(--primary); font-weight: 800; white-space: nowrap; }
-
-        code {
-            background: var(--primary-light);
-            color: var(--primary);
-            padding: 2px 6px;
-            border-radius: 5px;
-            font-size: 0.8rem;
-        }
-
-        .toast-msg {
-            position: fixed;
-            left: 50%;
-            bottom: calc(84px + env(safe-area-inset-bottom, 0px));
-            transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.94);
-            color: #FFFFFF;
-            padding: 10px 18px;
-            border-radius: 999px;
-            font-size: 0.86rem;
-            font-weight: 800;
-            z-index: 999;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.28);
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.2s ease;
-            white-space: nowrap;
-        }
-        .toast-msg.show { opacity: 1; }
-    </style>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
+    /* 지도 및 핀 스타일 */
+    #dispatchMap {
+      width: 100%;
+      height: 290px;
+      border-radius: 14px;
+      border: 1.5px solid var(--border-card);
+      z-index: 1;
+    }
+    .pin-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 9999px;
+      display: inline-block;
+      border: 1px solid rgba(0, 0, 0, .2);
+    }
+    .vworld-pin-label {
+      background: rgba(15, 23, 42, 0.92);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      border-radius: 6px;
+      padding: 1px 6px;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+    }
+    .vworld-pin-label::before { display: none; }
+    .map-ext-links { display: flex; gap: 6px; margin-top: 6px; }
+    .map-ext-links a {
+      flex: 1; text-align: center; padding: 5px 8px;
+      border-radius: 8px; font-size: 11px; font-weight: 800;
+      text-decoration: none; color: #fff;
+    }
+    .map-ext-links a.kakao { background: #FEE500; color: #191919; }
+    .map-ext-links a.naver { background: #03C75A; color: #fff; }
+  </style>
+  <script>
     (function(){
       try {
-        var raw = parseInt(localStorage.getItem('mf_ui_scale') || '100', 10);
-        if (raw > 140) raw = 100;
-        if (!(raw >= 90 && raw <= 140)) raw = 100;
-        document.documentElement.style.fontSize = (16 * (raw / 100)) + 'px';
+        if (localStorage.getItem('mf_large_text') === '1') {
+          document.documentElement.classList.add('large-text');
+        }
         if (localStorage.getItem('mf_dark_mode') === '1') {
           document.documentElement.classList.add('dark-mode');
         }
       } catch(e) {}
     })();
-    </script>
+  </script>
 </head>
-<body>
+<body class="bg-slate-300/90 min-h-screen flex justify-center items-start">
 
-<div class="app-container">
-    <!-- 상단 고정 헤더 -->
-    <header class="app-header">
-        <div class="hdr-top-row">
-            <div class="hdr-brand" onclick="goHome()" title="메인 메뉴">미트포앤<span class="go">GO</span></div>
-            <div class="hdr-date-only">
-                <label for="orderTargetDate" class="hdr-date-label">납품일</label>
-                <input type="date" id="orderTargetDate" class="hdr-input" onchange="onTargetDateChange()" title="납품 기준 날짜">
-            </div>
+  <div id="app-viewport" class="app-canvas w-full max-w-[430px] sm:max-w-[480px] min-h-screen shadow-2xl relative flex flex-col overflow-x-hidden sm:border-x sm:border-slate-400/50 transition-colors duration-200">
+
+    <!-- 1. STICKY HIGH-CONTRAST HEADER + 원터치 가독성 컨트롤 바 -->
+    <header class="sticky top-0 z-30 bg-[#1D4ED8] text-white shadow-md header-safe-top">
+      <!-- 상단 1행: 로고/상태 + 납품일 스테퍼(< 날짜 >) -->
+      <div class="px-3.5 pt-2.5 pb-2 flex items-center justify-between gap-1.5">
+        <button type="button" onclick="switchTab('home')" class="flex flex-col items-start text-left shrink-0 active:opacity-85">
+          <div class="flex items-center gap-1.5">
+            <span class="text-[1.08rem] font-black tracking-tight text-white leading-none">
+              미트포앤 <span class="text-amber-300">GB</span>
+            </span>
+          </div>
+          <span class="mt-1 inline-flex items-center gap-1 text-[0.65rem] font-bold text-blue-100 leading-none">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span id="header-status-text">납품일 기준 · 실시간</span>
+          </span>
+        </button>
+
+        <!-- 납품일 스테퍼: 전일(<) / [📅 YYYY. MM. DD (요일)] / 익일(>) -->
+        <div class="flex items-center bg-white text-slate-900 rounded-full p-0.5 shadow-sm border border-blue-200 shrink-0">
+          <button type="button" onclick="stepDeliveryDate(-1)" aria-label="이전 납품일" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition shrink-0">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <button type="button" onclick="openDateSheet()" class="px-2 py-1 flex items-center gap-1 text-[0.76rem] font-black text-slate-900 num-tabular whitespace-nowrap active:opacity-75">
+            <svg class="w-3.5 h-3.5 text-[#1D4ED8] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4">
+              <rect x="3" y="4" width="18" height="18" rx="2.5" ry="2.5"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            <span id="header-date-label">전체 날짜</span>
+          </button>
+
+          <button type="button" onclick="stepDeliveryDate(1)" aria-label="다음 납품일" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition shrink-0">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
-        <div class="hdr-sub-bar">
-            <div class="hdr-quick-info tabular" id="hdrQuickInfo">발주 0건 · 배송처 0곳</div>
-            <div class="hdr-a11y-btns">
-                <button type="button" id="btnQuickScale" class="a11y-chip-btn" onclick="cycleUiScale()">가+ 100%</button>
-                <button type="button" id="btnQuickDark" class="a11y-chip-btn" onclick="toggleDarkMode()">🌙 야간</button>
-            </div>
+      </div>
+
+      <!-- 숨겨진 실제 납품일 date input (바텀시트 및 기존 로직과 양방향 동기화) -->
+      <input type="date" id="orderTargetDate" onchange="onFilterCriteriaChange()" class="hidden" />
+
+      <!-- 상단 2행: 원터치 '가독성 컨트롤 바' -->
+      <div class="bg-[#173EA6] px-3.5 py-1.5 flex items-center justify-between gap-2 border-t border-blue-500/40">
+        <span class="text-[0.68rem] font-bold text-blue-100 tracking-tight truncate">
+          현장 시인성 컨트롤
+        </span>
+
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button id="btn-large-text" type="button" onclick="toggleLargeText()" aria-pressed="false" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.68rem] font-extrabold bg-white/15 hover:bg-white/25 text-white border border-white/25 transition whitespace-nowrap">
+            <span>가+</span>
+            <span>큰글씨 115%</span>
+          </button>
+
+          <button id="btn-dark-mode" type="button" onclick="toggleDarkMode()" aria-pressed="false" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.68rem] font-extrabold bg-white/15 hover:bg-white/25 text-white border border-white/25 transition whitespace-nowrap">
+            <span id="dark-mode-icon">🌙</span>
+            <span id="dark-mode-label">야간모드</span>
+          </button>
         </div>
+      </div>
     </header>
 
-    <!-- 데스크톱 상단 탭 (8개) -->
-    <div class="tab-nav">
-        <button class="tab-btn active" data-page="pageHome" onclick="switchTab('pageHome', this)">홈</button>
-        <button class="tab-btn" data-page="page2" onclick="switchTab('page2', this)">발주</button>
-        <button class="tab-btn" data-page="page5" onclick="switchTab('page5', this)">낱개</button>
-        <button class="tab-btn" data-page="page6" onclick="switchTab('page6', this)">배차</button>
-        <button class="tab-btn" data-page="page3" onclick="switchTab('page3', this)">재고</button>
-        <button class="tab-btn" data-page="pagePurchase" onclick="switchTab('pagePurchase', this)">매입</button>
-        <button class="tab-btn" data-page="pageStaff" onclick="switchTab('pageStaff', this)">직원</button>
-        <button class="tab-btn" data-page="page1" onclick="switchTab('page1', this)">설정</button>
-    </div>
+    <!-- MAIN VIEWPORT CONTAINER -->
+    <main class="flex-1 px-3.5 pt-3.5 pb-safe-nav">
 
-    <!-- [홈: 대시보드] -->
-    <div id="pageHome" class="tab-page active">
-        <div class="home-kpi-grid">
-            <button type="button" class="kpi-card" onclick="switchTab('page6')">
-                <span class="kpi-label">🚚 오늘 배송처 <span>›</span></span>
-                <span class="kpi-val" id="homeOrderCount">0곳</span>
-                <span class="kpi-sub" id="homeBoxLooseSub">총 0박스 · 낱개 0</span>
-            </button>
-            <button type="button" class="kpi-card" onclick="switchTab('page2')">
-                <span class="kpi-label">📋 추출 발주 <span>›</span></span>
-                <span class="kpi-val" id="homeMsgCount">0건</span>
-                <span class="kpi-sub">동일업체 추가·수정 자동통합</span>
-            </button>
-            <button type="button" class="kpi-card" onclick="switchTab('page5')">
-                <span class="kpi-label">📦 발주 낱개 <span>›</span></span>
-                <span class="kpi-val" id="homeLooseCount">0곳</span>
-                <span class="kpi-sub">팩·봉·진공·kg 피킹</span>
-            </button>
-            <button type="button" class="kpi-card" onclick="switchTab('page3')">
-                <span class="kpi-label">📊 창고 재고 <span>›</span></span>
-                <span class="kpi-val" id="homeStockCount">0품목</span>
-                <span class="kpi-sub">대산·포크·기타 현황</span>
-            </button>
-        </div>
+      <!-- ======================================================================
+           TAB 1: 홈 (HOME — 2x2 고대비 요약 대시보드)
+           ====================================================================== -->
+      <section id="tab-home" class="tab-panel space-y-3.5">
+        <div class="hv-card rounded-2xl p-4">
+          <div class="flex items-center justify-between gap-2">
+            <span id="home-brief-date" class="hv-badge-blue text-[0.72rem] font-black px-2.5 py-1 rounded-full num-tabular">
+              납품 기준일 선택
+            </span>
+            <span id="homeUpdatedBadge" class="text-[0.72rem] font-extrabold hv-text-muted num-tabular">
+              대기중
+            </span>
+          </div>
+          <h1 class="text-[1.18rem] font-black hv-text-main mt-2.5 tracking-tight">
+            오늘의 물류·재고 브리핑
+          </h1>
+          <p class="text-[0.8rem] font-semibold hv-text-sub mt-0.5">
+            카드를 누르면 해당 작업 화면으로 즉시 이동합니다.
+          </p>
 
-        <div class="main-menu-grid">
-            <button type="button" class="main-menu-btn" onclick="switchTab('page2')">
-                <span class="mi">📋</span>발주 목록
-                <span class="md">카톡 발주 내역 · 추가/수정 통합</span>
-            </button>
-            <button type="button" class="main-menu-btn" onclick="switchTab('page5')">
-                <span class="mi">📦</span>발주 낱개
-                <span class="md">박스 외 팩·봉·kg 피킹 체크</span>
-            </button>
-            <button type="button" class="main-menu-btn" onclick="switchTab('page6')">
-                <span class="mi">🚚</span>배차 관리
-                <span class="md">7대 차량 · 자동배차 2종 · 수동</span>
-            </button>
-            <button type="button" class="main-menu-btn" onclick="switchTab('page3')">
-                <span class="mi">📊</span>일일 재고
-                <span class="md">품목별 대산·포크·기타 재고</span>
-            </button>
-            <button type="button" class="main-menu-btn" onclick="switchTab('pagePurchase')">
-                <span class="mi">🧾</span>매입방 정리
-                <span class="md" id="homePurchaseCount">미등록 · 단가/입고/반품 검색</span>
-            </button>
-            <button type="button" class="main-menu-btn" onclick="switchTab('pageStaff')">
-                <span class="mi">👷</span>직원방 정리
-                <span class="md" id="homeStaffCount">미등록 · 차량/타이어/지시 검색</span>
-            </button>
-            <button type="button" class="main-menu-btn" onclick="switchTab('page4')">
-                <span class="mi">📑</span>일일 발주표
-                <span class="md">품목별 집계 · 발주체크 복사</span>
-            </button>
-            <button type="button" class="main-menu-btn" onclick="switchTab('page1')">
-                <span class="mi">⚙️</span>데이터·설정
-                <span class="md">발주·매입·직원 TXT · CSV</span>
-            </button>
-        </div>
-
-        <div class="notice-card">
-            <h4>현장 사용 팁</h4>
-            <div class="notice-item"><span>같은 업체의 <b>●추가 / 수정</b> 발주는 같은 납품일 기준으로 자동 합산·적용됩니다</span><span class="date">자동통합</span></div>
-            <div class="notice-item"><span><b>배차</b> 탭에서 수동 지정 후 <b>자동배차 2종</b>으로 미배차만 깔끔하게 채울 수 있습니다</span><span class="date">자동배차</span></div>
-            <div class="notice-item"><span><b>설정</b>에서 고른 추출 시간 창과 화면 설정은 직접 바꾸기 전까지 영구 유지됩니다</span><span class="date">설정유지</span></div>
-        </div>
-    </div>
-
-    <!-- [설정: 데이터 입력] -->
-    <div id="page1" class="tab-page">
-        <div class="section-card">
-            <h3>💬 1단계: 카카오톡 대화 파일(.txt) 로딩 (발주 · 매입 · 직원)</h3>
-            <p>
-                • 스마트폰/PC 내보내기 파일을 모두 인식하며, 불러온 내역은 기기에 자동 저장됩니다.
-            </p>
-            <div class="upload-zone" onclick="document.getElementById('kakaoFileInput').click()">
-                <b>📁 [발주방] 카카오톡 대화 파일(.txt) 선택</b>
-                <div id="kakaoLoadMsg" style="margin-top:6px; color:var(--accent); font-weight:800; font-size:0.84rem;"></div>
-                <input type="file" id="kakaoFileInput" accept=".txt" multiple onchange="loadKakaoFiles(event)">
-            </div>
-            <div class="upload-zone" onclick="document.getElementById('purchaseFileInput').click()" style="border-color:#0284C7;">
-                <b style="color:#0284C7;">🧾 [매입방] 카카오톡 대화 파일(.txt) 선택</b>
-                <div id="purchaseLoadMsg" style="margin-top:6px; color:var(--accent); font-weight:800; font-size:0.84rem;"></div>
-                <input type="file" id="purchaseFileInput" accept=".txt" multiple onchange="loadRoomChatFiles(event, 'purchase')">
-            </div>
-            <div class="upload-zone" onclick="document.getElementById('staffFileInput').click()" style="border-color:#059669;">
-                <b style="color:#059669;">👷 [직원방] 카카오톡 대화 파일(.txt) 선택</b>
-                <div id="staffLoadMsg" style="margin-top:6px; color:var(--accent); font-weight:800; font-size:0.84rem;"></div>
-                <input type="file" id="staffFileInput" accept=".txt" multiple onchange="loadRoomChatFiles(event, 'staff')">
-            </div>
-        </div>
-
-        <div class="section-card">
-            <h3>📦 2단계: 일일 재고현황 텍스트 입력</h3>
-            <p>카톡방의 '일일 재고현황' 텍스트를 붙여넣고 <b>[재고표 생성 및 적용]</b>을 누르세요.</p>
-            <textarea id="stockTextarea" placeholder="여기에 '11월 19일 재고현황...' 텍스트를 붙여넣으세요."></textarea>
-            <div class="btn-row">
-                <button type="button" class="btn green" onclick="parseAndApplyStock(true)">✅ 재고표 생성 및 적용</button>
-                <button type="button" class="btn gray" onclick="document.getElementById('stockTextarea').value=''">🗑️ 비우기</button>
-            </div>
-        </div>
-
-        <div class="section-card" id="settingsCard">
-            <h3>⚙️ 추출·화면 표시 설정</h3>
-            <div class="setting-lock-banner" id="settingLockBanner">🔒 현재 선택한 모든 설정은 브라우저에 자동 저장되어 유지됩니다.</div>
-            <div class="settings-grid">
-                <div>
-                    <label for="orderTimeMode">발주 추출 시간 창</label>
-                    <select id="orderTimeMode" class="hdr-select" style="width:100%;height:42px;border:1.5px solid var(--border);background:var(--card);color:var(--text);" onchange="onTimeModeChange(this.value)">
-                        <option value="smart">여기까지 기준 (납품일 기준 전일~당일 자동 취합)</option>
-                        <option value="prev_to_curr">전일 ~ 당일 작성분 전체 보기 (D-1 ~ D)</option>
-                        <option value="fullday">당일 작성분만 보기 (D)</option>
-                        <option value="all">전체 날짜 보기</option>
-                    </select>
+          <!-- 2x2 대형 요약 대시보드 카드 -->
+          <div class="grid grid-cols-2 gap-2.5 mt-3.5">
+            <button type="button" onclick="switchTab('orders')" class="hv-subbox hover:border-[#1D4ED8] active:scale-[0.98] rounded-2xl p-3.5 text-left transition flex flex-col justify-between">
+              <div class="flex items-center justify-between">
+                <span class="text-[0.76rem] font-extrabold hv-text-sub">오늘 발주</span>
+                <span class="w-7 h-7 rounded-xl hv-badge-blue flex items-center justify-center">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
+                  </svg>
+                </span>
+              </div>
+              <div class="mt-2.5">
+                <div id="home-stat-orders" class="text-[1.5rem] font-black hv-text-main num-tabular leading-none">
+                  0<span class="text-[0.88rem] font-extrabold ml-0.5">건</span>
                 </div>
-                <div>
-                    <label>글자 크기 & 화면 모드</label>
-                    <div class="settings-row">
-                        <button type="button" id="btnScale100" class="btn sm outline" onclick="setUiScale(100)">기본 100%</button>
-                        <button type="button" id="btnScale115" class="btn sm outline" onclick="setUiScale(115)">큰글씨 115%</button>
-                        <button type="button" id="btnScale130" class="btn sm outline" onclick="setUiScale(130)">초대형 130%</button>
-                        <button type="button" id="btnSettingDark" class="btn sm outline" onclick="toggleDarkMode()">🌙 야간모드</button>
-                    </div>
+                <div id="home-stat-orders-sub" class="text-[0.72rem] font-bold text-[#1D4ED8] mt-1 num-tabular">
+                  익일 전환 0건 포함
                 </div>
-                <div>
-                    <label>목록 필터</label>
-                    <div class="settings-row">
-                        <button type="button" id="btnOnlyOrder" class="btn sm" onclick="toggleOnlyOrder()">🔍 발주만: ON</button>
-                        <button type="button" id="btnOnlyKnownClient" class="btn sm gray" onclick="toggleKnownClient()">🏢 등록거래처: OFF</button>
-                    </div>
+              </div>
+            </button>
+
+            <button type="button" onclick="switchTab('dispatch')" class="hv-subbox hover:border-[#1D4ED8] active:scale-[0.98] rounded-2xl p-3.5 text-left transition flex flex-col justify-between">
+              <div class="flex items-center justify-between">
+                <span class="text-[0.76rem] font-extrabold hv-text-sub">배차 물량</span>
+                <span class="w-7 h-7 rounded-xl hv-badge-green flex items-center justify-center">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1" />
+                  </svg>
+                </span>
+              </div>
+              <div class="mt-2.5">
+                <div id="home-stat-dispatch" class="text-[1.5rem] font-black hv-text-main num-tabular leading-none">
+                  0<span class="text-[0.88rem] font-extrabold ml-0.5">박스</span>
                 </div>
-                <div>
-                    <label>현재 데이터 상태</label>
-                    <div class="settings-row" style="gap:6px;">
-                        <span id="pillUpdated" class="pill time">업데이트: 대기중</span>
-                        <span id="pillKakao" class="pill">발주: 미등록</span>
-                        <span id="pillPurchase" class="pill">매입: 미등록</span>
-                        <span id="pillStaff" class="pill">직원: 미등록</span>
-                        <span id="pillStock" class="pill">재고: 미등록</span>
-                        <span id="pillClient" class="pill ok">거래처: -</span>
-                    </div>
+                <div id="home-stat-dispatch-sub" class="text-[0.72rem] font-bold hv-text-muted mt-1 num-tabular">
+                  거래처 0곳 · 완료 0/0
                 </div>
-                <div class="settings-row">
-                    <button type="button" class="btn sm red" onclick="clearSavedBrowserData()">🗑️ 브라우저 저장 초기화</button>
+              </div>
+            </button>
+
+            <button type="button" onclick="switchTab('loose')" class="hv-subbox hover:border-[#1D4ED8] active:scale-[0.98] rounded-2xl p-3.5 text-left transition flex flex-col justify-between">
+              <div class="flex items-center justify-between">
+                <span class="text-[0.76rem] font-extrabold hv-text-sub">낱개 피킹</span>
+                <span class="w-7 h-7 rounded-xl hv-badge-amber flex items-center justify-center">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                </span>
+              </div>
+              <div class="mt-2.5">
+                <div id="home-stat-loose" class="text-[1.5rem] font-black hv-text-main num-tabular leading-none">
+                  0<span class="text-[0.88rem] font-extrabold ml-0.5">곳</span>
                 </div>
-            </div>
+                <div id="home-stat-loose-sub" class="text-[0.72rem] font-bold hv-text-muted mt-1 num-tabular">
+                  팩·진공·kg 소분 내역
+                </div>
+              </div>
+            </button>
+
+            <button type="button" onclick="switchTab('inventory')" class="hv-subbox hover:border-[#1D4ED8] active:scale-[0.98] rounded-2xl p-3.5 text-left transition flex flex-col justify-between">
+              <div class="flex items-center justify-between">
+                <span class="text-[0.76rem] font-extrabold hv-text-sub">창고 재고</span>
+                <span class="w-7 h-7 rounded-xl hv-badge-blue flex items-center justify-center">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </span>
+              </div>
+              <div class="mt-2.5">
+                <div id="home-stat-inventory" class="text-[1.5rem] font-black hv-text-main num-tabular leading-none">
+                  0<span class="text-[0.88rem] font-extrabold ml-0.5">박</span>
+                </div>
+                <div id="home-stat-inventory-sub" class="text-[0.72rem] font-bold hv-text-muted mt-1 num-tabular">
+                  품목 0개 등록
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
 
-        <div class="section-card">
-            <h3>🏢 3단계: 거래처 목록 CSV 관리</h3>
-            <p>같은 폴더에 <code>clients.csv</code>가 있으면 자동 로드되며, 내장된 105개 거래처 DB로도 즉시 작동합니다.</p>
-            <div class="filter-group" style="margin-bottom:8px;">
-                <input type="text" id="githubCsvUrl" style="flex:1; min-width:200px;" placeholder="https://raw.githubusercontent.com/.../clients.csv" onchange="saveUserSettings()">
-                <button type="button" class="btn sm" onclick="loadCsvFromGithub()">🌐 GitHub 불러오기</button>
+        <!-- 빠른 카톡 불러오기 / 발주현황표 바로가기 -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <button type="button" onclick="switchTab('settings')" class="hv-card rounded-2xl p-3 text-left active:scale-[0.98] transition flex items-center gap-2.5">
+            <span class="w-9 h-9 rounded-xl hv-badge-blue flex items-center justify-center font-black shrink-0">💬</span>
+            <div class="min-w-0">
+              <div class="text-[0.84rem] font-black hv-text-main">카톡 불러오기</div>
+              <div class="text-[0.7rem] font-bold hv-text-muted truncate">TXT · 알고리즘 설정</div>
             </div>
-            <div class="btn-row">
-                <button type="button" class="btn sm orange" onclick="document.getElementById('clientCsvInput').click()">📂 로컬 거래처 CSV 선택</button>
-                <button type="button" class="btn sm green" id="btnExportCleanCsv" style="display:none;" onclick="exportCleanedClientsCsv()">📥 정리된 6열 CSV 저장</button>
-                <input type="file" id="clientCsvInput" accept=".csv" style="display:none;" onchange="loadClientCsvFile(event)">
+          </button>
+          <button type="button" onclick="switchTab('summary')" class="hv-card rounded-2xl p-3 text-left active:scale-[0.98] transition flex items-center gap-2.5">
+            <span class="w-9 h-9 rounded-xl hv-badge-green flex items-center justify-center font-black shrink-0">📊</span>
+            <div class="min-w-0">
+              <div class="text-[0.84rem] font-black hv-text-main">발주 현황표</div>
+              <div class="text-[0.7rem] font-bold hv-text-muted truncate">브랜드별 합계표</div>
             </div>
-            <div id="clientLoadMsg" style="margin-top:8px; font-size:0.82rem; color:var(--accent); font-weight:800;"></div>
-        </div>
-    </div>
-
-    <!-- [페이지 2: 발주 추출 목록] -->
-    <div id="page2" class="tab-page">
-        <div class="filter-bar">
-            <div class="filter-bar-top">
-                <span id="orderStats" style="font-weight:900; color:var(--primary); font-size:0.95rem;">📋 조회된 내역: 0건</span>
-                <div class="filter-group">
-                    <button type="button" class="btn sm outline" onclick="switchTab('page4')">📊 현황표</button>
-                    <button type="button" class="btn sm green" onclick="downloadOrdersCsv()">📥 CSV</button>
-                </div>
+          </button>
+          <button type="button" onclick="switchTab('purchase')" class="hv-card rounded-2xl p-3 text-left active:scale-[0.98] transition flex items-center gap-2.5">
+            <span class="w-9 h-9 rounded-xl hv-badge-amber flex items-center justify-center font-black shrink-0">🏭</span>
+            <div class="min-w-0">
+              <div class="text-[0.84rem] font-black hv-text-main">매입방 정리</div>
+              <div id="home-stat-purchase" class="text-[0.7rem] font-bold text-[#B45309] truncate num-tabular">0건</div>
             </div>
-            <input type="search" id="orderSearchInput" placeholder="🔍 거래처명 또는 품목 검색 (예: 태광, 암삼겹)" oninput="renderOrdersTable()">
-        </div>
-
-        <div id="orderCardList" class="card-list">
-            <div class="empty-box">설정 탭에서 카카오톡 대화 파일(.txt)을 먼저 업로드해주세요.</div>
-        </div>
-    </div>
-
-    <!-- [페이지 3: 일일 재고 현황표] -->
-    <div id="page3" class="tab-page">
-        <div class="filter-bar">
-            <div class="filter-bar-top">
-                <div id="stockTitleInfo" style="font-weight:900; font-size:0.98rem; color:var(--primary);">📦 일일 재고 현황표</div>
-                <div class="filter-group">
-                    <button type="button" class="btn sm outline" onclick="switchTab('page4')">🧾 발주현황</button>
-                    <button type="button" class="btn sm green" onclick="downloadStockCsv()">📥 CSV</button>
-                </div>
+          </button>
+          <button type="button" onclick="switchTab('staff')" class="hv-card rounded-2xl p-3 text-left active:scale-[0.98] transition flex items-center gap-2.5">
+            <span class="w-9 h-9 rounded-xl hv-badge-blue flex items-center justify-center font-black shrink-0">👷</span>
+            <div class="min-w-0">
+              <div class="text-[0.84rem] font-black hv-text-main">직원방 정리</div>
+              <div id="home-stat-staff" class="text-[0.7rem] font-bold text-[#1D4ED8] truncate num-tabular">0건</div>
             </div>
-            <div class="filter-group" style="width:100%;">
-                <input type="search" id="stockSearchInput" style="flex:1;" placeholder="🔍 재고 품목 검색 (예: 암삼겹, 미삼, 목살)" oninput="renderStockTable()">
-                <button type="button" id="btnStockOnlyPos" class="btn sm outline" onclick="toggleStockOnlyPositive()">보유만: OFF</button>
-            </div>
+          </button>
         </div>
 
-        <div id="stockCardList" class="card-list"></div>
-    </div>
+        <!-- 최근 접수 / 익일 발주 미리보기 -->
+        <div class="hv-card rounded-2xl p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h2 class="text-[0.95rem] font-black hv-text-main">최근 접수 · 발주 확인</h2>
+            <button type="button" onclick="switchTab('orders')" class="text-[0.75rem] font-extrabold text-[#1D4ED8]">
+              전체보기 →
+            </button>
+          </div>
+          <div id="home-recent-orders" class="space-y-2"></div>
+        </div>
+      </section>
 
-    <!-- [페이지 4: 일일 발주 현황표] -->
-    <div id="page4" class="tab-page">
-        <div class="filter-bar">
-            <div class="filter-bar-top">
-                <div>
-                    <b style="color:var(--primary); font-size:0.98rem;">📊 일일 발주 현황표</b>
-                    <div id="orderSummaryDateInfo" style="font-size:0.78rem; color:var(--text-muted); font-weight:700;"></div>
-                </div>
-                <div class="filter-group">
-                    <button type="button" class="btn sm orange" onclick="copyKakaoOrderCheckText()">📋 카톡 복사</button>
-                    <button type="button" class="btn sm green" onclick="downloadOrderSummaryCsv()">📥 CSV</button>
-                </div>
+      <!-- ======================================================================
+           TAB 2: 발주 (ORDERS)
+           ====================================================================== -->
+      <section id="tab-orders" class="tab-panel hidden space-y-3">
+        <div class="hv-card rounded-2xl p-3.5">
+          <div class="flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <h1 id="orders-header-count" class="text-[0.98rem] font-black hv-text-main num-tabular">
+                  조회된 내역: 총 0건
+                </h1>
+                <button type="button" onclick="toggleOrderGuide()" aria-label="납품일 수동 전환 안내 열기" class="px-1.5 py-0.5 rounded-full hv-badge-blue text-[0.7rem] font-black inline-flex items-center justify-center">?</button>
+              </div>
+              <p id="orders-header-mode" class="text-[0.75rem] font-bold hv-text-muted mt-0.5 num-tabular">
+                납품일 기준 추출
+              </p>
             </div>
+
+            <button type="button" onclick="downloadOrdersCsv()" class="shrink-0 inline-flex items-center gap-1.5 bg-[#047857] hover:bg-emerald-800 active:scale-[0.97] text-white text-[0.78rem] font-black px-3.5 py-2 rounded-xl shadow-xs transition whitespace-nowrap">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span>CSV 저장</span>
+            </button>
+          </div>
+
+          <div id="orders-guide-box" class="hidden mt-3 pt-2.5 border-t border-slate-200 text-[0.78rem] font-semibold hv-text-sub leading-relaxed hv-subbox rounded-xl p-3">
+            💡 각 발주 카드 하단의 <span class="font-black text-[#B45309]">[🚚 납품: MM/DD]</span> 배지를 터치하면 <span class="font-black hv-text-main">당일 ↔ 익일</span> 납품일을 즉시 수동 전환할 수 있습니다.
+          </div>
+
+          <div class="flex items-center gap-1.5 mt-3 overflow-x-auto no-scrollbar">
+            <button type="button" onclick="setOrderFilter('all')" data-order-filter="all" class="order-filter-chip px-3 py-1.5 rounded-full text-[0.75rem] font-black bg-[#1D4ED8] text-white transition shrink-0">전체 내역</button>
+            <button type="button" onclick="setOrderFilter('nextDay')" data-order-filter="nextDay" class="order-filter-chip px-3 py-1.5 rounded-full text-[0.75rem] font-extrabold hv-pill transition shrink-0">익일 납품만</button>
+            <button type="button" onclick="setOrderFilter('sameDay')" data-order-filter="sameDay" class="order-filter-chip px-3 py-1.5 rounded-full text-[0.75rem] font-extrabold hv-pill transition shrink-0">당일 납품만</button>
+          </div>
         </div>
 
-        <div id="orderSummaryCardList" class="card-list"></div>
-    </div>
+        <div id="orders-card-list" class="space-y-3"></div>
+      </section>
 
-    <!-- [페이지 5: 발주 낱개] -->
-    <div id="page5" class="tab-page">
-        <div class="filter-bar">
-            <div class="filter-bar-top">
-                <b style="color:var(--primary); font-size:0.98rem;">📦 발주 낱개 피킹 목록</b>
-                <span id="looseStats" style="font-size:0.84rem; color:var(--text-sub); font-weight:800;"></span>
+      <!-- ======================================================================
+           TAB 3: 낱개 (LOOSE ITEMS)
+           ====================================================================== -->
+      <section id="tab-loose" class="tab-panel hidden space-y-3">
+        <div class="hv-card rounded-2xl p-3.5 space-y-2">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <h1 class="text-[1.02rem] font-black hv-text-main leading-snug">발주 낱개 목록</h1>
+              <p class="text-[0.75rem] font-bold hv-text-muted mt-0.5">팩·봉·진공·마리·두·KG·통 등 / 박스·개 제외</p>
             </div>
-            <div style="font-size:0.8rem; color:var(--text-sub);">
-                박스·개를 제외한 <b>팩·봉·진공·마리·두·kg</b> 단위만 모읍니다. 항목을 터치하면 준비 완료 체크됩니다.
-            </div>
+            <span id="looseStats" class="hv-badge-blue text-[0.76rem] font-black px-2.5 py-1 rounded-full num-tabular shrink-0">거래처 0곳</span>
+          </div>
+
+          <div class="hv-subbox rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+            <span class="text-[0.75rem] font-extrabold hv-text-sub">👆 각 낱개 칩을 터치해 준비 완료 체크</span>
+            <span id="loose-picking-status" class="text-[0.78rem] font-black text-[#047857] num-tabular shrink-0">준비 0 / 0건</span>
+          </div>
         </div>
 
-        <div id="looseCardList" class="card-list">
-            <div class="empty-box">설정에서 카톡을 불러온 뒤 확인하세요.</div>
-        </div>
-    </div>
+        <div id="loose-card-list" class="space-y-2.5"></div>
+      </section>
 
-    <!-- [페이지 6: 배송처 목록·배차] -->
-    <div id="page6" class="tab-page">
-        <div class="section-card" style="padding:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
-                <h3 style="margin:0;">🚚 배송차량 (최·엄·양·한·차·김·이)</h3>
-                <div class="filter-group">
-                    <button type="button" class="btn sm outline" onclick="toggleVehicleEditBox()">✏️ 차량명 수정</button>
-                    <button type="button" class="btn sm green" onclick="downloadDispatchCsv()">📥 CSV</button>
-                </div>
+      <!-- ======================================================================
+           TAB 4: 배차 (DISPATCH + MAP)
+           ====================================================================== -->
+      <section id="tab-dispatch" class="tab-panel hidden space-y-3">
+        <div class="hv-card rounded-2xl p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[0.95rem] font-black hv-text-main">배차 정차지</span>
+              <span id="dispatch-progress-badge" class="hv-badge-green text-[0.72rem] font-black px-2 py-0.5 rounded-full num-tabular">완료 0/0</span>
             </div>
-            <div class="vehicle-config-grid" id="vehicleConfigGrid" style="display:none;"></div>
-            <div class="vehicle-stat-bar" id="vehicleStatBar"></div>
-        </div>
 
-        <!-- 자동배차 제어 패널 (수동배차 유지 + 2종 알고리즘) -->
-        <div class="section-card auto-dispatch-box" style="padding:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                <h3 style="margin:0; color:var(--primary);">🤖 자동배차 (원거리 3~4대 + 근거리 2~3대)</h3>
-                <label style="display:inline-flex; align-items:center; gap:5px; font-size:0.82rem; font-weight:800; cursor:pointer;">
-                    <input type="checkbox" id="autoKeepManualChk" checked style="width:16px; height:16px;">
-                    수동 배정 유지 (미배차만 채우기)
-                </label>
-            </div>
-            <div class="auto-dispatch-row">
-                <select id="autoSplitPreset" class="hdr-select" style="height:38px; border:1.5px solid var(--primary); font-size:0.82rem;">
-                    <option value="4-3" selected>원거리 4대(최·엄·양·한) + 근거리 3대(차·김·이)</option>
-                    <option value="3-3">원거리 3대(최·엄·양) + 근거리 3대(차·김·이)</option>
-                    <option value="4-2">원거리 4대(최·엄·양·한) + 근거리 2대(차·김)</option>
-                    <option value="3-2">원거리 3대(최·엄·양) + 근거리 2대(차·김)</option>
+            <div class="flex items-center gap-1.5">
+              <div class="relative">
+                <select id="dispatchSortMode" onchange="onDispatchSortChange()" class="appearance-none hv-subbox rounded-xl pl-2.5 pr-7 py-1.5 text-[0.76rem] font-black hv-text-main focus:outline-none">
+                  <option value="far">기점 먼 곳 먼저</option>
+                  <option value="near">기점 가까운 곳</option>
+                  <option value="city">주소 가나다순 (시·구)</option>
+                  <option value="boxes">박스 수 많은 순</option>
+                  <option value="vehicle">차량 1~6호차 순</option>
                 </select>
-                <button type="button" class="btn sm" onclick="runAutoDispatch('corridor')">① 권역 패턴 자동배차</button>
-                <button type="button" class="btn sm orange" onclick="runAutoDispatch('kmeans')">② 거리·물량 균등 자동배차</button>
-                <button type="button" class="btn sm outline" id="btnUndoDispatch" onclick="undoAutoDispatch()" style="display:none;">↩ 되돌리기</button>
-                <button type="button" class="btn sm gray" onclick="resetAllDispatch()">전체 미배차</button>
+                <svg class="w-3.5 h-3.5 hv-text-muted absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+              <button type="button" onclick="downloadDispatchCsv()" class="px-2.5 py-1.5 rounded-xl bg-[#047857] text-white text-[0.74rem] font-black shrink-0">CSV</button>
             </div>
-            <div id="autoDispatchSummary" style="margin-top:8px; font-size:0.8rem; font-weight:700; color:var(--text-sub);">
-                수동배차는 그대로 사용 가능하며, 자동배차 후에도 업체별 차량을 자유롭게 수정할 수 있습니다.
+          </div>
+
+          <!-- 원터치 빠른 정렬/필터 칩 -->
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            <button type="button" onclick="setDispatchQuickSort('far')" data-disp-chip="far" class="disp-chip px-3 py-1.5 rounded-full text-[0.74rem] font-black bg-[#1D4ED8] text-white transition shrink-0">먼 곳 먼저</button>
+            <button type="button" onclick="setDispatchQuickSort('near')" data-disp-chip="near" class="disp-chip px-3 py-1.5 rounded-full text-[0.74rem] font-extrabold hv-pill transition shrink-0">가까운 곳</button>
+            <button type="button" onclick="setDispatchQuickSort('city')" data-disp-chip="city" class="disp-chip px-3 py-1.5 rounded-full text-[0.74rem] font-extrabold hv-pill transition shrink-0">시·구 순</button>
+            <button type="button" onclick="setDispatchQuickSort('boxes')" data-disp-chip="boxes" class="disp-chip px-3 py-1.5 rounded-full text-[0.74rem] font-extrabold hv-pill transition shrink-0">박스 많은 순</button>
+            <button type="button" onclick="toggleDispatchPendingOnly()" id="btn-disp-pending" class="px-3 py-1.5 rounded-full text-[0.74rem] font-extrabold hv-pill transition shrink-0">미완료만</button>
+          </div>
+
+          <!-- 차량별 통계 필터 바 -->
+          <div id="vehicleStatBar" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5"></div>
+
+          <!-- 기사 선택 시 코스 순번 안내 배지 -->
+          <div id="routeOrderHint" class="hidden hv-badge-green rounded-xl px-3 py-1.5 text-[0.74rem] font-black flex items-center justify-between gap-2">
+            <span>🚚 <span id="routeOrderDriverName">기사님</span> 코스 1번 → 2번 순서 자동 정렬됨</span>
+          </div>
+
+          <!-- 자동배차 하이브리드 컨트롤 -->
+          <div class="hv-subbox rounded-xl p-2.5 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <label class="inline-flex items-center gap-1.5 text-[0.76rem] font-black hv-text-main cursor-pointer select-none">
+                <input type="checkbox" id="chkKeepManualDispatch" checked class="w-4 h-4 accent-[#1D4ED8] rounded" />
+                <span>수동 배정 유지 (미배차만 채우기)</span>
+              </label>
+              <button type="button" onclick="resetAllDispatchToUnassigned()" class="px-2 py-1 rounded-lg hv-pill text-[0.68rem] font-black shrink-0">↩️ 배차초기화</button>
             </div>
+            <div class="grid grid-cols-2 gap-1.5">
+              <button type="button" onclick="runAutoDispatch('pattern')" class="py-2 px-2 rounded-xl bg-[#1D4ED8] text-white text-[0.75rem] font-black active:scale-[0.98] transition">① 권역 패턴 자동배차</button>
+              <button type="button" onclick="runAutoDispatch('distance')" class="py-2 px-2 rounded-xl bg-[#047857] text-white text-[0.75rem] font-black active:scale-[0.98] transition">② 원·근거리 균형배차</button>
+            </div>
+          </div>
+
+          <!-- 지도 & 기사명 설정 토글 -->
+          <div class="grid grid-cols-2 gap-1.5">
+            <button type="button" onclick="toggleDispatchMapBox()" class="py-2 px-2.5 rounded-xl hv-badge-blue text-[0.76rem] font-black">🗺️ 지도 보기/접기</button>
+            <button type="button" onclick="toggleVehicleConfigBox()" class="py-2 px-2.5 rounded-xl hv-pill text-[0.76rem] font-black">✏️ 기사명 수정</button>
+          </div>
         </div>
 
-        <div class="section-card" style="padding:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px;">
-                <h3 style="margin:0;">🗺️ 배송처 지도 · 배송업체 선택 (3열 · 가나다순)</h3>
-                <div class="filter-group">
-                    <button type="button" class="btn sm" onclick="refreshDispatchMap()">새로고침</button>
-                    <button type="button" class="btn sm gray" onclick="fitDispatchMap()">전체보기</button>
-                </div>
+        <!-- 차량 기사명 설정 패널 -->
+        <div id="vehicleConfigBox" class="hidden hv-card rounded-2xl p-3 space-y-2">
+          <div class="text-[0.82rem] font-black hv-text-main">차량·기사명 설정 (자동 저장)</div>
+          <div id="vehicleConfigGrid" class="grid grid-cols-2 gap-2"></div>
+        </div>
+
+        <!-- VWorld 지도 패널 -->
+        <div id="dispatchMapBox" class="hidden hv-card rounded-2xl p-3 space-y-2">
+          <div class="flex flex-wrap gap-1.5 items-center">
+            <button type="button" onclick="refreshDispatchMap()" class="px-2.5 py-1.5 rounded-lg bg-[#1D4ED8] text-white text-[0.74rem] font-black">🔄 새로고침</button>
+            <button type="button" onclick="fitDispatchMap()" class="px-2.5 py-1.5 rounded-lg hv-pill text-[0.74rem] font-black">🔍 전체</button>
+            <button type="button" id="btnMapLayerToggle" onclick="toggleVworldMapLayer()" class="px-2.5 py-1.5 rounded-lg bg-[#B45309] text-white text-[0.74rem] font-black">🛰️ 위성</button>
+            <button type="button" id="btnPinLabelToggle" onclick="togglePinLabels()" class="px-2.5 py-1.5 rounded-lg bg-[#047857] text-white text-[0.74rem] font-black">🏷️ 상호:ON</button>
+            <button type="button" onclick="clearGeoCacheAndReload()" class="px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-[0.74rem] font-black">🗑️ 캐시초기화</button>
+          </div>
+          <div id="mapStatus" class="text-[0.75rem] font-extrabold text-[#1D4ED8]"></div>
+          <div id="mapLegend" class="flex flex-wrap gap-2 text-[0.72rem] hv-text-sub"></div>
+          <div id="dispatchMap"></div>
+        </div>
+
+        <div id="dispatch-card-list" class="space-y-3"></div>
+
+        <!-- 기사별 거래처명 한눈에 보기 (화이트보드용) -->
+        <div id="dispatch-board-summary" class="hv-card rounded-2xl p-3.5 space-y-2.5"></div>
+      </section>
+
+      <!-- ======================================================================
+           TAB 5: 재고 (INVENTORY)
+           ====================================================================== -->
+      <section id="tab-inventory" class="tab-panel hidden space-y-3">
+        <div class="hv-card rounded-2xl p-3.5 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <h1 id="stockTitleInfo" class="text-[1.05rem] font-black hv-text-main tracking-tight num-tabular">일일 재고현황</h1>
+              <p class="text-[0.74rem] font-bold hv-text-muted mt-0.5">창고별 재고 박스 및 상세 수량</p>
             </div>
-            <div class="map-legend" id="mapLegend"></div>
-            <div id="mapStatus" style="font-size:0.78rem; color:var(--text-muted); margin-bottom:6px; font-weight:700;"></div>
-            <div id="dispatchMap"></div>
-            <div class="client-chip-row" id="clientChipRow"></div>
-            <div class="quick-vehicle-bar" id="quickVehicleBar"></div>
-            <p id="selectedClientHint" style="font-size:0.8rem; color:var(--text-sub); margin:0; font-weight:700;">거래처 버튼을 선택한 뒤 차량을 지정하세요.</p>
+
+            <button type="button" onclick="downloadStockCsv()" class="shrink-0 inline-flex items-center gap-1.5 bg-[#047857] hover:bg-emerald-800 active:scale-[0.97] text-white text-[0.78rem] font-black px-3.5 py-2 rounded-xl shadow-xs transition whitespace-nowrap">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span>CSV 저장</span>
+            </button>
+          </div>
+
+          <div class="relative">
+            <svg class="w-4 h-4 hv-text-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input id="inventory-search-input" type="text" oninput="renderStockTable()" placeholder="품목명 검색 (예: 암삼겹, 빵삼겹, 미삼)" class="w-full hv-subbox rounded-xl pl-9 pr-9 py-2.5 text-[0.84rem] font-bold hv-text-main focus:outline-none" />
+            <button id="inventory-search-clear" type="button" onclick="clearInventorySearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 p-1 hv-text-muted" aria-label="검색어 지우기">✕</button>
+          </div>
+
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            <button type="button" onclick="setInventoryFilter('all')" data-inv-chip="all" class="inv-chip px-3 py-1.5 rounded-full text-[0.75rem] font-black bg-[#1D4ED8] text-white transition shrink-0">전체 품목</button>
+            <button type="button" onclick="setInventoryFilter('inStock')" data-inv-chip="inStock" class="inv-chip px-3 py-1.5 rounded-full text-[0.75rem] font-extrabold hv-pill transition shrink-0">재고있음</button>
+            <button type="button" onclick="setInventoryFilter('zero')" data-inv-chip="zero" class="inv-chip px-3 py-1.5 rounded-full text-[0.75rem] font-extrabold hv-pill transition shrink-0">0박 품목</button>
+          </div>
         </div>
 
-        <div class="filter-bar">
-            <div class="filter-bar-top">
-                <h3 style="margin:0; font-size:0.98rem; font-weight:900;">📋 배송처 목록 (3열 바둑판)</h3>
-                <select id="dispatchSortMode" onchange="onDispatchSortChange(this.value)"
-                    style="height:38px; padding:4px 10px; border-radius:10px; border:1.5px solid var(--primary); font-weight:800; font-size:0.84rem; background:var(--card); color:var(--text);">
-                    <option value="name">업체명 가나다순</option>
-                    <option value="far">기점에서 먼 곳 먼저</option>
-                    <option value="near">기점에서 가까운 곳 먼저</option>
-                    <option value="city">주소 가나다순 (시·구)</option>
-                    <option value="boxes">물품(박스) 많은 순</option>
-                    <option value="vehicle">배송차량 순 (최·엄·양·한·차·김·이)</option>
-                </select>
+        <div id="inventory-card-list" class="space-y-3"></div>
+      </section>
+
+      <!-- ======================================================================
+           TAB 6: 일일 발주 현황표 (SUMMARY)
+           ====================================================================== -->
+      <section id="tab-summary" class="tab-panel hidden space-y-3">
+        <div class="hv-card rounded-2xl p-3.5 flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <h1 class="text-[1.02rem] font-black hv-text-main">📊 일일 발주 현황표</h1>
+            <p id="orderSummaryDateInfo" class="text-[0.75rem] font-bold text-[#1D4ED8] mt-0.5"></p>
+          </div>
+          <div class="flex gap-1.5">
+            <button type="button" onclick="copyKakaoOrderCheckText()" class="px-3 py-1.5 rounded-xl bg-[#B45309] text-white text-[0.76rem] font-black">📋 카톡복사</button>
+            <button type="button" onclick="downloadOrderSummaryCsv()" class="px-3 py-1.5 rounded-xl bg-[#047857] text-white text-[0.76rem] font-black">CSV 저장</button>
+          </div>
+        </div>
+        <div id="order-summary-card-list" class="space-y-2.5"></div>
+      </section>
+
+      <!-- ======================================================================
+           TAB 7: 매입방 정리·검색 (PURCHASE)
+           ====================================================================== -->
+      <section id="tab-purchase" class="tab-panel hidden space-y-3">
+        <div class="hv-card rounded-2xl p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <h1 class="text-[1.02rem] font-black hv-text-main">🏭 매입방 카톡 정리·검색</h1>
+              <p id="purchase-header-count" class="text-[0.75rem] font-bold hv-text-muted mt-0.5 num-tabular">총 0건</p>
             </div>
-        </div>
-
-        <div id="dispatchCardList" class="card-list"></div>
-    </div>
-
-    <!-- [페이지 매입: 매입방 카톡 정리 & 검색] -->
-    <div id="pagePurchase" class="tab-page">
-        <div class="filter-bar">
-            <div class="filter-bar-top">
-                <span id="purchaseStats" style="font-weight:900; color:var(--primary); font-size:0.96rem;">🧾 매입방 정리: 0건</span>
-                <div class="filter-group">
-                    <button type="button" id="btnPurchaseDateOnly" class="btn sm outline" onclick="toggleRoomOption('purchase', 'dateOnly')">📅 전체기간</button>
-                    <button type="button" id="btnPurchaseHidePhoto" class="btn sm" onclick="toggleRoomOption('purchase', 'hidePhoto')">🖼️ 사진숨김: ON</button>
-                    <button type="button" class="btn sm green" onclick="downloadRoomCsv('purchase')">📥 CSV</button>
-                </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button type="button" id="btn-purchase-date-mode" onclick="toggleChatRoomDateMode('purchase')" class="px-2.5 py-1.5 rounded-xl hv-pill text-[0.72rem] font-black whitespace-nowrap">📅 전체기간</button>
+              <button type="button" id="btn-purchase-hide-media" onclick="toggleChatRoomHideMedia('purchase')" class="px-2.5 py-1.5 rounded-xl bg-[#1D4ED8] text-white text-[0.72rem] font-black whitespace-nowrap">🖼️ 사진 숨김: ON</button>
+              <button type="button" onclick="downloadChatRoomCsv('purchase')" class="px-2.5 py-1.5 rounded-xl bg-[#047857] text-white text-[0.72rem] font-black whitespace-nowrap">📥 CSV</button>
             </div>
-            <input type="search" id="purchaseSearchInput" placeholder="🔍 매입방 검색 (예: 토레인, 황금, 단가표, 유상, 반품, 비번)" oninput="renderRoomPage('purchase')">
-            <div class="cat-chip-bar" id="purchaseCategoryBar"></div>
-        </div>
-        <div id="purchaseCardList" class="card-list">
-            <div class="empty-box">설정 탭에서 [매입방] 카카오톡 대화 파일(.txt)을 먼저 업로드해주세요.</div>
-        </div>
-    </div>
+          </div>
 
-    <!-- [페이지 직원: 직원방 카톡 정리 & 검색] -->
-    <div id="pageStaff" class="tab-page">
-        <div class="filter-bar">
-            <div class="filter-bar-top">
-                <span id="staffStats" style="font-weight:900; color:var(--primary); font-size:0.96rem;">👷 직원방 정리: 0건</span>
-                <div class="filter-group">
-                    <button type="button" id="btnStaffDateOnly" class="btn sm outline" onclick="toggleRoomOption('staff', 'dateOnly')">📅 전체기간</button>
-                    <button type="button" id="btnStaffHidePhoto" class="btn sm" onclick="toggleRoomOption('staff', 'hidePhoto')">🖼️ 사진숨김: ON</button>
-                    <button type="button" class="btn sm green" onclick="downloadRoomCsv('staff')">📥 CSV</button>
-                </div>
+          <div class="relative">
+            <svg class="w-4 h-4 hv-text-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input id="purchase-search-input" type="search" oninput="renderChatRoomTab('purchase')" placeholder="매입처·품목·원가·비번·발신자 검색" class="w-full hv-subbox rounded-xl pl-9 pr-9 py-2.5 text-[0.84rem] font-bold hv-text-main focus:outline-none" />
+            <button id="purchase-search-clear" type="button" onclick="clearChatRoomSearch('purchase')" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 p-1 hv-text-muted" aria-label="검색어 지우기">✕</button>
+          </div>
+
+          <div id="purchase-category-chips" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5"></div>
+        </div>
+
+        <div id="purchase-card-list" class="space-y-3"></div>
+      </section>
+
+      <!-- ======================================================================
+           TAB 8: 직원방 정리·검색 (STAFF)
+           ====================================================================== -->
+      <section id="tab-staff" class="tab-panel hidden space-y-3">
+        <div class="hv-card rounded-2xl p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <h1 class="text-[1.02rem] font-black hv-text-main">👷 직원방 카톡 정리·검색</h1>
+              <p id="staff-header-count" class="text-[0.75rem] font-bold hv-text-muted mt-0.5 num-tabular">총 0건</p>
             </div>
-            <input type="search" id="staffSearchInput" placeholder="🔍 직원방 검색 (예: 타이어, 7719, 반품, 코스, 발주체크, 연차)" oninput="renderRoomPage('staff')">
-            <div class="cat-chip-bar" id="staffCategoryBar"></div>
-        </div>
-        <div id="staffCardList" class="card-list">
-            <div class="empty-box">설정 탭에서 [직원방] 카카오톡 대화 파일(.txt)을 먼저 업로드해주세요.</div>
-        </div>
-    </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button type="button" id="btn-staff-date-mode" onclick="toggleChatRoomDateMode('staff')" class="px-2.5 py-1.5 rounded-xl hv-pill text-[0.72rem] font-black whitespace-nowrap">📅 전체기간</button>
+              <button type="button" id="btn-staff-hide-media" onclick="toggleChatRoomHideMedia('staff')" class="px-2.5 py-1.5 rounded-xl bg-[#1D4ED8] text-white text-[0.72rem] font-black whitespace-nowrap">🖼️ 사진 숨김: ON</button>
+              <button type="button" onclick="downloadChatRoomCsv('staff')" class="px-2.5 py-1.5 rounded-xl bg-[#047857] text-white text-[0.72rem] font-black whitespace-nowrap">📥 CSV</button>
+            </div>
+          </div>
 
-    <!-- 하단 8개 고정 네비게이션 -->
-    <nav class="bottom-nav" id="bottomNav">
-        <button type="button" class="active" data-page="pageHome" onclick="switchTab('pageHome', this)">
-            <svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5z"/></svg>
-            <span>홈</span>
+          <div class="relative">
+            <svg class="w-4 h-4 hv-text-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input id="staff-search-input" type="search" oninput="renderChatRoomTab('staff')" placeholder="차량번호·거래처·비번·품목·이름 검색" class="w-full hv-subbox rounded-xl pl-9 pr-9 py-2.5 text-[0.84rem] font-bold hv-text-main focus:outline-none" />
+            <button id="staff-search-clear" type="button" onclick="clearChatRoomSearch('staff')" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 p-1 hv-text-muted" aria-label="검색어 지우기">✕</button>
+          </div>
+
+          <div id="staff-category-chips" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5"></div>
+        </div>
+
+        <div id="staff-card-list" class="space-y-3"></div>
+      </section>
+
+      <!-- ======================================================================
+           TAB 9: 설정 (SETTINGS — 가독성 + 카톡 로딩 + 추출 알고리즘 + 재고 + CSV)
+           ====================================================================== -->
+      <section id="tab-settings" class="tab-panel hidden space-y-3">
+
+        <!-- 0. 현장 가독성 설정 -->
+        <div class="hv-card rounded-2xl p-4 space-y-3">
+          <h1 class="text-[1.02rem] font-black hv-text-main">현장 가독성 및 환경 설정</h1>
+
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-slate-200">
+            <div>
+              <div class="text-[0.86rem] font-black hv-text-main">큰글씨 모드 (115% 확대)</div>
+              <div class="text-[0.74rem] font-semibold hv-text-muted mt-0.5">냉동창고·이동 중 숫자 및 거래처명 확대</div>
+            </div>
+            <button id="settings-toggle-large" type="button" onclick="toggleLargeText()" class="px-3.5 py-2 rounded-xl text-[0.78rem] font-black hv-pill transition shrink-0">OFF</button>
+          </div>
+
+          <div class="flex items-center justify-between gap-3 py-2 border-b border-slate-200">
+            <div>
+              <div class="text-[0.86rem] font-black hv-text-main">야간 / 배송 트럭 다크모드</div>
+              <div class="text-[0.74rem] font-semibold hv-text-muted mt-0.5">새벽 상차 및 야간 운전 시 눈부심 방지</div>
+            </div>
+            <button id="settings-toggle-dark" type="button" onclick="toggleDarkMode()" class="px-3.5 py-2 rounded-xl text-[0.78rem] font-black hv-pill transition shrink-0">OFF</button>
+          </div>
+
+          <div class="space-y-2 pt-1">
+            <div>
+              <label class="block text-[0.76rem] font-extrabold hv-text-sub mb-1">발주 추출 기준 모드</label>
+              <select id="orderTimeMode" onchange="onFilterCriteriaChange()" class="w-full hv-subbox rounded-xl px-3 py-2.5 text-[0.82rem] font-black hv-text-main">
+                <option value="smart" selected>납품일 기준 (마감선 '여기까지' 이후=익일)</option>
+                <option value="all">전체 날짜 보기</option>
+                <option value="fullday">작성일=납품일로 보기</option>
+              </select>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" id="btnOnlyOrder" onclick="toggleOnlyOrder()" class="py-2.5 px-2 rounded-xl bg-[#1D4ED8] text-white text-[0.78rem] font-black">🔍 발주만: ON</button>
+              <button type="button" id="btnOnlyKnownClient" onclick="toggleKnownClient()" class="py-2.5 px-2 rounded-xl hv-pill text-[0.78rem] font-black">🏢 등록거래처: OFF</button>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-1.5 pt-1 text-[0.72rem] font-black">
+            <span id="pillUpdated" class="px-2.5 py-1 rounded-full bg-slate-900 text-amber-300">업데이트: 대기중</span>
+            <span id="pillKakao" class="px-2.5 py-1 rounded-full hv-pill">카톡: 미등록</span>
+            <span id="pillStock" class="px-2.5 py-1 rounded-full hv-pill">재고: 미등록</span>
+            <span id="pillClient" class="px-2.5 py-1 rounded-full hv-badge-green">거래처: -</span>
+            <span id="pillPurchase" class="px-2.5 py-1 rounded-full hv-pill">매입: 0건</span>
+            <span id="pillStaff" class="px-2.5 py-1 rounded-full hv-pill">직원: 0건</span>
+          </div>
+        </div>
+
+        <!-- 1. 카톡 대화 로딩 -->
+        <div class="hv-card rounded-2xl p-4 space-y-2.5">
+          <h2 class="text-[0.98rem] font-black hv-text-main">💬 1. 발주 카카오톡 대화 로딩</h2>
+          <p class="text-[0.76rem] font-semibold hv-text-muted leading-relaxed">
+            PC·모바일 카톡 내보내기(.txt) 파일을 자동 인식하며, 5단계 스마트 납품일 알고리즘이 <b>납품일 기준</b>으로 당일·익일을 자동 분리합니다.
+          </p>
+          <div onclick="document.getElementById('kakaoFileInput').click()" class="border-2 border-dashed border-[#1D4ED8] hv-subbox rounded-xl p-4 text-center cursor-pointer active:scale-[0.99] transition">
+            <div class="text-[0.88rem] font-black text-[#1D4ED8]">📁 여기를 터치하여 카톡 파일(.txt) 선택</div>
+            <div id="kakaoLoadMsg" class="text-[0.76rem] text-[#047857] font-extrabold mt-1"></div>
+            <input type="file" id="kakaoFileInput" accept=".txt,text/plain" multiple onchange="loadKakaoFiles(event)" class="hidden" />
+          </div>
+          <div>
+            <label class="block text-[0.74rem] font-extrabold hv-text-sub mb-1">📋 또는 카톡 대화 원문 붙여넣기</label>
+            <textarea id="kakaoPasteTextarea" rows="3" placeholder="여기에 카톡 대화를 붙여넣고 아래 버튼을 누르세요." class="w-full hv-subbox rounded-xl p-2.5 text-[0.8rem] font-bold"></textarea>
+            <button type="button" onclick="loadKakaoFromPaste()" class="w-full mt-1.5 py-2.5 rounded-xl bg-[#1D4ED8] text-white text-[0.84rem] font-black active:scale-[0.99] transition">🔍 붙여넣은 카톡 바로 추출</button>
+          </div>
+        </div>
+
+        <!-- 1-2. 매입방 카톡 대화 로딩 -->
+        <div class="hv-card rounded-2xl p-4 space-y-2.5">
+          <h2 class="text-[0.98rem] font-black hv-text-main">🏭 1-2. 매입방 카카오톡 대화 로딩</h2>
+          <p class="text-[0.76rem] font-semibold hv-text-muted leading-relaxed">
+            매입방 카톡(.txt)을 불러오면 매입/입고·단가/원가·냉창/유상·반품/입금·공지/비번으로 자동 분류·저장됩니다. (UTF-8 / EUC-KR 자동 인식)
+          </p>
+          <div onclick="document.getElementById('purchaseFileInput').click()" class="border-2 border-dashed border-[#B45309] hv-subbox rounded-xl p-4 text-center cursor-pointer active:scale-[0.99] transition">
+            <div class="text-[0.88rem] font-black text-[#B45309]">📁 매입방 카톡 파일(.txt) 선택 (다중 선택 가능)</div>
+            <div id="purchaseLoadMsg" class="text-[0.76rem] text-[#047857] font-extrabold mt-1"></div>
+            <input type="file" id="purchaseFileInput" accept=".txt,text/plain" multiple onchange="loadPurchaseFiles(event)" class="hidden" />
+          </div>
+        </div>
+
+        <!-- 1-3. 직원방 카톡 대화 로딩 -->
+        <div class="hv-card rounded-2xl p-4 space-y-2.5">
+          <h2 class="text-[0.98rem] font-black hv-text-main">👷 1-3. 직원방 카카오톡 대화 로딩</h2>
+          <p class="text-[0.76rem] font-semibold hv-text-muted leading-relaxed">
+            직원방 카톡(.txt)을 불러오면 배송/현장지시·매입발주서·발주체크·차량/타이어·반품·근태/공지로 자동 분류·저장됩니다.
+          </p>
+          <div onclick="document.getElementById('staffFileInput').click()" class="border-2 border-dashed border-[#047857] hv-subbox rounded-xl p-4 text-center cursor-pointer active:scale-[0.99] transition">
+            <div class="text-[0.88rem] font-black text-[#047857]">📁 직원방 카톡 파일(.txt) 선택 (다중 선택 가능)</div>
+            <div id="staffLoadMsg" class="text-[0.76rem] text-[#047857] font-extrabold mt-1"></div>
+            <input type="file" id="staffFileInput" accept=".txt,text/plain" multiple onchange="loadStaffFiles(event)" class="hidden" />
+          </div>
+        </div>
+
+        <!-- 2. 발주 추출 알고리즘 원리 & 타사 커스텀 설정 -->
+        <div class="hv-card rounded-2xl p-4 space-y-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="text-[0.98rem] font-black hv-text-main">🧠 2. 추출 알고리즘 & 타사 적용</h2>
+            <button type="button" onclick="toggleAlgoGuideBox()" class="px-2.5 py-1 rounded-full hv-pill text-[0.72rem] font-black shrink-0">📖 방법 보기/접기</button>
+          </div>
+
+          <div id="algoGuideBox" class="space-y-2 text-[0.76rem] font-semibold hv-text-sub leading-relaxed">
+            <div class="hv-subbox border-l-4 border-l-[#1D4ED8] rounded-r-xl p-2.5">
+              <b class="hv-text-main">1단계 · 카톡 메시지 분리</b><br>
+              PC 카톡(<code>2026년 11월 4일 오전 9:10, 이름 : 내용</code>), 모바일(<code>[이름] [오전 9:10]</code>), 날짜선을 자동 분리합니다.
+            </div>
+            <div class="hv-subbox border-l-4 border-l-[#047857] rounded-r-xl p-2.5">
+              <b class="hv-text-main">2단계 · 발주 / 계근 / 기타 3단 분류</b><br>
+              무시 키워드 제외 → 소수점(19.3)·3~4자리 이력번호는 <b>계근</b> 분리 → 설정된 <b>품목 또는 수량+단위</b> 감지 시 <b>발주</b> 확정!
+            </div>
+            <div class="hv-subbox border-l-4 border-l-[#B45309] rounded-r-xl p-2.5">
+              <b class="hv-text-main">3단계 · 납품일 기준 5단계 추론 (작성일 기준 X)</b><br>
+              ① 수동배지 → ② 명시날짜(11/18) → ③ 요일(목요일) → ④ 내일/오늘 → ⑤ <b>마감선(기본: 여기까지)</b> 이전=당일 / 이후=익일 <b>납품일</b>로 배정합니다.
+            </div>
+            <div class="hv-subbox border-l-4 border-l-indigo-500 rounded-r-xl p-2.5">
+              <b class="hv-text-main">4단계 · 거래처 매칭 & 박스/낱개 분리</b><br>
+              거래처 DB(타사 모드 시 첫 줄 상호/발신자) 매칭 후 박스 vs 낱개(팩·봉·kg·통·병·망 등)를 자동 집계합니다.
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[0.74rem] font-extrabold hv-text-sub mb-1.5">🏢 회사/업종 프리셋 (원터치 전환)</label>
+            <div class="grid grid-cols-3 gap-1.5">
+              <button type="button" id="presetMeatpoan" onclick="applyAlgoPreset('meatpoan')" class="algo-preset-btn py-2 px-1 rounded-xl border-2 border-[#1D4ED8] hv-badge-blue text-[0.74rem] font-black text-center">🥩 미트포앤<br><span class="text-[0.65rem] font-bold">축산·정육</span></button>
+              <button type="button" id="presetFood" onclick="applyAlgoPreset('food')" class="algo-preset-btn py-2 px-1 rounded-xl border-2 hv-pill text-[0.74rem] font-black text-center">🥬 식자재<br><span class="text-[0.65rem] font-bold">공산·농수산</span></button>
+              <button type="button" id="presetUniversal" onclick="applyAlgoPreset('universal')" class="algo-preset-btn py-2 px-1 rounded-xl border-2 hv-pill text-[0.74rem] font-black text-center">📦 타사범용<br><span class="text-[0.65rem] font-bold">수량+단위</span></button>
+            </div>
+          </div>
+
+          <div class="space-y-2 pt-1">
+            <div>
+              <label class="block text-[0.74rem] font-extrabold hv-text-sub mb-1">① 마감 구분 키워드 (이 문구 이후=익일)</label>
+              <input type="text" id="algoCutoffKeywords" class="w-full hv-subbox rounded-xl px-3 py-2 text-[0.8rem] font-bold" placeholder="예: 여기까지,마감,주문마감" />
+            </div>
+            <div>
+              <label class="block text-[0.74rem] font-extrabold hv-text-sub mb-1">② 발주 품목 키워드 (쉼표 구분 · 타사 품목 추가 가능)</label>
+              <textarea id="algoItemKeywords" rows="2" class="w-full hv-subbox rounded-xl p-2.5 text-[0.78rem] font-bold" placeholder="예: 삼겹,목살,식용유,양파,쌀,김치,소주"></textarea>
+            </div>
+            <div>
+              <label class="block text-[0.74rem] font-extrabold hv-text-sub mb-1">③ 발주 단위 키워드</label>
+              <input type="text" id="algoUnitKeywords" class="w-full hv-subbox rounded-xl px-3 py-2 text-[0.8rem] font-bold" placeholder="예: 박스,박,팩,봉,망,포대,통,병,짝,개,EA,kg" />
+            </div>
+            <div>
+              <label class="block text-[0.74rem] font-extrabold hv-text-sub mb-1">④ 제외(무시) 키워드</label>
+              <textarea id="algoIgnoreKeywords" rows="2" class="w-full hv-subbox rounded-xl p-2.5 text-[0.78rem] font-bold" placeholder="예: 사진,삭제되었습니다,입금,단가표"></textarea>
+            </div>
+            <button type="button" id="btnToggleAutoClient" onclick="toggleAlgoAutoClient()" class="w-full py-2.5 px-3 rounded-xl hv-pill text-[0.78rem] font-black text-left">
+              👤 미등록 거래처 자동인식(첫줄/발신자): OFF
+            </button>
+            <div class="grid grid-cols-2 gap-1.5">
+              <button type="button" onclick="saveAlgoConfigAndReanalyze()" class="py-2.5 px-2 rounded-xl bg-[#047857] text-white text-[0.78rem] font-black">✅ 규칙 저장·재추출</button>
+              <button type="button" onclick="testUniversalSample()" class="py-2.5 px-2 rounded-xl bg-[#B45309] text-white text-[0.78rem] font-black">🧪 타사 샘플 테스트</button>
+            </div>
+            <button type="button" onclick="resetAlgoConfigToDefault()" class="w-full py-2 rounded-xl hv-pill text-[0.74rem] font-extrabold">🔄 미트포앤 기본값 복원</button>
+            <div id="algoSaveMsg" class="text-[0.76rem] font-black text-[#047857]"></div>
+          </div>
+        </div>
+
+        <!-- 3. 일일 재고현황 입력 -->
+        <div class="hv-card rounded-2xl p-4 space-y-2.5">
+          <h2 class="text-[0.98rem] font-black hv-text-main">📦 3. 일일 재고현황 텍스트 입력</h2>
+          <textarea id="stockTextarea" rows="4" placeholder="여기에 '11월 17일 재고현황...' 텍스트를 붙여넣으세요." class="w-full hv-subbox rounded-xl p-2.5 text-[0.8rem] font-mono font-bold"></textarea>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button type="button" onclick="parseAndApplyStock(true)" class="py-2.5 rounded-xl bg-[#047857] text-white text-[0.82rem] font-black">✅ 재고표 적용</button>
+            <button type="button" onclick="document.getElementById('stockTextarea').value=''" class="py-2.5 rounded-xl hv-pill text-[0.82rem] font-black">🗑️ 내용 비우기</button>
+          </div>
+        </div>
+
+        <!-- 4. 거래처 CSV 관리 -->
+        <div class="hv-card rounded-2xl p-4 space-y-2.5">
+          <h2 class="text-[0.98rem] font-black hv-text-main">🏢 4. 거래처 목록 CSV 관리</h2>
+          <div class="flex gap-1.5">
+            <input type="text" id="githubCsvUrl" placeholder="GitHub Raw CSV URL" class="flex-1 hv-subbox rounded-xl px-2.5 py-2 text-[0.78rem] font-bold" />
+            <button type="button" onclick="loadCsvFromGithub()" class="px-3 py-2 rounded-xl bg-[#1D4ED8] text-white text-[0.78rem] font-black shrink-0">🌐 불러오기</button>
+          </div>
+          <button type="button" onclick="document.getElementById('clientCsvInput').click()" class="w-full py-2.5 rounded-xl bg-[#B45309] text-white text-[0.82rem] font-black">📂 로컬 거래처 CSV 파일 선택</button>
+          <button type="button" id="btnExportCleanCsv" onclick="exportCleanedClientsCsv()" class="hidden w-full py-2.5 rounded-xl bg-[#047857] text-white text-[0.82rem] font-black">📥 정리된 6열 거래처 CSV 저장</button>
+          <input type="file" id="clientCsvInput" accept=".csv" class="hidden" onchange="loadClientCsvFile(event)" />
+          <div id="clientLoadMsg" class="text-[0.76rem] font-extrabold text-[#047857]"></div>
+        </div>
+
+        <!-- 5. 저장소 초기화 -->
+        <div class="hv-card rounded-2xl p-4">
+          <button type="button" onclick="clearSavedBrowserData()" class="w-full py-2.5 rounded-xl bg-rose-600 text-white text-[0.82rem] font-black">🗑️ 저장된 데이터 전체 초기화</button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 2. FIXED BOTTOM NAVIGATION BAR (8개 탭 + 컴팩트 그리드 + 실시간 건수 배지) -->
+    <nav aria-label="하단 주 메뉴" class="hv-bottom-nav fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] sm:max-w-[480px] z-40 px-0.5 pt-1 bottom-bar-safe shadow-[0_-6px_20px_rgba(15,23,42,0.08)]">
+      <div class="grid grid-cols-8 gap-0">
+        <button type="button" onclick="switchTab('home')" data-tab="home" class="nav-btn relative flex flex-col items-center justify-center py-1.5 rounded-xl transition">
+          <span class="nav-indicator hidden absolute top-0 w-6 h-[3.5px] rounded-full bg-[#1D4ED8]"></span>
+          <svg class="w-[18px] h-[18px] mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          <span class="text-[0.65rem] font-extrabold tracking-tight whitespace-nowrap">홈</span>
         </button>
-        <button type="button" data-page="page2" onclick="switchTab('page2', this)">
-            <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
-            <span>발주</span>
+
+        <button type="button" onclick="switchTab('orders')" data-tab="orders" class="nav-btn relative flex flex-col items-center justify-center py-1.5 rounded-xl transition">
+          <span class="nav-indicator hidden absolute top-0 w-6 h-[3.5px] rounded-full bg-[#1D4ED8]"></span>
+          <span id="badge-nav-orders" class="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-[#1D4ED8] text-white text-[0.58rem] font-black flex items-center justify-center num-tabular">0</span>
+          <svg class="w-[18px] h-[18px] mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+          <span class="text-[0.65rem] font-extrabold tracking-tight whitespace-nowrap">발주</span>
         </button>
-        <button type="button" data-page="page5" onclick="switchTab('page5', this)">
-            <svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7.3L12 12l8.7-4.7M12 22V12"/></svg>
-            <span>낱개</span>
+
+        <button type="button" onclick="switchTab('loose')" data-tab="loose" class="nav-btn relative flex flex-col items-center justify-center py-1.5 rounded-xl transition">
+          <span class="nav-indicator hidden absolute top-0 w-6 h-[3.5px] rounded-full bg-[#1D4ED8]"></span>
+          <span id="badge-nav-loose" class="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-[#B45309] text-white text-[0.58rem] font-black flex items-center justify-center num-tabular">0</span>
+          <svg class="w-[18px] h-[18px] mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+          <span class="text-[0.65rem] font-extrabold tracking-tight whitespace-nowrap">낱개</span>
         </button>
-        <button type="button" data-page="page6" onclick="switchTab('page6', this)">
-            <svg viewBox="0 0 24 24"><path d="M1 3h15v13H1zM16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-            <span>배차</span>
+
+        <button type="button" onclick="switchTab('dispatch')" data-tab="dispatch" class="nav-btn relative flex flex-col items-center justify-center py-1.5 rounded-xl transition">
+          <span class="nav-indicator hidden absolute top-0 w-6 h-[3.5px] rounded-full bg-[#1D4ED8]"></span>
+          <span id="badge-nav-dispatch" class="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-[#047857] text-white text-[0.58rem] font-black flex items-center justify-center num-tabular">0</span>
+          <svg class="w-[18px] h-[18px] mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1" />
+          </svg>
+          <span class="text-[0.65rem] font-extrabold tracking-tight whitespace-nowrap">배차</span>
         </button>
-        <button type="button" data-page="page3" onclick="switchTab('page3', this)">
-            <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-            <span>재고</span>
+
+        <button type="button" onclick="switchTab('inventory')" data-tab="inventory" class="nav-btn relative flex flex-col items-center justify-center py-1.5 rounded-xl transition">
+          <span class="nav-indicator hidden absolute top-0 w-6 h-[3.5px] rounded-full bg-[#1D4ED8]"></span>
+          <svg class="w-[18px] h-[18px] mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          <span class="text-[0.65rem] font-extrabold tracking-tight whitespace-nowrap">재고</span>
         </button>
-        <button type="button" data-page="pagePurchase" onclick="switchTab('pagePurchase', this)">
-            <svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
-            <span>매입</span>
+
+        <button type="button" onclick="switchTab('purchase')" data-tab="purchase" class="nav-btn relative flex flex-col items-center justify-center py-1.5 rounded-xl transition">
+          <span class="nav-indicator hidden absolute top-0 w-6 h-[3.5px] rounded-full bg-[#1D4ED8]"></span>
+          <svg class="w-[18px] h-[18px] mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          <span class="text-[0.65rem] font-extrabold tracking-tight whitespace-nowrap">매입</span>
         </button>
-        <button type="button" data-page="pageStaff" onclick="switchTab('pageStaff', this)">
-            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            <span>직원</span>
+
+        <button type="button" onclick="switchTab('staff')" data-tab="staff" class="nav-btn relative flex flex-col items-center justify-center py-1.5 rounded-xl transition">
+          <span class="nav-indicator hidden absolute top-0 w-6 h-[3.5px] rounded-full bg-[#1D4ED8]"></span>
+          <svg class="w-[18px] h-[18px] mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span class="text-[0.65rem] font-extrabold tracking-tight whitespace-nowrap">직원</span>
         </button>
-        <button type="button" data-page="page1" onclick="switchTab('page1', this)">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            <span>설정</span>
+
+        <button type="button" onclick="switchTab('settings')" data-tab="settings" class="nav-btn relative flex flex-col items-center justify-center py-1.5 rounded-xl transition">
+          <span class="nav-indicator hidden absolute top-0 w-6 h-[3.5px] rounded-full bg-[#1D4ED8]"></span>
+          <svg class="w-[18px] h-[18px] mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span class="text-[0.65rem] font-extrabold tracking-tight whitespace-nowrap">설정</span>
         </button>
+      </div>
     </nav>
-</div>
 
-<div id="toastMsg" class="toast-msg"></div>
+    <!-- BOTTOM SHEET 1: 납품일 선택 시트 -->
+    <div id="date-sheet-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 backdrop-blur-[1px]">
+      <div class="hv-card w-full max-w-[430px] sm:max-w-[480px] rounded-t-3xl p-5 shadow-2xl space-y-3" style="padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));">
+        <div class="flex items-center justify-between">
+          <h3 class="text-[1.02rem] font-black hv-text-main">납품 기준일 선택</h3>
+          <button type="button" onclick="closeDateSheet()" class="p-1.5 rounded-full hv-pill">✕</button>
+        </div>
+        <div id="date-sheet-options" class="space-y-2 max-h-[45vh] overflow-y-auto"></div>
+        <div class="pt-2 border-t border-slate-200 space-y-1.5">
+          <label class="block text-[0.74rem] font-extrabold hv-text-sub">직접 날짜 지정</label>
+          <input type="date" id="sheetDatePicker" onchange="applyDirectDateFromSheet(this.value)" class="w-full hv-subbox rounded-xl px-3 py-2.5 text-[0.86rem] font-black" />
+        </div>
+      </div>
+    </div>
 
-<script src="app.js"></script>
+    <!-- BOTTOM SHEET 2: 배차 비번 / 하역 메모 확인 시트 -->
+    <div id="memo-sheet-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 backdrop-blur-[1px]">
+      <div class="hv-card w-full max-w-[430px] sm:max-w-[480px] rounded-t-3xl p-5 shadow-2xl space-y-3.5" style="padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <h3 id="memo-sheet-title" class="text-[1.02rem] font-black hv-text-main">거래처 비번/메모</h3>
+            <span class="hv-badge-amber text-[0.68rem] font-black px-2 py-0.5 rounded-full">배차 참고</span>
+          </div>
+          <button type="button" onclick="closeMemoSheet()" class="p-1.5 rounded-full hv-pill">✕</button>
+        </div>
+        <div id="memo-sheet-body" class="hv-subbox rounded-2xl p-4 text-[0.9rem] font-bold hv-text-main leading-relaxed"></div>
+        <button type="button" onclick="closeMemoSheet()" class="w-full py-3 rounded-xl bg-[#1D4ED8] text-white font-black text-[0.9rem] active:scale-[0.99] transition">확인 완료</button>
+      </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast-banner" role="status" class="pointer-events-none fixed left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[395px] z-50 opacity-0 translate-y-2 transition-all duration-200" style="bottom: calc(5.2rem + env(safe-area-inset-bottom, 0px));">
+      <div class="bg-slate-900 text-white border border-slate-700 text-[0.8rem] font-extrabold px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0"></span>
+        <span id="toast-message" class="leading-snug">알림 메시지</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="./app.js"></script>
 </body>
 </html>
