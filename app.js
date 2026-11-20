@@ -11,13 +11,25 @@ let showOnlyOrder = true;
 let showOnlyKnownClient = false;
 let stockOnlyPositive = false;
 
-const DEFAULT_VEHICLES = ["(차)", "(한)", "(엄)", "(최)", "(양)", "(김)"];
-let vehicleNames = JSON.parse(localStorage.getItem('mf_vehicles') || 'null') || [...DEFAULT_VEHICLES];
+/* 배송차량 7개 고정: 최, 엄, 양, 한, 차, 김, 이 */
+const DEFAULT_VEHICLES = ["최", "엄", "양", "한", "차", "김", "이"];
+let vehicleNames = (() => {
+    try {
+        const saved = JSON.parse(localStorage.getItem('mf_vehicles') || 'null');
+        const isLegacy6 = Array.isArray(saved) && saved.length === 6 && saved[0] === "(차)";
+        if (Array.isArray(saved) && saved.length === 7 && !isLegacy6) {
+            return saved;
+        }
+    } catch (e) {}
+    try { localStorage.setItem('mf_vehicles', JSON.stringify(DEFAULT_VEHICLES)); } catch (e) {}
+    return [...DEFAULT_VEHICLES];
+})();
+
 let dispatchMap = JSON.parse(localStorage.getItem('mf_dispatch') || '{}');
 let manualDelivMap = JSON.parse(localStorage.getItem('mf_manual_deliv_dates') || '{}');
 let looseCheckedMap = JSON.parse(localStorage.getItem('mf_loose_checked') || '{}');
 let selectedVehicleFilter = 'ALL';
-let dispatchSortMode = localStorage.getItem('mf_dispatch_sort') || 'far';
+let dispatchSortMode = localStorage.getItem('mf_dispatch_sort') || 'name';
 
 /* =========================================================================
    설정 영구 저장 & 즉시 동기화 (절대 초기화되지 않도록 전용 키로 보호)
@@ -63,8 +75,9 @@ function saveUserSettings(reasonText) {
             stockOnlyPositive: Boolean(stockOnlyPositive),
             uiScale: getUiScalePercent(),
             darkMode: document.documentElement.classList.contains('dark-mode'),
-            dispatchSortMode: sortEl ? (sortEl.value || dispatchSortMode || 'far') : (dispatchSortMode || 'far'),
-            githubCsvUrl: ghEl ? (ghEl.value || '') : (currentPrefs.githubCsvUrl || '')
+            dispatchSortMode: sortEl ? (sortEl.value || dispatchSortMode || 'name') : (dispatchSortMode || 'name'),
+            githubCsvUrl: ghEl ? (ghEl.value || '') : (currentPrefs.githubCsvUrl || ''),
+            v3AlphaMigrated: true
         };
 
         localStorage.setItem(USER_PREFS_KEY, JSON.stringify(nextPrefs));
@@ -109,11 +122,16 @@ function restoreUserSettings(preserveTargetDateIfEmpty = false) {
     if (typeof prefs.stockOnlyPositive === 'boolean') {
         stockOnlyPositive = prefs.stockOnlyPositive;
     }
-    if (prefs.dispatchSortMode) {
+
+    if (!prefs.v3AlphaMigrated) {
+        dispatchSortMode = 'name';
+        try { localStorage.setItem('mf_dispatch_sort', 'name'); } catch (e) {}
+    } else if (prefs.dispatchSortMode) {
         dispatchSortMode = prefs.dispatchSortMode;
-        const sortEl = document.getElementById('dispatchSortMode');
-        setSelectValueLocked(sortEl, dispatchSortMode);
     }
+    const sortEl = document.getElementById('dispatchSortMode');
+    setSelectValueLocked(sortEl, dispatchSortMode);
+
     if (typeof prefs.githubCsvUrl === 'string') {
         const ghEl = document.getElementById('githubCsvUrl');
         if (ghEl && !ghEl.value) ghEl.value = prefs.githubCsvUrl;
@@ -343,6 +361,7 @@ function clearSavedBrowserData() {
     localStorage.removeItem(USER_PREFS_KEY);
     localStorage.removeItem('mf_last_updated');
     localStorage.removeItem('mf_dispatch');
+    localStorage.removeItem('mf_vehicles');
     localStorage.removeItem('mf_manual_deliv_dates');
     localStorage.removeItem('mf_loose_checked');
     localStorage.removeItem('mf_ui_scale');
@@ -706,7 +725,7 @@ function matchClientFromText(text) {
     return { matched: false, clientName: firstToken || "미확인", officialName: "", clientObj: null };
 }
 
-/* 같은 업체 식별용 정규화 키 (별칭이 다르거나 ●추가/●수정 표기가 붙어도 하나로 묶음) */
+/* 같은 업체 식별용 정규화 키 */
 function getCanonicalClientKey(item) {
     if (item && item.clientObj && item.clientObj.name) {
         return 'DB:' + item.clientObj.name.trim();
@@ -716,7 +735,6 @@ function getCanonicalClientKey(item) {
     return 'RAW:' + (norm || '미확인');
 }
 
-/* 업체명을 안 적고 바로 '추가 ~', '수정 ~'만 보낸 연속 카톡 메시지 보정 */
 function resolveSequentialFollowUpClients() {
     for (let i = 1; i < allChatItems.length; i++) {
         const cur = allChatItems[i];
@@ -738,17 +756,14 @@ function resolveSequentialFollowUpClients() {
     }
 }
 
-/* 추가 vs 수정·변경·취소 판별 */
 function detectFollowUpKind(txt) {
     const t = String(txt || '').trim();
-    // 전체/기존 발주 수정·변경·취소 후 재발주 패턴
     if (/(?:전체\s*)?(?:수정|변경|정정)(?:합니다|할게요|해요|요|입니다|건|분)?|(?:기존|이전|아까|방금|앞선)\s*(?:발주|주문|꺼|것)?\s*(?:취소|삭제|빼고|말고)|취소하고|다시\s*발주|재발주/.test(t)) {
         return 'modify';
     }
     return 'add';
 }
 
-/* 같은 업체 + 같은 납품일 발주를 1개의 통합 그룹으로 묶기 */
 function getConsolidatedOrderGroups(rawList) {
     const groups = [];
     const groupByKey = new Map();
@@ -808,7 +823,6 @@ function getConsolidatedOrderGroups(rawList) {
         grp.items.push(item);
     });
 
-    // 각 발주 그룹 내 추가 / 수정 적용 계산
     groups.forEach(grp => {
         if (!grp.isOrder) return;
         if (grp.items.length === 1) {
@@ -843,7 +857,6 @@ function getConsolidatedOrderGroups(rawList) {
     return groups;
 }
 
-/* 집계(발주현황표 · 발주낱개 · 배차)에 사용할 '유효(최종 적용된) 발주' 목록 */
 function getActiveOrdersForAggregation() {
     const rawOrders = getFilteredOrderList(true);
     const groups = getConsolidatedOrderGroups(rawOrders);
@@ -1159,7 +1172,6 @@ function inferDeliveryDatesForAllItems() {
     }
 }
 
-/* 통합된 발주 그룹(또는 단일 항목) 전체의 납품일 이동 */
 function shiftGroupDeliveryDate(idxListStr, deltaDays) {
     const indices = String(idxListStr || '').split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n));
     if (!indices.length) return;
@@ -1676,7 +1688,7 @@ function computeOrderAggregation() {
 }
 
 /* =========================================================================
-   7. [페이지 4] 일일 발주 현황표 모바일 카드 렌더링
+   7. [페이지 4] 일일 발주 현황표 모바일/데스크탑 카드 렌더링
    ========================================================================= */
 function renderOrderSummaryTable() {
     const container = document.getElementById('orderSummaryCardList');
@@ -1792,10 +1804,10 @@ function downloadDiffCsv() {
 }
 
 /* =========================================================================
-   9. [페이지 6] 당일 배송처 목록 (카드형 UI) 및 6대 차량 기사 배차 관리
+   9. [페이지 6] 당일 배송처 목록 (3열 바둑판·가나다순) 및 7대 차량 배차 관리
    ========================================================================= */
 const VWORLD_KEY = '3351CCD7-07E8-40AB-97D0-243A592B74C3';
-const VEHICLE_PIN_COLORS = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00acc1'];
+const VEHICLE_PIN_COLORS = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00acc1', '#d81b60'];
 const COLOR_UNASSIGNED = '#9e9e9e';
 const COLOR_PICKUP = '#795548';
 const DEPOT = { name: '미트포앤', lat: 37.3485, lng: 126.7425, addr: '경기도 시흥시 하상로8번길 7' };
@@ -1868,29 +1880,34 @@ function renderMapLegend() {
     const el = document.getElementById('mapLegend');
     if (!el) return;
     let html = `<span><i class="pin-dot" style="background:#d32f2f"></i> 기점</span>`;
-    for (let i = 0; i < 6; i++) {
-        html += `<span><i class="pin-dot" style="background:${VEHICLE_PIN_COLORS[i]}"></i> ${escapeHtml(vehicleNames[i] || (i+1)+'호차')}</span>`;
+    for (let i = 0; i < vehicleNames.length; i++) {
+        html += `<span><i class="pin-dot" style="background:${VEHICLE_PIN_COLORS[i]}"></i> ${escapeHtml(vehicleNames[i])}</span>`;
     }
     html += `<span><i class="pin-dot" style="background:${COLOR_UNASSIGNED}"></i> 미배차</span>`;
     el.innerHTML = html;
 }
 
+/* 지도 아래 배송업체 버튼: 항상 가나다순 + 3열 그리드 */
 function renderClientChips(destinations) {
     const row = document.getElementById('clientChipRow');
     const bar = document.getElementById('quickVehicleBar');
     if (!row || !bar) return;
 
-    row.innerHTML = destinations.map(d => {
+    const alphaSorted = destinations.slice().sort((a, b) =>
+        String(a.clientName).localeCompare(String(b.clientName), 'ko')
+    );
+
+    row.innerHTML = alphaSorted.map(d => {
         const code = dispatchMap[d.clientName] || 'UNASSIGNED';
         let cls = 'client-chip';
         if (code.startsWith('V')) cls += ' has-' + code.toLowerCase();
         if (selectedMapClient === d.clientName) cls += ' selected';
-        return `<button type="button" class="${cls}" data-client="${escapeHtml(d.clientName)}" onclick="selectMapClient(this.getAttribute('data-client'))">${escapeHtml(d.clientName)}</button>`;
+        return `<button type="button" class="${cls}" data-client="${escapeHtml(d.clientName)}" onclick="selectMapClient(this.getAttribute('data-client'))" title="${escapeHtml(d.clientName)}">${escapeHtml(d.clientName)}</button>`;
     }).join('');
 
     let barHtml = '';
-    for (let i = 0; i < 6; i++) {
-        barHtml += `<button type="button" class="qv-btn" style="border-color:${VEHICLE_PIN_COLORS[i]};color:${VEHICLE_PIN_COLORS[i]}" onclick="assignSelectedToVehicle('V${i}')">${escapeHtml(vehicleNames[i] || (i+1)+'호차')}</button>`;
+    for (let i = 0; i < vehicleNames.length; i++) {
+        barHtml += `<button type="button" class="qv-btn" style="border-color:${VEHICLE_PIN_COLORS[i]};color:${VEHICLE_PIN_COLORS[i]}" onclick="assignSelectedToVehicle('V${i}')">${escapeHtml(vehicleNames[i])}</button>`;
     }
     barHtml += `<button type="button" class="qv-btn" onclick="assignSelectedToVehicle('UNASSIGNED')">미배차</button>`;
     barHtml += `<button type="button" class="qv-btn" onclick="assignSelectedToVehicle('PICKUP')">방문/택배</button>`;
@@ -2014,7 +2031,7 @@ function redrawDispatchCardsOnly(destinations) {
         const distTxt = dist != null ? ` · ${dist.toFixed(1)}km` : '';
 
         let optionsHtml = `<option value="UNASSIGNED" ${curVal==='UNASSIGNED'?'selected':''}>-- 미배차 --</option>`;
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < vehicleNames.length; i++) {
             const vCode = `V${i}`;
             optionsHtml += `<option value="${vCode}" ${curVal===vCode?'selected':''}>🚚 ${escapeHtml(vehicleNames[i])}</option>`;
         }
@@ -2026,35 +2043,39 @@ function redrawDispatchCardsOnly(destinations) {
         const card = document.createElement('div');
         card.className = 'dispatch-card';
         card.innerHTML = `
-            <div class="dispatch-card-head">
-                <div class="dispatch-client-block">
-                    <span class="num-circle" style="background:${pinCol};">${idx + 1}</span>
-                    <div>
-                        <div class="dispatch-client-name">
-                            <span>${escapeHtml(d.clientName)}</span>
-                            ${urgentBadge}
+            <div>
+                <div class="dispatch-card-head">
+                    <div class="dispatch-client-block">
+                        <span class="num-circle" style="background:${pinCol};">${idx + 1}</span>
+                        <div>
+                            <div class="dispatch-client-name">
+                                <span>${escapeHtml(d.clientName)}</span>
+                                ${urgentBadge}
+                            </div>
+                            <div class="dispatch-sub-meta">${escapeHtml(city)}${distTxt}${d.officialName !== d.clientName ? ` · ${escapeHtml(d.officialName)}` : ''}</div>
                         </div>
-                        <div class="dispatch-sub-meta">${escapeHtml(city)}${distTxt}${d.officialName !== d.clientName ? ` · ${escapeHtml(d.officialName)}` : ''}</div>
                     </div>
+                    <div class="cargo-badge-box">${formatBoxLooseSummary(d.totalBoxes, d.totalLoose)}</div>
                 </div>
-                <div class="cargo-badge-box">${formatBoxLooseSummary(d.totalBoxes, d.totalLoose)}</div>
+
+                <div class="dispatch-addr-box">
+                    <div>📍 ${d.addr ? escapeHtml(d.addr) : '<span style="color:var(--text-muted);">주소 미등록</span>'}</div>
+                    ${d.phone ? `<div style="margin-top:4px; font-weight:700; color:var(--text-sub);">📞 ${escapeHtml(d.phone)}</div>` : ''}
+                </div>
+
+                ${d.note ? `<div class="dispatch-note-box">🔑 ${escapeHtml(d.note)}</div>` : ''}
             </div>
 
-            <div class="dispatch-addr-box">
-                <div>📍 ${d.addr ? escapeHtml(d.addr) : '<span style="color:var(--text-muted);">주소 미등록</span>'}</div>
-                ${d.phone ? `<div style="margin-top:4px; font-weight:700; color:var(--text-sub);">📞 ${escapeHtml(d.phone)}</div>` : ''}
+            <div>
+                <div class="dispatch-actions-row">
+                    ${phoneDigits ? `<a class="dispatch-mini-btn" href="tel:${phoneDigits}">📞 전화걸기</a>` : `<span class="dispatch-mini-btn" style="opacity:0.45;">📞 번호없음</span>`}
+                    ${d.addr ? `<button type="button" class="dispatch-mini-btn" data-addr="${escapeHtml(d.addr)}" onclick="copyTextSafe(this.getAttribute('data-addr'), '주소')">📋 주소복사</button>` : ''}
+                </div>
+
+                <select class="dispatch-select ${isAssignedClass}" data-client="${escapeHtml(d.clientName)}" onchange="assignVehicle(this.getAttribute('data-client'), this.value)">
+                    ${optionsHtml}
+                </select>
             </div>
-
-            ${d.note ? `<div class="dispatch-note-box">🔑 ${escapeHtml(d.note)}</div>` : ''}
-
-            <div class="dispatch-actions-row">
-                ${phoneDigits ? `<a class="dispatch-mini-btn" href="tel:${phoneDigits}">📞 전화걸기</a>` : `<span class="dispatch-mini-btn" style="opacity:0.45;">📞 번호없음</span>`}
-                ${d.addr ? `<button type="button" class="dispatch-mini-btn" data-addr="${escapeHtml(d.addr)}" onclick="copyTextSafe(this.getAttribute('data-addr'), '주소')">📋 주소복사</button>` : ''}
-            </div>
-
-            <select class="dispatch-select ${isAssignedClass}" data-client="${escapeHtml(d.clientName)}" onchange="assignVehicle(this.getAttribute('data-client'), this.value)">
-                ${optionsHtml}
-            </select>
         `;
         container.appendChild(card);
     });
@@ -2073,11 +2094,11 @@ function renderVehicleConfigInputs() {
     const grid = document.getElementById('vehicleConfigGrid');
     if (!grid) return;
     grid.innerHTML = '';
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < vehicleNames.length; i++) {
         const div = document.createElement('div');
         div.className = 'vehicle-config-item';
         div.innerHTML = `
-            <span>🚚 ${i + 1}호차 기사/차량명</span>
+            <span>🚚 ${i + 1}번 차량</span>
             <input type="text" value="${escapeHtml(vehicleNames[i])}" onchange="updateVehicleName(${i}, this.value)">
         `;
         grid.appendChild(div);
@@ -2085,9 +2106,9 @@ function renderVehicleConfigInputs() {
 }
 
 function updateVehicleName(idx, newVal) {
-    vehicleNames[idx] = newVal.trim() || `${idx + 1}호차`;
+    vehicleNames[idx] = newVal.trim() || DEFAULT_VEHICLES[idx] || `${idx + 1}호차`;
     localStorage.setItem('mf_vehicles', JSON.stringify(vehicleNames));
-    recordLastUpdatedTime('차량 기사명 변경');
+    recordLastUpdatedTime('차량명 변경');
     renderDispatchPage();
 }
 
@@ -2187,7 +2208,12 @@ function getCachedDistKm(addr) {
 
 function sortDestinations(list, mode) {
     const arr = list.slice();
-    const m = mode || dispatchSortMode || 'city';
+    const m = mode || dispatchSortMode || 'name';
+
+    if (m === 'name') {
+        arr.sort((a, b) => String(a.clientName).localeCompare(String(b.clientName), 'ko'));
+        return arr;
+    }
 
     if (m === 'city') {
         arr.sort((a, b) => {
@@ -2217,7 +2243,7 @@ function sortDestinations(list, mode) {
 
     if (m === 'vehicle') {
         const rank = (code) => {
-            if (/^V[0-5]$/.test(code)) return parseInt(code.slice(1), 10);
+            if (/^V[0-6]$/.test(code)) return parseInt(code.slice(1), 10);
             if (code === 'UNASSIGNED' || !code) return 50;
             if (code === 'PICKUP') return 60;
             return 70;
@@ -2227,8 +2253,6 @@ function sortDestinations(list, mode) {
             const cb = dispatchMap[b.clientName] || 'UNASSIGNED';
             const ra = rank(ca), rb = rank(cb);
             if (ra !== rb) return ra - rb;
-            const cityCmp = extractCityFromAddr(a.addr).localeCompare(extractCityFromAddr(b.addr), 'ko');
-            if (cityCmp !== 0) return cityCmp;
             return String(a.clientName).localeCompare(String(b.clientName), 'ko');
         });
         return arr;
@@ -2252,7 +2276,7 @@ function sortDestinations(list, mode) {
 
 function onDispatchSortChange(newVal) {
     const sel = document.getElementById('dispatchSortMode');
-    dispatchSortMode = newVal || (sel ? sel.value : 'far') || 'far';
+    dispatchSortMode = newVal || (sel ? sel.value : 'name') || 'name';
     setSelectValueLocked(sel, dispatchSortMode);
     saveUserSettings('배차 정렬 기준');
     renderDispatchPage();
@@ -2309,7 +2333,7 @@ function renderDispatchPage() {
     setSelectValueLocked(sortSel, dispatchSortMode);
 
     const counts = { 'ALL': destinations.length, 'UNASSIGNED': 0, 'PICKUP': 0 };
-    for (let i = 0; i < 6; i++) counts[`V${i}`] = 0;
+    for (let i = 0; i < vehicleNames.length; i++) counts[`V${i}`] = 0;
 
     destinations.forEach(d => {
         const assigned = dispatchMap[d.clientName] || 'UNASSIGNED';
@@ -2346,12 +2370,12 @@ function assignVehicle(clientName, vCode) {
 }
 
 function downloadDispatchCsv() {
-    const destinations = getAggregatedDeliveryDestinations();
+    const destinations = sortDestinations(getAggregatedDeliveryDestinations(), dispatchSortMode);
     let csv = "\uFEFF순번,납품거래처명,정식상호,배차차량,주소,연락처,출입비번/비고,박스수,낱개수\n";
     destinations.forEach((d, idx) => {
         const code = dispatchMap[d.clientName] || 'UNASSIGNED';
         let vLabel = '미배차';
-        if (code.startsWith('V')) vLabel = vehicleNames[parseInt(code.substring(1), 10)];
+        if (code.startsWith('V')) vLabel = vehicleNames[parseInt(code.substring(1), 10)] || code;
         else if (code === 'PICKUP') vLabel = '직접방문/택배';
 
         csv += `${idx + 1},"${d.clientName}","${d.officialName}","${vLabel}","${d.addr}","${d.phone}","${d.note}",${d.totalBoxes},${d.totalLoose}\n`;
