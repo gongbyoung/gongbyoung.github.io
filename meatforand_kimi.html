@@ -199,7 +199,7 @@
             border-color: var(--go);
         }
 
-        /* 데스크톱 상단 탭 */
+        /* 데스크톱 상단 탭 (8개) */
         .tab-nav {
             display: none;
             background: var(--card);
@@ -207,7 +207,7 @@
         }
         .tab-btn {
             flex: 1;
-            padding: 13px 10px;
+            padding: 13px 8px;
             border: none;
             background: transparent;
             font-size: 0.92rem;
@@ -215,6 +215,7 @@
             color: var(--text-sub);
             cursor: pointer;
             border-bottom: 3px solid transparent;
+            white-space: nowrap;
         }
         .tab-btn.active {
             color: var(--primary);
@@ -227,7 +228,7 @@
             .bottom-nav { display: none !important; }
         }
 
-        /* 모바일 하단 6개 고정 네비게이션 */
+        /* 모바일 하단 8개 고정 네비게이션 */
         .bottom-nav {
             position: fixed;
             left: 0;
@@ -235,7 +236,7 @@
             bottom: 0;
             z-index: 60;
             display: grid;
-            grid-template-columns: repeat(6, 1fr);
+            grid-template-columns: repeat(8, 1fr);
             background: var(--card);
             border-top: 1.5px solid var(--border);
             box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.08);
@@ -248,8 +249,8 @@
             position: relative;
             border: none;
             background: transparent;
-            padding: 7px 2px 4px;
-            font-size: 0.72rem;
+            padding: 7px 1px 4px;
+            font-size: 0.65rem;
             font-weight: 800;
             color: var(--text-muted);
             cursor: pointer;
@@ -257,12 +258,12 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 3px;
+            gap: 2px;
             white-space: nowrap;
         }
         .bottom-nav button svg {
-            width: 21px;
-            height: 21px;
+            width: 18px;
+            height: 18px;
             stroke: currentColor;
             fill: none;
             stroke-width: 2.1;
@@ -276,8 +277,8 @@
             content: "";
             position: absolute;
             top: 0;
-            left: 18%;
-            right: 18%;
+            left: 14%;
+            right: 14%;
             height: 3px;
             border-radius: 0 0 3px 3px;
             background: var(--primary);
@@ -316,16 +317,16 @@
         .upload-zone {
             border: 2px dashed var(--primary-mid);
             background: var(--primary-light);
-            padding: 20px 14px;
+            padding: 18px 14px;
             text-align: center;
             border-radius: 14px;
             cursor: pointer;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
         }
         .upload-zone input { display: none; }
         .upload-zone b {
             color: var(--primary);
-            font-size: 0.96rem;
+            font-size: 0.94rem;
             display: block;
         }
 
@@ -467,7 +468,7 @@
             margin-bottom: 14px;
         }
         @media (min-width: 600px) {
-            .main-menu-grid { grid-template-columns: repeat(3, 1fr); }
+            .main-menu-grid { grid-template-columns: repeat(4, 1fr); }
         }
         .main-menu-btn {
             display: flex;
@@ -475,20 +476,20 @@
             align-items: flex-start;
             justify-content: center;
             gap: 6px;
-            min-height: 98px;
-            padding: 15px 14px;
+            min-height: 94px;
+            padding: 14px;
             border-radius: 16px;
             cursor: pointer;
             background: var(--card);
             box-shadow: var(--shadow);
             text-align: left;
             font-weight: 900;
-            font-size: 1.02rem;
+            font-size: 1rem;
             color: var(--text);
             border: 1.5px solid var(--border-light);
         }
-        .main-menu-btn .mi { font-size: 1.55rem; line-height: 1; }
-        .main-menu-btn .md { font-size: 0.78rem; font-weight: 600; color: var(--text-sub); }
+        .main-menu-btn .mi { font-size: 1.5rem; line-height: 1; }
+        .main-menu-btn .md { font-size: 0.76rem; font-weight: 600; color: var(--text-sub); }
         .main-menu-btn:active { transform: scale(0.98); border-color: var(--primary); }
 
         /* 배지 */
@@ -509,6 +510,13 @@
         .b-urgent { background: var(--danger); }
         .b-merged { background: #7C3AED; }
         .b-modified { background: #DB2777; }
+        .b-cat-purchase { background: #0284C7; }
+        .b-cat-price { background: #7C3AED; }
+        .b-cat-cold { background: #0F766E; }
+        .b-cat-return { background: #DC2626; }
+        .b-cat-stock { background: #059669; }
+        .b-cat-notice { background: #D97706; }
+        .b-cat-car { background: #EA580C; }
 
         /* =========================================================
            [모바일: 1열 카드 / 데스크탑: 바둑판 다열 그리드]
@@ -519,7 +527,6 @@
             gap: 10px;
         }
 
-        /* 데스크탑 바둑판(그리드) 배치: 발주목록, 낱개목록, 배차현황, 재고/발주현황 */
         @media (min-width: 900px) {
             #orderCardList,
             #looseCardList {
@@ -536,6 +543,13 @@
                 gap: 12px;
                 align-items: stretch;
             }
+            #purchaseCardList,
+            #staffCardList {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+                align-items: stretch;
+            }
             .card-list .empty-box {
                 grid-column: 1 / -1;
             }
@@ -545,9 +559,13 @@
             #looseCardList {
                 grid-template-columns: repeat(4, 1fr);
             }
+            #purchaseCardList,
+            #staffCardList {
+                grid-template-columns: repeat(3, 1fr);
+            }
         }
 
-        /* 1) 발주 카드 */
+        /* 1) 발주 · 매입 · 직원 메시지 카드 */
         .order-card {
             background: var(--card);
             border: 1.5px solid var(--border-light);
@@ -631,6 +649,10 @@
             word-break: keep-all;
             overflow-wrap: anywhere;
         }
+        .chat-body-scroll {
+            max-height: 260px;
+            overflow-y: auto;
+        }
         .merge-divider {
             display: block;
             margin: 8px 0 4px;
@@ -645,14 +667,14 @@
             background: #3B0764;
             color: #DDD6FE;
         }
-        .hl-qty {
+        .hl-qty, mark.hl-qty {
             background: #FEF08A;
             color: #854D0E;
             font-weight: 900;
-            padding: 1px 5px;
+            padding: 1px 4px;
             border-radius: 5px;
         }
-        html.dark-mode .hl-qty {
+        html.dark-mode .hl-qty, html.dark-mode mark.hl-qty {
             background: #713F12;
             color: #FEF08A;
         }
@@ -798,13 +820,8 @@
             flex-direction: column;
         }
         @media (min-width: 900px) {
-            .loose-card {
-                padding: 11px 12px;
-            }
-            .loose-pick-item {
-                padding: 8px 10px;
-                font-size: 0.88rem;
-            }
+            .loose-card { padding: 11px 12px; }
+            .loose-pick-item { padding: 8px 10px; font-size: 0.88rem; }
         }
         .loose-card-head {
             display: flex;
@@ -862,7 +879,29 @@
             text-decoration: line-through;
         }
 
-        /* 4) 배차 카드 (데스크탑 3열 바둑판) */
+        /* 4) 배차 카드 & 자동배차 제어 패널 */
+        .auto-dispatch-box {
+            background: var(--primary-light);
+            border: 1.5px solid #93C5FD;
+        }
+        .auto-dispatch-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            margin-top: 8px;
+        }
+        .route-seq-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: #0F172A;
+            color: #FACC15;
+            font-size: 0.72rem;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+        }
         .dispatch-card {
             background: var(--card);
             border: 1.5px solid var(--border-light);
@@ -1009,7 +1048,7 @@
             border: 1px solid var(--border);
             text-align: center;
         }
-        .vehicle-stat-bar {
+        .vehicle-stat-bar, .cat-chip-bar {
             display: flex;
             gap: 6px;
             flex-wrap: wrap;
@@ -1037,13 +1076,6 @@
             border-radius: 14px;
             z-index: 1;
             border: 1px solid var(--border);
-        }
-        .map-toolbar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin: 8px 0;
-            align-items: center;
         }
         .map-legend {
             display: flex;
@@ -1267,13 +1299,15 @@
         </div>
     </header>
 
-    <!-- 데스크톱 상단 탭 -->
+    <!-- 데스크톱 상단 탭 (8개) -->
     <div class="tab-nav">
         <button class="tab-btn active" data-page="pageHome" onclick="switchTab('pageHome', this)">홈</button>
         <button class="tab-btn" data-page="page2" onclick="switchTab('page2', this)">발주</button>
         <button class="tab-btn" data-page="page5" onclick="switchTab('page5', this)">낱개</button>
         <button class="tab-btn" data-page="page6" onclick="switchTab('page6', this)">배차</button>
         <button class="tab-btn" data-page="page3" onclick="switchTab('page3', this)">재고</button>
+        <button class="tab-btn" data-page="pagePurchase" onclick="switchTab('pagePurchase', this)">매입</button>
+        <button class="tab-btn" data-page="pageStaff" onclick="switchTab('pageStaff', this)">직원</button>
         <button class="tab-btn" data-page="page1" onclick="switchTab('page1', this)">설정</button>
     </div>
 
@@ -1287,7 +1321,7 @@
             </button>
             <button type="button" class="kpi-card" onclick="switchTab('page2')">
                 <span class="kpi-label">📋 추출 발주 <span>›</span></span>
-                <span class="kpi-val" id="homeMsgCount">0업체</span>
+                <span class="kpi-val" id="homeMsgCount">0건</span>
                 <span class="kpi-sub">동일업체 추가·수정 자동통합</span>
             </button>
             <button type="button" class="kpi-card" onclick="switchTab('page5')">
@@ -1313,49 +1347,66 @@
             </button>
             <button type="button" class="main-menu-btn" onclick="switchTab('page6')">
                 <span class="mi">🚚</span>배차 관리
-                <span class="md">7대 차량(최·엄·양·한·차·김·이) 배정</span>
+                <span class="md">7대 차량 · 자동배차 2종 · 수동</span>
             </button>
             <button type="button" class="main-menu-btn" onclick="switchTab('page3')">
                 <span class="mi">📊</span>일일 재고
                 <span class="md">품목별 대산·포크·기타 재고</span>
             </button>
+            <button type="button" class="main-menu-btn" onclick="switchTab('pagePurchase')">
+                <span class="mi">🧾</span>매입방 정리
+                <span class="md" id="homePurchaseCount">미등록 · 단가/입고/반품 검색</span>
+            </button>
+            <button type="button" class="main-menu-btn" onclick="switchTab('pageStaff')">
+                <span class="mi">👷</span>직원방 정리
+                <span class="md" id="homeStaffCount">미등록 · 차량/타이어/지시 검색</span>
+            </button>
             <button type="button" class="main-menu-btn" onclick="switchTab('page4')">
-                <span class="mi">🧾</span>일일 발주표
+                <span class="mi">📑</span>일일 발주표
                 <span class="md">품목별 집계 · 발주체크 복사</span>
             </button>
             <button type="button" class="main-menu-btn" onclick="switchTab('page1')">
                 <span class="mi">⚙️</span>데이터·설정
-                <span class="md">카톡 TXT · 재고 입력 · CSV</span>
+                <span class="md">발주·매입·직원 TXT · CSV</span>
             </button>
         </div>
 
         <div class="notice-card">
             <h4>현장 사용 팁</h4>
             <div class="notice-item"><span>같은 업체의 <b>●추가 / 수정</b> 발주는 같은 납품일 기준으로 자동 합산·적용됩니다</span><span class="date">자동통합</span></div>
+            <div class="notice-item"><span><b>배차</b> 탭에서 수동 지정 후 <b>자동배차 2종</b>으로 미배차만 깔끔하게 채울 수 있습니다</span><span class="date">자동배차</span></div>
             <div class="notice-item"><span><b>설정</b>에서 고른 추출 시간 창과 화면 설정은 직접 바꾸기 전까지 영구 유지됩니다</span><span class="date">설정유지</span></div>
-            <div class="notice-item"><span>스마트폰 뒤로가기 시 앱이 닫히지 않고 홈으로 이동합니다</span><span class="date">편의</span></div>
         </div>
     </div>
 
     <!-- [설정: 데이터 입력] -->
     <div id="page1" class="tab-page">
         <div class="section-card">
-            <h3>💬 1단계: 발주 카카오톡 대화 파일(.txt) 로딩</h3>
+            <h3>💬 1단계: 카카오톡 대화 파일(.txt) 로딩 (발주 · 매입 · 직원)</h3>
             <p>
-                • 스마트폰/PC 내보내기 파일을 모두 인식하며, 같은 업체의 추가·수정 발주는 자동으로 통합됩니다.<br>
-                • 분석 결과와 수동 납품일 변경 내역은 기기에 자동 저장됩니다.
+                • 스마트폰/PC 내보내기 파일을 모두 인식하며, 불러온 내역은 기기에 자동 저장됩니다.
             </p>
             <div class="upload-zone" onclick="document.getElementById('kakaoFileInput').click()">
-                <b>📁 여기를 터치하여 카카오톡 대화 파일(.txt) 선택</b>
-                <div id="kakaoLoadMsg" style="margin-top:6px; color:var(--accent); font-weight:800; font-size:0.85rem;"></div>
+                <b>📁 [발주방] 카카오톡 대화 파일(.txt) 선택</b>
+                <div id="kakaoLoadMsg" style="margin-top:6px; color:var(--accent); font-weight:800; font-size:0.84rem;"></div>
                 <input type="file" id="kakaoFileInput" accept=".txt" multiple onchange="loadKakaoFiles(event)">
+            </div>
+            <div class="upload-zone" onclick="document.getElementById('purchaseFileInput').click()" style="border-color:#0284C7;">
+                <b style="color:#0284C7;">🧾 [매입방] 카카오톡 대화 파일(.txt) 선택</b>
+                <div id="purchaseLoadMsg" style="margin-top:6px; color:var(--accent); font-weight:800; font-size:0.84rem;"></div>
+                <input type="file" id="purchaseFileInput" accept=".txt" multiple onchange="loadRoomChatFiles(event, 'purchase')">
+            </div>
+            <div class="upload-zone" onclick="document.getElementById('staffFileInput').click()" style="border-color:#059669;">
+                <b style="color:#059669;">👷 [직원방] 카카오톡 대화 파일(.txt) 선택</b>
+                <div id="staffLoadMsg" style="margin-top:6px; color:var(--accent); font-weight:800; font-size:0.84rem;"></div>
+                <input type="file" id="staffFileInput" accept=".txt" multiple onchange="loadRoomChatFiles(event, 'staff')">
             </div>
         </div>
 
         <div class="section-card">
             <h3>📦 2단계: 일일 재고현황 텍스트 입력</h3>
             <p>카톡방의 '일일 재고현황' 텍스트를 붙여넣고 <b>[재고표 생성 및 적용]</b>을 누르세요.</p>
-            <textarea id="stockTextarea" placeholder="여기에 '11월 17일 재고현황...' 텍스트를 붙여넣으세요."></textarea>
+            <textarea id="stockTextarea" placeholder="여기에 '11월 19일 재고현황...' 텍스트를 붙여넣으세요."></textarea>
             <div class="btn-row">
                 <button type="button" class="btn green" onclick="parseAndApplyStock(true)">✅ 재고표 생성 및 적용</button>
                 <button type="button" class="btn gray" onclick="document.getElementById('stockTextarea').value=''">🗑️ 비우기</button>
@@ -1395,7 +1446,9 @@
                     <label>현재 데이터 상태</label>
                     <div class="settings-row" style="gap:6px;">
                         <span id="pillUpdated" class="pill time">업데이트: 대기중</span>
-                        <span id="pillKakao" class="pill">카톡: 미등록</span>
+                        <span id="pillKakao" class="pill">발주: 미등록</span>
+                        <span id="pillPurchase" class="pill">매입: 미등록</span>
+                        <span id="pillStaff" class="pill">직원: 미등록</span>
                         <span id="pillStock" class="pill">재고: 미등록</span>
                         <span id="pillClient" class="pill ok">거래처: -</span>
                     </div>
@@ -1508,6 +1561,32 @@
             <div class="vehicle-stat-bar" id="vehicleStatBar"></div>
         </div>
 
+        <!-- 자동배차 제어 패널 (수동배차 유지 + 2종 알고리즘) -->
+        <div class="section-card auto-dispatch-box" style="padding:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <h3 style="margin:0; color:var(--primary);">🤖 자동배차 (원거리 3~4대 + 근거리 2~3대)</h3>
+                <label style="display:inline-flex; align-items:center; gap:5px; font-size:0.82rem; font-weight:800; cursor:pointer;">
+                    <input type="checkbox" id="autoKeepManualChk" checked style="width:16px; height:16px;">
+                    수동 배정 유지 (미배차만 채우기)
+                </label>
+            </div>
+            <div class="auto-dispatch-row">
+                <select id="autoSplitPreset" class="hdr-select" style="height:38px; border:1.5px solid var(--primary); font-size:0.82rem;">
+                    <option value="4-3" selected>원거리 4대(최·엄·양·한) + 근거리 3대(차·김·이)</option>
+                    <option value="3-3">원거리 3대(최·엄·양) + 근거리 3대(차·김·이)</option>
+                    <option value="4-2">원거리 4대(최·엄·양·한) + 근거리 2대(차·김)</option>
+                    <option value="3-2">원거리 3대(최·엄·양) + 근거리 2대(차·김)</option>
+                </select>
+                <button type="button" class="btn sm" onclick="runAutoDispatch('corridor')">① 권역 패턴 자동배차</button>
+                <button type="button" class="btn sm orange" onclick="runAutoDispatch('kmeans')">② 거리·물량 균등 자동배차</button>
+                <button type="button" class="btn sm outline" id="btnUndoDispatch" onclick="undoAutoDispatch()" style="display:none;">↩ 되돌리기</button>
+                <button type="button" class="btn sm gray" onclick="resetAllDispatch()">전체 미배차</button>
+            </div>
+            <div id="autoDispatchSummary" style="margin-top:8px; font-size:0.8rem; font-weight:700; color:var(--text-sub);">
+                수동배차는 그대로 사용 가능하며, 자동배차 후에도 업체별 차량을 자유롭게 수정할 수 있습니다.
+            </div>
+        </div>
+
         <div class="section-card" style="padding:12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px;">
                 <h3 style="margin:0;">🗺️ 배송처 지도 · 배송업체 선택 (3열 · 가나다순)</h3>
@@ -1542,7 +1621,45 @@
         <div id="dispatchCardList" class="card-list"></div>
     </div>
 
-    <!-- 하단 6개 고정 네비게이션 -->
+    <!-- [페이지 매입: 매입방 카톡 정리 & 검색] -->
+    <div id="pagePurchase" class="tab-page">
+        <div class="filter-bar">
+            <div class="filter-bar-top">
+                <span id="purchaseStats" style="font-weight:900; color:var(--primary); font-size:0.96rem;">🧾 매입방 정리: 0건</span>
+                <div class="filter-group">
+                    <button type="button" id="btnPurchaseDateOnly" class="btn sm outline" onclick="toggleRoomOption('purchase', 'dateOnly')">📅 전체기간</button>
+                    <button type="button" id="btnPurchaseHidePhoto" class="btn sm" onclick="toggleRoomOption('purchase', 'hidePhoto')">🖼️ 사진숨김: ON</button>
+                    <button type="button" class="btn sm green" onclick="downloadRoomCsv('purchase')">📥 CSV</button>
+                </div>
+            </div>
+            <input type="search" id="purchaseSearchInput" placeholder="🔍 매입방 검색 (예: 토레인, 황금, 단가표, 유상, 반품, 비번)" oninput="renderRoomPage('purchase')">
+            <div class="cat-chip-bar" id="purchaseCategoryBar"></div>
+        </div>
+        <div id="purchaseCardList" class="card-list">
+            <div class="empty-box">설정 탭에서 [매입방] 카카오톡 대화 파일(.txt)을 먼저 업로드해주세요.</div>
+        </div>
+    </div>
+
+    <!-- [페이지 직원: 직원방 카톡 정리 & 검색] -->
+    <div id="pageStaff" class="tab-page">
+        <div class="filter-bar">
+            <div class="filter-bar-top">
+                <span id="staffStats" style="font-weight:900; color:var(--primary); font-size:0.96rem;">👷 직원방 정리: 0건</span>
+                <div class="filter-group">
+                    <button type="button" id="btnStaffDateOnly" class="btn sm outline" onclick="toggleRoomOption('staff', 'dateOnly')">📅 전체기간</button>
+                    <button type="button" id="btnStaffHidePhoto" class="btn sm" onclick="toggleRoomOption('staff', 'hidePhoto')">🖼️ 사진숨김: ON</button>
+                    <button type="button" class="btn sm green" onclick="downloadRoomCsv('staff')">📥 CSV</button>
+                </div>
+            </div>
+            <input type="search" id="staffSearchInput" placeholder="🔍 직원방 검색 (예: 타이어, 7719, 반품, 코스, 발주체크, 연차)" oninput="renderRoomPage('staff')">
+            <div class="cat-chip-bar" id="staffCategoryBar"></div>
+        </div>
+        <div id="staffCardList" class="card-list">
+            <div class="empty-box">설정 탭에서 [직원방] 카카오톡 대화 파일(.txt)을 먼저 업로드해주세요.</div>
+        </div>
+    </div>
+
+    <!-- 하단 8개 고정 네비게이션 -->
     <nav class="bottom-nav" id="bottomNav">
         <button type="button" class="active" data-page="pageHome" onclick="switchTab('pageHome', this)">
             <svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5z"/></svg>
@@ -1563,6 +1680,14 @@
         <button type="button" data-page="page3" onclick="switchTab('page3', this)">
             <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
             <span>재고</span>
+        </button>
+        <button type="button" data-page="pagePurchase" onclick="switchTab('pagePurchase', this)">
+            <svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
+            <span>매입</span>
+        </button>
+        <button type="button" data-page="pageStaff" onclick="switchTab('pageStaff', this)">
+            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>직원</span>
         </button>
         <button type="button" data-page="page1" onclick="switchTab('page1', this)">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
