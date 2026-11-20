@@ -86,8 +86,8 @@
         }
 
         @media (min-width: 900px) {
-            .app-container { max-width: 1080px; }
-            body { padding-bottom: 24px; }
+            .app-container { max-width: 1380px; }
+            body { padding-bottom: 28px; }
         }
 
         /* 상단 고정 헤더 */
@@ -423,6 +423,9 @@
             gap: 10px;
             margin-bottom: 14px;
         }
+        @media (min-width: 900px) {
+            .home-kpi-grid { grid-template-columns: repeat(4, 1fr); }
+        }
         .kpi-card {
             background: var(--card);
             border: 1.5px solid var(--border-light);
@@ -508,12 +511,40 @@
         .b-modified { background: #DB2777; }
 
         /* =========================================================
-           [모바일 카드형 UI] 발주 / 재고 / 발주현황 / 낱개 / 배차
+           [모바일: 1열 카드 / 데스크탑: 바둑판 다열 그리드]
            ========================================================= */
         .card-list {
             display: flex;
             flex-direction: column;
             gap: 10px;
+        }
+
+        /* 데스크탑 바둑판(그리드) 배치: 발주목록, 낱개목록, 배차현황, 재고/발주현황 */
+        @media (min-width: 900px) {
+            #orderCardList,
+            #looseCardList {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+                align-items: stretch;
+            }
+            #dispatchCardList,
+            #stockCardList,
+            #orderSummaryCardList {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+                align-items: stretch;
+            }
+            .card-list .empty-box {
+                grid-column: 1 / -1;
+            }
+        }
+        @media (min-width: 1240px) {
+            #orderCardList,
+            #looseCardList {
+                grid-template-columns: repeat(4, 1fr);
+            }
         }
 
         /* 1) 발주 카드 */
@@ -523,6 +554,23 @@
             border-radius: 16px;
             padding: 14px;
             box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+        }
+        @media (min-width: 900px) {
+            .order-card {
+                padding: 11px 12px;
+            }
+            .order-card .order-card-body {
+                flex: 1;
+                padding: 9px 10px;
+                font-size: 0.9rem;
+                line-height: 1.45;
+            }
+            .order-card .order-card-client {
+                font-size: 1.02rem;
+                margin-bottom: 6px;
+            }
         }
         .order-card.has-merge {
             border-color: #C4B5FD;
@@ -531,12 +579,12 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 8px;
+            gap: 6px;
             margin-bottom: 6px;
             flex-wrap: wrap;
         }
         .order-card-meta {
-            font-size: 0.78rem;
+            font-size: 0.76rem;
             font-weight: 700;
             color: var(--text-muted);
             font-variant-numeric: tabular-nums;
@@ -612,7 +660,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 8px;
+            gap: 6px;
             margin-top: 10px;
             padding-top: 9px;
             border-top: 1px dashed var(--border);
@@ -622,9 +670,9 @@
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            padding: 5px 10px;
-            border-radius: 10px;
-            font-size: 0.8rem;
+            padding: 4px 8px;
+            border-radius: 9px;
+            font-size: 0.76rem;
             font-weight: 800;
             background: var(--primary-light);
             color: var(--primary);
@@ -636,14 +684,14 @@
         }
         .deliv-shift-btns {
             display: inline-flex;
-            gap: 6px;
+            gap: 4px;
         }
         .deliv-shift-btn {
-            min-width: 54px;
-            height: 34px;
-            padding: 0 10px;
-            border-radius: 10px;
-            font-size: 0.8rem;
+            min-width: 48px;
+            height: 30px;
+            padding: 0 8px;
+            border-radius: 8px;
+            font-size: 0.76rem;
             font-weight: 800;
             border: 1.5px solid var(--border);
             background: var(--card);
@@ -746,6 +794,17 @@
             border-radius: 16px;
             padding: 14px;
             box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+        }
+        @media (min-width: 900px) {
+            .loose-card {
+                padding: 11px 12px;
+            }
+            .loose-pick-item {
+                padding: 8px 10px;
+                font-size: 0.88rem;
+            }
         }
         .loose-card-head {
             display: flex;
@@ -803,13 +862,16 @@
             text-decoration: line-through;
         }
 
-        /* 4) 배차 카드 */
+        /* 4) 배차 카드 (데스크탑 3열 바둑판) */
         .dispatch-card {
             background: var(--card);
             border: 1.5px solid var(--border-light);
             border-radius: 16px;
             padding: 14px;
             box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
         .dispatch-card-head {
             display: flex;
@@ -824,7 +886,7 @@
             gap: 8px;
         }
         .dispatch-client-name {
-            font-size: 1.08rem;
+            font-size: 1.06rem;
             font-weight: 900;
             color: var(--text);
             display: flex;
@@ -854,8 +916,8 @@
             border: 1px solid var(--border-light);
             border-radius: 12px;
             padding: 10px 12px;
-            font-size: 0.88rem;
-            line-height: 1.48;
+            font-size: 0.86rem;
+            line-height: 1.45;
             color: var(--text);
             margin-bottom: 8px;
         }
@@ -865,7 +927,7 @@
             color: #92400E;
             border-radius: 10px;
             padding: 8px 10px;
-            font-size: 0.85rem;
+            font-size: 0.84rem;
             font-weight: 800;
             margin-bottom: 8px;
         }
@@ -905,8 +967,8 @@
             background: var(--card);
             color: var(--text);
             cursor: pointer;
-            min-height: 46px;
-            font-size: 0.94rem;
+            min-height: 44px;
+            font-size: 0.92rem;
         }
         .dispatch-select.assigned {
             border-color: var(--accent);
@@ -917,12 +979,17 @@
         /* 차량 설정 & 지도 */
         .vehicle-config-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(2, 1fr);
             gap: 8px;
             margin-bottom: 12px;
             background: var(--primary-light);
             padding: 12px;
             border-radius: 14px;
+        }
+        @media (min-width: 900px) {
+            .vehicle-config-grid {
+                grid-template-columns: repeat(7, 1fr);
+            }
         }
         .vehicle-config-item {
             display: flex;
@@ -937,9 +1004,10 @@
         .vehicle-config-item input {
             padding: 8px 10px;
             font-size: 0.9rem;
-            font-weight: 700;
+            font-weight: 800;
             border-radius: 10px;
             border: 1px solid var(--border);
+            text-align: center;
         }
         .vehicle-stat-bar {
             display: flex;
@@ -981,8 +1049,8 @@
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            font-size: 0.76rem;
-            font-weight: 700;
+            font-size: 0.78rem;
+            font-weight: 800;
             margin: 6px 0 8px;
         }
         .map-legend span { display: inline-flex; align-items: center; gap: 4px; }
@@ -994,28 +1062,35 @@
             border: 1px solid rgba(0,0,0,.2);
             flex-shrink: 0;
         }
+
+        /* 배차현황 배송업체 선택 버튼: 3열 고정 바둑판 (가나다순) */
         .client-chip-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 7px;
             margin: 10px 0;
         }
         .client-chip {
+            width: 100%;
             border: 1.5px solid var(--border);
             background: var(--card);
-            border-radius: 999px;
-            padding: 7px 12px;
-            font-size: 0.82rem;
+            border-radius: 11px;
+            padding: 9px 8px;
+            font-size: 0.84rem;
             font-weight: 800;
             cursor: pointer;
-            min-height: 36px;
+            min-height: 40px;
             color: var(--text);
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .client-chip.selected {
             border-color: var(--primary);
             background: var(--primary-light);
             color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.28);
         }
         .client-chip.has-v0 { border-color: #e53935; background: #ffebee; color: #b71c1c; }
         .client-chip.has-v1 { border-color: #1e88e5; background: #e3f2fd; color: #0d47a1; }
@@ -1023,12 +1098,19 @@
         .client-chip.has-v3 { border-color: #fb8c00; background: #fff3e0; color: #e65100; }
         .client-chip.has-v4 { border-color: #8e24aa; background: #f3e5f5; color: #4a148c; }
         .client-chip.has-v5 { border-color: #00acc1; background: #e0f7fa; color: #006064; }
+        .client-chip.has-v6 { border-color: #d81b60; background: #fce4ec; color: #880e4f; }
 
+        /* 7개 차량(최,엄,양,한,차,김,이) + 미배차 + 방문/택배 = 9개 버튼 */
         .quick-vehicle-bar {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 6px;
             margin-bottom: 8px;
+        }
+        @media (min-width: 900px) {
+            .quick-vehicle-bar {
+                grid-template-columns: repeat(9, 1fr);
+            }
         }
         .qv-btn {
             min-height: 40px;
@@ -1036,7 +1118,7 @@
             border: 2px solid var(--border);
             background: var(--card);
             font-weight: 900;
-            font-size: 0.8rem;
+            font-size: 0.84rem;
             cursor: pointer;
             color: var(--text);
         }
@@ -1231,7 +1313,7 @@
             </button>
             <button type="button" class="main-menu-btn" onclick="switchTab('page6')">
                 <span class="mi">🚚</span>배차 관리
-                <span class="md">6호차 배정 · 지도 · 비번 확인</span>
+                <span class="md">7대 차량(최·엄·양·한·차·김·이) 배정</span>
             </button>
             <button type="button" class="main-menu-btn" onclick="switchTab('page3')">
                 <span class="mi">📊</span>일일 재고
@@ -1416,9 +1498,9 @@
     <div id="page6" class="tab-page">
         <div class="section-card" style="padding:12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
-                <h3 style="margin:0;">🚚 차량·기사 설정</h3>
+                <h3 style="margin:0;">🚚 배송차량 (최·엄·양·한·차·김·이)</h3>
                 <div class="filter-group">
-                    <button type="button" class="btn sm outline" onclick="toggleVehicleEditBox()">✏️ 기사명 수정</button>
+                    <button type="button" class="btn sm outline" onclick="toggleVehicleEditBox()">✏️ 차량명 수정</button>
                     <button type="button" class="btn sm green" onclick="downloadDispatchCsv()">📥 CSV</button>
                 </div>
             </div>
@@ -1428,7 +1510,7 @@
 
         <div class="section-card" style="padding:12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px;">
-                <h3 style="margin:0;">🗺️ 배송처 지도</h3>
+                <h3 style="margin:0;">🗺️ 배송처 지도 · 배송업체 선택 (3열 · 가나다순)</h3>
                 <div class="filter-group">
                     <button type="button" class="btn sm" onclick="refreshDispatchMap()">새로고침</button>
                     <button type="button" class="btn sm gray" onclick="fitDispatchMap()">전체보기</button>
@@ -1444,14 +1526,15 @@
 
         <div class="filter-bar">
             <div class="filter-bar-top">
-                <h3 style="margin:0; font-size:0.98rem; font-weight:900;">📋 배송처 목록</h3>
+                <h3 style="margin:0; font-size:0.98rem; font-weight:900;">📋 배송처 목록 (3열 바둑판)</h3>
                 <select id="dispatchSortMode" onchange="onDispatchSortChange(this.value)"
                     style="height:38px; padding:4px 10px; border-radius:10px; border:1.5px solid var(--primary); font-weight:800; font-size:0.84rem; background:var(--card); color:var(--text);">
+                    <option value="name">업체명 가나다순</option>
                     <option value="far">기점에서 먼 곳 먼저</option>
                     <option value="near">기점에서 가까운 곳 먼저</option>
                     <option value="city">주소 가나다순 (시·구)</option>
                     <option value="boxes">물품(박스) 많은 순</option>
-                    <option value="vehicle">배송차량 1~6호차 순</option>
+                    <option value="vehicle">배송차량 순 (최·엄·양·한·차·김·이)</option>
                 </select>
             </div>
         </div>
