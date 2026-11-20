@@ -31,8 +31,11 @@ let looseCheckedMap = JSON.parse(localStorage.getItem('mf_loose_checked') || '{}
 let selectedVehicleFilter = 'ALL';
 let dispatchSortMode = localStorage.getItem('mf_dispatch_sort') || 'name';
 
+let prevDispatchSnapshot = null;
+let routeSeqMap = {};
+
 /* =========================================================================
-   설정 영구 저장 & 즉시 동기화 (절대 초기화되지 않도록 전용 키로 보호)
+   설정 영구 저장 & 즉시 동기화 (변경 전까지 절대 초기화되지 않도록 전용 키로 보호)
    ========================================================================= */
 const USER_PREFS_KEY = 'mf_user_prefs_v2';
 
@@ -1424,7 +1427,7 @@ function toggleKnownClient() {
 }
 
 /* =========================================================================
-   5. [페이지 3] 일일 재고 현황 텍스트 파서 및 모바일 카드 생성
+   5. [페이지 3] 일일 재고 현황 텍스트 파서 및 카드 생성
    ========================================================================= */
 function parseAndApplyStock(goTab, skipSave) {
     const raw = document.getElementById('stockTextarea').value;
@@ -1956,16 +1959,22 @@ async function refreshDispatchMap() {
     const bounds = [[DEPOT.lat, DEPOT.lng]];
 
     for (const d of destinations) {
-        if (!d.addr) { fail++; continue; }
-        const pos = await geocodeAddress(d.addr);
-        if (!pos) { fail++; continue; }
+        let pos = null;
+        if (d.addr) {
+            pos = await geocodeAddress(d.addr);
+        }
+        if (!pos) {
+            pos = resolveCoordForDispatch(d);
+            if (!d.addr) fail++;
+        }
         const code = dispatchMap[d.clientName] || 'UNASSIGNED';
         const color = pinColorForCode(code);
         const vLabel = code.startsWith('V')
             ? (vehicleNames[parseInt(code.substring(1), 10)] || code)
             : (code === 'PICKUP' ? '방문/택배' : '미배차');
+        const seqTxt = (code.startsWith('V') && routeSeqMap[d.clientName]) ? ` (코스 ${routeSeqMap[d.clientName]}번)` : '';
         L.marker([pos.lat, pos.lng], { icon: makePinIcon(color) })
-            .bindPopup(`<b>${escapeHtml(d.clientName)}</b><br>${escapeHtml(d.addr)}<br><span style="color:${color};font-weight:700;">${escapeHtml(vLabel)}</span><br>📦 ${d.totalBoxes} / 낱개 ${d.totalLoose}`)
+            .bindPopup(`<b>${escapeHtml(d.clientName)}</b><br>${escapeHtml(d.addr || '지역 좌표 추정')}<br><span style="color:${color};font-weight:700;">${escapeHtml(vLabel)}${seqTxt}</span><br>📦 ${d.totalBoxes} / 낱개 ${d.totalLoose}`)
             .addTo(dispatchLayer);
         bounds.push([pos.lat, pos.lng]);
         ok++;
@@ -1974,7 +1983,7 @@ async function refreshDispatchMap() {
     if (bounds.length > 1) {
         try { map.fitBounds(bounds, { padding: [28, 28], maxZoom: 13 }); } catch (e) {}
     }
-    if (status) status.textContent = `지도 표시 ${ok}곳` + (fail ? ` · 주소없음/실패 ${fail}` : '');
+    if (status) status.textContent = `지도 표시 ${ok}곳` + (fail ? ` · 주소미등록 ${fail}` : '');
     setTimeout(() => map.invalidateSize(), 100);
 
     if ((dispatchSortMode === 'far' || dispatchSortMode === 'near') && ok > 0) {
@@ -2010,11 +2019,18 @@ function redrawDispatchCardsOnly(destinations) {
     const container = document.getElementById('dispatchCardList');
     if (!container) return;
 
+    computeRecommendedRouteOrder(destinations);
+
     const filteredDests = destinations.filter(d => {
         const assigned = dispatchMap[d.clientName] || 'UNASSIGNED';
         if (selectedVehicleFilter === 'ALL') return true;
         return assigned === selectedVehicleFilter;
     });
+
+    // 특정 차량 필터 선택 시 추천 방문 순번(1→2→3) 순으로 정렬
+    if (selectedVehicleFilter.startsWith('V')) {
+        filteredDests.sort((a, b) => (routeSeqMap[a.clientName] || 999) - (routeSeqMap[b.clientName] || 999));
+    }
 
     container.innerHTML = '';
     if (filteredDests.length === 0) {
@@ -2026,7 +2042,8 @@ function redrawDispatchCardsOnly(destinations) {
         const curVal = dispatchMap[d.clientName] || 'UNASSIGNED';
         const isAssignedClass = (curVal !== 'UNASSIGNED') ? 'assigned' : '';
         const pinCol = pinColorForCode(curVal);
-        const dist = getCachedDistKm(d.addr);
+        const pos = resolveCoordForDispatch(d);
+        const dist = haversineKm(DEPOT.lat, DEPOT.lng, pos.lat, pos.lng);
         const city = extractCityFromAddr(d.addr);
         const distTxt = dist != null ? ` · ${dist.toFixed(1)}km` : '';
 
@@ -2038,6 +2055,10 @@ function redrawDispatchCardsOnly(destinations) {
         optionsHtml += `<option value="PICKUP" ${curVal==='PICKUP'?'selected':''}>📦 방문/택배</option>`;
 
         const urgentBadge = d.isUrgent ? `<span class="badge b-urgent">급/오전</span>` : '';
+        const seqNum = routeSeqMap[d.clientName];
+        const seqBadge = (curVal.startsWith('V') && seqNum)
+            ? `<span class="route-seq-badge">코스 ${seqNum}번</span>`
+            : '';
         const phoneDigits = String(d.phone || '').replace(/[^0-9+]/g, '');
 
         const card = document.createElement('div');
@@ -2050,6 +2071,7 @@ function redrawDispatchCardsOnly(destinations) {
                         <div>
                             <div class="dispatch-client-name">
                                 <span>${escapeHtml(d.clientName)}</span>
+                                ${seqBadge}
                                 ${urgentBadge}
                             </div>
                             <div class="dispatch-sub-meta">${escapeHtml(city)}${distTxt}${d.officialName !== d.clientName ? ` · ${escapeHtml(d.officialName)}` : ''}</div>
@@ -2253,21 +2275,19 @@ function sortDestinations(list, mode) {
             const cb = dispatchMap[b.clientName] || 'UNASSIGNED';
             const ra = rank(ca), rb = rank(cb);
             if (ra !== rb) return ra - rb;
+            const sa = routeSeqMap[a.clientName] || 999;
+            const sb = routeSeqMap[b.clientName] || 999;
+            if (sa !== sb) return sa - sb;
             return String(a.clientName).localeCompare(String(b.clientName), 'ko');
         });
         return arr;
     }
 
     arr.sort((a, b) => {
-        const da = getCachedDistKm(a.addr);
-        const db = getCachedDistKm(b.addr);
-        const aMiss = da == null;
-        const bMiss = db == null;
-        if (aMiss && bMiss) {
-            return String(a.clientName).localeCompare(String(b.clientName), 'ko');
-        }
-        if (aMiss) return 1;
-        if (bMiss) return -1;
+        const pa = resolveCoordForDispatch(a);
+        const pb = resolveCoordForDispatch(b);
+        const da = haversineKm(DEPOT.lat, DEPOT.lng, pa.lat, pa.lng);
+        const db = haversineKm(DEPOT.lat, DEPOT.lng, pb.lat, pb.lng);
         if (m === 'far') return db - da;
         return da - db;
     });
@@ -2323,6 +2343,7 @@ function formatBoxLooseSummary(boxes, loose) {
 
 function renderDispatchPage() {
     const destinationsRaw = getAggregatedDeliveryDestinations();
+    computeRecommendedRouteOrder(destinationsRaw);
     const destinations = sortDestinations(destinationsRaw, dispatchSortMode);
     const container = document.getElementById('dispatchCardList');
     const statBar = document.getElementById('vehicleStatBar');
@@ -2370,20 +2391,382 @@ function assignVehicle(clientName, vCode) {
 }
 
 function downloadDispatchCsv() {
-    const destinations = sortDestinations(getAggregatedDeliveryDestinations(), dispatchSortMode);
-    let csv = "\uFEFF순번,납품거래처명,정식상호,배차차량,주소,연락처,출입비번/비고,박스수,낱개수\n";
+    const destinationsRaw = getAggregatedDeliveryDestinations();
+    computeRecommendedRouteOrder(destinationsRaw);
+    const destinations = sortDestinations(destinationsRaw, dispatchSortMode);
+    let csv = "\uFEFF순번,납품거래처명,정식상호,배차차량,추천코스순번,주소,연락처,출입비번/비고,박스수,낱개수\n";
     destinations.forEach((d, idx) => {
         const code = dispatchMap[d.clientName] || 'UNASSIGNED';
         let vLabel = '미배차';
         if (code.startsWith('V')) vLabel = vehicleNames[parseInt(code.substring(1), 10)] || code;
         else if (code === 'PICKUP') vLabel = '직접방문/택배';
+        const seq = code.startsWith('V') && routeSeqMap[d.clientName] ? routeSeqMap[d.clientName] : '';
 
-        csv += `${idx + 1},"${d.clientName}","${d.officialName}","${vLabel}","${d.addr}","${d.phone}","${d.note}",${d.totalBoxes},${d.totalLoose}\n`;
+        csv += `${idx + 1},"${d.clientName}","${d.officialName}","${vLabel}","${seq}","${d.addr}","${d.phone}","${d.note}",${d.totalBoxes},${d.totalLoose}\n`;
     });
     downloadBlob(csv, "미트포앤_당일배송처_배차목록.csv");
 }
 
-/* 유틸리티 및 CSV 다운로드 (통합된 발주 기준) */
+/* =========================================================================
+   10. 자동배차 엔진 (알고리즘 1: 권역 패턴 2단계 / 알고리즘 2: K-Means++ 2단계)
+       + 내장 지역 좌표 사전 + 차량별 추천 방문 순번 + 되돌리기(Undo)
+   ========================================================================= */
+const FALLBACK_REGION_COORDS = [
+    ["충북 음성", 36.9397, 127.6905], ["음성", 36.9397, 127.6905], ["충북", 36.9397, 127.6905],
+    ["평택", 36.9921, 127.1129],
+    ["오산", 37.1498, 127.0772], ["외삼미", 37.1945, 127.0580],
+    ["동탄", 37.2005, 127.0725], ["반송동", 37.2005, 127.0725],
+    ["병점", 37.2068, 127.0332], ["진안동", 37.2115, 127.0365],
+    ["새솔동", 37.2835, 126.8215], ["비봉면", 37.2415, 126.8685], ["매송면", 37.2625, 126.9125],
+    ["동백동", 37.2765, 127.1525], ["공세동", 37.2390, 127.1150], ["기흥구", 37.2748, 127.1152], ["용인", 37.2411, 127.1776],
+    ["삼평동", 37.4025, 127.1085], ["판교동", 37.3925, 127.0955], ["대장동", 37.3735, 127.0755], ["분당구", 37.3827, 127.1189], ["성남", 37.4200, 127.1267],
+    ["율전동", 37.2985, 126.9715], ["영통동", 37.2595, 127.0715], ["이의동", 37.2910, 127.0480], ["곡반정동", 37.2425, 127.0275], ["영화동", 37.2915, 127.0125], ["수원", 37.2636, 127.0286],
+    ["삼동", 37.3215, 126.9525], ["의왕", 37.3448, 126.9683],
+    ["부곡동", 37.3315, 126.9385], ["도마교동", 37.3235, 126.9255], ["산본동", 37.3585, 126.9325], ["금정동", 37.3675, 126.9420], ["군포", 37.3616, 126.9352],
+    ["대부북동", 37.2455, 126.5825], ["건건동", 37.3135, 126.9015], ["수암동", 37.3665, 126.8715],
+    ["본오동", 37.2955, 126.8665], ["사동", 37.2915, 126.8485], ["일동", 37.3135, 126.8685], ["이동", 37.3065, 126.8545],
+    ["월피동", 37.3285, 126.8555], ["성포동", 37.3235, 126.8455], ["고잔동", 37.3145, 126.8285], ["초지동", 37.3105, 126.8055],
+    ["와동", 37.3385, 126.8225], ["선부동", 37.3355, 126.8085], ["신길동", 37.3315, 126.7835], ["안산", 37.3219, 126.8309],
+    ["하상동", 37.3490, 126.7430], ["하중동", 37.3535, 126.7465], ["장곡동", 37.3725, 126.7835],
+    ["정왕동", 37.3455, 126.7355], ["배곧동", 37.3715, 126.7265], ["거모동", 37.3485, 126.7685], ["포동", 37.3885, 126.7755],
+    ["은행동", 37.4385, 126.7955], ["신천동", 37.4415, 126.7855], ["목감동", 37.3825, 126.8585], ["시흥시", 37.3800, 126.8029],
+    ["소하동", 37.4455, 126.8815], ["철산동", 37.4755, 126.8685], ["광명동", 37.4785, 126.8645], ["광명시", 37.4785, 126.8645],
+    ["가산동", 37.4785, 126.8855], ["금천구", 37.4569, 126.8955],
+    ["양평동", 37.5285, 126.8885], ["영등포구", 37.5264, 126.8963],
+    ["상도동", 37.5035, 126.9485], ["동작구", 37.5124, 126.9393],
+    ["봉천동", 37.4825, 126.9455], ["관악구", 37.4784, 126.9516],
+    ["신정동", 37.5185, 126.8585], ["양천구", 37.5169, 126.8665],
+    ["화곡동", 37.5415, 126.8425], ["강서구", 37.5509, 126.8495],
+    ["용문동", 37.5365, 126.9605], ["용산구", 37.5326, 126.9900],
+    ["구의동", 37.5455, 127.0885], ["광진구", 37.5385, 127.0823],
+    ["역곡동", 37.4855, 126.8115], ["원종동", 37.5255, 126.8035], ["도약로", 37.5085, 126.7535], ["부천시", 37.5034, 126.7660],
+    ["서창동", 37.4325, 126.7485], ["논현동", 37.4015, 126.7235], ["남동구", 37.4472, 126.7315],
+    ["동춘동", 37.4055, 126.6715], ["옥련동", 37.4225, 126.6515], ["연수구", 37.4102, 126.6782],
+    ["십정동", 37.4785, 126.7055], ["산곡동", 37.5015, 126.7085], ["일신동", 37.4855, 126.7415], ["부평구", 37.5074, 126.7218],
+    ["화평동", 37.4755, 126.6355], ["인천 동구", 37.4738, 126.6432],
+    ["화정동", 37.6345, 126.8325], ["주엽동", 37.6705, 126.7615], ["고양시", 37.6584, 126.8320],
+    ["의정부", 37.7381, 127.0337], ["구리시", 37.5943, 127.1295],
+    ["화성시", 37.1995, 126.8312], ["인천", 37.4563, 126.7052], ["서울", 37.5100, 126.9200]
+];
+
+function resolveCoordForDispatch(dest) {
+    const addr = (dest.addr || '').trim();
+    if (addr && geoCache[addr] && geoCache[addr].lat != null) {
+        return geoCache[addr];
+    }
+    const txt = `${addr} ${dest.clientName || ''} ${dest.officialName || ''}`;
+    if (txt.includes('영등포') && txt.includes('신길')) return { lat: 37.5065, lng: 126.9125 };
+    if (txt.includes('금천') && txt.includes('시흥동')) return { lat: 37.4515, lng: 126.9015 };
+    if (txt.includes('군포') && txt.includes('부곡')) return { lat: 37.3315, lng: 126.9385 };
+    for (const [kw, lat, lng] of FALLBACK_REGION_COORDS) {
+        if (txt.includes(kw)) return { lat, lng };
+    }
+    return { lat: DEPOT.lat, lng: DEPOT.lng };
+}
+
+function classifyDispatchCorridor(dest, distKm) {
+    const txt = `${dest.addr || ''} ${dest.clientName || ''} ${dest.officialName || ''}`;
+    if (/충북|음성|평택/.test(txt) || distKm >= 45.0) return 'ULTRA_SOUTH';
+
+    if (/안산|새솔|본오|고잔|와동|선부|초지|사동|일동|이동|월피|성포|수암|건건|대부|유포리|비봉/.test(txt) && !/영등포|서울/.test(txt)) {
+        return 'NEAR_ANSAN';
+    }
+    if (/시흥시|정왕|하중|하상|장곡|거모|포동|배곧|은행동|신천동|목감/.test(txt) && !/금천|서울/.test(txt)) {
+        return 'NEAR_SIHEUNG';
+    }
+    if (/서창|논현|동춘|옥련|남동구|연수구/.test(txt)) {
+        return 'NEAR_INCHEON';
+    }
+    if (/군포|산본|부곡|도마교|의왕|삼동|수원|율전|영통|이의동|곡반정|영화동|화성|매송|병점|진안|동탄|오산|외삼미|용인|기흥|동백|성남|분당|판교|삼평|대장동|중원구|태광/.test(txt)) {
+        return 'FAR_SE';
+    }
+    if (/부천|역곡|원종|도약로|상동|강서|화곡|양천|신정|고양|화정|일산|주엽|의정부|부평|십정|산곡|일신|인천\s*동구|화평|주안|인천/.test(txt)) {
+        return 'FAR_NW';
+    }
+    if (/광명|소하|철산|금천|가산|영등포|동작|상도|관악|봉천|용산|광진|구의|구리|서울|성대|형제/.test(txt)) {
+        return 'FAR_SEOUL';
+    }
+    return distKm <= 14.5 ? 'NEAR_SIHEUNG' : 'FAR_SE';
+}
+
+/* [알고리즘 1] 권역 패턴 2단계 자동배차 (원거리 3~4대 + 근거리 2~3대) */
+function computeAlgo1Corridor(items, farCodes, nearCodes) {
+    const result = {};
+    const groups = { ULTRA_SOUTH: [], FAR_SEOUL: [], FAR_NW: [], FAR_SE: [], NEAR_ANSAN: [], NEAR_SIHEUNG: [], NEAR_INCHEON: [] };
+    items.forEach(it => groups[it.corridor].push(it));
+
+    const farCnt = farCodes.length;
+    if (farCnt >= 4) {
+        const map4 = { ULTRA_SOUTH: farCodes[0], FAR_SEOUL: farCodes[1], FAR_NW: farCodes[2], FAR_SE: farCodes[3] };
+        ['ULTRA_SOUTH', 'FAR_SEOUL', 'FAR_NW', 'FAR_SE'].forEach(k => {
+            groups[k].forEach(it => { result[it.clientName] = map4[k]; });
+        });
+        if (groups.ULTRA_SOUTH.length === 0) {
+            const keys = ['FAR_SEOUL', 'FAR_NW', 'FAR_SE'];
+            let heaviest = keys[0], maxLoad = -1;
+            keys.forEach(k => {
+                const ld = groups[k].reduce((s, x) => s + x.load, 0);
+                if (ld > maxLoad) { maxLoad = ld; heaviest = k; }
+            });
+            const sorted = groups[heaviest].slice().sort((a, b) => b.dist - a.dist);
+            const half = Math.floor(sorted.length / 2);
+            for (let i = 0; i < half; i++) {
+                result[sorted[i].clientName] = farCodes[0];
+            }
+        }
+    } else {
+        if (groups.ULTRA_SOUTH.length > 0) {
+            groups.ULTRA_SOUTH.forEach(it => { result[it.clientName] = farCodes[0]; });
+            [...groups.FAR_SEOUL, ...groups.FAR_NW].forEach(it => { result[it.clientName] = farCodes[1]; });
+            groups.FAR_SE.forEach(it => { result[it.clientName] = farCodes[2] || farCodes[1]; });
+        } else {
+            groups.FAR_SEOUL.forEach(it => { result[it.clientName] = farCodes[0]; });
+            groups.FAR_NW.forEach(it => { result[it.clientName] = farCodes[1]; });
+            groups.FAR_SE.forEach(it => { result[it.clientName] = farCodes[2] || farCodes[1]; });
+        }
+    }
+
+    if (nearCodes.length >= 3) {
+        groups.NEAR_ANSAN.forEach(it => { result[it.clientName] = nearCodes[0]; });
+        groups.NEAR_SIHEUNG.forEach(it => { result[it.clientName] = nearCodes[1]; });
+        groups.NEAR_INCHEON.forEach(it => { result[it.clientName] = nearCodes[2]; });
+    } else if (nearCodes.length === 2) {
+        groups.NEAR_ANSAN.forEach(it => { result[it.clientName] = nearCodes[0]; });
+        [...groups.NEAR_SIHEUNG, ...groups.NEAR_INCHEON].forEach(it => { result[it.clientName] = nearCodes[1]; });
+    } else if (nearCodes.length === 1) {
+        [...groups.NEAR_ANSAN, ...groups.NEAR_SIHEUNG, ...groups.NEAR_INCHEON].forEach(it => { result[it.clientName] = nearCodes[0]; });
+    }
+
+    return result;
+}
+
+/* [알고리즘 2] 거리·물량 균등 K-Means++ 2단계 자동배차 */
+function runWeightedKMeansCluster(group, vehicleCodes) {
+    const out = {};
+    if (!group.length || !vehicleCodes.length) return out;
+    const k = Math.min(vehicleCodes.length, group.length);
+
+    const seeds = [group.reduce((a, b) => (b.dist > a.dist ? b : a), group[0])];
+    while (seeds.length < k) {
+        let best = group[0], bestMinD = -1;
+        group.forEach(x => {
+            const minD = Math.min(...seeds.map(s => haversineKm(x.lat, x.lng, s.lat, s.lng)));
+            if (minD > bestMinD) { bestMinD = minD; best = x; }
+        });
+        seeds.push(best);
+    }
+    let centers = seeds.map(s => ({ lat: s.lat, lng: s.lng }));
+    const totalLoad = group.reduce((s, x) => s + x.load, 0);
+    const avgLoad = totalLoad / k;
+    const assignIdx = new Array(group.length).fill(0);
+
+    for (let iter = 0; iter < 12; iter++) {
+        const loads = new Array(k).fill(0);
+        const order = group.map((_, i) => i).sort((a, b) => group[b].dist - group[a].dist);
+        order.forEach(i => {
+            const x = group[i];
+            let bestC = 0, bestCost = 1e18;
+            for (let c = 0; c < k; c++) {
+                const d = haversineKm(x.lat, x.lng, centers[c].lat, centers[c].lng);
+                const overload = Math.max(0, (loads[c] + x.load) - avgLoad * 1.15);
+                const cost = d + overload * 0.45;
+                if (cost < bestCost) { bestCost = cost; bestC = c; }
+            }
+            assignIdx[i] = bestC;
+            loads[bestC] += x.load;
+        });
+
+        centers = centers.map((oldC, c) => {
+            const mem = group.filter((_, i) => assignIdx[i] === c);
+            if (!mem.length) return oldC;
+            return {
+                lat: mem.reduce((s, m) => s + m.lat, 0) / mem.length,
+                lng: mem.reduce((s, m) => s + m.lng, 0) / mem.length
+            };
+        });
+    }
+
+    const ranks = [];
+    for (let c = 0; c < k; c++) {
+        const mem = group.filter((_, i) => assignIdx[i] === c);
+        const maxD = mem.length ? Math.max(...mem.map(m => m.dist)) : 0;
+        ranks.push({ c, maxD });
+    }
+    ranks.sort((a, b) => b.maxD - a.maxD);
+    const cToCode = {};
+    ranks.forEach((r, idx) => { cToCode[r.c] = vehicleCodes[idx]; });
+
+    group.forEach((x, i) => { out[x.clientName] = cToCode[assignIdx[i]]; });
+    return out;
+}
+
+function computeAlgo2KMeans(items, farCodes, nearCodes) {
+    const ultras = items.filter(x => x.corridor === 'ULTRA_SOUTH');
+    const fars = items.filter(x => x.corridor !== 'ULTRA_SOUTH' && !x.corridor.startsWith('NEAR_'));
+    const nears = items.filter(x => x.corridor.startsWith('NEAR_'));
+
+    const result = {};
+    const remFar = farCodes.slice();
+    if (ultras.length > 0 && remFar.length > 1) {
+        const uCode = remFar.shift();
+        ultras.forEach(u => { result[u.clientName] = uCode; });
+    } else {
+        ultras.forEach(u => fars.push(u));
+    }
+
+    Object.assign(result, runWeightedKMeansCluster(fars, remFar));
+    Object.assign(result, runWeightedKMeansCluster(nears, nearCodes));
+    return result;
+}
+
+/* 차량별 추천 방문 순번 계산 (급/오전 우선 + 원거리 Out-and-Back + 최단 인접 이동) */
+function computeRecommendedRouteOrder(destinations) {
+    routeSeqMap = {};
+    const byVehicle = {};
+    destinations.forEach(d => {
+        const code = dispatchMap[d.clientName] || 'UNASSIGNED';
+        if (!code.startsWith('V')) return;
+        const pos = resolveCoordForDispatch(d);
+        if (!byVehicle[code]) byVehicle[code] = [];
+        byVehicle[code].push({
+            clientName: d.clientName,
+            lat: pos.lat,
+            lng: pos.lng,
+            dist: haversineKm(DEPOT.lat, DEPOT.lng, pos.lat, pos.lng),
+            isUrgent: d.isUrgent
+        });
+    });
+
+    Object.values(byVehicle).forEach(list => {
+        const remaining = list.slice();
+        let curLat = DEPOT.lat, curLng = DEPOT.lng;
+        let seq = 1;
+
+        const urgents = remaining.filter(x => x.isUrgent).sort((a, b) => a.dist - b.dist);
+        urgents.forEach(u => {
+            routeSeqMap[u.clientName] = seq++;
+            curLat = u.lat; curLng = u.lng;
+            const idx = remaining.indexOf(u);
+            if (idx >= 0) remaining.splice(idx, 1);
+        });
+
+        if (seq === 1 && remaining.length >= 4 && Math.max(...remaining.map(x => x.dist)) >= 22) {
+            const farthest = remaining.reduce((a, b) => (b.dist > a.dist ? b : a), remaining[0]);
+            routeSeqMap[farthest.clientName] = seq++;
+            curLat = farthest.lat; curLng = farthest.lng;
+            remaining.splice(remaining.indexOf(farthest), 1);
+        }
+
+        while (remaining.length > 0) {
+            let bestIdx = 0, bestD = 1e18;
+            remaining.forEach((cand, i) => {
+                const d = haversineKm(curLat, curLng, cand.lat, cand.lng);
+                if (d < bestD) { bestD = d; bestIdx = i; }
+            });
+            const pick = remaining.splice(bestIdx, 1)[0];
+            routeSeqMap[pick.clientName] = seq++;
+            curLat = pick.lat; curLng = pick.lng;
+        }
+    });
+}
+
+function runAutoDispatch(algoType) {
+    const destinations = getAggregatedDeliveryDestinations();
+    if (!destinations.length) {
+        alert('자동배차할 당일 배송처가 없습니다.');
+        return;
+    }
+
+    prevDispatchSnapshot = Object.assign({}, dispatchMap);
+    const undoBtn = document.getElementById('btnUndoDispatch');
+    if (undoBtn) undoBtn.style.display = 'inline-flex';
+
+    const keepManual = Boolean(document.getElementById('autoKeepManualChk')?.checked);
+    const preset = (document.getElementById('autoSplitPreset')?.value || '4-3').split('-');
+    const farCnt = parseInt(preset[0], 10) || 4;
+    const nearCnt = parseInt(preset[1], 10) || 3;
+
+    // 7대 차량: V0(최), V1(엄), V2(양), V3(한) = 원거리 / V4(차), V5(김), V6(이) = 근거리
+    const farCodes = ['V0', 'V1', 'V2', 'V3'].slice(0, farCnt);
+    const nearCodes = ['V4', 'V5', 'V6'].slice(0, nearCnt);
+
+    const targets = destinations.filter(d => {
+        if (!keepManual) return true;
+        const cur = dispatchMap[d.clientName] || 'UNASSIGNED';
+        return cur === 'UNASSIGNED';
+    });
+
+    if (!targets.length) {
+        showToast('미배차 거래처가 없습니다 (모두 배정됨)');
+        return;
+    }
+
+    const enriched = targets.map(d => {
+        const pos = resolveCoordForDispatch(d);
+        const dist = haversineKm(DEPOT.lat, DEPOT.lng, pos.lat, pos.lng);
+        return {
+            clientName: d.clientName,
+            officialName: d.officialName,
+            addr: d.addr,
+            lat: pos.lat,
+            lng: pos.lng,
+            dist,
+            corridor: classifyDispatchCorridor(d, dist),
+            load: (d.totalBoxes || 0) + (d.totalLoose || 0) * 0.5 + 3
+        };
+    });
+
+    const assignedMap = (algoType === 'kmeans')
+        ? computeAlgo2KMeans(enriched, farCodes, nearCodes)
+        : computeAlgo1Corridor(enriched, farCodes, nearCodes);
+
+    Object.keys(assignedMap).forEach(clientName => {
+        dispatchMap[clientName] = assignedMap[clientName];
+    });
+
+    computeRecommendedRouteOrder(destinations);
+    localStorage.setItem('mf_dispatch', JSON.stringify(dispatchMap));
+    const algoLabel = algoType === 'kmeans' ? '② 거리·물량 균등(K-Means++)' : '① 권역 패턴(미트포앤형)';
+    recordLastUpdatedTime(`자동배차(${algoLabel})`);
+
+    const sumEl = document.getElementById('autoDispatchSummary');
+    if (sumEl) {
+        const modeTxt = keepManual ? `미배차 ${targets.length}곳 자동 채움` : `전체 ${targets.length}곳 일괄 배차`;
+        sumEl.textContent = `✅ ${algoLabel} 완료 (${modeTxt} · 원거리 ${farCnt}대 + 근거리 ${nearCnt}대)`;
+    }
+    showToast(`${algoLabel} 적용 완료`);
+    renderDispatchPage();
+}
+
+function undoAutoDispatch() {
+    if (!prevDispatchSnapshot) return;
+    dispatchMap = Object.assign({}, prevDispatchSnapshot);
+    prevDispatchSnapshot = null;
+    localStorage.setItem('mf_dispatch', JSON.stringify(dispatchMap));
+    const undoBtn = document.getElementById('btnUndoDispatch');
+    if (undoBtn) undoBtn.style.display = 'none';
+    computeRecommendedRouteOrder(getAggregatedDeliveryDestinations());
+    showToast('직전 배차 상태로 되돌렸습니다');
+    renderDispatchPage();
+}
+
+function resetAllDispatch() {
+    if (!confirm('현재 화면의 배송처 배차를 모두 미배차로 초기화할까요?')) return;
+    prevDispatchSnapshot = Object.assign({}, dispatchMap);
+    const undoBtn = document.getElementById('btnUndoDispatch');
+    if (undoBtn) undoBtn.style.display = 'inline-flex';
+    getAggregatedDeliveryDestinations().forEach(d => {
+        dispatchMap[d.clientName] = 'UNASSIGNED';
+    });
+    routeSeqMap = {};
+    localStorage.setItem('mf_dispatch', JSON.stringify(dispatchMap));
+    showToast('전체 미배차 처리 완료');
+    renderDispatchPage();
+}
+
+/* =========================================================================
+   유틸리티 및 CSV 다운로드 (통합된 발주 기준)
+   ========================================================================= */
 function escapeHtml(str) {
     return String(str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
