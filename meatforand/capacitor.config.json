@@ -1,0 +1,6 @@
+{
+  "appId": "com.meatpoan.app",
+  "appName": "미트포앤 GB",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

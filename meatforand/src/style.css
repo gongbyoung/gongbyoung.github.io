@@ -1,0 +1,863 @@
+/* ==========================================================================
+   미트포앤 B2B — Material 3 Tonal & LogiTalk B2B 디자인 시스템 (src/style.css)
+   - Pretendard + Hanken Grotesk + JetBrains Mono + Material Symbols Outlined
+   - Tonal Surface Hierarchy (#faf8ff -> #f2f3ff -> #eaedff -> #ffffff)
+   - Deep Navy Primary (#00236f) & Royal Blue Secondary (#0051d5) & Kakao Accent (#fde400)
+   ========================================================================== */
+:root {
+  --brand-primary: #00236f;
+  --brand-secondary: #0051d5;
+  --brand-dark: #00164e;
+  --brand-light: #eaedff;
+  --accent-yellow: #fde400;
+  --accent-yellow-text: #201c00;
+
+  --bg-color: #faf8ff;
+  --surface: #ffffff;
+  --surface-low: #f2f3ff;
+  --surface-container: #eaedff;
+  --surface-high: #e2e7ff;
+
+  --text-main: #131b2e;
+  --text-sub: #444651;
+  --outline: #757682;
+  --border: #e2e7ff;
+
+  --success: #0d9488;
+  --warning: #d97706;
+  --danger: #ba1a1a;
+  --info: #0051d5;
+  --purple: #5b21b6;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  --ui-font-scale: 1.0;
+  --ui-btn-padding: 9px;
+  --ui-card-gap: 10px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  /* 갤럭시 노트24 (360px ~ 412px) 기준 정돈된 심플 뷰 14px 스케일 */
+  font-size: calc(14px * var(--ui-font-scale));
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html, body {
+  min-height: 100%;
+  width: 100%;
+  font-family: "Pretendard", "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  overscroll-behavior-y: none;
+  line-height: 1.42;
+  /* ★ 갤럭시 노트24에서 한글 단어 끝 1~2글자가 다음 줄로 넘어가는 현상 원천 차단 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  letter-spacing: -0.015em;
+}
+
+/* 노트24 1~2글자 줄바꿈 방지용 유틸리티 */
+.no-orphan,
+.badge,
+.chip,
+.btn,
+.qf-btn,
+.sub-tab,
+.btn-check-toggle,
+button,
+label span {
+  word-break: keep-all;
+}
+
+.badge,
+.chip,
+.qf-btn,
+.btn-check-toggle {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c5c5d3;
+  border-radius: 999px;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 22;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+body.high-contrast {
+  --bg-color: #0f172a;
+  --surface: #1e293b;
+  --surface-low: #1e293b;
+  --surface-container: #334155;
+  --text-main: #f8fafc;
+  --text-sub: #cbd5e1;
+  --border: #475569;
+  --brand-light: #1e3a8a;
+}
+
+/* 1. 로그인 화면 (모던 B2B 앱 스타일) */
+#login-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 20% 20%, #1e3a8a 0%, #00236f 55%, #00164e 100%);
+  padding: 20px;
+}
+
+.login-box {
+  width: 100%;
+  max-width: 350px;
+  background: var(--surface);
+  border-radius: 18px;
+  padding: 24px 20px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 15, 55, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.login-box input[type="text"],
+.login-box input[type="password"] {
+  width: 100%;
+  padding: 12px 36px 12px 12px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 1.35rem;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 6px;
+  border: 1.5px solid #dae2fd;
+  border-radius: 10px;
+  background: #f2f3ff;
+  color: var(--text-main);
+  outline: none;
+  transition: all 0.2s;
+}
+
+.login-box input[type="text"]:focus,
+.login-box input[type="password"]:focus {
+  border-color: var(--brand-secondary);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(0, 81, 213, 0.14);
+}
+
+.login-box #loginBtn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #00236f 0%, #0051d5 100%);
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 81, 213, 0.22);
+  transition: transform 0.15s;
+}
+
+.login-box #loginBtn:active {
+  transform: scale(0.98);
+}
+
+/* 2. 상단 글자 크기 조절 바 */
+.quick-font-bar {
+  background: #f2f3ff;
+  border-bottom: 1px solid #dae2fd;
+}
+
+.qf-btns {
+  display: flex;
+  gap: 5px;
+}
+
+.qf-btn {
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid #c5c5d3;
+  background: #fff;
+  color: var(--text-sub);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.qf-btn.active {
+  background: var(--brand-secondary);
+  border-color: var(--brand-secondary);
+  color: #fff;
+}
+
+/* 3. 하단 고정 탭 내비게이션 */
+#mainTabs .tab {
+  color: #757682;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  padding: 4px 10px;
+  position: relative;
+}
+
+#mainTabs .tab .material-symbols-outlined {
+  transition: transform 0.18s ease, font-variation-settings 0.18s ease;
+}
+
+#mainTabs .tab.active {
+  color: var(--brand-secondary);
+  font-weight: 700;
+}
+
+#mainTabs .tab.active .material-symbols-outlined {
+  font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24;
+  transform: translateY(-1px);
+}
+
+#mainTabs .tab.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 24px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--brand-secondary);
+}
+
+/* 4. 카드 및 패널 (LogiTalk B2B Tonal Surface 스타일) */
+.panel {
+  background: var(--surface);
+  border: 1px solid #eaedff;
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: var(--ui-card-gap);
+  box-shadow: 0 2px 10px rgba(19, 27, 46, 0.04);
+}
+
+.panel-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--brand-primary);
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  letter-spacing: -0.01em;
+}
+
+/* 세그먼트 서브 탭 (Segmented Control) */
+.sub-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  background: #eaedff;
+  padding: 4px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.sub-tabs-4 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  background: #eaedff;
+  padding: 4px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+@media (min-width: 600px) {
+  .sub-tabs-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.sub-tab {
+  padding: 8px 6px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-sub);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 38px;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.sub-tab.active {
+  background: #ffffff;
+  color: var(--brand-secondary);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(19, 27, 46, 0.08);
+}
+
+/* KPI 마이크로 카드 (Industrial Bento Matrix) */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.kpi-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+@media (min-width: 640px) {
+  .kpi-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.kpi-box {
+  background: #ffffff;
+  border: 1px solid #eaedff;
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(19, 27, 46, 0.03);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.kpi-label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-sub);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.kpi-val {
+  font-family: "JetBrains Mono", "Pretendard", sans-serif;
+  font-size: 1.32rem;
+  font-weight: 700;
+  color: var(--brand-primary);
+  letter-spacing: -0.02em;
+}
+
+/* 배지 (Pills & SKU Badges) */
+.badge {
+  font-size: 0.74rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  line-height: 1.3;
+}
+
+.badge-red { background: #ffdad6; color: #93000a; }
+.badge-green { background: #dbe1ff; color: #003ea8; }
+.badge-blue { background: #e2e7ff; color: #00236f; }
+.badge-orange { background: #fde400; color: #201c00; }
+.badge-purple { background: #ede9fe; color: #5b21b6; }
+.badge-gray { background: #eaedff; color: #444651; }
+
+/* 수평 알약 필터 칩 */
+.chip-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 10px;
+}
+
+.chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #dae2fd;
+  background: #eaedff;
+  color: var(--text-main);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s;
+}
+
+.chip:hover {
+  background: #e2e7ff;
+}
+
+.chip.active {
+  background: var(--brand-primary);
+  color: #ffffff;
+  border-color: var(--brand-primary);
+  box-shadow: 0 2px 6px rgba(0, 35, 111, 0.2);
+}
+
+/* 입력 폼 */
+.input-field, select.input-field, textarea.input-field {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #dae2fd;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  background: #f2f3ff;
+  color: var(--text-main);
+  outline: none;
+  min-height: 40px;
+  transition: all 0.15s;
+}
+
+.input-field:focus, select.input-field:focus, textarea.input-field:focus {
+  background: #ffffff;
+  border-color: var(--brand-secondary);
+  box-shadow: 0 0 0 3px rgba(0, 81, 213, 0.12);
+}
+
+textarea.input-field {
+  min-height: 100px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.form-grid-4 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 480px) {
+  .form-grid-2.stack-mobile {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 버튼 시스템 */
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.btn {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex: 1 1 auto;
+  min-height: 42px;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all 0.15s;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: var(--brand-primary);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 35, 111, 0.18);
+}
+.btn-primary:hover { background: #1e3a8a; }
+
+.btn-secondary {
+  background: var(--brand-secondary);
+  color: #ffffff;
+}
+
+.btn-success {
+  background: var(--accent-yellow);
+  color: var(--accent-yellow-text);
+  box-shadow: 0 2px 6px rgba(253, 228, 0, 0.25);
+}
+
+.btn-outline {
+  background: #f2f3ff;
+  color: var(--brand-primary);
+  border: 1px solid #dae2fd;
+}
+.btn-outline:hover { background: #e2e7ff; }
+
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  min-height: 34px;
+  flex: initial;
+}
+
+/* 카톡 노란색 메인 불러오기 버튼 */
+.file-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 16px;
+  background: #fde400;
+  color: #201c00;
+  border-radius: 14px;
+  text-align: center;
+  font-size: 0.96rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(222, 200, 0, 0.28);
+  transition: all 0.15s;
+}
+.file-drop:hover {
+  background: #dec800;
+}
+.file-drop:active {
+  transform: scale(0.99);
+}
+
+/* 안내 배너 */
+.preset-banner {
+  background: #e2e7ff;
+  border: 1px solid #b6c4ff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 0.8rem;
+  color: #00236f;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.summary-box {
+  background: #f2f3ff;
+  border: 1px solid #dae2fd;
+  border-radius: 12px;
+  padding: 12px;
+  font-family: "JetBrains Mono", "Pretendard", monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+/* 리스트 및 발주 행 */
+.list-group {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #eaedff;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(19, 27, 46, 0.03);
+}
+
+.list-item.type-order { border-left: 4px solid var(--brand-secondary); }
+.list-item.type-weighed { border-left: 4px solid var(--purple); }
+.list-item.type-inbound { border-left: 4px solid #0d9488; }
+.list-item.type-general { border-left: 4px solid #94a3b8; }
+
+.list-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.item-title {
+  font-weight: 700;
+  font-size: 0.94rem;
+  color: var(--text-main);
+}
+
+.item-desc {
+  font-size: 0.8rem;
+  color: var(--text-sub);
+  line-height: 1.45;
+}
+
+/* 2.발주·계근 품목 행 (초슬림 고밀도 행) */
+.order-item-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  border: 1px solid #eaedff;
+  background: #ffffff;
+  margin-bottom: 4px;
+  transition: all 0.15s;
+}
+
+.order-item-row.needs-check {
+  border: 1.5px solid #f59e0b;
+  background: #fffdf5;
+}
+
+.order-item-row.checked-done {
+  border: 1.5px solid #0051d5;
+  background: #f2f3ff;
+}
+
+.order-item-row.normal-box {
+  border-left: 3px solid #94a3b8;
+  background: #faf8ff;
+}
+
+.btn-check-toggle {
+  padding: 4px 9px;
+  border-radius: 7px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  border: 1.5px solid #d97706;
+  background: #fde400;
+  color: #201c00;
+  cursor: pointer;
+  min-height: 28px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.btn-check-toggle.done {
+  border-color: #0051d5;
+  background: #0051d5;
+  color: #ffffff;
+}
+
+/* 매트릭스 테이블 */
+.matrix-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 12px;
+  border: 1px solid #dae2fd;
+  background: #ffffff;
+}
+
+.matrix-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.matrix-wrap th,
+.matrix-wrap td {
+  border-bottom: 1px solid #eaedff;
+  padding: 9px 10px;
+  text-align: left;
+  line-height: 1.35;
+}
+
+.matrix-wrap th {
+  background: #f2f3ff;
+  color: var(--brand-primary);
+  font-weight: 700;
+  white-space: nowrap;
+  font-size: 0.76rem;
+}
+
+.matrix-wrap td.num,
+.matrix-wrap th.num {
+  text-align: right;
+  font-family: "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.matrix-wrap tr.total-row td {
+  background: #e2e7ff;
+  font-weight: 800;
+  color: var(--brand-primary);
+}
+
+/* 3.배차·지도 스타일 */
+#route-map {
+  width: 100%;
+  height: 240px;
+  z-index: 1;
+}
+
+.driver-board-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+@media (min-width: 640px) {
+  .driver-board-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.driver-board-card {
+  background: #ffffff;
+  border: 1px solid #eaedff;
+  border-left-width: 5px;
+  border-radius: 14px;
+  padding: 13px;
+  box-shadow: 0 2px 8px rgba(19, 27, 46, 0.04);
+}
+
+.driver-board-card h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* 전체화면 지도 오버레이 */
+.map-fs-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  background: var(--surface);
+  flex-direction: column;
+}
+
+.map-fs-bar {
+  background: var(--brand-primary);
+  color: #fff;
+  padding: calc(10px + var(--safe-top)) 14px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-fs-bar h2 {
+  font-size: 0.98rem;
+  font-weight: 700;
+  flex: 1;
+}
+
+.map-fs-bar button {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#orderMapFs {
+  flex: 1;
+  width: 100%;
+}
+
+.map-fs-legend {
+  padding: 10px 14px calc(10px + var(--safe-bottom));
+  background: #f2f3ff;
+  border-top: 1px solid #dae2fd;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.pin-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* 토스트 알림 (LogiTalk 다크 플로팅 배너 스타일) */
+#toast-container {
+  position: fixed;
+  top: calc(64px + var(--safe-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 92%;
+  max-width: 400px;
+  pointer-events: none;
+}
+
+.toast {
+  background: #283044;
+  color: #eef0ff;
+  padding: 11px 16px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 10px 25px rgba(19, 27, 46, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+@media print {
+  body { overflow: visible; background: #fff; color: #000; }
+  header, nav, .quick-font-bar, .no-print, #toast-container { display: none !important; }
+  main.content { overflow: visible; padding: 0; max-width: 100%; }
+  .panel { border: 1px solid #000; box-shadow: none; page-break-inside: avoid; }
+}
