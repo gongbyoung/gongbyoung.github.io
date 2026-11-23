@@ -815,6 +815,40 @@
             </div>
             <div class="vehicle-config-grid" id="vehicleConfigGrid"></div>
             <div class="vehicle-stat-bar" id="vehicleStatBar"></div>
+            <div id="dispatchScheduleBox" style="margin-top:12px;padding:12px;border-radius:12px;background:#f8fafc;border:1px solid var(--border);">
+                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;">
+                    <b style="color:var(--primary);">⏱️ 16시 귀점 예상</b>
+                    <span style="font-size:12px;color:#6b7280;">출발 기본 <b>10시</b> · 가까운 곳은 오후 출발 · 납품 15분 + 이동</span>
+                </div>
+                <div class="settings-row" style="flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+                    <label style="font-size:12px;font-weight:700;">출발
+                        <input type="time" id="dispatchStartTime" value="10:00" onchange="onDispatchScheduleParamChange()"
+                            style="margin-left:4px;height:36px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);font-weight:700;">
+                    </label>
+                    <label style="font-size:12px;font-weight:700;">납품(분)
+                        <input type="number" id="dispatchServiceMin" value="15" min="5" max="60" step="5" onchange="onDispatchScheduleParamChange()"
+                            style="width:64px;margin-left:4px;height:36px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);font-weight:700;">
+                    </label>
+                    <label style="font-size:12px;font-weight:700;">귀점
+                        <input type="time" id="dispatchReturnBy" value="16:00" onchange="onDispatchScheduleParamChange()"
+                            style="margin-left:4px;height:36px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);font-weight:700;">
+                    </label>
+                    <label style="font-size:12px;font-weight:700;">평균속도(km/h)
+                        <input type="number" id="dispatchAvgSpeed" value="28" min="15" max="60" step="1" onchange="onDispatchScheduleParamChange()"
+                            style="width:64px;margin-left:4px;height:36px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);font-weight:700;">
+                    </label>
+                    <label style="font-size:12px;font-weight:700;">근거리(km이내)
+                        <input type="number" id="dispatchNearKm" value="12" min="3" max="40" step="1" onchange="onDispatchScheduleParamChange()"
+                            style="width:64px;margin-left:4px;height:36px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);font-weight:700;">
+                    </label>
+                    <label style="font-size:12px;font-weight:700;">근거리 출발
+                        <input type="time" id="dispatchAfternoonStart" value="13:00" onchange="onDispatchScheduleParamChange()"
+                            style="margin-left:4px;height:36px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);font-weight:700;">
+                    </label>
+                </div>
+                <div id="dispatchScheduleResult" style="font-size:13px;line-height:1.45;"></div>
+                <p style="margin:8px 0 0;font-size:11px;color:#9ca3af;">※ 좌표 있는 거래처만 이동시간 반영. 없는 곳은 직선 5km 가정. 경로는 가까운 순(근사)입니다.</p>
+            </div>
         </div>
 
         <div class="section-card" style="margin-bottom:12px; padding:12px;">
@@ -875,6 +909,6 @@
     </nav>
 </div>
 
-<script src="app.js"></script>
+<script src="app_grok.js"></script>
 </body>
 </html>
