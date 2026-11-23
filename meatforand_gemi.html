@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>미트포앤 GB v6</title>
+    <title>미트포앤 발주·재고·배차 통합 시스템</title>
     <style>
         :root {
             --primary: #1f4e79;
@@ -25,14 +25,14 @@
         }
         .app-container {
             max-width: 1440px; margin: 0 auto; background: var(--card);
-            border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); overflow: hidden;
+            border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); overflow: visible;
             zoom: var(--ui-zoom);
             transition: max-width 0.25s ease, box-shadow 0.25s ease;
         }
 
         /* 상단 헤더 및 소형 컨트롤 영역 */
         .app-header {
-            background: var(--primary); color: white; padding: 9px 13px;
+            background: var(--primary); color: white; padding: 9px 13px; border-radius: 12px 12px 0 0;
             display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 7px;
         }
         .header-title-group {
@@ -695,6 +695,11 @@
     </div>
 </div>
 
-<script src="app_gemi.js"></script>
+<script src="app_gemi.js?v=20261123b"></script>
+<script>
+if (typeof window.switchTab !== 'function') {
+    alert('⚠️ app_gemi.js 파일이 같은 폴더에 없거나 로드되지 않았습니다.\nmeatforand_gemi.html 과 app_gemi.js 두 파일을 같은 폴더에 넣어주세요.');
+}
+</script>
 </body>
 </html>
