@@ -28,9 +28,23 @@ let vehicleNames = (Array.isArray(_rawSavedVehicles) && _rawSavedVehicles.length
 while (vehicleNames.length < 6) {
     vehicleNames.push(DEFAULT_VEHICLES[vehicleNames.length]);
 }
+
+// 냉장창고 4곳 기본 설정 (사용자 편집 및 호차 선택 가능)
+const DEFAULT_COLD_STORAGES = [
+    { id: "CS0", name: "유상냉장", addr: "경기도 안산시 단원구 신길동", assigned: "NONE" },
+    { id: "CS1", name: "포크빌리지(냉창)", addr: "경기도 용인시 처인구 백암면", assigned: "NONE" },
+    { id: "CS2", name: "대산냉장", addr: "경기도 안산시 단원구 원시동", assigned: "NONE" },
+    { id: "CS3", name: "황금비앤피(냉창)", addr: "경기도 안산시 상록구 청곡길 36", assigned: "NONE" }
+];
+let _rawSavedCS = null;
+try { _rawSavedCS = JSON.parse(localStorage.getItem('mf_cold_storages') || 'null'); } catch (e) {}
+let coldStorages = (Array.isArray(_rawSavedCS) && _rawSavedCS.length === 4)
+    ? _rawSavedCS
+    : DEFAULT_COLD_STORAGES.map(x => ({ ...x }));
+
 let dispatchMap = JSON.parse(localStorage.getItem('mf_dispatch') || '{}');
 let manualDelivMap = JSON.parse(localStorage.getItem('mf_manual_deliv_dates') || '{}');
-let selectedVehicleFilter = 'ALL';
+let dispatchSortMode = localStorage.getItem('mf_dispatch_sort') || 'name'; // 'name' | 'distance' | 'items'
 
 // UI 디바이스 모드 ('mobile' | 'tablet' | 'desktop') 및 UI 확대 배율 (기본 115%, 범위 100~150%)
 let currentUiMode = localStorage.getItem('mf_ui_mode') || '';
@@ -39,7 +53,7 @@ if (isNaN(currentUiZoom) || currentUiZoom < 100 || currentUiZoom > 150) {
     currentUiZoom = 115;
 }
 
-// 초기 샘플 재고 데이터 세팅 (11월 10일 재고현황)
+// 초기 샘플 재고 데이터 세팅
 const INITIAL_STOCK_TEXT = `11월 10일 재고현황
 
 삼겹   (대산) 4박 5
@@ -184,6 +198,9 @@ function setUiMode(mode, skipSave) {
     if (!skipSave) {
         localStorage.setItem('mf_ui_mode', mode);
     }
+    if (vworldMapInstance) {
+        setTimeout(() => vworldMapInstance.invalidateSize(), 260);
+    }
 }
 
 function setUiZoom(zoomPct, skipSave) {
@@ -206,6 +223,9 @@ function setUiZoom(zoomPct, skipSave) {
 
     if (!skipSave) {
         localStorage.setItem('mf_ui_zoom', String(val));
+    }
+    if (vworldMapInstance) {
+        setTimeout(() => vworldMapInstance.invalidateSize(), 200);
     }
 }
 
@@ -326,9 +346,6 @@ function restoreStateFromBrowser() {
             const orderCnt = allChatItems.filter(x => x.type === '발주').length;
             const weightCnt = allChatItems.filter(x => x.type === '계근').length;
             document.getElementById('kakaoLoadMsg').innerText = `💾 이전 저장된 카톡 데이터 자동 복원됨 (총 ${allChatItems.length}건 중 순수발주 ${orderCnt}건 / 계근 ${weightCnt}건)`;
-            const pill = document.getElementById('pillKakao');
-            pill.innerText = `카톡: 발주 ${orderCnt}건`;
-            pill.classList.add('ok');
         }
     } catch (e) {}
 
@@ -350,12 +367,14 @@ function clearSavedBrowserData() {
     localStorage.removeItem('mf_last_updated');
     localStorage.removeItem('mf_dispatch');
     localStorage.removeItem('mf_manual_deliv_dates');
+    localStorage.removeItem('mf_cold_storages');
     location.reload();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
     initDeviceAndZoomUI();
     renderVehicleConfigInputs();
+    renderColdStorageInputs();
     restoreStateFromBrowser();
 
     if (window.location.protocol.startsWith('http') && !window.location.hostname.endsWith('github.io')) {
@@ -377,19 +396,22 @@ window.addEventListener('DOMContentLoaded', () => {
 function switchTab(pageId, btnEl) {
     document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(pageId).classList.add('active');
+    const targetPage = document.getElementById(pageId);
+    if (targetPage) targetPage.classList.add('active');
     if (btnEl) btnEl.classList.add('active');
 
     if (pageId === 'page2') renderOrdersTable();
-    if (pageId === 'page3') renderStockTable();
-    if (pageId === 'page4') renderOrderSummaryTable();
+    if (pageId === 'pageLoose') renderLooseItemsPage();
     if (pageId === 'page5') renderDiffTable();
-    if (pageId === 'page6') renderDispatchPage();
+    if (pageId === 'page6') {
+        renderDispatchPage();
+        initVworldMap();
+    }
 }
 
 function onFilterCriteriaChange(skipSave) {
     renderOrdersTable();
-    renderOrderSummaryTable();
+    renderLooseItemsPage();
     renderDiffTable();
     renderDispatchPage();
     if (!skipSave) {
@@ -502,7 +524,6 @@ function processClientCsvText(csvText, isSilentAutoLoad) {
     }
 
     document.getElementById('clientLoadMsg').innerText = `✅ 거래처 ${addedCount}건 병합 완료! (총 ${clientDB.length}개 활성 거래처)`;
-    document.getElementById('pillClient').innerText = `거래처: ${clientDB.length}곳`;
     document.getElementById('btnExportCleanCsv').style.display = 'inline-block';
     if (allChatItems.length > 0) {
         allChatItems.forEach((item, idx) => {
@@ -753,9 +774,6 @@ async function loadKakaoFiles(event) {
     const orderCnt = allChatItems.filter(x => x.type === '발주').length;
     const weightCnt = allChatItems.filter(x => x.type === '계근').length;
     document.getElementById('kakaoLoadMsg').innerText = `✅ 총 ${allChatItems.length}건 분석 및 납품일 자동판별 완료! (순수발주 ${orderCnt}건 / 계근 ${weightCnt}건 분리됨)`;
-    const pill = document.getElementById('pillKakao');
-    pill.innerText = `카톡: 발주 ${orderCnt}건`;
-    pill.classList.add('ok');
 
     saveStateToBrowser('카톡 대화 파일 업로드');
     onFilterCriteriaChange(true);
@@ -880,7 +898,6 @@ function classifyChatItem(item) {
     item.type = '기타';
 }
 
-/* 날짜 더하기 유틸리티 ("YYYY-MM-DD" + days -> "YYYY-MM-DD") */
 function addDaysToDateStr(dateFullStr, days) {
     const dt = new Date(dateFullStr + "T00:00:00");
     dt.setDate(dt.getDate() + days);
@@ -896,7 +913,7 @@ function toShortDate(dateFullStr) {
 }
 
 /* =========================================================================
-   스마트 납품일(targetDeliveryDate) 자동 추론 엔진 ('여기까지' 미사용 + 정오 12:00 기준)
+   스마트 납품일(targetDeliveryDate) 자동 추론 엔진
    ========================================================================= */
 const JS_WEEKDAY_MAP = { '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
 
@@ -925,7 +942,6 @@ function inferDeliveryDatesForAllItems() {
         const msgDt = new Date(item.dateFull + "T00:00:00");
         const msgWd = msgDt.getDay();
 
-        // 1단계: 명시적 특정 날짜/이월
         const mDate = txt.match(/(\d{1,2})\/(\d{1,2})\s*\([월화수목금토일]\)|(\d{1,2})월\s*(\d{1,2})일\s*(?:자로|이월)/);
         if (mDate) {
             const mo = String(mDate[1] || mDate[3]).padStart(2, '0');
@@ -936,7 +952,6 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        // 2단계: 명시적 요일 지정
         const mWd = txt.match(/(?:^|[^내금당명월화수목토일])(월|화|수|목|금|토|일)(?:요일|욜|주문=|발주분)|^\s*(월|화|수|목|금|토|일)\s*$/m);
         if (mWd) {
             const wdChar = mWd[1] || mWd[2];
@@ -949,7 +964,6 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        // 3단계: 익일 키워드
         if (/내일|낼주문|(?:^|[^가-힣])낼(?:$|[^가-힣])|아침에\s*(?:들리|갖을러|가지러)|오전\s*급\s*배송|10시\s*전에/.test(txt)) {
             item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
             item.delivShort = toShortDate(item.targetDeliveryDate);
@@ -957,7 +971,6 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        // 4단계: 당일 키워드
         if (/오늘|당일|금일|지금\s*(?:가|갖|가지러)|조금\s*있다|퇴근\s*(?:길|때|하면서|시)|오후에|방문\s*예정|\d{1,2}시\s*(?:반\s*)?쯤?\s*(?:온데|방문|찾으러|들린데|갖으러)|즉납|전표\s*하나\s*바로|제\s*코스에서|엄과장님\s*편에/.test(txt)) {
             item.targetDeliveryDate = item.dateFull;
             item.delivShort = item.dateShort;
@@ -965,7 +978,6 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        // 5단계: 당일 후속 '계근' 매칭 검증
         const token = item.clientName.replace(/\s+/g, '').substring(0, 3);
         let weighedSameDay = false;
         if (token.length >= 2) {
@@ -985,7 +997,6 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        // 6단계: 일요일 발주 -> 월요일(D+1) 납품
         if (msgWd === 0) {
             item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
             item.delivShort = toShortDate(item.targetDeliveryDate);
@@ -993,7 +1004,6 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        // 7단계: 정오(12:00) 기준 당일/익일 판정 ('여기까지' 텍스트 미사용)
         if (mins < 12 * 60) {
             item.targetDeliveryDate = item.dateFull;
             item.delivShort = item.dateShort;
@@ -1005,7 +1015,6 @@ function inferDeliveryDatesForAllItems() {
         }
     }
 
-    // 후처리: '●이거로 정정요'가 있으면 같은 거래처·같은 납품일의 직전 주문을 대체(기타) 처리
     for (let i = 0; i < allChatItems.length; i++) {
         const cur = allChatItems[i];
         if (cur.type === '발주' && /이거로\s*정정/.test(cur.content)) {
@@ -1037,8 +1046,17 @@ function toggleItemDeliveryDate(itemIdx) {
 }
 
 /* =========================================================================
-   4. [페이지 2] 발주 목록 필터링 및 바둑판(Tile Grid) 렌더링
+   4. [페이지 2] 발주 목록 필터링 및 6열 바둑판 렌더링 (발신자 이름만 표시)
    ========================================================================= */
+function formatSenderShortName(sender) {
+    if (!sender) return '';
+    return String(sender)
+        .replace(/\(주\)\s*미트포앤|주식회사\s*미트포앤|미트포앤/g, '')
+        .replace(/\(.*?\)/g, '')
+        .replace(/\s*(대표님|대표|이사님|이사|부장님|부장|차장님|차장|과장님|과장|대리님|대리|님)$/g, '')
+        .trim() || sender;
+}
+
 function getFilteredOrderList(forceOnlyOrder = false) {
     const targetDateStr = document.getElementById('orderTargetDate').value;
     const mode = document.getElementById('orderTimeMode').value;
@@ -1099,12 +1117,13 @@ function renderOrdersTable() {
         else if (item.type === '계근') { badge = `<span class="badge b-weight">계근</span>`; cardTypeClass = 'is-weight'; }
 
         let clientBadge = item.isKnownClient ? `<span class="badge b-client">인증</span>` : '';
+        const shortSender = formatSenderShortName(item.sender);
 
         let delivBadgeHtml = '';
         if (item.type === '발주') {
             const isNextDay = item.targetDeliveryDate !== item.dateFull;
             const extraCls = item.isManualDeliv ? 'manual' : (isNextDay ? 'next-day' : '');
-            delivBadgeHtml = `<button class="deliv-badge-btn ${extraCls}" onclick="toggleItemDeliveryDate(${item.idx})" title="클릭하면 당일(${item.dateShort}) ↔ 익일 납품일을 수동 전환합니다">🚚 납품:${escapeHtml(item.delivShort)} (${escapeHtml(item.delivReason)}) 🔄</button>`;
+            delivBadgeHtml = `<button class="deliv-badge-btn ${extraCls}" onclick="toggleItemDeliveryDate(${item.idx})" title="클릭하면 당일(${item.dateShort}) ↔ 익일 납품일을 수동 전환합니다">🚚 ${escapeHtml(item.delivShort)} (${escapeHtml(item.delivReason)}) 🔄</button>`;
         }
 
         const card = document.createElement('div');
@@ -1112,11 +1131,11 @@ function renderOrdersTable() {
         card.innerHTML = `
             <div class="order-tile-head">
                 <div class="order-tile-meta">
-                    <span>작성: <b>${escapeHtml(item.dateShort)}</b> ${escapeHtml(item.timeStr)}</span>
-                    <span>${escapeHtml(item.sender)} ${badge}</span>
+                    <span><b>${escapeHtml(item.dateShort)}</b> ${escapeHtml(item.timeStr)}</span>
+                    <span><b>${escapeHtml(shortSender)}</b> ${badge}</span>
                 </div>
                 <div class="order-tile-client">
-                    ${escapeHtml(item.clientName)}${clientBadge}${item.splitTotal > 1 ? ` <span class="badge" style="background:#7c3aed; font-size:9.5px;">${item.splitIndex}/${item.splitTotal}분할</span>` : ''}
+                    ${escapeHtml(item.clientName)}${clientBadge}${item.splitTotal > 1 ? ` <span class="badge" style="background:#7c3aed; font-size:9px;">${item.splitIndex}/${item.splitTotal}</span>` : ''}
                 </div>
                 ${delivBadgeHtml}
             </div>
@@ -1154,7 +1173,7 @@ function toggleKnownClient() {
 }
 
 /* =========================================================================
-   5. [페이지 3] 일일 재고 현황 텍스트 파서 및 표 생성
+   5. [페이지 3] 일일 재고 현황 텍스트 파서 및 2열(한 페이지) 표 생성
    ========================================================================= */
 function parseAndApplyStock(goTab, skipSave) {
     const raw = document.getElementById('stockTextarea').value;
@@ -1201,17 +1220,14 @@ function parseAndApplyStock(goTab, skipSave) {
         }
     }
 
-    document.getElementById('stockTitleInfo').innerText = `📦 ${stockTitle}`;
-    const pill = document.getElementById('pillStock');
-    pill.innerText = `재고: ${stockItems.length}품목`;
-    pill.classList.add('ok');
+    const stockTitleEl = document.getElementById('stockTitleInfo'); if (stockTitleEl) stockTitleEl.innerText = `📦 ${stockTitle}`;
 
     renderStockTable();
     if (!skipSave) {
         saveStateToBrowser('일일 재고현황 적용');
     }
     if (goTab) {
-        switchTab('page3', document.querySelectorAll('.tab-btn')[2]);
+        switchTab('page5', document.querySelectorAll('.tab-btn')[3]);
     }
 }
 
@@ -1259,11 +1275,15 @@ function parseQtyTokens(itemObj, brandName, qtyStr) {
 }
 
 function renderStockTable() {
-    const tbody = document.getElementById('stockTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
+    const tbodyLeft = document.getElementById('stockTableBodyLeft');
+    const tbodyRight = document.getElementById('stockTableBodyRight');
+    if (!tbodyLeft || !tbodyRight) return;
+    tbodyLeft.innerHTML = '';
+    tbodyRight.innerHTML = '';
 
-    stockItems.forEach(item => {
+    const mid = Math.ceil(stockItems.length / 2);
+
+    stockItems.forEach((item, idx) => {
         const d = item.brands['대산'];
         const p = item.brands['포크'];
         const o = item.brands['기타'];
@@ -1271,18 +1291,19 @@ function renderStockTable() {
 
         const formatCell = (bObj) => {
             if (bObj.details.length === 0) return `<span class="num-zero">-</span>`;
-            return `<b>${bObj.boxes}박</b><br><small style="color:#555;">${bObj.details.map(escapeHtml).join(', ')}</small>`;
+            return `<b>${bObj.boxes}박</b> <small style="color:#555;">(${bObj.details.map(escapeHtml).join(', ')})</small>`;
         };
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><b style="color:var(--primary); font-size:13px;">${escapeHtml(item.name)}</b></td>
+            <td><b style="color:var(--primary);">${escapeHtml(item.name)}</b></td>
             <td>${formatCell(d)}</td>
             <td>${formatCell(p)}</td>
             <td>${formatCell(o)}</td>
-            <td style="font-size:13px;"><b>총 ${total}박</b></td>
+            <td><b>총 ${total}박</b></td>
         `;
-        tbody.appendChild(tr);
+        if (idx < mid) tbodyLeft.appendChild(tr);
+        else tbodyRight.appendChild(tr);
     });
 }
 
@@ -1460,7 +1481,6 @@ function computeOrderAggregation() {
     orders.forEach(ord => {
         const txt = ord.content;
 
-        // 취소/삭제/패스 메시지면 해당 품목 수량 차감 처리
         if (/취소|삭제|빼달|패스/.test(txt) && !/반품/.test(txt)) {
             txt.split('\n').forEach(line => {
                 if (/취소|삭제|빼달|패스/.test(line)) {
@@ -1487,7 +1507,6 @@ function computeOrderAggregation() {
         if (/대산꺼로|대산으로/.test(txt)) msgDefaultBrand = '대산';
         else if (/포크로|농협/.test(txt)) msgDefaultBrand = '포크';
 
-        // 동일 거래처의 중복 예약 알림 재발송 방지 시그니처 체크
         const lineResults = [];
         lines.forEach(line => {
             const parsed = parseOrderLineQuantities(line);
@@ -1528,19 +1547,23 @@ function computeOrderAggregation() {
 }
 
 /* =========================================================================
-   7. [페이지 4] 일일 발주 현황표 렌더링
+   7. [페이지 4] 일일 발주 현황표 렌더링 (재고목록과 동일하게 2열 한페이지 보기)
    ========================================================================= */
 function renderOrderSummaryTable() {
-    const tbody = document.getElementById('orderSummaryTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
+    const tbodyLeft = document.getElementById('orderSummaryTableBodyLeft');
+    const tbodyRight = document.getElementById('orderSummaryTableBodyRight');
+    if (!tbodyLeft || !tbodyRight) return;
+    tbodyLeft.innerHTML = '';
+    tbodyRight.innerHTML = '';
 
     const tDate = document.getElementById('orderTargetDate').value || '전체';
     document.getElementById('orderSummaryDateInfo').innerText = `[납품 기준일: ${tDate}]`;
 
     const summaryMap = computeOrderAggregation();
+    const keys = Object.keys(summaryMap);
+    const mid = Math.ceil(keys.length / 2);
 
-    Object.keys(summaryMap).forEach(itemName => {
+    keys.forEach((itemName, idx) => {
         const g = summaryMap[itemName];
         const d = g['대산'], p = g['포크'], o = g['기타'];
         const totBox = d.orderBox + p.orderBox + o.orderBox;
@@ -1549,22 +1572,23 @@ function renderOrderSummaryTable() {
         const formatOrderCell = (bObj) => {
             if (bObj.orderBox === 0 && bObj.orderPack === 0) return `<span class="num-zero">0박</span>`;
             let head = `<b style="color:var(--accent);">${bObj.orderBox}박</b>`;
-            if (bObj.orderPack > 0) head += ` <b style="color:var(--warn);">+ ${bObj.orderPack}팩(건)</b>`;
+            if (bObj.orderPack > 0) head += ` <b style="color:var(--warn);">+${bObj.orderPack}팩</b>`;
             return `${head}<br><small style="color:#4b5563;">${bObj.clients.map(escapeHtml).join(', ')}</small>`;
         };
 
         let totStr = `<b>총 ${totBox}박</b>`;
-        if (totPack > 0) totStr += `<br><small style="color:var(--warn); font-weight:bold;">+ ${totPack}팩(건)</small>`;
+        if (totPack > 0) totStr += `<br><small style="color:var(--warn); font-weight:bold;">+${totPack}팩</small>`;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><b style="color:var(--primary); font-size:13px;">${escapeHtml(itemName)}</b></td>
+            <td><b style="color:var(--primary);">${escapeHtml(itemName)}</b></td>
             <td>${formatOrderCell(d)}</td>
             <td>${formatOrderCell(p)}</td>
             <td>${formatOrderCell(o)}</td>
-            <td style="font-size:13px;">${totStr}</td>
+            <td>${totStr}</td>
         `;
-        tbody.appendChild(tr);
+        if (idx < mid) tbodyLeft.appendChild(tr);
+        else tbodyRight.appendChild(tr);
     });
 }
 
@@ -1595,6 +1619,292 @@ function downloadOrderSummaryCsv() {
         csv += `"${itemName}",${d.orderBox},"${d.clients.join(' / ')}",${p.orderBox},"${p.clients.join(' / ')}",${o.orderBox},"${o.clients.join(' / ')}",${totBox},${totPack}\n`;
     });
     downloadBlob(csv, "미트포앤_일일발주현황표.csv");
+}
+
+
+/* =========================================================================
+   7-B. [페이지 3] 당일 낱개·소분·작업 목록 추출 및 6열 바둑판 관리
+   ========================================================================= */
+let looseTypeFilter = localStorage.getItem('mf_loose_type') || 'ALL';     // 'ALL' | 'WORK' | 'SIMPLE'
+let looseGroupMode = localStorage.getItem('mf_loose_group') || 'client';  // 'client' | 'item' | 'vehicle'
+let looseDoneMap = {};
+try { looseDoneMap = JSON.parse(localStorage.getItem('mf_loose_done') || '{}'); } catch (e) {}
+
+const LOOSE_UNIT_REGEX = /(?:0\.5박스|\d+(?:\.\d+)?\s*(?:팩|펙|판|봉지|봉|덩어리|덩이|진공|벌|두|마리분|마리|피스|p|개|키로|kg|킬|k)(?![a-zA-Z가-힣]))/i;
+const WORK_KEYWORD_REGEX = /작업|슬라이스|세절|절단|제육|찌개|찌게|대패|수육|구이용|구이반|깍뚝|반반|소분|다짐|민찌|미리작업|썰어|등분|갈라|쪼개/i;
+
+function detectLooseCategoryName(lineText, fallbackName) {
+    const matched = matchLineItemsClean(lineText);
+    if (matched.length > 0) return matched[0].key;
+    if (/우삼겹|차돌/.test(lineText)) return '우삼겹·차돌';
+    if (/갈비살|늑간|살치|부채|홍두깨|설도|사골|우족|잡뼈|아롱|척갈비/.test(lineText)) return '소고기·기타';
+    if (/목전지|볼라/.test(lineText)) return '목전지·전각';
+    if (/장족|미니족|족발/.test(lineText)) return '장족·미니족';
+    if (/돈피|껍데기|오돌뼈|덜미|덧살|민찌|모돈|왕구이/.test(lineText)) return '부산물·특수부위';
+    if (/테니쉬|데니쉬|두메코|올리멜|토레인|바텔|고원돈|셀렉타|수입/.test(lineText)) return '수입돈육';
+    return fallbackName || '기타품목';
+}
+
+function getFilteredLooseEntries() {
+    const orders = getFilteredOrderList(true);
+    const entries = [];
+
+    orders.forEach(ord => {
+        const txt = ord.content || '';
+        if (/취소|삭제|빼달|패스/.test(txt) && !/반품/.test(txt)) return;
+
+        const rawLines = txt.split('\n');
+        let lastCategoryName = '';
+
+        rawLines.forEach((rawLine, lineIdx) => {
+            const line = rawLine.trim();
+            if (!line) return;
+            if (/반품|취소|삭제|빼달|패스/.test(line)) return;
+
+            const hasMeat = MEAT_ANY_REGEX.test(line);
+            const startsWithQtyOnly = /^\d+(?:\.\d+)?\s*(?:팩|펙|판|봉지|봉|덩어리|덩이|진공|벌|두|마리분|마리|피스|p|개|키로|kg|킬|k)/i.test(line);
+
+            if (!hasMeat && !(startsWithQtyOnly && lastCategoryName)) return;
+
+            const norm = line
+                .replace(/한박스/g, '1박스')
+                .replace(/한박/g, '1박')
+                .replace(/반박스/g, '0.5박스')
+                .replace(/한판/g, '1판')
+                .replace(/한덩이/g, '1덩이')
+                .replace(/한덩어리/g, '1덩어리')
+                .replace(/두마리분/g, '2마리분')
+                .replace(/한마리분/g, '1마리분')
+                .replace(/한마리반/g, '1마리분');
+
+            const noSpec = norm
+                .replace(/\d+(?:\.\d+)?\s*~\s*\d+(?:\.\d+)?\s*(?:키로|kg)?(?:대|이상)?/gi, ' ')
+                .replace(/\d+\s*(?:키로|kg)\s*(?:대|이상)/gi, ' ')
+                .replace(/(미삼|삼겹|암삼|암미삼|특삼|특미삼)\s*1[5-9]\s*(?:키로|kg)\s+(\d+)/gi, '$1 $2')
+                .replace(/\(\s*대략[^)]*\)/g, ' ');
+
+            if (!/\d/.test(noSpec) && !noSpec.includes('돈피')) return;
+
+            const catName = detectLooseCategoryName(line, lastCategoryName);
+            if (hasMeat) lastCategoryName = catName;
+
+            const hasLoose = LOOSE_UNIT_REGEX.test(noSpec);
+            const hasWork = WORK_KEYWORD_REGEX.test(noSpec);
+
+            if (hasLoose || hasWork) {
+                const entryKey = `${ord.itemKey}_L${lineIdx}_${line.substring(0, 14).replace(/\s+/g, '')}`;
+                const vCode = dispatchMap[ord.clientName] || 'UNASSIGNED';
+                let vLabel = '미배차';
+                if (vCode.startsWith('V')) {
+                    const vIdx = parseInt(vCode.substring(1), 10);
+                    vLabel = `${vIdx + 1}호차`;
+                } else if (vCode === 'PICKUP') {
+                    vLabel = '방문/택배';
+                }
+
+                entries.push({
+                    entryKey,
+                    clientName: ord.clientName,
+                    sender: formatSenderShortName(ord.sender),
+                    timeStr: ord.timeStr,
+                    delivShort: ord.delivShort,
+                    category: catName,
+                    lineText: line,
+                    isWork: hasWork,
+                    vCode,
+                    vLabel,
+                    isDone: Boolean(looseDoneMap[entryKey])
+                });
+            }
+        });
+    });
+
+    return entries;
+}
+
+function setLooseTypeFilter(mode) {
+    looseTypeFilter = mode;
+    localStorage.setItem('mf_loose_type', mode);
+    renderLooseItemsPage();
+}
+
+function setLooseGroupMode(mode) {
+    looseGroupMode = mode;
+    localStorage.setItem('mf_loose_group', mode);
+    renderLooseItemsPage();
+}
+
+function toggleLooseEntryDone(entryKey) {
+    looseDoneMap[entryKey] = !looseDoneMap[entryKey];
+    if (!looseDoneMap[entryKey]) delete looseDoneMap[entryKey];
+    localStorage.setItem('mf_loose_done', JSON.stringify(looseDoneMap));
+    recordLastUpdatedTime('낱개 작업 체크');
+    renderLooseItemsPage();
+}
+
+function clearLooseChecks() {
+    if (!confirm('현재 체크된 낱개 완료 표시를 모두 해제할까요?')) return;
+    looseDoneMap = {};
+    localStorage.removeItem('mf_loose_done');
+    renderLooseItemsPage();
+}
+
+function renderLooseItemsPage() {
+    const grid = document.getElementById('looseTileGrid');
+    const statsEl = document.getElementById('looseStats');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const allEntries = getFilteredLooseEntries();
+    const workCnt = allEntries.filter(e => e.isWork).length;
+    const simpleCnt = allEntries.filter(e => !e.isWork).length;
+    const doneCnt = allEntries.filter(e => e.isDone).length;
+
+    const btnAll = document.getElementById('btnLooseTypeAll');
+    const btnWork = document.getElementById('btnLooseTypeWork');
+    const btnSimple = document.getElementById('btnLooseTypeSimple');
+    if (btnAll) { btnAll.classList.toggle('active', looseTypeFilter === 'ALL'); btnAll.innerText = `전체 (${allEntries.length})`; }
+    if (btnWork) { btnWork.classList.toggle('active', looseTypeFilter === 'WORK'); btnWork.innerText = `🔪 작업·세절만 (${workCnt})`; }
+    if (btnSimple) { btnSimple.classList.toggle('active', looseTypeFilter === 'SIMPLE'); btnSimple.innerText = `⚖️ 단순 낱개만 (${simpleCnt})`; }
+
+    const btnGC = document.getElementById('btnLooseGroupClient');
+    const btnGI = document.getElementById('btnLooseGroupItem');
+    const btnGV = document.getElementById('btnLooseGroupVehicle');
+    if (btnGC) btnGC.classList.toggle('active', looseGroupMode === 'client');
+    if (btnGI) btnGI.classList.toggle('active', looseGroupMode === 'item');
+    if (btnGV) btnGV.classList.toggle('active', looseGroupMode === 'vehicle');
+
+    const filtered = allEntries.filter(e => {
+        if (looseTypeFilter === 'WORK') return e.isWork;
+        if (looseTypeFilter === 'SIMPLE') return !e.isWork;
+        return true;
+    });
+
+    if (statsEl) {
+        statsEl.innerText = `🔪 당일 낱개·작업 목록: 총 ${filtered.length}건 (완료 ${doneCnt}/${allEntries.length}건)`;
+    }
+
+    if (filtered.length === 0) {
+        grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:24px; color:#6b7280; background:#fff; border-radius:8px; border:1px solid var(--border);">선택하신 기준일에 해당하는 낱개·작업 주문이 없습니다.</div>`;
+        return;
+    }
+
+    // Group entries by client / item / vehicle
+    const groupMap = new Map();
+    filtered.forEach(e => {
+        let gKey = e.clientName;
+        let gSub = e.vLabel;
+        let topColor = '#1f4e79';
+
+        if (looseGroupMode === 'item') {
+            gKey = e.category;
+            gSub = '품목별 묶음';
+            topColor = '#047857';
+        } else if (looseGroupMode === 'vehicle') {
+            gKey = e.vCode;
+            gSub = '배차 호차별';
+            if (e.vCode.startsWith('V')) {
+                const idx = parseInt(e.vCode.substring(1), 10);
+                topColor = VEHICLE_COLORS[idx] || '#1f4e79';
+            } else {
+                topColor = '#4b5563';
+            }
+        } else {
+            if (e.vCode.startsWith('V')) {
+                const idx = parseInt(e.vCode.substring(1), 10);
+                topColor = VEHICLE_COLORS[idx] || '#1f4e79';
+            }
+        }
+
+        if (!groupMap.has(gKey)) {
+            let titleText = gKey;
+            if (looseGroupMode === 'vehicle') {
+                if (gKey.startsWith('V')) {
+                    titleText = vehicleNames[parseInt(gKey.substring(1), 10)] || gKey;
+                } else if (gKey === 'PICKUP') {
+                    titleText = '📦 직접방문 / 택배';
+                } else {
+                    titleText = '⚠️ 미배차';
+                }
+            }
+            groupMap.set(gKey, { title: titleText, sub: gSub, color: topColor, items: [] });
+        }
+        groupMap.get(gKey).items.push(e);
+    });
+
+    const groups = Array.from(groupMap.values());
+    if (looseGroupMode === 'client') {
+        groups.sort((a, b) => a.title.localeCompare(b.title, 'ko'));
+    }
+
+    groups.forEach(grp => {
+        const doneInGrp = grp.items.filter(x => x.isDone).length;
+        let rowsHtml = '';
+        grp.items.forEach(it => {
+            const tagHtml = it.isWork
+                ? `<span class="loose-tag-work">작업</span>`
+                : `<span class="loose-tag-simple">낱개</span>`;
+            const prefixLabel = (looseGroupMode !== 'client')
+                ? `<b style="color:var(--primary);">[${escapeHtml(it.clientName)}]</b> `
+                : '';
+            const rowCls = `loose-row ${it.isWork ? 'is-work' : ''} ${it.isDone ? 'is-done' : ''}`;
+            rowsHtml += `
+                <label class="${rowCls}">
+                    <input type="checkbox" ${it.isDone ? 'checked' : ''} onchange="toggleLooseEntryDone('${escapeHtml(it.entryKey)}')">
+                    <span>${tagHtml} ${prefixLabel}${escapeHtml(it.lineText)}</span>
+                </label>
+            `;
+        });
+
+        const card = document.createElement('div');
+        card.className = 'order-tile-card';
+        card.style.borderTopColor = grp.color;
+        card.innerHTML = `
+            <div class="order-tile-head">
+                <div class="order-tile-meta">
+                    <span style="font-weight:bold; color:${grp.color};">${escapeHtml(grp.sub)}</span>
+                    <span>${doneInGrp}/${grp.items.length} 완료</span>
+                </div>
+                <div class="order-tile-client">${escapeHtml(grp.title)}</div>
+            </div>
+            <div class="loose-item-list">${rowsHtml}</div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function copyKakaoLooseListText() {
+    const entries = getFilteredLooseEntries();
+    if (entries.length === 0) {
+        alert('복사할 당일 낱개 목록이 없습니다.');
+        return;
+    }
+    const tDate = document.getElementById('orderTargetDate').value || '';
+    const byClient = new Map();
+    entries.forEach(e => {
+        if (!byClient.has(e.clientName)) byClient.set(e.clientName, []);
+        byClient.get(e.clientName).push(`${e.isWork ? '[작업]' : ''}${e.lineText}`);
+    });
+
+    const lines = [`[낱개·작업 목록 ${toShortDate(tDate)}]`];
+    byClient.forEach((items, cName) => {
+        lines.push(`\n${cName}`);
+        items.forEach(it => lines.push(`- ${it}`));
+    });
+
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+        alert(`카톡용 낱개·작업 목록(${entries.length}건)이 클립보드에 복사되었습니다!`);
+    });
+}
+
+function downloadLooseCsv() {
+    const entries = getFilteredLooseEntries();
+    let csv = "\uFEFF납품일,배차차량,거래처명,품목분류,구분,낱개주문내용,완료여부\n";
+    entries.forEach(e => {
+        const clean = e.lineText.replace(/"/g, '""');
+        csv += `"${e.delivShort}","${e.vLabel}","${e.clientName}","${e.category}","${e.isWork ? '작업·세절' : '단순낱개'}","${clean}","${e.isDone ? '완료' : '대기'}"\n`;
+    });
+    downloadBlob(csv, "미트포앤_당일낱개목록.csv");
 }
 
 /* =========================================================================
@@ -1648,12 +1958,75 @@ function downloadDiffCsv() {
 }
 
 /* =========================================================================
-   9. [페이지 6] 권역(Zone) 클러스터링 · 최적 동선 · 6대 기사별 바둑판 배차
+   9. [페이지 6] 권역·동선 · 냉장창고 4곳 · VWorld 지도 · 6열 기사배차 & 6열 전체배정
    ========================================================================= */
-function countOrderBoxesAndLoose(orderText) {
+const WAREHOUSE_ORIGIN = { name: "미트포앤 출발거점 (안산 선부·시흥 하상)", lat: 37.3445, lng: 126.8115 };
+const VWORLD_API_KEY = "3351CCD7-07E8-40AB-97D0-243A592B74C3";
+const VEHICLE_COLORS = ["#be123c", "#b45309", "#047857", "#1d4ed8", "#0369a1", "#6d28d9"];
+
+let geoCache = {};
+try { geoCache = JSON.parse(localStorage.getItem('mf_geo_cache') || '{}'); } catch (e) {}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371.0;
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function estimateFallbackCoords(clientName, addr) {
+    const s = `${clientName} ${addr}`;
+    if (/음성|맹동|충북|진천|청주/.test(s)) return { lat: 36.9380, lng: 127.5350 };
+    if (/평택|동삭/.test(s)) return { lat: 37.0150, lng: 127.0950 };
+    if (/오산|외삼미|동탄|반송동|병점|진안/.test(s)) return { lat: 37.1850, lng: 127.0750 };
+    if (/매송|비봉|태광|유포리|향남/.test(s)) return { lat: 37.2650, lng: 126.9050 };
+    if (/의정부|매일정육점/.test(s)) return { lat: 37.7380, lng: 127.0450 };
+    if (/구리|프리미엄정육점/.test(s)) return { lat: 37.5940, lng: 127.1300 };
+    if (/광진|구의|아차산|정성마트/.test(s)) return { lat: 37.5450, lng: 127.0880 };
+    if (/고양|일산|화정|덕양|원신산업|효자축산/.test(s)) return { lat: 37.6580, lng: 126.8320 };
+    if (/성남|분당|판교|삼평|대장동|중원|푸른목장|1등축산|아이비유통/.test(s)) return { lat: 37.3940, lng: 127.1110 };
+    if (/용인|기흥|공세동|동백|한돈미트|엔마트|주식회사정육점/.test(s)) return { lat: 37.2450, lng: 127.1150 };
+    if (/수원|율전|영화동|권선|영통|이의동|차이나|구들장|린이네.*본점/.test(s)) return { lat: 37.2750, lng: 127.0350 };
+    if (/의왕|장안중앙|고기바보장안|안양|평촌/.test(s)) return { lat: 37.3450, lng: 126.9680 };
+    if (/군포|산본|금정|도마교|부곡동|송정|고기바보부곡|고기바보송정|거시기|돌쇠구이/.test(s)) return { lat: 37.3580, lng: 126.9350 };
+    if (/동작|상도|성대/.test(s)) return { lat: 37.5030, lng: 126.9480 };
+    if (/관악|봉천|한양봉천|용산|농우축산/.test(s)) return { lat: 37.4820, lng: 126.9520 };
+    if (/영등포|양평동|신길동.*래미안|신풍푸줏간|삼대축산/.test(s)) return { lat: 37.5150, lng: 126.9050 };
+    if (/금천|가산|시흥동|가리봉|참새방앗간|소문난정육점|대박축산금천|현대축산/.test(s)) return { lat: 37.4650, lng: 126.8950 };
+    if (/강서|화곡|하늘소화곡|양천|신정동|대반전/.test(s)) return { lat: 37.5350, lng: 126.8450 };
+    if (/광명|철산|소하|하늘소광명|광명꿀|토종축산|안심한우|장군축산|대박마포/.test(s)) return { lat: 37.4780, lng: 126.8660 };
+    if (/부천|원미|소사|오정|상동|심곡|역곡|원종|김치왕|하늘소역곡|원대성|맛있는한우/.test(s)) return { lat: 37.4850, lng: 126.8110 };
+    if (/부평|십정|일신|산곡|신박축산|막뚱이|형제정육점1호점/.test(s)) return { lat: 37.4950, lng: 126.7150 };
+    if (/미추홀|주안|에이스미트주안|인천\s*동구|화평동|횡성.*인천/.test(s)) return { lat: 37.4650, lng: 126.6750 };
+    if (/연수|동춘|옥련|오복정육/.test(s)) return { lat: 37.4100, lng: 126.6700 };
+    if (/남동|서창|논현|별빛|한우세상|sk축산/i.test(s)) return { lat: 37.4250, lng: 126.7450 };
+    if (/대부/.test(s)) return { lat: 37.2450, lng: 126.5850 };
+    if (/거모|정왕|배곧|좋은축산|오빠막창|덕이네|까만돼지|전라도|옥이네|찌그러진|장터국밥|두근반|이모네|천하제일/.test(s)) return { lat: 37.3460, lng: 126.7350 };
+    if (/신천|은행동|은계|포동|참예소|맛닭꼬치|골목대장|전설은행|도담|한결축산/.test(s)) return { lat: 37.4350, lng: 126.7880 };
+    if (/시흥|하상|하중|장곡|능곡|목감|인화|곱창연가|다연|여기식당|청정맛집|오늘은냉삼|국민생고기|얼음막걸리/.test(s)) return { lat: 37.3810, lng: 126.8050 };
+    if (/본오|건건|반월|수암|본오농민|삼겹연구소|원산면옥|고기앤장어|으뜸장어|더갈비|상미.*반월|우리축산/.test(s)) return { lat: 37.2980, lng: 126.8620 };
+    if (/사동|이동|일동|와동|성포|월피|한마음|오늘은고기다|다온|스타마트|오소돈|한상궁|슈퍼킹|바른|삼사오|예서/.test(s)) return { lat: 37.3180, lng: 126.8350 };
+    if (/초지|고잔|새솔|풍년|큐엔씨|농민.*고잔|구워랑/.test(s)) return { lat: 37.3120, lng: 126.8120 };
+    if (/선부|신길|삼부자|대패나라|갈비면옥|백봉|횡성본점|사동쌈엔쌈|쌈엔쌈|샛터|신길양평/.test(s)) return { lat: 37.3350, lng: 126.8090 };
+    return { lat: 37.3445, lng: 126.8115 };
+}
+
+function getCoordsForClient(clientName, addr) {
+    const cacheKey = (addr && addr.trim()) ? addr.trim() : clientName;
+    if (geoCache[cacheKey]) {
+        return { ...geoCache[cacheKey], exact: true };
+    }
+    const est = estimateFallbackCoords(clientName, addr);
+    return { ...est, exact: false };
+}
+
+function countOrderBoxesLooseAndItems(orderText) {
     const lines = orderText.split('\n').map(l => l.trim()).filter(Boolean);
     let totalBoxes = 0;
     let totalLoose = 0;
+    let itemCount = 0;
 
     lines.forEach((line, idx) => {
         if (/반품|취소|삭제|빼달|패스/.test(line)) return;
@@ -1684,6 +2057,7 @@ function countOrderBoxesAndLoose(orderText) {
         s = s.replace(/두마리분/g, '2마리분').replace(/한마리분/g, '1마리분').replace(/한마리반/g, '1마리분');
 
         if (!MEAT_ANY_REGEX.test(s)) return;
+        itemCount++;
 
         if (parenBoxOverride) {
             totalBoxes += parseInt(parenBoxOverride[1], 10);
@@ -1710,7 +2084,7 @@ function countOrderBoxesAndLoose(orderText) {
         }
     });
 
-    return { boxes: totalBoxes, loose: totalLoose };
+    return { boxes: totalBoxes, loose: totalLoose, items: itemCount };
 }
 
 function analyzeZoneAndRoute(clientName, addr, orderTextsCombined) {
@@ -1820,12 +2194,13 @@ function analyzeZoneAndRoute(clientName, addr, orderTextsCombined) {
 
 function renderVehicleConfigInputs() {
     const grid = document.getElementById('vehicleConfigGrid');
+    if (!grid) return;
     grid.innerHTML = '';
     for (let i = 0; i < 6; i++) {
         const div = document.createElement('div');
         div.className = 'vehicle-config-item';
         div.innerHTML = `
-            <span>🚚 ${i + 1}호차 기사/권역명</span>
+            <span>🚚 ${i + 1}호차 기사/권역</span>
             <input type="text" value="${escapeHtml(vehicleNames[i])}" onchange="updateVehicleName(${i}, this.value)">
         `;
         grid.appendChild(div);
@@ -1839,15 +2214,39 @@ function updateVehicleName(idx, newVal) {
     renderDispatchPage();
 }
 
-function formatBoxLooseSummary(boxes, loose) {
-    if (boxes > 0 && loose > 0) {
-        return `<b style="color:var(--primary); font-size:12.5px;">📦 ${boxes}박스</b> <span style="color:#9ca3af;">/</span> <b style="color:var(--warn); font-size:12.5px;">낱개 ${loose}</b>`;
-    } else if (boxes > 0) {
-        return `<b style="color:var(--primary); font-size:12.5px;">📦 ${boxes}박스</b>`;
-    } else if (loose > 0) {
-        return `<b style="color:var(--warn); font-size:12.5px;">낱개 ${loose}</b>`;
-    }
-    return `<span class="num-zero">-</span>`;
+/* 냉장창고 4곳 설정 렌더링 및 제어 */
+function renderColdStorageInputs() {
+    const grid = document.getElementById('coldStorageGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    coldStorages.forEach((cs, idx) => {
+        let opts = `<option value="NONE" ${cs.assigned === 'NONE' ? 'selected' : ''}>경유안함</option>`;
+        for (let v = 0; v < 6; v++) {
+            const code = `V${v}`;
+            opts += `<option value="${code}" ${cs.assigned === code ? 'selected' : ''}>${v + 1}호차</option>`;
+        }
+        const card = document.createElement('div');
+        card.className = 'cs-slot-card';
+        card.innerHTML = `
+            <div class="cs-slot-top">
+                <input type="text" value="${escapeHtml(cs.name)}" placeholder="냉장창고 ${idx + 1}" onchange="updateColdStorage(${idx}, 'name', this.value)" title="냉장창고 이름">
+                <select onchange="updateColdStorage(${idx}, 'assigned', this.value)" title="경유할 차량 선택">
+                    ${opts}
+                </select>
+            </div>
+            <input type="text" class="cs-slot-addr" value="${escapeHtml(cs.addr)}" placeholder="주소 입력 (지도 표시용)" onchange="updateColdStorage(${idx}, 'addr', this.value)">
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function updateColdStorage(idx, field, val) {
+    if (!coldStorages[idx]) return;
+    coldStorages[idx][field] = val.trim();
+    localStorage.setItem('mf_cold_storages', JSON.stringify(coldStorages));
+    recordLastUpdatedTime('냉장창고 경유 설정 변경');
+    renderDispatchPage();
 }
 
 function getAggregatedDeliveryDestinations() {
@@ -1865,14 +2264,16 @@ function getAggregatedDeliveryDestinations() {
                 note: ord.clientObj ? ord.clientObj.note : '',
                 totalBoxes: 0,
                 totalLoose: 0,
+                itemCount: 0,
                 isUrgent: false,
                 rawContents: []
             });
         }
         const entry = destMap.get(key);
-        const cnt = countOrderBoxesAndLoose(ord.content);
+        const cnt = countOrderBoxesLooseAndItems(ord.content);
         entry.totalBoxes += cnt.boxes;
         entry.totalLoose += cnt.loose;
+        entry.itemCount += cnt.items;
         entry.rawContents.push(ord.content);
         if (/급|일찍|오전|10시|11시/.test(ord.content)) entry.isUrgent = true;
     });
@@ -1886,18 +2287,15 @@ function getAggregatedDeliveryDestinations() {
         d.stopOrder = routeInfo.stopOrder;
         d.zoneColor = routeInfo.color;
 
+        const coords = getCoordsForClient(d.clientName, d.addr);
+        d.lat = coords.lat;
+        d.lng = coords.lng;
+        d.isExactCoord = coords.exact;
+        d.distKm = haversineKm(WAREHOUSE_ORIGIN.lat, WAREHOUSE_ORIGIN.lng, d.lat, d.lng);
+
         if (!dispatchMap[d.clientName]) {
             dispatchMap[d.clientName] = d.zoneCode;
         }
-    });
-
-    destList.sort((a, b) => {
-        const va = dispatchMap[a.clientName] || a.zoneCode;
-        const vb = dispatchMap[b.clientName] || b.zoneCode;
-        if (va !== vb) return va.localeCompare(vb);
-        if (a.stopOrder !== b.stopOrder) return a.stopOrder - b.stopOrder;
-        if (a.isUrgent !== b.isUrgent) return a.isUrgent ? -1 : 1;
-        return a.clientName.localeCompare(b.clientName);
     });
 
     return destList;
@@ -1926,183 +2324,188 @@ function resetCurrentDispatch() {
     renderDispatchPage();
 }
 
-function buildVehicleSelectOptionsHtml(curVal) {
-    let optionsHtml = `<option value="UNASSIGNED" ${curVal==='UNASSIGNED'?'selected':''}>-- 미배차 --</option>`;
-    for (let i = 0; i < 6; i++) {
-        const vCode = `V${i}`;
-        optionsHtml += `<option value="${vCode}" ${curVal===vCode?'selected':''}>🚚 ${escapeHtml(vehicleNames[i])}</option>`;
+function setDispatchSortMode(mode) {
+    dispatchSortMode = mode;
+    localStorage.setItem('mf_dispatch_sort', mode);
+    renderDispatchPage();
+}
+
+function toggleAddressDrawer(drawerId, lat, lng, label) {
+    const el = document.getElementById(drawerId);
+    if (el) {
+        el.classList.toggle('open');
     }
-    optionsHtml += `<option value="PICKUP" ${curVal==='PICKUP'?'selected':''}>📦 직접방문/택배</option>`;
-    return optionsHtml;
+    if (vworldMapInstance && lat && lng) {
+        vworldMapInstance.setView([lat, lng], 14);
+    }
 }
 
 function renderDispatchPage() {
     const destinations = getAggregatedDeliveryDestinations();
-    const board = document.getElementById('dispatchBoardGrid');
-    const statBar = document.getElementById('vehicleStatBar');
-    if (!board || !statBar) return;
-    board.innerHTML = '';
-    statBar.innerHTML = '';
+    const driverGrid = document.getElementById('driverSixColGrid');
+    const allDestGrid = document.getElementById('allDestSixGrid');
+    const pickupBadge = document.getElementById('pickupSummaryBadge');
+    const allCountInfo = document.getElementById('allDestCountInfo');
+    if (!driverGrid || !allDestGrid) return;
 
-    const stats = {
-        'ALL': { cnt: destinations.length, box: 0, loose: 0 },
-        'UNASSIGNED': { cnt: 0, box: 0, loose: 0 },
-        'PICKUP': { cnt: 0, box: 0, loose: 0 }
-    };
-    for (let i = 0; i < 6; i++) stats[`V${i}`] = { cnt: 0, box: 0, loose: 0 };
+    driverGrid.innerHTML = '';
+    allDestGrid.innerHTML = '';
 
-    destinations.forEach(d => {
-        const assigned = dispatchMap[d.clientName] || 'UNASSIGNED';
-        const target = stats[assigned] || stats['UNASSIGNED'];
-        target.cnt++;
-        target.box += d.totalBoxes;
-        target.loose += d.totalLoose;
-        stats['ALL'].box += d.totalBoxes;
-        stats['ALL'].loose += d.totalLoose;
-    });
-
-    const chips = [
-        { code: 'ALL', label: `전체 바둑판 (${stats['ALL'].cnt}곳 · 📦${stats['ALL'].box}박/낱${stats['ALL'].loose})` },
-        ...vehicleNames.map((vName, idx) => {
-            const st = stats[`V${idx}`] || { cnt: 0, box: 0, loose: 0 };
-            return { code: `V${idx}`, label: `${vName} (${st.cnt}곳 · 📦${st.box}박/낱${st.loose})` };
-        }),
-        { code: 'PICKUP', label: `방문/택배 (${stats['PICKUP'].cnt}곳 · 📦${stats['PICKUP'].box}박)` },
-        { code: 'UNASSIGNED', label: `미배차 (${stats['UNASSIGNED'].cnt}곳)` }
-    ];
-
-    chips.forEach(ch => {
-        const span = document.createElement('span');
-        span.className = 'v-stat-chip' + (selectedVehicleFilter === ch.code ? ' active' : '');
-        span.innerText = ch.label;
-        span.onclick = () => { selectedVehicleFilter = ch.code; renderDispatchPage(); };
-        statBar.appendChild(span);
-    });
-
-    if (destinations.length === 0) {
-        board.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:24px; color:#888; background:#fff; border-radius:8px; border:1px solid var(--border);">조건에 해당하는 당일 납품처가 없습니다.</div>`;
-        return;
+    // 1. 상단: 기사별 배차 거래처 목록 (6열 바둑판: 거래처 이름만 + 옆에 [📍주소] 버튼)
+    const pickupList = destinations.filter(d => (dispatchMap[d.clientName] || 'UNASSIGNED') === 'PICKUP');
+    const unassignedList = destinations.filter(d => (dispatchMap[d.clientName] || 'UNASSIGNED') === 'UNASSIGNED');
+    if (pickupBadge) {
+        pickupBadge.innerText = `📦 직접방문/택배: ${pickupList.length}곳 | ⚠️ 미배차: ${unassignedList.length}곳`;
     }
 
-    if (selectedVehicleFilter === 'ALL') {
-        const groups = [];
-        for (let i = 0; i < 6; i++) {
-            const vCode = `V${i}`;
-            groups.push({
-                code: vCode,
-                title: `🚚 ${vehicleNames[i]}`,
-                headerClass: '',
-                items: destinations.filter(d => (dispatchMap[d.clientName] || 'UNASSIGNED') === vCode),
-                stat: stats[vCode]
-            });
-        }
-        const pickupItems = destinations.filter(d => (dispatchMap[d.clientName] || 'UNASSIGNED') === 'PICKUP');
-        if (pickupItems.length > 0) {
-            groups.push({
-                code: 'PICKUP',
-                title: '📦 직접방문 / 택배',
-                headerClass: 'pickup',
-                items: pickupItems,
-                stat: stats['PICKUP']
-            });
-        }
-        const unassignedItems = destinations.filter(d => (dispatchMap[d.clientName] || 'UNASSIGNED') === 'UNASSIGNED');
-        if (unassignedItems.length > 0) {
-            groups.push({
-                code: 'UNASSIGNED',
-                title: '⚠️ 미배차 거래처',
-                headerClass: 'unassigned',
-                items: unassignedItems,
-                stat: stats['UNASSIGNED']
-            });
+    for (let i = 0; i < 6; i++) {
+        const vCode = `V${i}`;
+        const vColor = VEHICLE_COLORS[i];
+
+        // 해당 호차에 배정된 일반 거래처 (동선 순서 정렬)
+        const vStops = destinations
+            .filter(d => (dispatchMap[d.clientName] || 'UNASSIGNED') === vCode)
+            .sort((a, b) => a.stopOrder - b.stopOrder || a.distKm - b.distKm);
+
+        // 해당 호차에 배정된 냉장창고
+        const vColdStorages = coldStorages.filter(cs => cs.assigned === vCode && cs.name.trim());
+
+        const totBox = vStops.reduce((acc, x) => acc + x.totalBoxes, 0);
+        const totLoose = vStops.reduce((acc, x) => acc + x.totalLoose, 0);
+
+        let rowsHtml = '';
+        let seq = 0;
+
+        // 냉장창고 먼저/함께 표기
+        vColdStorages.forEach((cs, cIdx) => {
+            seq++;
+            const csCoords = getCoordsForClient(cs.name, cs.addr);
+            const drawerId = `drv_cs_${vCode}_${cIdx}`;
+            rowsHtml += `
+                <div class="driver-client-row is-cold">
+                    <div class="driver-client-main">
+                        <span class="driver-client-name">
+                            <b style="color:#0e7490;">#${seq}</b> ❄️ ${escapeHtml(cs.name)}
+                        </span>
+                        <button type="button" class="addr-toggle-btn" onclick="toggleAddressDrawer('${drawerId}', ${csCoords.lat}, ${csCoords.lng}, '${escapeHtml(cs.name)}')">📍주소</button>
+                    </div>
+                    <div id="${drawerId}" class="addr-drawer">
+                        📍 ${escapeHtml(cs.addr || '주소 미입력')}
+                    </div>
+                </div>
+            `;
+        });
+
+        // 배차된 거래처 (거래처 이름만 + 옆에 [📍주소] 버튼)
+        vStops.forEach((d, sIdx) => {
+            seq++;
+            const drawerId = `drv_st_${vCode}_${sIdx}`;
+            const urgentMark = d.isUrgent ? `<span style="color:#dc2626; font-weight:bold;">⚡</span>` : '';
+            rowsHtml += `
+                <div class="driver-client-row" style="border-left-color:${vColor};">
+                    <div class="driver-client-main">
+                        <span class="driver-client-name">
+                            <b style="color:${vColor};">#${seq}</b> ${urgentMark}${escapeHtml(d.clientName)}
+                        </span>
+                        <button type="button" class="addr-toggle-btn" onclick="toggleAddressDrawer('${drawerId}', ${d.lat}, ${d.lng}, '${escapeHtml(d.clientName)}')">📍주소</button>
+                    </div>
+                    <div id="${drawerId}" class="addr-drawer">
+                        <div>📍 ${escapeHtml(d.addr || '주소 미등록 (clients.csv 로드 필요)')}</div>
+                        ${d.phone ? `<div>📞 ${escapeHtml(d.phone)}</div>` : ''}
+                        ${d.note ? `<div style="color:#b45309; font-weight:bold;">🔑 ${escapeHtml(d.note)}</div>` : ''}
+                        <div style="color:#047857; font-weight:bold; margin-top:2px;">📦 ${d.totalBoxes}박 / 낱개 ${d.totalLoose} (${d.distKm.toFixed(1)}km)</div>
+                    </div>
+                </div>
+            `;
+        });
+
+        if (seq === 0) {
+            rowsHtml = `<div style="text-align:center; padding:14px 4px; color:#9ca3af; font-size:10.5px;">배차 없음</div>`;
         }
 
-        groups.forEach(grp => {
-            const card = document.createElement('div');
-            card.className = 'driver-board-card';
+        const colCard = document.createElement('div');
+        colCard.className = 'driver-col-card';
+        colCard.innerHTML = `
+            <div class="driver-col-head" style="background:${vColor};">
+                <div class="driver-col-title" title="${escapeHtml(vehicleNames[i])}">${escapeHtml(vehicleNames[i])}</div>
+                <div class="driver-col-stat">${vStops.length}곳${vColdStorages.length > 0 ? `+냉창${vColdStorages.length}` : ''} · 📦${totBox}박/낱${totLoose}</div>
+            </div>
+            <div class="driver-col-body">${rowsHtml}</div>
+        `;
+        driverGrid.appendChild(colCard);
+    }
 
-            let stopsHtml = '';
-            if (grp.items.length === 0) {
-                stopsHtml = `<div style="text-align:center; padding:16px; color:#9ca3af; font-size:11.5px;">배차된 거래처 없음</div>`;
-            } else {
-                grp.items.forEach((d, sIdx) => {
-                    const curVal = dispatchMap[d.clientName] || 'UNASSIGNED';
-                    const isAssignedClass = (curVal !== 'UNASSIGNED') ? 'assigned' : '';
-                    let urgentBadge = d.isUrgent ? `<span class="badge b-urgent">급/오전</span>` : '';
-                    let addrLine = d.addr ? `📍 ${escapeHtml(d.addr)}` : `<span style="color:#9ca3af;">📍 clients.csv 로드 시 주소표시</span>`;
-                    if (d.note) addrLine += ` <b style="color:#b45309;">[🔑 ${escapeHtml(d.note)}]</b>`;
+    // 2. 하단: 전체 배송처별 기사 배정 (6열 바둑판 + 3가지 정렬: 가나다순 / 시점부터 먼거리순 / 품목많은 순)
+    const btnName = document.getElementById('btnSortName');
+    const btnDist = document.getElementById('btnSortDist');
+    const btnItems = document.getElementById('btnSortItems');
+    if (btnName) btnName.classList.toggle('active', dispatchSortMode === 'name');
+    if (btnDist) btnDist.classList.toggle('active', dispatchSortMode === 'distance');
+    if (btnItems) btnItems.classList.toggle('active', dispatchSortMode === 'items');
 
-                    stopsHtml += `
-                        <div class="stop-mini-card" style="border-left-color:${d.zoneColor};">
-                            <div class="stop-mini-top">
-                                <span class="stop-mini-name">
-                                    <b style="color:var(--primary);">#${sIdx + 1}</b> ${escapeHtml(d.clientName)}${urgentBadge}
-                                </span>
-                                <span style="font-size:10.5px; color:#4b5563; font-weight:bold;">${escapeHtml(d.subArea)}</span>
-                            </div>
-                            <div class="stop-mini-addr">${addrLine}</div>
-                            <div class="stop-mini-bottom">
-                                <span>${formatBoxLooseSummary(d.totalBoxes, d.totalLoose)}</span>
-                                <select class="dispatch-select ${isAssignedClass}" onchange="assignVehicle('${escapeHtml(d.clientName)}', this.value)" title="담당 차량 변경">
-                                    ${buildVehicleSelectOptionsHtml(curVal)}
-                                </select>
-                            </div>
-                        </div>
-                    `;
-                });
+    const sortedAll = [...destinations];
+    if (dispatchSortMode === 'name') {
+        sortedAll.sort((a, b) => a.clientName.localeCompare(b.clientName, 'ko'));
+    } else if (dispatchSortMode === 'distance') {
+        sortedAll.sort((a, b) => b.distKm - a.distKm || a.clientName.localeCompare(b.clientName, 'ko'));
+    } else if (dispatchSortMode === 'items') {
+        sortedAll.sort((a, b) => {
+            const scoreA = a.itemCount * 100 + a.totalBoxes * 10 + a.totalLoose;
+            const scoreB = b.itemCount * 100 + b.totalBoxes * 10 + b.totalLoose;
+            return scoreB - scoreA || a.clientName.localeCompare(b.clientName, 'ko');
+        });
+    }
+
+    if (allCountInfo) {
+        allCountInfo.innerText = `(총 ${sortedAll.length}곳 · 1~6호차 버튼 클릭 즉시 배정)`;
+    }
+
+    if (sortedAll.length === 0) {
+        allDestGrid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#888; background:#fff; border-radius:8px; border:1px solid var(--border);">조건에 해당하는 당일 배송처가 없습니다.</div>`;
+    } else {
+        sortedAll.forEach((d, idx) => {
+            const curVal = dispatchMap[d.clientName] || 'UNASSIGNED';
+            const drawerId = `all_dest_addr_${idx}`;
+            let topColor = '#64748b';
+            if (curVal.startsWith('V')) {
+                const vIdx = parseInt(curVal.substring(1), 10);
+                topColor = VEHICLE_COLORS[vIdx] || '#1f4e79';
+            } else if (curVal === 'PICKUP') {
+                topColor = '#374151';
             }
 
+            let quickBtnsHtml = '';
+            for (let v = 0; v < 6; v++) {
+                const code = `V${v}`;
+                const isAct = curVal === code ? 'active' : '';
+                quickBtnsHtml += `<button type="button" class="qv-btn ${isAct}" onclick="assignVehicle('${escapeHtml(d.clientName)}', '${code}')" title="${escapeHtml(vehicleNames[v])}">${v + 1}</button>`;
+            }
+            quickBtnsHtml += `<button type="button" class="qv-btn pickup ${curVal === 'PICKUP' ? 'active' : ''}" onclick="assignVehicle('${escapeHtml(d.clientName)}', 'PICKUP')" title="직접방문/택배">방문</button>`;
+
+            const card = document.createElement('div');
+            card.className = 'dest-assign-card';
+            card.style.borderTopColor = topColor;
             card.innerHTML = `
-                <div class="driver-board-header ${grp.headerClass}">
-                    <span class="driver-board-title">${escapeHtml(grp.title)}</span>
-                    <span class="driver-board-summary">${grp.stat.cnt}곳 · 📦${grp.stat.box}박/낱${grp.stat.loose}</span>
+                <div class="dest-assign-top">
+                    <span class="dest-assign-title">${escapeHtml(d.clientName)}</span>
+                    <button type="button" class="addr-toggle-btn" onclick="toggleAddressDrawer('${drawerId}', ${d.lat}, ${d.lng}, '${escapeHtml(d.clientName)}')">📍주소</button>
                 </div>
-                <div class="driver-stop-list">${stopsHtml}</div>
+                <div class="dest-assign-meta">
+                    <span>📏 <b>${d.distKm.toFixed(1)}km</b></span>
+                    <span>📦<b>${d.totalBoxes}박</b>/낱<b>${d.totalLoose}</b> (${d.itemCount}품목)</span>
+                </div>
+                <div id="${drawerId}" class="addr-drawer">
+                    <div>📍 ${escapeHtml(d.addr || '주소 미등록')}</div>
+                    ${d.phone ? `<div>📞 ${escapeHtml(d.phone)}</div>` : ''}
+                    ${d.note ? `<div style="color:#b45309; font-weight:bold;">🔑 ${escapeHtml(d.note)}</div>` : ''}
+                </div>
+                <div class="quick-v-btns">${quickBtnsHtml}</div>
             `;
-            board.appendChild(card);
+            allDestGrid.appendChild(card);
         });
-        return;
     }
 
-    const filteredDests = destinations.filter(d => (dispatchMap[d.clientName] || 'UNASSIGNED') === selectedVehicleFilter);
-    if (filteredDests.length === 0) {
-        board.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:24px; color:#888; background:#fff; border-radius:8px; border:1px solid var(--border);">선택하신 차량에 배차된 거래처가 없습니다.</div>`;
-        return;
-    }
-
-    filteredDests.forEach((d, idx) => {
-        const curVal = dispatchMap[d.clientName] || 'UNASSIGNED';
-        const isAssignedClass = (curVal !== 'UNASSIGNED') ? 'assigned' : '';
-        let urgentBadge = d.isUrgent ? `<span class="badge b-urgent">급/오전</span>` : '';
-
-        let addrHtml = d.addr ? `<div>📍 ${escapeHtml(d.addr)}</div>` : `<div style="color:#9ca3af;">📍 로컬 clients.csv 로드 시 상세주소 표시</div>`;
-        if (d.phone) addrHtml += `<div style="color:#4b5563; margin-top:2px;">📞 ${escapeHtml(d.phone)}</div>`;
-        if (d.note) addrHtml += `<div style="color:#b45309; font-weight:bold; margin-top:2px;">🔑 ${escapeHtml(d.note)}</div>`;
-
-        const tile = document.createElement('div');
-        tile.className = 'order-tile-card';
-        tile.style.borderTopColor = d.zoneColor;
-        tile.innerHTML = `
-            <div class="order-tile-head">
-                <div class="order-tile-meta">
-                    <span><b style="color:var(--primary); font-size:13px;">#${idx + 1} 경유</b> · ${escapeHtml(d.subArea)}</span>
-                    <span class="badge" style="background:${d.zoneColor};">${escapeHtml(d.zoneName)}</span>
-                </div>
-                <div class="order-tile-client">
-                    ${escapeHtml(d.clientName)}${urgentBadge}
-                    ${d.officialName !== d.clientName ? `<small style="color:#6b7280; font-weight:normal;"> (${escapeHtml(d.officialName)})</small>` : ''}
-                </div>
-            </div>
-            <div style="font-size:11.5px; line-height:1.45; margin-bottom:8px;">${addrHtml}</div>
-            <div class="stop-mini-bottom">
-                <span>${formatBoxLooseSummary(d.totalBoxes, d.totalLoose)}</span>
-                <select class="dispatch-select ${isAssignedClass}" onchange="assignVehicle('${escapeHtml(d.clientName)}', this.value)">
-                    ${buildVehicleSelectOptionsHtml(curVal)}
-                </select>
-            </div>
-        `;
-        board.appendChild(tile);
-    });
+    refreshVworldMapMarkers(destinations);
 }
 
 function assignVehicle(clientName, vCode) {
@@ -2114,18 +2517,251 @@ function assignVehicle(clientName, vCode) {
 
 function downloadDispatchCsv() {
     const destinations = getAggregatedDeliveryDestinations();
-    let csv = "\uFEFF차량동선순번,권역명,세부경유구간,배차차량,납품거래처명,정식상호,주소,연락처,출입비번/비고,박스수,낱개수\n";
-    const vehicleStopCounter = {};
-    destinations.forEach(d => {
-        const code = dispatchMap[d.clientName] || 'UNASSIGNED';
-        vehicleStopCounter[code] = (vehicleStopCounter[code] || 0) + 1;
-        let vLabel = '미배차';
-        if (code.startsWith('V')) vLabel = vehicleNames[parseInt(code.substring(1), 10)];
-        else if (code === 'PICKUP') vLabel = '직접방문/택배';
-
-        csv += `"#${vehicleStopCounter[code]}","${d.zoneName}","${d.subArea}","${vLabel}","${d.clientName}","${d.officialName}","${d.addr}","${d.phone}","${d.note}",${d.totalBoxes},${d.totalLoose}\n`;
+    let csv = "\uFEFF차량동선순번,배차차량,구분,납품거래처명,정식상호,거리(km),주소,연락처,출입비번/비고,박스수,낱개수\n";
+    for (let i = 0; i < 6; i++) {
+        const vCode = `V${i}`;
+        const vLabel = vehicleNames[i];
+        let seq = 0;
+        coldStorages.filter(cs => cs.assigned === vCode && cs.name.trim()).forEach(cs => {
+            seq++;
+            csv += `"#${seq}","${vLabel}","냉장창고","${cs.name}","${cs.name}","","${cs.addr}","","",0,0\n`;
+        });
+        destinations
+            .filter(d => (dispatchMap[d.clientName] || 'UNASSIGNED') === vCode)
+            .sort((a, b) => a.stopOrder - b.stopOrder || a.distKm - b.distKm)
+            .forEach(d => {
+                seq++;
+                csv += `"#${seq}","${vLabel}","일반거래처","${d.clientName}","${d.officialName}",${d.distKm.toFixed(1)},"${d.addr}","${d.phone}","${d.note}",${d.totalBoxes},${d.totalLoose}\n`;
+            });
+    }
+    destinations.filter(d => (dispatchMap[d.clientName] || 'UNASSIGNED') === 'PICKUP').forEach((d, idx) => {
+        csv += `"#방문${idx + 1}","직접방문/택배","방문/택배","${d.clientName}","${d.officialName}",${d.distKm.toFixed(1)},"${d.addr}","${d.phone}","${d.note}",${d.totalBoxes},${d.totalLoose}\n`;
     });
     downloadBlob(csv, "미트포앤_권역동선별_배차목록.csv");
+}
+
+/* =========================================================================
+   10. VWorld WMTS 지도 & JSONP Geocoding 엔진
+   ========================================================================= */
+let vworldMapInstance = null;
+let vworldBaseLayer = null;
+let vworldSatLayer = null;
+let vworldHybridLayer = null;
+let osmFallbackLayer = null;
+let mapLayerGroup = null;
+let isSatelliteMode = false;
+let isMapCollapsed = false;
+
+function initVworldMap() {
+    const mapEl = document.getElementById('vworldMapCanvas');
+    if (!mapEl || typeof L === 'undefined') return;
+
+    if (!vworldMapInstance) {
+        vworldMapInstance = L.map('vworldMapCanvas', {
+            center: [WAREHOUSE_ORIGIN.lat, WAREHOUSE_ORIGIN.lng],
+            zoom: 11
+        });
+
+        vworldBaseLayer = L.tileLayer(
+            `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_API_KEY}/Base/{z}/{y}/{x}.png`,
+            { maxZoom: 19, attribution: '&copy; VWorld 국토교통부' }
+        );
+        vworldSatLayer = L.tileLayer(
+            `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_API_KEY}/Satellite/{z}/{y}/{x}.jpeg`,
+            { maxZoom: 19, attribution: '&copy; VWorld Satellite' }
+        );
+        vworldHybridLayer = L.tileLayer(
+            `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_API_KEY}/Hybrid/{z}/{y}/{x}.png`,
+            { maxZoom: 19 }
+        );
+        osmFallbackLayer = L.tileLayer(
+            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            { maxZoom: 19, attribution: '&copy; OpenStreetMap' }
+        );
+
+        let vworldErrorCount = 0;
+        vworldBaseLayer.on('tileerror', () => {
+            vworldErrorCount++;
+            if (vworldErrorCount >= 4 && !vworldMapInstance.hasLayer(osmFallbackLayer)) {
+                vworldMapInstance.addLayer(osmFallbackLayer);
+            }
+        });
+
+        vworldBaseLayer.addTo(vworldMapInstance);
+        mapLayerGroup = L.layerGroup().addTo(vworldMapInstance);
+    }
+
+    setTimeout(() => {
+        if (vworldMapInstance) {
+            vworldMapInstance.invalidateSize();
+            refreshVworldMapMarkers();
+        }
+    }, 150);
+}
+
+function toggleVworldSatellite() {
+    if (!vworldMapInstance) initVworldMap();
+    if (!vworldMapInstance) return;
+
+    isSatelliteMode = !isSatelliteMode;
+    const btn = document.getElementById('btnToggleSatMap');
+    if (isSatelliteMode) {
+        vworldMapInstance.removeLayer(vworldBaseLayer);
+        vworldSatLayer.addTo(vworldMapInstance);
+        vworldHybridLayer.addTo(vworldMapInstance);
+        if (btn) btn.innerText = '🗺️ 일반지도 전환';
+    } else {
+        vworldMapInstance.removeLayer(vworldSatLayer);
+        vworldMapInstance.removeLayer(vworldHybridLayer);
+        vworldBaseLayer.addTo(vworldMapInstance);
+        if (btn) btn.innerText = '🛰️ 위성지도 전환';
+    }
+}
+
+function toggleMapCollapse() {
+    const mapEl = document.getElementById('vworldMapCanvas');
+    const btn = document.getElementById('btnToggleMapCollapse');
+    if (!mapEl) return;
+
+    isMapCollapsed = !isMapCollapsed;
+    mapEl.classList.toggle('collapsed', isMapCollapsed);
+    if (btn) btn.innerText = isMapCollapsed ? '🔼 지도 펼치기' : '🔽 지도 접기';
+    if (!isMapCollapsed && vworldMapInstance) {
+        setTimeout(() => vworldMapInstance.invalidateSize(), 150);
+    }
+}
+
+function refreshVworldMapMarkers(precomputedDests) {
+    if (!vworldMapInstance || !mapLayerGroup) return;
+    mapLayerGroup.clearLayers();
+
+    const destinations = precomputedDests || getAggregatedDeliveryDestinations();
+    const filterVal = (document.getElementById('mapVehicleFilter') || {}).value || 'ALL';
+
+    // 출발 거점 마커
+    const originIcon = L.divIcon({
+        className: '',
+        html: `<div style="background:#111827; color:#fde68a; border:2px solid #fff; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:bold; box-shadow:0 2px 6px rgba(0,0,0,0.4);">🏭</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+    });
+    L.marker([WAREHOUSE_ORIGIN.lat, WAREHOUSE_ORIGIN.lng], { icon: originIcon })
+        .bindPopup(`<b>${WAREHOUSE_ORIGIN.name}</b>`)
+        .addTo(mapLayerGroup);
+
+    const bounds = [[WAREHOUSE_ORIGIN.lat, WAREHOUSE_ORIGIN.lng]];
+
+    for (let i = 0; i < 6; i++) {
+        const vCode = `V${i}`;
+        if (filterVal !== 'ALL' && filterVal !== vCode) continue;
+
+        const vColor = VEHICLE_COLORS[i];
+        const routePts = [[WAREHOUSE_ORIGIN.lat, WAREHOUSE_ORIGIN.lng]];
+        let seq = 0;
+
+        // 냉장창고 핀
+        coldStorages.filter(cs => cs.assigned === vCode && cs.name.trim()).forEach(cs => {
+            seq++;
+            const cPos = getCoordsForClient(cs.name, cs.addr);
+            routePts.push([cPos.lat, cPos.lng]);
+            bounds.push([cPos.lat, cPos.lng]);
+
+            const csIcon = L.divIcon({
+                className: '',
+                html: `<div style="background:#0891b2; color:#fff; border:2px solid #fff; border-radius:6px; padding:1px 5px; font-size:10px; font-weight:bold; white-space:nowrap; box-shadow:0 2px 5px rgba(0,0,0,0.35);">❄️${i + 1}-${seq} ${escapeHtml(cs.name)}</div>`,
+                iconAnchor: [20, 12]
+            });
+            L.marker([cPos.lat, cPos.lng], { icon: csIcon })
+                .bindPopup(`<b>[${i + 1}호차 #${seq} 경유] ❄️ ${escapeHtml(cs.name)}</b><br>${escapeHtml(cs.addr || '')}`)
+                .addTo(mapLayerGroup);
+        });
+
+        // 일반 거래처 핀
+        const vStops = destinations
+            .filter(d => (dispatchMap[d.clientName] || 'UNASSIGNED') === vCode)
+            .sort((a, b) => a.stopOrder - b.stopOrder || a.distKm - b.distKm);
+
+        vStops.forEach(d => {
+            seq++;
+            routePts.push([d.lat, d.lng]);
+            bounds.push([d.lat, d.lng]);
+
+            const pinIcon = L.divIcon({
+                className: '',
+                html: `<div style="background:${vColor}; color:#fff; border:2px solid #fff; border-radius:12px; padding:1px 6px; font-size:10.5px; font-weight:bold; white-space:nowrap; box-shadow:0 2px 5px rgba(0,0,0,0.35);">${i + 1}-${seq} ${escapeHtml(d.clientName)}</div>`,
+                iconAnchor: [22, 12]
+            });
+            L.marker([d.lat, d.lng], { icon: pinIcon })
+                .bindPopup(`<b>[${escapeHtml(vehicleNames[i])} #${seq}] ${escapeHtml(d.clientName)}</b><br>📍 ${escapeHtml(d.addr || '주소 미등록')}<br>📦 ${d.totalBoxes}박 / 낱개 ${d.totalLoose} (${d.distKm.toFixed(1)}km)`)
+                .addTo(mapLayerGroup);
+        });
+
+        if (routePts.length > 1) {
+            L.polyline(routePts, { color: vColor, weight: 3, opacity: 0.75, dashArray: '6, 4' }).addTo(mapLayerGroup);
+        }
+    }
+
+    if (bounds.length > 1) {
+        vworldMapInstance.fitBounds(bounds, { padding: [28, 28], maxZoom: 13 });
+    }
+}
+
+function geocodeSingleAddressJsonp(address, type) {
+    return new Promise((resolve) => {
+        const cbName = 'vworld_cb_' + Math.random().toString(36).substring(2, 10);
+        const script = document.createElement('script');
+        const timer = setTimeout(() => {
+            delete window[cbName];
+            if (script.parentNode) script.parentNode.removeChild(script);
+            resolve(null);
+        }, 5000);
+
+        window[cbName] = function(data) {
+            clearTimeout(timer);
+            delete window[cbName];
+            if (script.parentNode) script.parentNode.removeChild(script);
+            try {
+                if (data && data.response && data.response.status === 'OK') {
+                    const pt = data.response.result.point;
+                    resolve({ lat: parseFloat(pt.y), lng: parseFloat(pt.x) });
+                    return;
+                }
+            } catch (e) {}
+            resolve(null);
+        };
+
+        const cleanAddr = address.split(',')[0].split('(')[0].trim();
+        script.src = `https://api.vworld.kr/req/address?service=address&request=getcoord&version=2.0&crs=epsg:4326&address=${encodeURIComponent(cleanAddr)}&refine=true&simple=false&format=json&type=${type}&key=${VWORLD_API_KEY}&callback=${cbName}`;
+        document.body.appendChild(script);
+    });
+}
+
+async function geocodeMissingDestinations() {
+    const statusEl = document.getElementById('mapGeoStatus');
+    const destinations = getAggregatedDeliveryDestinations();
+    const targets = destinations.filter(d => d.addr && !geoCache[d.addr.trim()]);
+
+    if (targets.length === 0) {
+        if (statusEl) statusEl.innerText = '✅ 모든 등록 주소가 좌표 변환 완료되었습니다!';
+        refreshVworldMapMarkers(destinations);
+        return;
+    }
+
+    let converted = 0;
+    for (let i = 0; i < targets.length; i++) {
+        const d = targets[i];
+        if (statusEl) statusEl.innerText = `⏳ VWorld 좌표 변환 중... (${i + 1}/${targets.length}) ${d.clientName}`;
+        let pt = await geocodeSingleAddressJsonp(d.addr, 'ROAD');
+        if (!pt) pt = await geocodeSingleAddressJsonp(d.addr, 'PARCEL');
+        if (pt) {
+            geoCache[d.addr.trim()] = pt;
+            converted++;
+        }
+    }
+
+    localStorage.setItem('mf_geo_cache', JSON.stringify(geoCache));
+    if (statusEl) statusEl.innerText = `✅ VWorld 좌표 변환 완료 (${converted}건 신규 반영)`;
+    renderDispatchPage();
 }
 
 /* 유틸리티 및 CSV 다운로드 */
@@ -2146,7 +2782,7 @@ function downloadOrdersCsv() {
     let csv = "\uFEFF작성날짜,작성시간,납품기준일,판별사유,거래처,발신자,판별구분,발주내용\n";
     list.forEach(o => {
         const clean = o.content.replace(/"/g, '""').replace(/\n/g, ' ');
-        csv += `"${o.dateShort}","${o.timeStr}","${o.delivShort||''}","${o.delivReason||''}","${o.clientName}","${o.sender}","${o.type}","${clean}"\n`;
+        csv += `"${o.dateShort}","${o.timeStr}","${o.delivShort||''}","${o.delivReason||''}","${o.clientName}","${formatSenderShortName(o.sender)}","${o.type}","${clean}"\n`;
     });
     downloadBlob(csv, "미트포앤_추출발주목록.csv");
 }
@@ -2179,9 +2815,23 @@ window.downloadOrdersCsv = downloadOrdersCsv;
 window.downloadStockCsv = downloadStockCsv;
 window.copyKakaoOrderCheckText = copyKakaoOrderCheckText;
 window.downloadOrderSummaryCsv = downloadOrderSummaryCsv;
+window.setLooseTypeFilter = setLooseTypeFilter;
+window.setLooseGroupMode = setLooseGroupMode;
+window.toggleLooseEntryDone = toggleLooseEntryDone;
+window.clearLooseChecks = clearLooseChecks;
+window.copyKakaoLooseListText = copyKakaoLooseListText;
+window.downloadLooseCsv = downloadLooseCsv;
 window.downloadDiffCsv = downloadDiffCsv;
 window.updateVehicleName = updateVehicleName;
+window.updateColdStorage = updateColdStorage;
 window.autoDispatchByZoneAndRoute = autoDispatchByZoneAndRoute;
 window.resetCurrentDispatch = resetCurrentDispatch;
+window.setDispatchSortMode = setDispatchSortMode;
+window.toggleAddressDrawer = toggleAddressDrawer;
 window.assignVehicle = assignVehicle;
 window.downloadDispatchCsv = downloadDispatchCsv;
+window.initVworldMap = initVworldMap;
+window.toggleVworldSatellite = toggleVworldSatellite;
+window.toggleMapCollapse = toggleMapCollapse;
+window.refreshVworldMapMarkers = refreshVworldMapMarkers;
+window.geocodeMissingDestinations = geocodeMissingDestinations;

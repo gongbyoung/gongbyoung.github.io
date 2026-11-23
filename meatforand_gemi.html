@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>미트포앤 발주·재고·배차 통합 시스템</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <style>
         :root {
             --primary: #1f4e79;
@@ -20,35 +21,38 @@
         * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "맑은 고딕", sans-serif;
-            margin: 0; padding: 8px; background-color: var(--bg); color: var(--text); font-size: 13px;
+            margin: 0; padding: 6px; background-color: var(--bg); color: var(--text); font-size: 12.5px;
             transition: background-color 0.2s;
         }
         .app-container {
-            max-width: 1440px; margin: 0 auto; background: var(--card);
-            border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); overflow: visible;
+            width: 100%; max-width: 100%; margin: 0 auto; background: var(--card);
+            border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); overflow: visible;
             zoom: var(--ui-zoom);
             transition: max-width 0.25s ease, box-shadow 0.25s ease;
         }
 
-        /* 상단 헤더 및 소형 컨트롤 영역 */
+        /* =================================================================
+           상단 헤더: 한 줄(Single-Line) 통합 컨트롤 바
+           ================================================================= */
         .app-header {
-            background: var(--primary); color: white; padding: 9px 13px; border-radius: 12px 12px 0 0;
-            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 7px;
+            background: var(--primary); color: white; padding: 7px 11px; border-radius: 10px 10px 0 0;
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: nowrap; gap: 6px; overflow-x: auto;
         }
-        .header-title-group {
-            display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
+        .header-left-group {
+            display: flex; align-items: center; flex-wrap: nowrap; gap: 5px; flex-shrink: 0;
         }
         .app-header h1 {
-            margin: 0; font-size: 15px; white-space: nowrap; margin-right: 4px;
+            margin: 0; font-size: 14px; white-space: nowrap; margin-right: 2px;
         }
         .hdr-input, .hdr-select {
-            padding: 3px 6px; font-size: 11.5px; border-radius: 5px;
+            padding: 2px 5px; font-size: 11px; border-radius: 5px;
             border: 1px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.95);
-            color: #1f2937; font-weight: bold; height: 26px; cursor: pointer;
+            color: #1f2937; font-weight: bold; height: 25px; cursor: pointer;
         }
         .hdr-icon-btn {
-            display: inline-flex; align-items: center; gap: 3px;
-            padding: 3px 8px; font-size: 11px; font-weight: bold; height: 26px;
+            display: inline-flex; align-items: center; gap: 2px;
+            padding: 2px 7px; font-size: 10.5px; font-weight: bold; height: 25px;
             border-radius: 5px; border: 1px solid rgba(255,255,255,0.35);
             background: rgba(255,255,255,0.15); color: #e5e7eb; cursor: pointer;
             white-space: nowrap; transition: all 0.15s;
@@ -60,18 +64,18 @@
             background: #f59e0b; color: #ffffff; border-color: #d97706;
         }
 
-        /* 디바이스 UI 전환 + 확대 배율 슬라이더 컨트롤 */
+        /* 우측 영역: 디바이스 UI 전환 + 확대 배율 슬라이더 + 업데이트 시각 (한 줄 배치) */
         .header-right-group {
-            display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+            display: flex; align-items: center; flex-wrap: nowrap; gap: 5px; flex-shrink: 0;
         }
         .device-switcher {
             display: inline-flex; align-items: center;
-            background: rgba(15, 23, 42, 0.35); padding: 2px; border-radius: 7px;
+            background: rgba(15, 23, 42, 0.35); padding: 2px; border-radius: 6px;
             border: 1px solid rgba(255,255,255,0.28); gap: 2px;
         }
         .dev-btn {
             border: none; background: transparent; color: #cbd5e1;
-            padding: 3px 7px; font-size: 11px; font-weight: bold; border-radius: 5px;
+            padding: 2px 6px; font-size: 10.5px; font-weight: bold; border-radius: 4px;
             cursor: pointer; white-space: nowrap; transition: all 0.15s;
         }
         .dev-btn:hover { color: #ffffff; background: rgba(255,255,255,0.1); }
@@ -79,102 +83,109 @@
             background: #ffffff; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.25);
         }
 
-        /* UI 배율 슬라이더 바 (헤더 내장형) */
         .zoom-control-box {
-            display: inline-flex; align-items: center; gap: 5px;
-            background: rgba(15, 23, 42, 0.35); padding: 2px 8px; border-radius: 7px;
-            border: 1px solid rgba(255,255,255,0.28); height: 26px;
+            display: inline-flex; align-items: center; gap: 4px;
+            background: rgba(15, 23, 42, 0.35); padding: 2px 7px; border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.28); height: 25px;
         }
         .zoom-control-box label {
-            font-size: 11px; font-weight: bold; color: #fde68a; white-space: nowrap; cursor: pointer;
+            font-size: 10.5px; font-weight: bold; color: #fde68a; white-space: nowrap; cursor: pointer;
         }
         .zoom-slider {
-            width: 78px; height: 5px; accent-color: #34d399; cursor: pointer; margin: 0;
+            width: 66px; height: 4px; accent-color: #34d399; cursor: pointer; margin: 0;
         }
         .zoom-val-badge {
-            font-size: 11px; font-weight: bold; color: #ffffff; min-width: 34px; text-align: right;
+            font-size: 10.5px; font-weight: bold; color: #ffffff; min-width: 32px; text-align: right;
         }
-
-        .status-pills { display: flex; gap: 4px; font-size: 10.5px; flex-wrap: wrap; align-items: center; }
-        .pill { background: rgba(255,255,255,0.18); padding: 3px 7px; border-radius: 20px; white-space: nowrap; }
-        .pill.ok { background: #059669; color: white; font-weight: bold; }
-        .pill.time { background: #1e3a5f; border: 1px solid rgba(255,255,255,0.3); color: #fde68a; font-weight: bold; }
+        .pill-time {
+            background: #1e3a5f; border: 1px solid rgba(255,255,255,0.3); color: #fde68a;
+            font-weight: bold; padding: 2px 7px; border-radius: 14px; font-size: 10.5px; white-space: nowrap;
+        }
 
         /* 상단 6개 탭 네비게이션 */
         .tab-nav {
             display: flex; background: #e5e7eb; border-bottom: 2px solid var(--primary); overflow-x: auto;
         }
         .tab-btn {
-            flex: 1; min-width: 110px; padding: 10px 8px; border: none; background: transparent;
-            font-size: 12.5px; font-weight: bold; color: #4b5563; cursor: pointer; white-space: nowrap;
+            flex: 1; min-width: 105px; padding: 8px 6px; border: none; background: transparent;
+            font-size: 12px; font-weight: bold; color: #4b5563; cursor: pointer; white-space: nowrap;
             border-bottom: 3px solid transparent; transition: all 0.15s;
         }
         .tab-btn.active {
             background: var(--card); color: var(--primary); border-bottom: 3px solid var(--primary);
         }
 
-        .tab-page { display: none; padding: 14px; }
+        .tab-page { display: none; padding: 10px 12px; }
         .tab-page.active { display: block; }
 
         /* 카드 & 폼 스타일 */
         .section-card {
-            border: 1px solid var(--border); border-radius: 8px; padding: 13px;
-            margin-bottom: 14px; background: #fafbfc;
+            border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+            margin-bottom: 12px; background: #fafbfc;
         }
-        .section-card h3 { margin: 0 0 8px 0; color: var(--primary); font-size: 14.5px; }
-        .section-card p { margin: 0 0 10px 0; color: #555; font-size: 12px; line-height: 1.45; }
+        .section-card h3 { margin: 0 0 6px 0; color: var(--primary); font-size: 14px; }
+        .section-card p { margin: 0 0 8px 0; color: #555; font-size: 11.5px; line-height: 1.4; }
 
         .upload-zone {
-            border: 2px dashed #93c5fd; background: var(--primary-light); padding: 15px;
-            text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 8px;
+            border: 2px dashed #93c5fd; background: var(--primary-light); padding: 14px;
+            text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 6px;
         }
         .upload-zone input { display: none; }
 
         textarea {
-            width: 100%; height: 210px; padding: 10px; border: 1px solid var(--border);
+            width: 100%; height: 200px; padding: 10px; border: 1px solid var(--border);
             border-radius: 6px; font-family: monospace; font-size: 12px; resize: vertical;
         }
         input[type="text"] {
-            padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 12.5px; background: white;
+            padding: 6px 8px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; background: white;
         }
 
-        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+        .btn-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 8px; }
         .btn {
-            background: var(--primary); color: white; border: none; padding: 7px 12px;
-            border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer;
+            background: var(--primary); color: white; border: none; padding: 6px 11px;
+            border-radius: 5px; font-size: 11.5px; font-weight: bold; cursor: pointer; white-space: nowrap;
         }
         .btn.green { background: var(--accent); }
         .btn.orange { background: var(--warn); }
         .btn.gray { background: #6b7280; }
         .btn.red { background: var(--danger); }
+        .btn.sm { padding: 4px 8px; font-size: 11px; }
         .btn:active { opacity: 0.85; }
 
         /* 컨트롤 바 */
         .filter-bar {
-            background: var(--primary-light); padding: 9px 12px; border-radius: 8px;
-            margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+            background: var(--primary-light); padding: 7px 10px; border-radius: 7px;
+            margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
             justify-content: space-between;
         }
-        .filter-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .filter-group { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 
-        /* 일반 테이블 스타일 (3, 4, 5페이지 현황표) */
-        .table-wrap { overflow-x: auto; max-height: 640px; border: 1px solid var(--border); border-radius: 6px; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th, td { border: 1px solid var(--border); padding: 7px 9px; text-align: left; vertical-align: top; }
-        th { background: var(--primary); color: white; position: sticky; top: 0; z-index: 5; white-space: nowrap; }
+        /* =================================================================
+           [3페이지 재고현황 & 4페이지 일일발주현황] 2열(Two-Column) 한페이지 뷰
+           ================================================================= */
+        .two-col-table-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            align-items: start;
+        }
+        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+        table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+        th, td { border: 1px solid var(--border); padding: 4px 6px; text-align: left; vertical-align: middle; line-height: 1.3; }
+        th { background: var(--primary); color: white; position: sticky; top: 0; z-index: 5; white-space: nowrap; font-size: 11px; }
         tr:nth-child(even) { background: #f9fafb; }
 
-        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10.5px; font-weight: bold; color: white; }
+        .badge { display: inline-block; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-weight: bold; color: white; }
         .b-order { background: var(--accent); }
         .b-weight { background: var(--warn); }
         .b-other { background: #6b7280; }
-        .b-client { background: #2563eb; font-size: 10px; margin-left: 4px; }
-        .b-urgent { background: var(--danger); font-size: 10px; margin-left: 4px; }
+        .b-client { background: #2563eb; font-size: 9.5px; margin-left: 3px; }
+        .b-urgent { background: var(--danger); font-size: 9.5px; margin-left: 3px; }
 
         /* 2페이지 납품일 자동판별 & 수동 원클릭 전환 배지 버튼 */
         .deliv-badge-btn {
-            display: inline-block; margin-top: 4px; padding: 2px 6px; border-radius: 4px;
-            font-size: 10.5px; font-weight: bold; border: 1px solid #93c5fd;
+            display: inline-block; margin-top: 3px; padding: 2px 5px; border-radius: 4px;
+            font-size: 10px; font-weight: bold; border: 1px solid #93c5fd;
             background: #eff6ff; color: #1e40af; cursor: pointer; transition: all 0.12s;
         }
         .deliv-badge-btn:hover { background: #dbeafe; }
@@ -190,271 +201,297 @@
         .num-zero { color: #6b7280; }
 
         /* =================================================================
-           [바둑판(Tile Grid) 레이아웃: 2페이지 발주목록 & 6페이지 기사별 배송처]
+           [2페이지 발주 추출 목록] 데스크탑 6열 바둑판 그리드
            ================================================================= */
-        /* 2페이지 발주목록 바둑판 그리드 */
         .order-tile-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr); /* 데스크탑 기본 3열 바둑판 */
-            gap: 10px;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 7px;
         }
         .order-tile-card {
             background: #ffffff;
             border: 1px solid #cbd5e1;
             border-top: 3px solid var(--primary);
-            border-radius: 8px;
-            padding: 9px 11px;
+            border-radius: 7px;
+            padding: 7px 8px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.04);
-            transition: transform 0.12s, box-shadow 0.12s;
-        }
-        .order-tile-card:hover {
-            box-shadow: 0 4px 12px rgba(31,78,121,0.12);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            min-width: 0;
         }
         .order-tile-card.is-weight { border-top-color: var(--warn); background: #fffbeb; }
         .order-tile-card.is-other { border-top-color: #9ca3af; background: #f9fafb; }
         .order-tile-head {
             border-bottom: 1px dashed #e2e8f0;
-            padding-bottom: 6px;
-            margin-bottom: 6px;
+            padding-bottom: 4px;
+            margin-bottom: 5px;
         }
         .order-tile-meta {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 11px;
+            font-size: 10px;
             color: #4b5563;
             margin-bottom: 2px;
+            gap: 2px;
         }
         .order-tile-client {
-            font-size: 13.5px;
+            font-size: 12.5px;
             font-weight: bold;
             color: var(--primary);
             word-break: keep-all;
         }
         .order-tile-body {
-            font-size: 12px;
-            line-height: 1.5;
+            font-size: 11.5px;
+            line-height: 1.42;
             color: #111827;
             white-space: pre-line;
+            word-break: break-word;
             flex: 1;
         }
 
-        /* 6페이지 기사별 차량 설정 그리드 */
+        /* =================================================================
+           [6페이지 배송처 목록·배차]
+           1) 6대 차량 설정 + 냉장창고 4곳 경유 선택
+           2) 기사별 배차 거래처 목록 (6열 바둑판, 거래처명 + [📍주소] 토글 버튼)
+           3) VWorld 지도 패널
+           4) 전체 배송처별 기사 배정 (6열 바둑판, 가나다순/먼거리순/품목많은순)
+           ================================================================= */
         .vehicle-config-grid {
             display: grid; grid-template-columns: repeat(6, 1fr);
-            gap: 7px; margin-bottom: 10px; background: #f8fafc; padding: 9px;
-            border: 1px solid var(--border); border-radius: 8px;
+            gap: 6px; margin-bottom: 8px; background: #f8fafc; padding: 7px;
+            border: 1px solid var(--border); border-radius: 7px;
         }
-        .vehicle-config-item { display: flex; flex-direction: column; gap: 3px; }
-        .vehicle-config-item span { font-size: 10.5px; font-weight: bold; color: var(--primary); }
-        .vehicle-config-item input { padding: 4px 7px; font-size: 11.5px; width: 100%; }
+        .vehicle-config-item { display: flex; flex-direction: column; gap: 2px; }
+        .vehicle-config-item span { font-size: 10px; font-weight: bold; color: var(--primary); }
+        .vehicle-config-item input { padding: 3px 6px; font-size: 11px; width: 100%; }
 
-        .vehicle-stat-bar { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px; }
-        .v-stat-chip {
-            padding: 5px 9px; border-radius: 16px; background: #e2e8f0;
-            font-size: 11.5px; font-weight: bold; cursor: pointer; border: 2px solid transparent;
+        /* 냉장창고 4곳 선택 그리드 */
+        .cold-storage-panel {
+            background: #ecfeff; border: 1px solid #a5f3fc; border-radius: 7px;
+            padding: 7px 9px; margin-bottom: 9px;
         }
-        .v-stat-chip.active { background: var(--primary); color: white; }
+        .cold-storage-title {
+            font-size: 11.5px; font-weight: bold; color: #0e7490; margin-bottom: 5px;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;
+        }
+        .cold-storage-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+        }
+        .cs-slot-card {
+            background: #ffffff; border: 1px solid #67e8f9; border-radius: 6px;
+            padding: 5px 7px; display: flex; flex-direction: column; gap: 4px;
+        }
+        .cs-slot-top {
+            display: flex; gap: 4px; align-items: center;
+        }
+        .cs-slot-top input {
+            flex: 1; padding: 3px 5px; font-size: 11px; font-weight: bold; min-width: 0;
+        }
+        .cs-slot-top select {
+            padding: 3px 4px; font-size: 10.5px; font-weight: bold; border-radius: 4px;
+            border: 1px solid #0891b2; background: #cffafe; color: #164e63; cursor: pointer;
+        }
+        .cs-slot-addr {
+            width: 100%; padding: 2px 5px; font-size: 10px !important; color: #4b5563;
+        }
 
-        /* 6페이지 기사별 배송처 바둑판 (전체 보기 시 기사별 칸반 바둑판 / 단일 기사 선택 시 배송처 타일 바둑판) */
-        .dispatch-board-grid {
+        /* 상단: 기사별 배차 거래처 목록 (6열 바둑판) */
+        .driver-six-col-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr); /* 데스크탑 기본 3열 바둑판 */
-            gap: 12px;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 7px;
+            margin-bottom: 10px;
             align-items: start;
         }
-        .driver-board-card {
+        .driver-col-card {
             background: #ffffff;
             border: 1.5px solid #cbd5e1;
-            border-radius: 10px;
+            border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+            min-width: 0;
         }
-        .driver-board-header {
-            background: var(--primary);
-            color: #ffffff;
-            padding: 8px 11px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 6px;
+        .driver-col-head {
+            background: var(--primary); color: #fff; padding: 6px 8px;
+            display: flex; flex-direction: column; gap: 2px;
         }
-        .driver-board-header.pickup { background: #374151; }
-        .driver-board-header.unassigned { background: #b91c1c; }
-        .driver-board-title {
-            font-weight: bold;
-            font-size: 13px;
+        .driver-col-title { font-size: 11.5px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .driver-col-stat { font-size: 10px; color: #fde68a; font-weight: bold; }
+        .driver-col-body {
+            padding: 5px; display: flex; flex-direction: column; gap: 4px; background: #f8fafc;
+            min-height: 60px;
         }
-        .driver-board-summary {
-            background: rgba(255,255,255,0.2);
-            padding: 2px 7px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: bold;
-            white-space: nowrap;
+        .driver-client-row {
+            background: #ffffff; border: 1px solid #e2e8f0; border-left: 3px solid var(--primary);
+            border-radius: 5px; padding: 4px 6px; font-size: 11px;
         }
-        .driver-stop-list {
-            padding: 8px;
-            display: flex;
-            flex-direction: column;
+        .driver-client-row.is-cold {
+            background: #ecfeff; border-color: #67e8f9; border-left-color: #0891b2;
+        }
+        .driver-client-main {
+            display: flex; justify-content: space-between; align-items: center; gap: 3px;
+        }
+        .driver-client-name {
+            font-weight: bold; color: #111827; word-break: keep-all; flex: 1; min-width: 0;
+        }
+        .addr-toggle-btn {
+            border: 1px solid #93c5fd; background: #eff6ff; color: #1d4ed8;
+            border-radius: 4px; padding: 1px 5px; font-size: 9.5px; font-weight: bold;
+            cursor: pointer; white-space: nowrap; flex-shrink: 0;
+        }
+        .addr-toggle-btn:hover { background: #dbeafe; }
+        .addr-drawer {
+            display: none; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #cbd5e1;
+            font-size: 10px; color: #374151; line-height: 1.35; word-break: break-all;
+        }
+        .addr-drawer.open { display: block; }
+
+        /* VWorld 지도 섹션 */
+        .map-section-box {
+            border: 1.5px solid #93c5fd; border-radius: 8px; overflow: hidden;
+            margin-bottom: 12px; background: #fff;
+        }
+        .map-toolbar {
+            background: #eff6ff; padding: 6px 10px; border-bottom: 1px solid #bfdbfe;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;
+        }
+        #vworldMapCanvas {
+            width: 100%; height: 360px; z-index: 1;
+        }
+        #vworldMapCanvas.collapsed { display: none; }
+
+        /* 하단: 전체 배송처별 기사 배정 6열 바둑판 */
+        .all-dest-header {
+            background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 7px;
+            padding: 7px 10px; margin-bottom: 8px;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;
+        }
+        .sort-btn-group {
+            display: inline-flex; gap: 4px; flex-wrap: wrap;
+        }
+        .sort-btn {
+            border: 1px solid #94a3b8; background: #ffffff; color: #334155;
+            padding: 4px 9px; border-radius: 5px; font-size: 11px; font-weight: bold; cursor: pointer;
+        }
+        .sort-btn.active {
+            background: var(--primary); color: #ffffff; border-color: var(--primary);
+        }
+        .all-dest-six-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
             gap: 7px;
-            background: #f8fafc;
         }
-        .stop-mini-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-left: 4px solid var(--primary);
-            border-radius: 7px;
-            padding: 7px 9px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        .dest-assign-card {
+            background: #ffffff; border: 1px solid #cbd5e1; border-top: 3px solid #64748b;
+            border-radius: 7px; padding: 6px 8px; display: flex; flex-direction: column;
+            justify-content: space-between; gap: 4px; min-width: 0;
         }
-        .stop-mini-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 4px;
-            margin-bottom: 3px;
+        .dest-assign-top {
+            display: flex; justify-content: space-between; align-items: flex-start; gap: 3px;
         }
-        .stop-mini-name {
-            font-size: 12.5px;
-            font-weight: bold;
-            color: #111827;
+        .dest-assign-title {
+            font-size: 12px; font-weight: bold; color: #111827; word-break: keep-all;
         }
-        .stop-mini-addr {
-            font-size: 11px;
-            color: #4b5563;
-            line-height: 1.35;
-            margin-bottom: 4px;
+        .dest-assign-meta {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 10.5px; color: #4b5563; gap: 3px;
         }
-        .stop-mini-bottom {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 6px;
-            padding-top: 4px;
-            border-top: 1px dashed #e5e7eb;
+        .quick-v-btns {
+            display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-top: 2px;
         }
-        .dispatch-select {
-            padding: 3px 6px; font-weight: bold; font-size: 11px;
-            border-radius: 5px; border: 1.5px solid #93c5fd; cursor: pointer;
-            max-width: 155px; background: #ffffff;
+        .qv-btn {
+            border: 1px solid #cbd5e1; background: #f8fafc; color: #334155;
+            padding: 3px 0; font-size: 10px; font-weight: bold; border-radius: 4px;
+            cursor: pointer; text-align: center;
         }
-        .dispatch-select.assigned { border-color: var(--accent); background: #ecfdf5; color: #065f46; }
+        .qv-btn:hover { background: #e2e8f0; }
+        .qv-btn.active {
+            background: var(--accent); color: #ffffff; border-color: #065f46;
+        }
+        .qv-btn.active.pickup {
+            background: #374151; color: #ffffff; border-color: #1f2937;
+        }
 
         /* =================================================================
            [디바이스별 맞춤형 UI 모드 스타일]
-           1) 데스크탑 (body.ui-desktop) : 3열 바둑판
-           2) 태블릿   (body.ui-tablet)  : 2열 바둑판
+           1) 데스크탑 (body.ui-desktop) : 6열 발주/배차 + 2열 재고/발주현황
+           2) 태블릿   (body.ui-tablet)  : 3열 발주/배차 + 2열 재고/발주현황
            3) 스마트폰 (body.ui-mobile)  : 1열 세로 카드 + 큰 터치 UI
            ================================================================= */
+        body.ui-desktop .app-container { max-width: 100%; }
+        body.ui-desktop .order-tile-grid { grid-template-columns: repeat(6, 1fr); }
+        body.ui-desktop .driver-six-col-grid { grid-template-columns: repeat(6, 1fr); }
+        body.ui-desktop .all-dest-six-grid { grid-template-columns: repeat(6, 1fr); }
+        body.ui-desktop .two-col-table-grid { grid-template-columns: repeat(2, 1fr); }
 
-        /* 1. 데스크탑 UI */
-        body.ui-desktop .app-container { max-width: 1440px; }
-        body.ui-desktop .order-tile-grid { grid-template-columns: repeat(3, 1fr); }
-        body.ui-desktop .dispatch-board-grid { grid-template-columns: repeat(3, 1fr); }
-        @media (max-width: 1150px) {
-            body.ui-desktop .vehicle-config-grid { grid-template-columns: repeat(3, 1fr); }
-            body.ui-desktop .order-tile-grid { grid-template-columns: repeat(2, 1fr); }
-            body.ui-desktop .dispatch-board-grid { grid-template-columns: repeat(2, 1fr); }
+        @media (max-width: 1280px) {
+            body.ui-desktop .order-tile-grid { grid-template-columns: repeat(4, 1fr); }
+            body.ui-desktop .driver-six-col-grid { grid-template-columns: repeat(3, 1fr); }
+            body.ui-desktop .all-dest-six-grid { grid-template-columns: repeat(4, 1fr); }
         }
 
-        /* 2. 태블릿 UI (iPad / 갤럭시 탭 2열 바둑판 최적화) */
-        body.ui-tablet { background-color: #dde4ec; padding: 10px; }
+        /* 2. 태블릿 UI */
+        body.ui-tablet { background-color: #dde4ec; padding: 8px; }
         body.ui-tablet .app-container {
-            max-width: 960px;
-            border: 2px solid #94a3b8;
+            max-width: 1024px; border: 2px solid #94a3b8;
             box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
         }
-        body.ui-tablet .order-tile-grid { grid-template-columns: repeat(2, 1fr); gap: 9px; }
-        body.ui-tablet .dispatch-board-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        body.ui-tablet .app-header { flex-wrap: wrap; }
+        body.ui-tablet .order-tile-grid { grid-template-columns: repeat(3, 1fr); }
+        body.ui-tablet .driver-six-col-grid { grid-template-columns: repeat(3, 1fr); }
+        body.ui-tablet .all-dest-six-grid { grid-template-columns: repeat(3, 1fr); }
+        body.ui-tablet .two-col-table-grid { grid-template-columns: repeat(2, 1fr); }
         body.ui-tablet .vehicle-config-grid { grid-template-columns: repeat(3, 1fr); }
-        body.ui-tablet .hdr-input,
-        body.ui-tablet .hdr-select,
-        body.ui-tablet .hdr-icon-btn { height: 30px; font-size: 11.5px; }
-        body.ui-tablet .tab-btn { padding: 12px 6px; font-size: 12.5px; }
+        body.ui-tablet .cold-storage-grid { grid-template-columns: repeat(2, 1fr); }
 
-        /* 3. 스마트폰 UI (갤럭시 S24 울트라 등 세로형 1열 카드 + 확대 배율 친화형) */
+        /* 3. 스마트폰 UI */
         body.ui-mobile { background-color: #cbd5e1; padding: 4px; }
         body.ui-mobile .app-container {
-            width: 100%;
-            max-width: 480px;
-            border-radius: 16px;
-            border: 2px solid #334155;
-            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22);
+            width: 100%; max-width: 480px; border-radius: 14px;
+            border: 2px solid #334155; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22);
         }
         @media (max-width: 600px) {
-            body.ui-mobile .app-container {
-                max-width: 100%;
-                border-radius: 10px;
-                border-width: 1px;
-            }
+            body.ui-mobile .app-container { max-width: 100%; border-radius: 8px; border-width: 1px; }
         }
-        body.ui-mobile .app-header { padding: 9px 10px; gap: 6px; }
-        body.ui-mobile .app-header h1 { font-size: 14px; width: 100%; margin-bottom: 2px; }
-        body.ui-mobile .header-title-group { width: 100%; gap: 5px; }
-        body.ui-mobile .hdr-input,
-        body.ui-mobile .hdr-select { height: 31px; font-size: 11.5px; flex: 1; min-width: 105px; }
-        body.ui-mobile .hdr-icon-btn { height: 31px; font-size: 11px; padding: 4px 7px; }
-        body.ui-mobile .header-right-group { width: 100%; justify-content: space-between; }
-        body.ui-mobile .device-switcher { flex: 1; justify-content: space-between; }
-        body.ui-mobile .dev-btn { flex: 1; text-align: center; padding: 5px 4px; font-size: 11px; }
-        body.ui-mobile .zoom-control-box { width: 100%; justify-content: space-between; height: 30px; }
-        body.ui-mobile .zoom-slider { flex: 1; width: auto; }
-        body.ui-mobile .status-pills { width: 100%; justify-content: space-between; }
+        body.ui-mobile .app-header { flex-wrap: wrap; padding: 8px 10px; gap: 5px; }
+        body.ui-mobile .header-left-group,
+        body.ui-mobile .header-right-group { width: 100%; flex-wrap: wrap; justify-content: space-between; }
+        body.ui-mobile .app-header h1 { width: 100%; font-size: 13.5px; }
+        body.ui-mobile .tab-nav { display: grid; grid-template-columns: repeat(3, 1fr); overflow-x: visible; }
+        body.ui-mobile .tab-btn { min-width: 0; padding: 8px 4px; font-size: 11px; border-right: 1px solid #d1d5db; border-bottom: 1px solid #d1d5db; }
+        body.ui-mobile .tab-btn.active { background: var(--primary); color: #fff; }
+        body.ui-mobile .order-tile-grid,
+        body.ui-mobile .driver-six-col-grid,
+        body.ui-mobile .all-dest-six-grid,
+        body.ui-mobile .two-col-table-grid,
+        body.ui-mobile .cold-storage-grid { grid-template-columns: 1fr; }
+        body.ui-mobile .vehicle-config-grid { grid-template-columns: repeat(2, 1fr); }
+        body.ui-mobile .btn { width: 100%; }
+        body.ui-mobile .btn-row { flex-direction: column; }
 
-        /* 스마트폰 6개 탭 -> 3열 x 2줄 터치 그리드 */
-        body.ui-mobile .tab-nav {
-            display: grid; grid-template-columns: repeat(3, 1fr);
-            overflow-x: visible;
+        /* 3페이지 낱개 목록 체크리스트 스타일 */
+        .loose-item-list { display: flex; flex-direction: column; gap: 4px; }
+        .loose-row {
+            display: flex; align-items: flex-start; gap: 5px;
+            padding: 4px 5px; border-radius: 5px; background: #f8fafc;
+            border: 1px solid #e2e8f0; cursor: pointer; font-size: 11.5px; line-height: 1.38;
         }
-        body.ui-mobile .tab-btn {
-            min-width: 0; padding: 9px 4px; font-size: 11.5px;
-            border-right: 1px solid #d1d5db; border-bottom: 1px solid #d1d5db;
-        }
-        body.ui-mobile .tab-btn.active {
-            background: var(--primary); color: #ffffff; border-bottom: 2px solid var(--primary);
-        }
-        body.ui-mobile .tab-page { padding: 9px; }
-        body.ui-mobile .btn { width: 100%; padding: 10px 12px; font-size: 12.5px; text-align: center; }
-        body.ui-mobile .btn-row { flex-direction: column; gap: 6px; }
-        body.ui-mobile .filter-bar { padding: 8px 10px; gap: 7px; }
-        body.ui-mobile .filter-group { width: 100%; }
-
-        /* 스마트폰 바둑판 -> 1열 세로 카드 최적화 */
-        body.ui-mobile .order-tile-grid { grid-template-columns: 1fr; gap: 8px; }
-        body.ui-mobile .dispatch-board-grid { grid-template-columns: 1fr; gap: 10px; }
-        body.ui-mobile .vehicle-config-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 8px; }
-        body.ui-mobile .vehicle-stat-bar { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
-        body.ui-mobile .v-stat-chip { white-space: nowrap; flex-shrink: 0; padding: 6px 9px; }
-        body.ui-mobile .dispatch-select { height: 34px; font-size: 12px; max-width: 170px; }
-
-        /* 스마트폰 3, 4, 5페이지 현황표: 첫 번째 열(품목명) 좌측 고정 스크롤 */
-        body.ui-mobile #page3 th:first-child,
-        body.ui-mobile #page3 td:first-child,
-        body.ui-mobile #page4 th:first-child,
-        body.ui-mobile #page4 td:first-child,
-        body.ui-mobile #page5 th:first-child,
-        body.ui-mobile #page5 td:first-child {
-            position: sticky; left: 0; z-index: 3;
-            background: #f1f5f9; min-width: 90px; max-width: 105px;
-        }
-        body.ui-mobile #page3 th:first-child,
-        body.ui-mobile #page4 th:first-child,
-        body.ui-mobile #page5 th:first-child {
-            background: var(--primary); z-index: 6;
-        }
+        .loose-row.is-work { background: #fffbeb; border-color: #fde68a; }
+        .loose-row.is-done { background: #ecfdf5; border-color: #a7f3d0; opacity: 0.72; text-decoration: line-through; }
+        .loose-row input[type="checkbox"] { margin-top: 2px; cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
+        .loose-tag-work { background: #d97706; color: #fff; font-size: 9.5px; font-weight: bold; padding: 1px 4px; border-radius: 3px; flex-shrink: 0; }
+        .loose-tag-simple { background: #0369a1; color: #fff; font-size: 9.5px; font-weight: bold; padding: 1px 4px; border-radius: 3px; flex-shrink: 0; }
     </style>
 </head>
 <body class="ui-desktop">
 
 <div class="app-container">
-    <!-- 상단 헤더: 제목 + 기준날짜 + 스마트판별 + 아이콘토글 + 디바이스UI + 확대슬라이더 -->
+    <!-- 상단 헤더: 요청대로 한 줄(Single Row) 통합 + 불필요한 카톡/재고/거래처 배지 제거 -->
     <div class="app-header">
-        <div class="header-title-group">
-            <h1>🥩 (주)미트포앤 통합 시스템 v6</h1>
+        <div class="header-left-group">
+            <h1>🥩 (주)미트포앤 통합 시스템</h1>
             <input type="date" id="orderTargetDate" class="hdr-input" onchange="onFilterCriteriaChange()" title="납품 기준 날짜 선택">
             <select id="orderTimeMode" class="hdr-select" onchange="onFilterCriteriaChange()" title="발주 추출 및 납품일 판별 방식">
                 <option value="smart" selected>🧠 스마트 납품일 자동판별</option>
@@ -472,37 +509,29 @@
         </div>
 
         <div class="header-right-group">
-            <!-- 디바이스 UI 전환 스위치 -->
             <div class="device-switcher" role="group" aria-label="화면 UI 모드 선택">
                 <button type="button" id="btnUiMobile" class="dev-btn" onclick="setUiMode('mobile')" title="스마트폰 1열 세로 카드 UI">📱 스마트폰</button>
-                <button type="button" id="btnUiTablet" class="dev-btn" onclick="setUiMode('tablet')" title="태블릿 2열 바둑판 UI">📟 태블릿</button>
-                <button type="button" id="btnUiDesktop" class="dev-btn active" onclick="setUiMode('desktop')" title="데스크탑 3열 바둑판 UI">🖥️ 데스크탑</button>
+                <button type="button" id="btnUiTablet" class="dev-btn" onclick="setUiMode('tablet')" title="태블릿 3열 바둑판 UI">📟 태블릿</button>
+                <button type="button" id="btnUiDesktop" class="dev-btn active" onclick="setUiMode('desktop')" title="데스크탑 6열 바둑판 UI">🖥️ 데스크탑</button>
             </div>
 
-            <!-- UI 화면 확대 배율 슬라이더 (100% ~ 150%, 기본 115%) -->
             <div class="zoom-control-box" title="화면 글씨와 표 크기를 100%~150%까지 조절합니다 (기본 115%)">
                 <label for="uiZoomSlider" onclick="setUiZoom(115)">🔍 UI확대</label>
                 <input type="range" id="uiZoomSlider" class="zoom-slider" min="100" max="150" step="5" value="115" oninput="setUiZoom(this.value)">
                 <span id="uiZoomValue" class="zoom-val-badge">115%</span>
             </div>
 
-            <div class="status-pills">
-                <span id="pillUpdated" class="pill time" title="마지막 로컬 저장 및 업데이트 시각">🕒 대기중</span>
-                <span id="pillKakao" class="pill">카톡: 미등록</span>
-                <span id="pillStock" class="pill">재고: 미등록</span>
-                <span id="pillClient" class="pill ok">거래처: 123곳</span>
-            </div>
+            <span id="pillUpdated" class="pill-time" title="마지막 로컬 저장 및 업데이트 시각">🕒 대기중</span>
         </div>
     </div>
 
-    <!-- 상단 6개 페이지 탭 -->
+    <!-- 상단 5개 페이지 탭 (3, 4번 제거 -> 3. 낱개 목록 추가) -->
     <div class="tab-nav">
         <button class="tab-btn active" onclick="switchTab('page1', this)">1. 데이터 입력</button>
         <button class="tab-btn" onclick="switchTab('page2', this)">2. 발주 추출 목록</button>
-        <button class="tab-btn" onclick="switchTab('page3', this)">3. 일일 재고 현황표</button>
-        <button class="tab-btn" onclick="switchTab('page4', this)">4. 일일 발주 현황표</button>
-        <button class="tab-btn" onclick="switchTab('page5', this)">5. 발주차감 잔여재고</button>
-        <button class="tab-btn" onclick="switchTab('page6', this)">6. 배송처 목록·배차</button>
+        <button class="tab-btn" onclick="switchTab('pageLoose', this)">3. 낱개 목록</button>
+        <button class="tab-btn" onclick="switchTab('page5', this)">4. 발주차감 잔여재고</button>
+        <button class="tab-btn" onclick="switchTab('page6', this)">5. 배송처 목록·배차</button>
     </div>
 
     <!-- ==================== [페이지 1: 데이터 입력] ==================== -->
@@ -510,11 +539,11 @@
         <div class="section-card">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
                 <h3 style="margin:0;">💬 1단계: 발주 카카오톡 대화 파일(.txt) 로딩</h3>
-                <button class="btn red" style="padding:5px 10px; font-size:11.5px; width:auto;" onclick="clearSavedBrowserData()">🗑️ 브라우저 자동저장 초기화</button>
+                <button class="btn red sm" style="width:auto;" onclick="clearSavedBrowserData()">🗑️ 브라우저 자동저장 초기화</button>
             </div>
             <p>
-                • 스마트폰/PC 내보내기 파일을 모두 인식하며, <b>5단계 스마트 납품일 알고리즘</b>이 전날 발주와 당일/익일 발주를 자동으로 구분합니다.<br>
-                • 마지막 분석 결과, 수동 납품일 변경, UI 모드(스마트폰/태블릿/데스크탑), 확대 배율(기본 115%)이 자동 저장됩니다.
+                • 스마트폰/PC 내보내기 파일을 모두 인식하며, 정오(12:00) 마감선·명시적 날짜/요일·다중 거래처 합본 자동 분할·정정/취소 차감을 자동 반영합니다.<br>
+                • 마지막 분석 결과, 수동 납품일 변경, UI 모드, 확대 배율(기본 115%), 냉장창고/배차 설정이 브라우저에 자동 저장됩니다.
             </p>
             <div class="upload-zone" onclick="document.getElementById('kakaoFileInput').click()">
                 <b>📁 여기를 터치하여 카카오톡 대화 파일(.txt) 선택</b>
@@ -524,133 +553,97 @@
         </div>
 
         <div class="section-card">
-            <h3>🖥️ 화면 크기 및 UI 확대 배율 설정 (스마트폰 · 태블릿 · 데스크탑)</h3>
-            <p>상단 바에서도 언제든 조절할 수 있으며, 작은 글씨가 잘 안 보일 때 <b>115%(기본) ~ 150%</b>까지 슬라이드바로 크게 확대할 수 있습니다.</p>
-            <div style="display:flex; align-items:center; flex-wrap:wrap; gap:10px; background:#fff; padding:10px; border:1px solid var(--border); border-radius:8px;">
+            <h3>🖥️ 화면 크기 및 UI 확대 배율 설정 (100% ~ 150%)</h3>
+            <div style="display:flex; align-items:center; flex-wrap:wrap; gap:10px; background:#fff; padding:9px; border:1px solid var(--border); border-radius:7px;">
                 <b style="color:var(--primary);">🔍 UI 확대 배율:</b>
-                <input type="range" id="uiZoomSliderPage1" style="flex:1; min-width:160px; accent-color:var(--primary); cursor:pointer;" min="100" max="150" step="5" value="115" oninput="setUiZoom(this.value)">
-                <b id="uiZoomValuePage1" style="color:var(--accent); font-size:14px; min-width:44px;">115%</b>
+                <input type="range" id="uiZoomSliderPage1" style="flex:1; min-width:150px; accent-color:var(--primary); cursor:pointer;" min="100" max="150" step="5" value="115" oninput="setUiZoom(this.value)">
+                <b id="uiZoomValuePage1" style="color:var(--accent); font-size:13.5px; min-width:42px;">115%</b>
                 <div style="display:flex; gap:5px; flex-wrap:wrap;">
-                    <button type="button" class="btn gray" style="padding:4px 9px; font-size:11.5px; width:auto;" onclick="setUiZoom(100)">100%</button>
-                    <button type="button" class="btn green" style="padding:4px 9px; font-size:11.5px; width:auto;" onclick="setUiZoom(115)">115% (기본)</button>
-                    <button type="button" class="btn" style="padding:4px 9px; font-size:11.5px; width:auto;" onclick="setUiZoom(130)">130%</button>
-                    <button type="button" class="btn orange" style="padding:4px 9px; font-size:11.5px; width:auto;" onclick="setUiZoom(150)">150% (최대)</button>
+                    <button type="button" class="btn gray sm" style="width:auto;" onclick="setUiZoom(100)">100%</button>
+                    <button type="button" class="btn green sm" style="width:auto;" onclick="setUiZoom(115)">115% (기본)</button>
+                    <button type="button" class="btn sm" style="width:auto;" onclick="setUiZoom(130)">130%</button>
+                    <button type="button" class="btn orange sm" style="width:auto;" onclick="setUiZoom(150)">150% (최대)</button>
                 </div>
             </div>
         </div>
 
         <div class="section-card">
             <h3>📦 2단계: 일일 재고현황 텍스트 입력</h3>
-            <p>카톡방에 올리시는 '일일 재고현황' 텍스트를 아래 칸에 붙여넣고 <b>[재고표 생성 및 적용]</b> 버튼을 누르세요. (자동 저장됨)</p>
+            <p>카톡방에 올리시는 '일일 재고현황' 텍스트를 붙여넣고 <b>[재고표 생성 및 적용]</b> 버튼을 누르세요.</p>
             <textarea id="stockTextarea" placeholder="여기에 '11월 10일 재고현황...' 텍스트를 붙여넣으세요."></textarea>
             <div class="btn-row">
-                <button class="btn green" onclick="parseAndApplyStock(true)">✅ 재고표 생성 및 적용 (3페이지로 이동)</button>
+                <button class="btn green" onclick="parseAndApplyStock(true)">✅ 재고표 생성 및 적용 (잔여재고표로 이동)</button>
                 <button class="btn gray" onclick="document.getElementById('stockTextarea').value=''">🗑️ 내용 비우기</button>
             </div>
         </div>
 
         <div class="section-card">
-            <h3>🏢 3단계: 거래처 목록 CSV 관리 (GitHub 연동 & 원본 변환)</h3>
+            <h3>🏢 3단계: 거래처 목록 CSV 관리 (로컬 `clients.csv` 병합 & VWorld 지도 주소 연동)</h3>
             <p>
-                • 같은 폴더에 <code>clients.csv</code>가 있으면 자동 로드되며, 없어도 내장된 거래처 DB로 즉시 작동합니다.<br>
-                • GitHub Raw URL을 불러오거나 회계 원본 CSV(2줄 양식)를 업로드해 6열(<code>거래처,대표자,전화번호,주소,별명,비고</code>) CSV로 변환할 수 있습니다.
+                • 개인정보 보호를 위해 기본 코드에는 상호·별명만 들어 있습니다. 보유하신 <code>clients.csv</code> 파일을 선택하시면 상세 주소·전화번호·출입비번과 VWorld 지도 좌표가 즉시 연결됩니다.
             </p>
             <div class="filter-group" style="margin-bottom:8px;">
-                <input type="text" id="githubCsvUrl" style="flex:1; min-width:200px;" placeholder="https://raw.githubusercontent.com/gongbyoung/.../clients.csv">
-                <button class="btn" style="width:auto;" onclick="loadCsvFromGithub()">🌐 GitHub CSV 불러오기</button>
+                <input type="text" id="githubCsvUrl" style="flex:1; min-width:200px;" placeholder="https://raw.githubusercontent.com/...">
+                <button class="btn" style="width:auto;" onclick="loadCsvFromGithub()">🌐 외부 CSV URL 불러오기</button>
             </div>
             <div class="btn-row">
-                <button class="btn orange" onclick="document.getElementById('clientCsvInput').click()">📂 로컬 거래처 CSV 파일 직접 선택 (원본/정리본 자동인식)</button>
-                <button class="btn green" id="btnExportCleanCsv" style="display:none;" onclick="exportCleanedClientsCsv()">📥 정리된 6열 거래처 CSV 다운로드 (GitHub 업로드용)</button>
+                <button class="btn orange" onclick="document.getElementById('clientCsvInput').click()">📂 로컬 거래처 CSV 파일 선택 (clients.csv)</button>
+                <button class="btn green" id="btnExportCleanCsv" style="display:none;" onclick="exportCleanedClientsCsv()">📥 정리된 6열 거래처 CSV 다운로드</button>
                 <input type="file" id="clientCsvInput" accept=".csv" style="display:none;" onchange="loadClientCsvFile(event)">
             </div>
             <div id="clientLoadMsg" style="margin-top:8px; font-size:12px; color:#047857; font-weight:bold;"></div>
         </div>
     </div>
 
-    <!-- ==================== [페이지 2: 발주 추출 목록 (바둑판 타일 UI)] ==================== -->
+    <!-- ==================== [페이지 2: 발주 추출 목록 (데스크탑 6열 바둑판)] ==================== -->
     <div id="page2" class="tab-page">
         <div class="filter-bar">
             <div>
-                <span id="orderStats" style="font-weight:bold; color:var(--primary); font-size:14px;">📋 조회된 내역: 0건</span>
-                <span style="font-size:11.5px; color:#555; margin-left:6px;">(💡 <b>[🚚 납품: MM/DD 🔄]</b> 배지 클릭 시 당일 ↔ 익일 수동 전환)</span>
+                <span id="orderStats" style="font-weight:bold; color:var(--primary); font-size:13.5px;">📋 조회된 내역: 0건</span>
+                <span style="font-size:11px; color:#555; margin-left:6px;">(💡 <b>[🚚 납품: MM/DD 🔄]</b> 클릭 시 당일 ↔ 익일 전환)</span>
             </div>
             <div class="filter-group">
-                <button class="btn green" onclick="downloadOrdersCsv()">📥 발주목록 CSV 저장</button>
+                <button class="btn green sm" onclick="downloadOrdersCsv()">📥 발주목록 CSV 저장</button>
             </div>
         </div>
 
-        <!-- 태블릿(2열) · 데스크탑(3열) · 스마트폰(1열) 바둑판 그리드 -->
-        <div id="orderTileGrid" class="order-tile-grid">
-            <div style="grid-column:1/-1; text-align:center; padding:24px; color:#888; background:#fff; border-radius:8px; border:1px solid var(--border);">
-                1페이지에서 카카오톡 대화 파일(.txt)을 먼저 업로드해주세요.
-            </div>
-        </div>
+        <div id="orderTileGrid" class="order-tile-grid"></div>
     </div>
 
-    <!-- ==================== [페이지 3: 일일 재고 현황표] ==================== -->
-    <div id="page3" class="tab-page">
+    <!-- ==================== [페이지 3: 낱개 목록 (6열 바둑판 & 작업/계근 체크)] ==================== -->
+    <div id="pageLoose" class="tab-page">
         <div class="filter-bar">
-            <div id="stockTitleInfo" style="font-weight:bold; font-size:15px; color:var(--primary);">📦 일일 재고 현황표</div>
-            <div class="filter-group">
-                <button class="btn green" onclick="downloadStockCsv()">📥 재고 현황표 CSV 저장</button>
-            </div>
-        </div>
-
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width:150px;">품목명</th>
-                        <th>대산 (재고 박스 / 상세)</th>
-                        <th>포크 (재고 박스 / 상세)</th>
-                        <th>정담·황금·기타 (재고 박스 / 상세)</th>
-                        <th style="width:120px;">총 재고 합계</th>
-                    </tr>
-                </thead>
-                <tbody id="stockTableBody"></tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- ==================== [페이지 4: 일일 발주 현황표] ==================== -->
-    <div id="page4" class="tab-page">
-        <div class="filter-bar">
-            <div>
-                <b style="color:var(--primary); font-size:15px;">📊 일일 발주 현황표 (재고현황표 동일 양식)</b>
-                <span id="orderSummaryDateInfo" style="font-size:12px; color:#555; margin-left:8px;"></span>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <span id="looseStats" style="font-weight:bold; color:var(--primary); font-size:13.5px;">🔪 당일 낱개 목록: 0건</span>
+                <div class="sort-btn-group">
+                    <button type="button" id="btnLooseTypeAll" class="sort-btn active" onclick="setLooseTypeFilter('ALL')">전체</button>
+                    <button type="button" id="btnLooseTypeWork" class="sort-btn" onclick="setLooseTypeFilter('WORK')">🔪 작업·세절만</button>
+                    <button type="button" id="btnLooseTypeSimple" class="sort-btn" onclick="setLooseTypeFilter('SIMPLE')">⚖️ 단순 낱개만</button>
+                </div>
             </div>
             <div class="filter-group">
-                <button class="btn orange" onclick="copyKakaoOrderCheckText()">📋 카톡용 '발주체크' 텍스트 복사</button>
-                <button class="btn green" onclick="downloadOrderSummaryCsv()">📥 발주 현황표 CSV 저장</button>
+                <div class="sort-btn-group">
+                    <button type="button" id="btnLooseGroupClient" class="sort-btn active" onclick="setLooseGroupMode('client')">🏢 거래처별 (6열)</button>
+                    <button type="button" id="btnLooseGroupItem" class="sort-btn" onclick="setLooseGroupMode('item')">🥩 품목별 (6열)</button>
+                    <button type="button" id="btnLooseGroupVehicle" class="sort-btn" onclick="setLooseGroupMode('vehicle')">🚚 호차별 (6열)</button>
+                </div>
+                <button type="button" class="btn gray sm" onclick="clearLooseChecks()">☑️ 체크초기화</button>
+                <button type="button" class="btn orange sm" onclick="copyKakaoLooseListText()">📋 카톡용 복사</button>
+                <button type="button" class="btn green sm" onclick="downloadLooseCsv()">📥 낱개 CSV 저장</button>
             </div>
         </div>
 
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width:150px;">품목명</th>
-                        <th>대산 (발주 박스·팩 / 거래처 상세)</th>
-                        <th>포크 (발주 박스·팩 / 거래처 상세)</th>
-                        <th>정담·황금·기타 (발주 박스·팩 / 거래처 상세)</th>
-                        <th style="width:140px;">총 발주 합계</th>
-                    </tr>
-                </thead>
-                <tbody id="orderSummaryTableBody"></tbody>
-            </table>
-        </div>
+        <div id="looseTileGrid" class="order-tile-grid"></div>
     </div>
 
     <!-- ==================== [페이지 5: 발주차감 잔여재고] ==================== -->
     <div id="page5" class="tab-page">
         <div class="filter-bar">
             <div>
-                <b style="color:var(--primary); font-size:15px;">⚖️ 발주 차감 잔여재고 계산표 (3페이지 재고 - 4페이지 발주)</b>
-                <span style="font-size:12px; color:#555; margin-left:8px;">(현재 재고에서 금일 발주량을 뺀 남은 박스 수량입니다)</span>
+                <b style="color:var(--primary); font-size:14px;">⚖️ 발주 차감 잔여재고 계산표 (1페이지 재고 - 당일 발주)</b>
             </div>
             <div class="filter-group">
-                <button class="btn green" onclick="downloadDiffCsv()">📥 잔여재고표 CSV 저장</button>
+                <button class="btn green sm" onclick="downloadDiffCsv()">📥 잔여재고표 CSV 저장</button>
             </div>
         </div>
 
@@ -672,30 +665,83 @@
         </div>
     </div>
 
-    <!-- ==================== [페이지 6: 배송처 목록·배차 (기사별 바둑판 UI)] ==================== -->
+    <!-- ==================== [페이지 6: 배송처 목록·배차] ==================== -->
     <div id="page6" class="tab-page">
-        <div class="section-card" style="margin-bottom:12px; padding:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-                <h3 style="margin:0;">🚚 6대 차량 권역 설정 및 기사별 배송처 바둑판</h3>
+        <!-- 1. 상단 컨트롤 + 6대 차량 기사명 설정 + 냉장창고 4곳 경유 선택 -->
+        <div class="section-card" style="margin-bottom:10px; padding:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:7px;">
+                <h3 style="margin:0;">🚚 1~6호차 기사 설정 및 냉장창고 경유 선택</h3>
                 <div class="filter-group">
-                    <button class="btn orange" onclick="autoDispatchByZoneAndRoute(true)">🧭 권역·동선별 스마트 자동배차</button>
-                    <button class="btn gray" onclick="resetCurrentDispatch()">🔄 배차 초기화</button>
-                    <button class="btn green" onclick="downloadDispatchCsv()">📥 당일 배차·동선표 엑셀(CSV) 저장</button>
+                    <button class="btn orange sm" onclick="autoDispatchByZoneAndRoute(true)">🧭 권역·동선별 스마트 자동배차</button>
+                    <button class="btn gray sm" onclick="resetCurrentDispatch()">🔄 배차 초기화</button>
+                    <button class="btn green sm" onclick="downloadDispatchCsv()">📥 당일 배차·동선표 CSV 저장</button>
                 </div>
             </div>
-            <p style="margin-bottom:8px; font-size:11.5px; color:#374151;">
-                • <b>기사별 바둑판 보기:</b> 태블릿(2열)·데스크탑(3열)에서 각 호차별 배송처와 이동 동선(<b>#1 ➔ #N</b>)을 한눈에 비교하고 호차를 변경할 수 있습니다.
-            </p>
+
+            <!-- 6대 차량 기사명 입력 (6열) -->
             <div class="vehicle-config-grid" id="vehicleConfigGrid"></div>
-            <div class="vehicle-stat-bar" id="vehicleStatBar"></div>
+
+            <!-- 냉장창고 4곳 선택 패널 -->
+            <div class="cold-storage-panel">
+                <div class="cold-storage-title">
+                    <span>❄️ 냉장창고 경유 추가 (최대 4곳 선택하여 호차 배정 가능)</span>
+                    <span style="font-size:10.5px; font-weight:normal; color:#155e75;">호차를 선택하면 해당 기사의 배차 목록과 VWorld 지도에 함께 표시됩니다</span>
+                </div>
+                <div class="cold-storage-grid" id="coldStorageGrid"></div>
+            </div>
         </div>
 
-        <!-- 기사별 배송처 바둑판 그리드 -->
-        <div id="dispatchBoardGrid" class="dispatch-board-grid"></div>
+        <!-- 2. 기사별 배차 거래처 목록 (6열 바둑판: 거래처 이름만 + 옆에 [📍주소] 토글 버튼) -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
+            <b style="color:var(--primary); font-size:13.5px;">📋 기사별 배차 거래처 목록 (6열 한눈에 보기)</b>
+            <span id="pickupSummaryBadge" style="font-size:11px; color:#374151; font-weight:bold;"></span>
+        </div>
+        <div id="driverSixColGrid" class="driver-six-col-grid"></div>
+
+        <!-- 3. VWorld 배송 동선 지도 -->
+        <div class="map-section-box">
+            <div class="map-toolbar">
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                    <b style="color:var(--primary); font-size:13px;">🗺️ VWorld 배송 권역·동선 지도</b>
+                    <span id="mapGeoStatus" style="font-size:11px; color:#047857; font-weight:bold;">(출발거점: 안산 선부·시흥 하상)</span>
+                </div>
+                <div class="filter-group">
+                    <select id="mapVehicleFilter" class="hdr-select" style="height:24px; font-size:11px;" onchange="refreshVworldMapMarkers()">
+                        <option value="ALL">전체 차량(1~6호차) 표시</option>
+                        <option value="V0">1호차만 보기</option>
+                        <option value="V1">2호차만 보기</option>
+                        <option value="V2">3호차만 보기</option>
+                        <option value="V3">4호차만 보기</option>
+                        <option value="V4">5호차만 보기</option>
+                        <option value="V5">6호차만 보기</option>
+                    </select>
+                    <button type="button" class="btn sm" onclick="geocodeMissingDestinations()">📍 VWorld 주소 좌표변환</button>
+                    <button type="button" class="btn orange sm" id="btnToggleSatMap" onclick="toggleVworldSatellite()">🛰️ 위성지도 전환</button>
+                    <button type="button" class="btn gray sm" id="btnToggleMapCollapse" onclick="toggleMapCollapse()">🔽 지도 접기</button>
+                </div>
+            </div>
+            <div id="vworldMapCanvas"></div>
+        </div>
+
+        <!-- 4. 전체 배송처별 기사 배정 (6열 바둑판 + 가나다순 / 시점부터 먼거리순 / 품목많은 순) -->
+        <div class="all-dest-header">
+            <div>
+                <b style="color:var(--primary); font-size:13.5px;">🏢 전체 배송처별 기사 배정 (6열 작업판)</b>
+                <span id="allDestCountInfo" style="font-size:11.5px; color:#4b5563; margin-left:6px;"></span>
+            </div>
+            <div class="sort-btn-group">
+                <span style="font-size:11px; font-weight:bold; color:#475569; align-self:center; margin-right:3px;">정렬:</span>
+                <button type="button" id="btnSortName" class="sort-btn active" onclick="setDispatchSortMode('name')">🔤 가나다순</button>
+                <button type="button" id="btnSortDist" class="sort-btn" onclick="setDispatchSortMode('distance')">📏 시점부터 먼거리순</button>
+                <button type="button" id="btnSortItems" class="sort-btn" onclick="setDispatchSortMode('items')">📦 품목많은 순</button>
+            </div>
+        </div>
+        <div id="allDestSixGrid" class="all-dest-six-grid"></div>
     </div>
 </div>
 
-<script src="app_gemi.js?v=20261123fix"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="app_gemi.js?v=20261124loose"></script>
 <script>
 if (typeof window.switchTab !== 'function') {
     alert('⚠️ app_gemi.js 파일이 같은 폴더에 없거나 로드되지 않았습니다.\nmeatforand_gemi.html 과 app_gemi.js 두 파일을 같은 폴더에 넣어주세요.');
