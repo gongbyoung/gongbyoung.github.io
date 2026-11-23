@@ -20,7 +20,14 @@ const DEFAULT_VEHICLES = [
     "5호차 (엄태원: 인천·부천권)",
     "6호차 (최청호: 광명·서울·고양권)"
 ];
-let vehicleNames = JSON.parse(localStorage.getItem('mf_vehicles') || 'null') || [...DEFAULT_VEHICLES];
+let _rawSavedVehicles = null;
+try { _rawSavedVehicles = JSON.parse(localStorage.getItem('mf_vehicles') || 'null'); } catch (e) {}
+let vehicleNames = (Array.isArray(_rawSavedVehicles) && _rawSavedVehicles.length > 0)
+    ? _rawSavedVehicles.slice(0, 6)
+    : [...DEFAULT_VEHICLES];
+while (vehicleNames.length < 6) {
+    vehicleNames.push(DEFAULT_VEHICLES[vehicleNames.length]);
+}
 let dispatchMap = JSON.parse(localStorage.getItem('mf_dispatch') || '{}');
 let manualDelivMap = JSON.parse(localStorage.getItem('mf_manual_deliv_dates') || '{}');
 let selectedVehicleFilter = 'ALL';
@@ -351,7 +358,7 @@ window.addEventListener('DOMContentLoaded', () => {
     renderVehicleConfigInputs();
     restoreStateFromBrowser();
 
-    if (window.location.protocol.startsWith('http')) {
+    if (window.location.protocol.startsWith('http') && !window.location.hostname.endsWith('github.io')) {
         fetch('./clients.csv')
             .then(res => {
                 if (!res.ok) throw new Error('No local clients.csv');
@@ -1957,7 +1964,7 @@ function renderDispatchPage() {
     const chips = [
         { code: 'ALL', label: `전체 바둑판 (${stats['ALL'].cnt}곳 · 📦${stats['ALL'].box}박/낱${stats['ALL'].loose})` },
         ...vehicleNames.map((vName, idx) => {
-            const st = stats[`V${idx}`];
+            const st = stats[`V${idx}`] || { cnt: 0, box: 0, loose: 0 };
             return { code: `V${idx}`, label: `${vName} (${st.cnt}곳 · 📦${st.box}박/낱${st.loose})` };
         }),
         { code: 'PICKUP', label: `방문/택배 (${stats['PICKUP'].cnt}곳 · 📦${stats['PICKUP'].box}박)` },
