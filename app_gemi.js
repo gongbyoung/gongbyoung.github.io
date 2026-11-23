@@ -1,9 +1,10 @@
 /* =========================================================================
-   1. 내장 거래처 DB (전체거래처목록_20261111.csv + 카톡 출입비번 통합)
+   1. 내장 거래처 명칭·별명 매핑 (개인정보·주소·출입비번 비포함 - GitHub 공개 안전 버전)
+      ※ 상세 주소·연락처·출입비번은 로컬/비공개 clients.csv 로드 시 자동 병합됩니다.
    ========================================================================= */
-const DEFAULT_CLIENTS = [{"name": "(주)태광푸드", "ceo": "박경은", "phone": "031-292-5272", "addr": "경기도 화성시 매송면 송라길39번길23,1동(송라리) 607-3", "alias": ["태광"], "note": "*이사 현재연 010-6512-5252"}, {"name": "(주)한마음마트(일동)=>정육으로", "ceo": "장병준", "phone": "031-406-5257", "addr": "경기도 안산시 상록구 일동로20 (일동120-3)", "alias": ["한마음마트", "한마음"], "note": "25.10.16 법인대표자변경 임지영->장병준"}, {"name": "주식회사 농민(본오)", "ceo": "", "phone": "010-2499-0159", "addr": "경기도 안산시 상록구 선암로 44, 1층2층(본오동)", "alias": ["본오농민마트", "본오농민"], "note": ""}, {"name": "전라도연탄구이", "ceo": "김세민", "phone": "010-7510-5700", "addr": "경기도 시흥시 서촌상가2길 29,1층 110호(정왕동 명동프라자)", "alias": ["전라도연탄구이", "전라도"], "note": "비번: 2200"}, {"name": "농민마트와동(주)중지", "ceo": "박호자", "phone": "031-402-3838", "addr": "경기도 안산시 단원구 와동공원로162,1층2층,와동공원로164 1층(와동)", "alias": ["농민마트와동", "와동"], "note": "임택근팀장님010-7255-2476"}, {"name": "성대지마트(주)", "ceo": "이병창", "phone": "010-5544-6498", "addr": "서울 동작구 상도로 102(상도동)", "alias": ["성대g마트", "성대G마트", "성대g", "성대"], "note": "전홍숙과장님010-2071-2489"}, {"name": "출고안됨(주)스타마트", "ceo": "우병락", "phone": "031-405-7496", "addr": "경기 안산시 상록구 화랑로 513(성포동, 예술인아파트상가지하38호)", "alias": ["스타마트", "스타"], "note": ""}, {"name": "서창별빛정육점", "ceo": "김희창", "phone": "010-8259-3549", "addr": "인천시 남동구 서창남로 45,1층 105호(서창동,로데오프라자)", "alias": ["별빛정육점", "별빛"], "note": "별빛 지선미 폐업후 인수함"}, {"name": "횡성생고기(본점)", "ceo": "이동일", "phone": "031-492-9289", "addr": "경기 안산시 단원구 신길동 1660", "alias": ["횡성본점", "횡성생고기", "횡성본정ㅅ"], "note": ""}, {"name": "횡성생고기(인천점)", "ceo": "김기란", "phone": "010-8738-2519", "addr": "인천 동구 송화로20번길 11 (화평동,1층)", "alias": ["횡성생고기 인천점", "횡성인천점", "횡성 인천"], "note": ""}, {"name": "청정맛집(하중동)", "ceo": "기창임", "phone": "031-435-3130", "addr": "경기도 시흥시 연성로29번길12(하중동)", "alias": ["청정맛집", "청정"], "note": "010-9238-4867 청정사장님"}, {"name": "덕이네쌈밥", "ceo": "김순덕", "phone": "010-7739-1758", "addr": "경기도 시흥시 군자로477번길5,1층 일부호(거모동)", "alias": ["덕이네쌈밥", "덕이네"], "note": ""}, {"name": "농민마트 고잔점", "ceo": "김도경", "phone": "031-487-7343~5", "addr": "경기도 안산시 단원구 광덕4로88, 106호 외55개(고잔동)", "alias": ["농민마트고잔", "농민 고잔", "고잔"], "note": ""}, {"name": "(주)원신산업-보미마트", "ceo": "박준호", "phone": "031-966-4322", "addr": "경기도 고양시 덕양구 백양로 107-1,1층(화정동)", "alias": ["원신산업", "원신"], "note": "김용규사장님 010-2338-9293"}, {"name": "꿀돼지꿀한우(가리봉)", "ceo": "김인룡", "phone": "010-9441-9220", "addr": "서울 금천구 가산로 106,상가동 1층104호(가산동,주상복합두산아파트)", "alias": ["가리봉꿀돼지꿀한우", "가리봉꿀"], "note": "**조은축산철산점소개"}, {"name": "(주)다온마트(10/1부터)", "ceo": "장병준", "phone": "031-402-1905", "addr": "경기도 안산시 상록구 시낭로 25 (월피동)", "alias": ["다온마트", "다온"], "note": "다온마트 사업자 개인에서 법인으로변경.26.10.1~"}, {"name": "쌈&쌈(신길점)", "ceo": "문희", "phone": "031-493-3234", "addr": "경기 안산시 단원구 신길동 1641 1층", "alias": ["사동쌈엔쌈", "쌈엔쌈", "쌈쌈", "쌈&쌈"], "note": ""}, {"name": "풍년돼지양념구이(상미네곱창집)", "ceo": "김순화", "phone": "010-4124-6610", "addr": "경기도 안산시 단원구 화랑로 160, 상가동 125,126호(초지동,초지역 메이", "alias": ["풍년돼지양념구이", "풍년"], "note": "간판에는 상미네곱창으로 되어있음 | 비번: 8846* (홀에 보관)"}, {"name": "에스에이치미트(음성)", "ceo": "김세영", "phone": "", "addr": "충북 음성군 음성읍 시장로50번길5", "alias": ["에스에이치마트 음성", "음성엘마트", "음성"], "note": "에스에이치유통(광장)과 같은업체"}, {"name": "원대성정육점", "ceo": "송이한", "phone": "010-7934-9050", "addr": "경기도 부천시 오정구 성오로124번길47(원종동,49호)", "alias": ["원대성정육점", "원대성"], "note": "채명선"}, {"name": "고기바보푸주간(부곡)", "ceo": "최미란", "phone": "010-3221-5314", "addr": "경기도 군포시 송부로291번길 16,1층 103호(부곡동)", "alias": ["고기바보부곡", "부곡 고기바보", "부곡점 고기바보"], "note": "*고기바보 일반과세자로 변경 2019.7월부터"}, {"name": "고기바보푸줏간(장안점)", "ceo": "장해원", "phone": "010-3221-5314", "addr": "경기도 의왕시 장안중앙로7, 101.102호(삼동)", "alias": ["고기바보장안", "장안점"], "note": ""}, {"name": "고기바보(송정점)", "ceo": "최용인", "phone": "", "addr": "경기도 군포시 송부로34번길 35,101호일부,102호,103호일부호(도마교동)", "alias": ["고기바보송정", "송정점"], "note": "고기바보정육점(송정점)식당-20년 5.6월계산서발행"}, {"name": "꿀돼지꿀한우(금천)", "ceo": "정미혜", "phone": "010-9441-9220", "addr": "서울 금천구 금하로697 101호(시흥동)", "alias": ["금천꿀돼지꿀한우", "금천꿀", "꿀돼지시흥점"], "note": ""}, {"name": "꿀돼지꿀한우정육점(광명)", "ceo": "황지연", "phone": "010-3599-0509", "addr": "경기도 광명시 광명로 848번길 32-2,1층 103호(광명동,펠리스필)", "alias": ["광명꿀", "광꿀"], "note": "윤상웅 사장님(삼대축산)"}, {"name": "동탄식자재마트", "ceo": "박지휘", "phone": "031-8003-7152", "addr": "경기도 오산시 외삼미로 162-54(외삼미동)", "alias": ["동탄식자재마트", "동탄식자재"], "note": ""}, {"name": "정성마트정육코너(아차산)", "ceo": "김세영", "phone": "010-7225-9472", "addr": "서울특별시 광진구 천호대로661,지하1층(구의동,정성빌딩)", "alias": ["정성마트", "아차산점발주입니다"], "note": "팀장 010-6621-5697 (26.1.2)"}, {"name": "한결축산", "ceo": "김재상", "phone": "010-8577-1211", "addr": "경기도 시흥시 은계남로 12,상가동 1층147호(은행동,시흥은계 호반써밋플레", "alias": ["한결축산"], "note": ""}, {"name": "한돈미트(N마트)기흥", "ceo": "이종남", "phone": "010-5243-0200", "addr": "경기도 용인시 기흥구 공세로 236(공세동)", "alias": ["한돈미트", "주식회사 엔마트용인점", "엔마트"], "note": ""}, {"name": "삼사오", "ceo": "윤대기", "phone": "010-2113-3455", "addr": "경기 안산시 상록구 이동 공원로 53(이동,1층)", "alias": ["삼사오"], "note": "비번: 3679*"}, {"name": "에스농축수산마트(율전)", "ceo": "김아름", "phone": "010-7758-7865", "addr": "경기도 수원시 장안구 덕영대로425번길 58-2(율전동)", "alias": ["에스농축산마트 율전", "율전동에스할인마트입니다", "s율전", "율전"], "note": "에스농축산 (율전)7월부터 사업자 변경"}, {"name": "주식회사에스할인마트(지점)평택", "ceo": "김아름", "phone": "010-7758-7865", "addr": "경기도 평택시 모산영신2길34,1동1층101호 스타주차타워(동삭동)", "alias": ["에스할인마트 평택", "에스할인마트 (평택)", "s평택", "에스평택"], "note": "전대성팀장님"}, {"name": "신박축산", "ceo": "박지훈", "phone": "010-9137-0397", "addr": "인천시 부평구 십정동 486-15 1층일부(3호)", "alias": ["신박축산"], "note": "22.11.11사장님코드변경"}, {"name": "천하제일정육점(배곧동)", "ceo": "송연교", "phone": "010-8991-2135", "addr": "경기도 시흥시 서울대학로278번길 19-13,108동 제비-103호(배곧동)", "alias": ["천하제일정육점", "천하제일"], "note": "에스율전 소개"}, {"name": "오늘은고기다(일동)", "ceo": "김인숙", "phone": "010-9646-0913", "addr": "경기도 안산시 상록구 도매시장로93,1층 102호(일동)", "alias": ["오늘은고기다"], "note": "010-9646-0913 김동우사장님 (아내분명의)"}, {"name": "참새방앗간", "ceo": "LI LONGZE(이용택)", "phone": "", "addr": "서울 금천구 범안로 1138, 108호(가산동,고려테크온)", "alias": ["참새방앗간"], "note": ""}, {"name": "막뚱이정육점", "ceo": "전성현", "phone": "010-8486-0063", "addr": "인천시 부평구 마장로220번길 13, 106동(상가동)113호(산곡동,한신휴아파트", "alias": ["막뚱이정육점"], "note": "2026.3.3 김태호팀장으로"}, {"name": "삼겹연구소", "ceo": "정수길", "phone": "010-5820-9348", "addr": "경기도 안산시 상록구 본오로79,1층 (본오동)", "alias": ["삼겹연구소"], "note": "현관비번: 7788#"}, {"name": "하늘소(광명점)", "ceo": "박주하", "phone": "010-7624-7611", "addr": "경기도 광명시 오리로964번길 23-1(광명동)", "alias": ["하늘소광명", "하늘소 광명"], "note": ""}, {"name": "하늘소(화곡)", "ceo": "설민아", "phone": "010-3200-0342", "addr": "서울특별시 강서구 강서로18길 8-10 1층,103호104호(화곡동)", "alias": ["하늘소화곡", "하늘소 화곡"], "note": "11/3사업자변경"}, {"name": "하늘소(역곡점)", "ceo": "오종극", "phone": "010-7624-7611", "addr": "경기도 부천시 역곡로26번길 25,1층 101호(역곡동,대화빌딩)", "alias": ["하늘소역곡", "역곡하늘소"], "note": "주차장비번: 닫힘누르고 1856#"}, {"name": "상미왕할인마트(식자재)산본", "ceo": "김샛별", "phone": "010-2504-5691", "addr": "경기도 군포시 금산로 9,지층 101-1호,101-2호(금정동)", "alias": ["상미마트", "상미마트 산본", "상미마트(군포)"], "note": "에스평택 지인 26.10.14"}, {"name": "상미왕할인마트(반월점)", "ceo": "강승복", "phone": "", "addr": "경기도 안산시 상록구 건건8길 2,지층 비101호(건건동,건건e-편한세상 주상", "alias": ["상미마트(반월점)"], "note": ""}, {"name": "참예소(포동)", "ceo": "이영", "phone": "010-5778-8766", "addr": "경기도 시흥시 신현로 38번길 23-1. 13동 101호(포동,태산아파트상가)", "alias": ["참예소"], "note": ""}, {"name": "일신할인마트(정육점)", "ceo": "최경길", "phone": "032-528-7048", "addr": "인천광역시 부평구 경인로 1104번길 13-14 1층(일신동,대한빌딩)", "alias": ["일신할인마트"], "note": ""}, {"name": "한우세상(폐업)", "ceo": "이대일", "phone": "010-9167-1895", "addr": "인천시 남동구 장아산로158, 제상가동1층 103호(서창동,임광그대가아파트)", "alias": ["한우세상"], "note": ""}, {"name": "양평해장국(폐업)", "ceo": "이태수", "phone": "010-2987-2704", "addr": "경기도 안산시 단원구 신길로9-3, 109호(신길동)", "alias": ["신길양평해장국"], "note": ""}, {"name": "한양축산도매센타(봉천동)", "ceo": "서차석", "phone": "010-4149-8120", "addr": "서울 관악구 봉천동 66-163", "alias": ["한양봉천", "한양 봉천"], "note": "새주소-봉천7동 1619-1 고기굽는사람들 | 비번: 6884*"}, {"name": "대부지마트(주)", "ceo": "이명훈", "phone": "032-891-2255", "addr": "경기도 안산시 단원구 대부황금로 1295(대부북동)", "alias": ["대부g마트", "대부지마트"], "note": ""}, {"name": "충북G마트", "ceo": "", "phone": "", "addr": "", "alias": ["충북g마트", "충북지"], "note": ""}, {"name": "유포리바베큐장", "ceo": "윤선미", "phone": "010-5858-0989", "addr": "경기도 화성시 비봉면 유포길10-29", "alias": ["유포리바베큐장", "유포리"], "note": "오세범대표님  비밀번호 5858# | 비번: 8585#"}, {"name": "SK축산물도소매", "ceo": "유영미", "phone": "032-446-5800", "addr": "인천시 남동구 논고개로118,104(논현동,양진타워)", "alias": ["sk축산", "SK축산"], "note": "사장은 성종윤이오나 사업자는 유영미로 되있음"}, {"name": "오소돈", "ceo": "김현순", "phone": "010-2734-3913", "addr": "경기도 안산시 상록구 댕이길 80,1층(사동)", "alias": ["오소돈"], "note": "사모님 010-2734-3913 | 비번: 종 누르고 1348"}, {"name": "소문난정육점", "ceo": "오승진", "phone": "010-2050-9579", "addr": "서울특별시 금천구 시흥대로 143, 1층108호(시흥동, 신라상가)", "alias": ["소문난정육점"], "note": "**구)신풍"}, {"name": "진안축산", "ceo": "신정숙", "phone": "010-7501-0114", "addr": "경기도 화성시 병점중앙로195, 진안식자재마트 내정육코너(진안동)", "alias": ["진안축산"], "note": ""}, {"name": "삼대축산정육점양평점", "ceo": "윤상웅", "phone": "010-3599-0509", "addr": "서울 영등포구 영등포로33,1층 104호(양평동2가,목동비즈타워)", "alias": ["삼대축산"], "note": "광명꿀사장 가게"}, {"name": "(주)큐엔씨육가공", "ceo": "유임묵", "phone": "010-8582-4018", "addr": "경기도 안산시 단원구 초지2로 59-18(초지동)", "alias": ["큐엔씨육가공"], "note": "**한샘마트"}, {"name": "에이스미트", "ceo": "전윤표", "phone": "031-223-0063", "addr": "경기 수원시 권선구 곡반정동 587-1", "alias": ["에이스미트주안", "에이스미트 주안"], "note": ""}, {"name": "형제정육점1호점", "ceo": "", "phone": "", "addr": "", "alias": ["형제정육점1호점"], "note": ""}, {"name": "더갈비(폐업)", "ceo": "김동열", "phone": "010-2002-8509", "addr": "경기도 안산시 상록구 건건로 66, 111호,112호(건건동,스마트타워)", "alias": ["더갈비"], "note": "비번: 1234*"}, {"name": "삼부자돌판골", "ceo": "", "phone": "010-8665-0131", "addr": "경기도 안산시 단원구 선부광장1로 30, 203,204호(선부동)", "alias": ["삼부자돈판골"], "note": ""}, {"name": "원산면옥", "ceo": "한원석", "phone": "010-5395-8590", "addr": "경기도 안산시 상록구 본오로70, 1층(본오동)", "alias": ["원산면옥"], "note": ""}, {"name": "푸른목장(삼평동)", "ceo": "최지나", "phone": "010-6742-1179", "addr": "경기도 성남시 분당구 판교로 376,1층 105호(삼평동,마크시티 퍼플)", "alias": ["푸른목장 삼평점", "푸른목장삼평"], "note": "서경진 대표님 삼평점"}, {"name": "푸른목장(판교)", "ceo": "서경진", "phone": "010-6742-1179", "addr": "경기도 성남시 분당구 운중로 242, 1층 110호(판교동,리버스토리)", "alias": ["푸른목장 판교점", "푸른목장판교", "푸른목장 판교"], "note": ""}, {"name": "(주)판교1등축산(구-푸른 대장동", "ceo": "서경진", "phone": "", "addr": "경기도 성남시 분당구 판교대장로6길 10, 108호(대장동)", "alias": ["판교1등축산", "1등판교"], "note": "푸른목장(대장동)사업자변경 2026. 6.23."}, {"name": "(주)좋은축산유통", "ceo": "지창용", "phone": "031-431-5717", "addr": "경기도 시흥시 군자로 387번길 21-1(거모동)", "alias": ["좋은축산유통"], "note": ""}, {"name": "다연홈마트", "ceo": "안형빈", "phone": "010-5252-4148", "addr": "경기도 시흥시 하중로128(하중동)", "alias": ["다연"], "note": "*"}, {"name": "소하축산(광명)", "ceo": "석원찬", "phone": "010-5659-5077", "addr": "경기도 광명시 소하로82,108호(소하동,한빛프라자)", "alias": ["소하축산광명", "소하축산 광명"], "note": ""}, {"name": "토종축산(광명철산동)", "ceo": "강준서", "phone": "010-7496-3735", "addr": "경기도 광명시 시청로 50, A동 1층 125호(철산동, 롯데캐슬&뷰상가)", "alias": ["토종축산"], "note": ""}, {"name": "린이네축산동탄점(구미래)", "ceo": "김세중", "phone": "010-9622-6896", "addr": "경기도 화성시 동탄중심상가1길 28,1층 미래마켓내정육코너(반송동)", "alias": ["린이네축산 동탄", "린이네축산(동탄)"], "note": "구)미래마켓동탄점"}, {"name": "린이네축산(본점-영통)", "ceo": "김세중", "phone": "010-9622-6896", "addr": "경기도 수원시 영통구 봉영로1770번길 21,상가동 지층 1호(영통동,신명.한", "alias": ["린이네축산 본점", "린이네본점", "린이네축산 (본점)"], "note": "240111 상호변경"}, {"name": "골목대장삼겹살", "ceo": "황규승", "phone": "010-8337-8416", "addr": "경기도 시흥시 시흥대로 1073번길 29,1층(신천동)", "alias": ["골목대장"], "note": "비번: 1379* (닫을때 #)"}, {"name": "김치왕뚜껑삼겹살", "ceo": "WHENG HAILN", "phone": "010-8033-9827", "addr": "경기도 부천시 역곡로 37(역곡동)", "alias": ["김치왕뚜껑삼겹살1호점", "김치왕뚜껑삼겹살 2호점", "김치왕뚜껑삼겹살3호점"], "note": "흥화맛집아시는분 | 현관: 4321 / 천막: 12349"}, {"name": "신풍푸줏간(신길점)", "ceo": "고현우", "phone": "010-5021-3804", "addr": "서울시 영등포구 신풍로 77.상가동 b105호(신길동, 래미안에스티움)", "alias": ["신풍푸줏간", "신풍푸줏간 신길"], "note": ""}, {"name": "거시기 함흥냉면", "ceo": "이종아", "phone": "010-7209-5969", "addr": "경기도 군포시 삼성로20번길 16-12, 1층(부곡동)", "alias": ["거시기함흥냉면", "거시기"], "note": ""}, {"name": "전설갈비은행점", "ceo": "", "phone": "010-5251-8777", "addr": "경기도 시흥시 대은로 16-4, 1층(은행동)", "alias": ["전설은행"], "note": ""}, {"name": "옥이네주물럭", "ceo": "김선옥", "phone": "010-2753-8063", "addr": "경기도 시흥시 함송로13번길 6-7, 101,102호(정왕동)", "alias": ["옥이네주물럭"], "note": ""}, {"name": "예서감자탕", "ceo": "이민숙", "phone": "010-5909-5815", "addr": "경기도 안산시 상록구 매화로2길 21, 1층 일부호(이동)", "alias": ["예서감자탕"], "note": "2026.04.06 주소변경됨"}, {"name": "찌그러진주전자", "ceo": "최윤덕", "phone": "010-3731-6102", "addr": "경기도 시흥시 봉우재로57(정왕동)", "alias": ["찌그러진"], "note": "비번: 1709"}, {"name": "이모네(거래종료)", "ceo": "성윤정", "phone": "010-3329-4688", "addr": "경기도 시흥시 경기과기대로 127(정왕동)", "alias": ["이모네민물메운탕", "이모네민물매운탕"], "note": "*무영사모님 | 비번: 6225*"}, {"name": "오늘은냉삼(구-이구집)", "ceo": "백현순", "phone": "010-6269-7249", "addr": "경기도 시흥시 진말로 17,1층(장곡동)", "alias": ["오늘은냉삼"], "note": "비번: 35318* (가게밖 뒤 골목 냉장고)"}, {"name": "국민생고기(장곡동)", "ceo": "김성자", "phone": "010-8786-3529", "addr": "경기도 시흥시 장곡로37번길 5-3,101호(장곡동)", "alias": ["국민생고기 장곡"], "note": ""}, {"name": "갈비면옥(갈비나라2호점)", "ceo": "천옥매", "phone": "", "addr": "경기도 안산시 단원구 선삼로22,1층(선부동)", "alias": ["대패나라", "갈비면옥"], "note": "갈비나라 사장님 선부동2호점 010-2466-7682갈비나라사장님"}, {"name": "푸줏단(동춘)", "ceo": "", "phone": "010-2202-2847", "addr": "인천광역시 연수구 봉재산로48, 1층101호(동춘동)", "alias": ["동춘동푸줏단"], "note": "비번: 9291"}, {"name": "오빠막창", "ceo": "강미옥", "phone": "010-7422-0089", "addr": "경기도 시흥시 한우물로7 1층 102호(거모동)", "alias": ["오빠막창"], "note": "횡성생고기 사장님 건물주"}, {"name": "착한정육점(신정동)", "ceo": "강태식", "phone": "010-2759-5738", "addr": "서울특별시 양천구 오목로 146,2층(신정동)", "alias": ["착한정육점 산현", "착한정육점 (산현)", "착한정육점"], "note": ""}, {"name": "대박축산(금천)하늘소", "ceo": "윤상호", "phone": "010-8736-9836", "addr": "서울  금천구 시흥대로62길 53(시흥동)", "alias": ["대박축산금천", "대박축산 금천", "시흥대박축산"], "note": "하늘소 금천점(상호만틀림) 김명화팀장"}, {"name": "차이나감자탕", "ceo": "유철현", "phone": "010-2187-5420", "addr": "경기도 수원시 장안구 수성로370번길32,1층 일부호(영화동)", "alias": ["차이나감자탕"], "note": ""}, {"name": "여기식당", "ceo": "박일남", "phone": "010-4258-1888", "addr": "경기도 시흥시 하중로 130-1, 1층(하중동)", "alias": ["여기식당"], "note": ""}, {"name": "곱창연가", "ceo": "김선희", "phone": "010-6340-8258", "addr": "경기도 시흥시 하상로4번길 7(하상동,1층)", "alias": ["곱창연가"], "note": "김선희"}, {"name": "주식회사 정육점", "ceo": "윤태양", "phone": "010-4400-6200", "addr": "경기도 용인시 기흥구 평촌1로2번길 10,103호(동백동)", "alias": ["주식회사정육점"], "note": ""}, {"name": "맛있는한우(부천상동)", "ceo": "장성호외1명", "phone": "010-2458-6758", "addr": "경기도 부천시 원미구 도약로13,1층102호", "alias": ["맛있는한우", "맛있는한우 상동"], "note": "*무궁화 단가로"}, {"name": "효자축산(일산)", "ceo": "김용석", "phone": "010-9990-6556", "addr": "경기도 고양시 일산서구 중앙로 1406,110호(주엽동,한솔코아)", "alias": ["효자축산"], "note": ""}, {"name": "도담(은행)", "ceo": "", "phone": "010-9049-4398", "addr": "경기도 시흥시 대은로 16-14, 1층(은행동)", "alias": ["도담(은행동) 식당", "도담"], "note": ""}, {"name": "바른정육점(사동)", "ceo": "이소연", "phone": "010-6773-1923", "addr": "경기도 안산시 상록구 해양5로11, 1층 142호 일부(사동)", "alias": ["바른정육점"], "note": ""}, {"name": "한상궁한식주점", "ceo": "이동욱", "phone": "010-8478-3146", "addr": "경기도 안산시 상록구 초당로20, 1층(사동)", "alias": ["한상궁"], "note": ""}, {"name": "구들장2호점", "ceo": "", "phone": "010-5462-3326", "addr": "경기도 수원시 영통구 이의동 1335(아이플랙스)112호", "alias": ["구들장"], "note": "자물쇠 비번: 000"}, {"name": "셀프정육점(포동)", "ceo": "정진석", "phone": "010-3258-8774", "addr": "경기도 시흥시 신현로38번길26,1층 103호(포동)", "alias": ["셀프정육점", "포동셀프정육점", "포동셀프정육"], "note": ""}, {"name": "샛터돌왕구이", "ceo": "최동명", "phone": "010-8708-9829", "addr": "경기 안산시 단원구 신길로 20 (신길동,101호)", "alias": ["샛터"], "note": "비번: 0206"}, {"name": "백봉(선부동)", "ceo": "전봉기", "phone": "010-4446-7700", "addr": "경기도 안산시 단원구 선부광장1로 82,115호(선부동, 서림프라자)", "alias": ["백봉"], "note": ""}, {"name": "정성가득집밥", "ceo": "강명희", "phone": "010-6421-4654", "addr": "경기도 안산시 상록구 네고지길 2,1층 일부호(사동)", "alias": ["정성가득집밥"], "note": ""}, {"name": "오늘도고기&장어((구)으뜸장어)", "ceo": "김만국", "phone": "", "addr": "경기도 안산시 상록구 오목로60, 1층(본오동)", "alias": ["으뜸장어", "오늘도고기앤장어", "오늘도고기&장어", "고기앤장어"], "note": "으뜸장어 상호변경"}, {"name": "맛닭꼬치", "ceo": "편영일", "phone": "010-3688-6995", "addr": "경기도 시흥시 호현로22번길 18,1층(신천동)", "alias": ["신천동 맛닭꼬치입니다", "맛닭꼬치"], "note": "편영일사장 비번050628* | 비번: 터치 050628* (큰냉장고 윗칸 냉동고)"}, {"name": "슈퍼킹(사동)", "ceo": "양종열", "phone": "010-7600-3454", "addr": "경기도 안산시 상록구 감골1로 33,728동 지하층 1호(사동,상록수타운월드아", "alias": ["슈퍼킹"], "note": ""}, {"name": "구워랑", "ceo": "신지선", "phone": "010-9154-7494", "addr": "경기도 화성시 꽃내음2길 12-2 118,119호(새솔동)", "alias": ["구워랑"], "note": "입구비번: 0401#"}, {"name": "행복한 숯불돌쇠구이", "ceo": "박인철", "phone": "010-8769-8087", "addr": "경기도 군포시 공단로 356-54(산본동,금정삼성쉐르빌상가143호,144호)", "alias": ["돌쇠구이"], "note": ""}, {"name": "장터국밥", "ceo": "황인자", "phone": "010-6694-6255", "addr": "경기도 시흥시 정왕동1738-1번지 103호", "alias": ["장터국밥"], "note": "전화번호 자주 바꾸는사람"}, {"name": "우리축산정육점(수암동)", "ceo": "박지훈", "phone": "010-6304-8223", "addr": "경기도 안산시 상록구 원당골길11,104호(수암동,이림지오팰리스)", "alias": ["우리축산정육점"], "note": ""}, {"name": "아이비유통(성남)", "ceo": "권기철", "phone": "010-7103-4525", "addr": "경기도 성남시 중원구 황송로 77", "alias": ["아이비유통"], "note": ""}, {"name": "프리미엄정육점(구리)", "ceo": "박성주", "phone": "010-3763-7346", "addr": "경기도 구리시 체육관로 73 지하층(제이식자재마트)", "alias": ["프리미엄정육점"], "note": ""}, {"name": "인화숯불갈비", "ceo": "홍순태", "phone": "010-2488-7061", "addr": "경기도 시흥시 하상로8번길 1,1층일부호(하상동)", "alias": ["인화숯불갈비"], "note": ""}, {"name": "대박마포숯불갈비", "ceo": "백옥희", "phone": "", "addr": "경기도 광명시 광명로 848번길 5(광명동,1층)", "alias": ["대박마포"], "note": ""}, {"name": "찐하오마라탕 그랑시티시그니처", "ceo": "차승현", "phone": "010-5596-6168", "addr": "경기도 안산시 상록구 해양3로 15, 1층 118호(사동)", "alias": ["찐하오마라탕"], "note": ""}, {"name": "안심한우(광명)", "ceo": "박철진", "phone": "010-6433-3967", "addr": "경기도 광명시 오리로 964번길7(광명동)", "alias": ["안심한우"], "note": "일신할인마트사장님이 소개"}, {"name": "매일정육점(신규)", "ceo": "김영섭", "phone": "010-5306-8522", "addr": "경기도 의정부시 추동로9,1층 103호 (신곡동,휴먼시티)", "alias": ["매일정육점"], "note": ""}, {"name": "두근반세근반", "ceo": "이상현", "phone": "010-3246-2978", "addr": "경기도 시흥시 정왕동1624-7번지 106호", "alias": ["두근반세근반"], "note": "031-499-2978"}, {"name": "장군축산도매센터(광명)", "ceo": "", "phone": "010-6760-9257", "addr": "경기도 광명시 오리로964번길 4, 1층 101호(광명동)", "alias": ["장군축산(광명)", "장군축산"], "note": ""}, {"name": "현대축산(금천)", "ceo": "문미경", "phone": "010-2519-7509", "addr": "서울특별시 금천구 금하로23길4,1층1호(시흥동,신영빌딩)", "alias": ["현대축산 금천"], "note": "핸폰번호 윤종오사장님"}, {"name": "농우축산", "ceo": "이홍주", "phone": "010-5240-3014", "addr": "서울 용산구 효창원로 40길-3, 1층(용문동)", "alias": ["농우축산"], "note": "*19년1월28일 사업자변경 경수남->이홍주"}, {"name": "오복정육(옥련점)베스트식자재정", "ceo": "배선우", "phone": "010-2824-7060", "addr": "인천광역시 연수구 한나루로79번길 53,1층(옥련동)", "alias": ["오복정육"], "note": "베스트식자재 정육코너"}, {"name": "까만돼지", "ceo": "김영자", "phone": "010-2983-1198", "addr": "경기도 시흥시 군자로534번안길 7, 나동 지1층 B101호(거모동)", "alias": ["까만돼지"], "note": ""}, {"name": "대반전", "ceo": "박상우", "phone": "010-8963-4741", "addr": "서울특별시 양천구 오목로 148, 1층(신정동)", "alias": ["대반전"], "note": ""}, {"name": "주식회사 두둑", "ceo": "신미경", "phone": "031-402-5993", "addr": "경기도 시흥시 동서로 1198번길 33(목감동)", "alias": ["두둑 양념육 업체신규", "두둑에"], "note": "*양념육 업체(간판 아이원푸드)"}];
+const DEFAULT_CLIENTS = [{"name": "(주)태광푸드", "ceo": "", "phone": "", "addr": "", "alias": ["태광"], "note": ""}, {"name": "(주)한마음마트(일동)=>정육으로", "ceo": "", "phone": "", "addr": "", "alias": ["한마음마트", "한마음"], "note": ""}, {"name": "주식회사 농민(본오)", "ceo": "", "phone": "", "addr": "", "alias": ["본오농민마트", "본오농민"], "note": ""}, {"name": "전라도연탄구이", "ceo": "", "phone": "", "addr": "", "alias": ["전라도연탄구이", "전라도"], "note": ""}, {"name": "농민마트와동(주)중지", "ceo": "", "phone": "", "addr": "", "alias": ["농민마트와동", "와동"], "note": ""}, {"name": "성대지마트(주)", "ceo": "", "phone": "", "addr": "", "alias": ["성대g마트", "성대G마트", "성대g", "성대"], "note": ""}, {"name": "출고안됨(주)스타마트", "ceo": "", "phone": "", "addr": "", "alias": ["스타마트", "스타"], "note": ""}, {"name": "서창별빛정육점", "ceo": "", "phone": "", "addr": "", "alias": ["별빛정육점", "별빛"], "note": ""}, {"name": "횡성생고기(본점)", "ceo": "", "phone": "", "addr": "", "alias": ["횡성본점", "횡성생고기", "횡성본정ㅅ"], "note": ""}, {"name": "횡성생고기(인천점)", "ceo": "", "phone": "", "addr": "", "alias": ["횡성생고기 인천점", "횡성인천점", "횡성 인천"], "note": ""}, {"name": "청정맛집(하중동)", "ceo": "", "phone": "", "addr": "", "alias": ["청정맛집", "청정"], "note": ""}, {"name": "덕이네쌈밥", "ceo": "", "phone": "", "addr": "", "alias": ["덕이네쌈밥", "덕이네"], "note": ""}, {"name": "농민마트 고잔점", "ceo": "", "phone": "", "addr": "", "alias": ["농민마트고잔", "농민 고잔", "고잔"], "note": ""}, {"name": "(주)원신산업-보미마트", "ceo": "", "phone": "", "addr": "", "alias": ["원신산업", "원신"], "note": ""}, {"name": "꿀돼지꿀한우(가리봉)", "ceo": "", "phone": "", "addr": "", "alias": ["가리봉꿀돼지꿀한우", "가리봉꿀"], "note": ""}, {"name": "(주)다온마트(10/1부터)", "ceo": "", "phone": "", "addr": "", "alias": ["다온마트", "다온"], "note": ""}, {"name": "쌈&쌈(신길점)", "ceo": "", "phone": "", "addr": "", "alias": ["사동쌈엔쌈", "쌈엔쌈", "쌈쌈", "쌈&쌈"], "note": ""}, {"name": "풍년돼지양념구이(상미네곱창집)", "ceo": "", "phone": "", "addr": "", "alias": ["풍년돼지양념구이", "풍년"], "note": ""}, {"name": "에스에이치미트(음성)", "ceo": "", "phone": "", "addr": "", "alias": ["에스에이치마트 음성", "음성엘마트", "음성"], "note": ""}, {"name": "원대성정육점", "ceo": "", "phone": "", "addr": "", "alias": ["원대성정육점", "원대성"], "note": ""}, {"name": "고기바보푸주간(부곡)", "ceo": "", "phone": "", "addr": "", "alias": ["고기바보부곡", "부곡 고기바보", "부곡점 고기바보"], "note": ""}, {"name": "고기바보푸줏간(장안점)", "ceo": "", "phone": "", "addr": "", "alias": ["고기바보장안", "장안점"], "note": ""}, {"name": "고기바보(송정점)", "ceo": "", "phone": "", "addr": "", "alias": ["고기바보송정", "송정점"], "note": ""}, {"name": "꿀돼지꿀한우(금천)", "ceo": "", "phone": "", "addr": "", "alias": ["금천꿀돼지꿀한우", "금천꿀", "꿀돼지시흥점"], "note": ""}, {"name": "꿀돼지꿀한우정육점(광명)", "ceo": "", "phone": "", "addr": "", "alias": ["광명꿀", "광꿀"], "note": ""}, {"name": "동탄식자재마트", "ceo": "", "phone": "", "addr": "", "alias": ["동탄식자재마트", "동탄식자재"], "note": ""}, {"name": "정성마트정육코너(아차산)", "ceo": "", "phone": "", "addr": "", "alias": ["정성마트", "아차산점발주입니다"], "note": ""}, {"name": "한결축산", "ceo": "", "phone": "", "addr": "", "alias": ["한결축산"], "note": ""}, {"name": "한돈미트(N마트)기흥", "ceo": "", "phone": "", "addr": "", "alias": ["한돈미트", "주식회사 엔마트용인점", "엔마트"], "note": ""}, {"name": "삼사오", "ceo": "", "phone": "", "addr": "", "alias": ["삼사오"], "note": ""}, {"name": "에스농축수산마트(율전)", "ceo": "", "phone": "", "addr": "", "alias": ["에스농축산마트 율전", "율전동에스할인마트입니다", "s율전", "율전"], "note": ""}, {"name": "주식회사에스할인마트(지점)평택", "ceo": "", "phone": "", "addr": "", "alias": ["에스할인마트 평택", "에스할인마트 (평택)", "s평택", "에스평택"], "note": ""}, {"name": "신박축산", "ceo": "", "phone": "", "addr": "", "alias": ["신박축산"], "note": ""}, {"name": "천하제일정육점(배곧동)", "ceo": "", "phone": "", "addr": "", "alias": ["천하제일정육점", "천하제일"], "note": ""}, {"name": "오늘은고기다(일동)", "ceo": "", "phone": "", "addr": "", "alias": ["오늘은고기다"], "note": ""}, {"name": "참새방앗간", "ceo": "", "phone": "", "addr": "", "alias": ["참새방앗간"], "note": ""}, {"name": "막뚱이정육점", "ceo": "", "phone": "", "addr": "", "alias": ["막뚱이정육점"], "note": ""}, {"name": "삼겹연구소", "ceo": "", "phone": "", "addr": "", "alias": ["삼겹연구소"], "note": ""}, {"name": "하늘소(광명점)", "ceo": "", "phone": "", "addr": "", "alias": ["하늘소광명", "하늘소 광명"], "note": ""}, {"name": "하늘소(화곡)", "ceo": "", "phone": "", "addr": "", "alias": ["하늘소화곡", "하늘소 화곡"], "note": ""}, {"name": "하늘소(역곡점)", "ceo": "", "phone": "", "addr": "", "alias": ["하늘소역곡", "역곡하늘소"], "note": ""}, {"name": "상미왕할인마트(식자재)산본", "ceo": "", "phone": "", "addr": "", "alias": ["상미마트", "상미마트 산본", "상미마트(군포)"], "note": ""}, {"name": "상미왕할인마트(반월점)", "ceo": "", "phone": "", "addr": "", "alias": ["상미마트(반월점)"], "note": ""}, {"name": "참예소(포동)", "ceo": "", "phone": "", "addr": "", "alias": ["참예소"], "note": ""}, {"name": "일신할인마트(정육점)", "ceo": "", "phone": "", "addr": "", "alias": ["일신할인마트"], "note": ""}, {"name": "한우세상(폐업)", "ceo": "", "phone": "", "addr": "", "alias": ["한우세상"], "note": ""}, {"name": "양평해장국(폐업)", "ceo": "", "phone": "", "addr": "", "alias": ["신길양평해장국"], "note": ""}, {"name": "한양축산도매센타(봉천동)", "ceo": "", "phone": "", "addr": "", "alias": ["한양봉천", "한양 봉천"], "note": ""}, {"name": "대부지마트(주)", "ceo": "", "phone": "", "addr": "", "alias": ["대부g마트", "대부지마트"], "note": ""}, {"name": "충북G마트", "ceo": "", "phone": "", "addr": "", "alias": ["충북g마트", "충북지"], "note": ""}, {"name": "유포리바베큐장", "ceo": "", "phone": "", "addr": "", "alias": ["유포리바베큐장", "유포리"], "note": ""}, {"name": "SK축산물도소매", "ceo": "", "phone": "", "addr": "", "alias": ["sk축산", "SK축산"], "note": ""}, {"name": "오소돈", "ceo": "", "phone": "", "addr": "", "alias": ["오소돈"], "note": ""}, {"name": "소문난정육점", "ceo": "", "phone": "", "addr": "", "alias": ["소문난정육점"], "note": ""}, {"name": "진안축산", "ceo": "", "phone": "", "addr": "", "alias": ["진안축산"], "note": ""}, {"name": "삼대축산정육점양평점", "ceo": "", "phone": "", "addr": "", "alias": ["삼대축산"], "note": ""}, {"name": "(주)큐엔씨육가공", "ceo": "", "phone": "", "addr": "", "alias": ["큐엔씨육가공"], "note": ""}, {"name": "에이스미트", "ceo": "", "phone": "", "addr": "", "alias": ["에이스미트주안", "에이스미트 주안"], "note": ""}, {"name": "형제정육점1호점", "ceo": "", "phone": "", "addr": "", "alias": ["형제정육점1호점"], "note": ""}, {"name": "더갈비(폐업)", "ceo": "", "phone": "", "addr": "", "alias": ["더갈비"], "note": ""}, {"name": "삼부자돌판골", "ceo": "", "phone": "", "addr": "", "alias": ["삼부자돈판골"], "note": ""}, {"name": "원산면옥", "ceo": "", "phone": "", "addr": "", "alias": ["원산면옥"], "note": ""}, {"name": "푸른목장(삼평동)", "ceo": "", "phone": "", "addr": "", "alias": ["푸른목장 삼평점", "푸른목장삼평"], "note": ""}, {"name": "푸른목장(판교)", "ceo": "", "phone": "", "addr": "", "alias": ["푸른목장 판교점", "푸른목장판교", "푸른목장 판교"], "note": ""}, {"name": "(주)판교1등축산(구-푸른 대장동", "ceo": "", "phone": "", "addr": "", "alias": ["판교1등축산", "1등판교"], "note": ""}, {"name": "(주)좋은축산유통", "ceo": "", "phone": "", "addr": "", "alias": ["좋은축산유통"], "note": ""}, {"name": "다연홈마트", "ceo": "", "phone": "", "addr": "", "alias": ["다연"], "note": ""}, {"name": "소하축산(광명)", "ceo": "", "phone": "", "addr": "", "alias": ["소하축산광명", "소하축산 광명"], "note": ""}, {"name": "토종축산(광명철산동)", "ceo": "", "phone": "", "addr": "", "alias": ["토종축산"], "note": ""}, {"name": "린이네축산동탄점(구미래)", "ceo": "", "phone": "", "addr": "", "alias": ["린이네축산 동탄", "린이네축산(동탄)"], "note": ""}, {"name": "린이네축산(본점-영통)", "ceo": "", "phone": "", "addr": "", "alias": ["린이네축산 본점", "린이네본점", "린이네축산 (본점)"], "note": ""}, {"name": "골목대장삼겹살", "ceo": "", "phone": "", "addr": "", "alias": ["골목대장"], "note": ""}, {"name": "김치왕뚜껑삼겹살", "ceo": "", "phone": "", "addr": "", "alias": ["김치왕뚜껑삼겹살1호점", "김치왕뚜껑삼겹살 2호점", "김치왕뚜껑삼겹살3호점"], "note": ""}, {"name": "신풍푸줏간(신길점)", "ceo": "", "phone": "", "addr": "", "alias": ["신풍푸줏간", "신풍푸줏간 신길"], "note": ""}, {"name": "거시기 함흥냉면", "ceo": "", "phone": "", "addr": "", "alias": ["거시기함흥냉면", "거시기"], "note": ""}, {"name": "전설갈비은행점", "ceo": "", "phone": "", "addr": "", "alias": ["전설은행"], "note": ""}, {"name": "옥이네주물럭", "ceo": "", "phone": "", "addr": "", "alias": ["옥이네주물럭"], "note": ""}, {"name": "예서감자탕", "ceo": "", "phone": "", "addr": "", "alias": ["예서감자탕"], "note": ""}, {"name": "찌그러진주전자", "ceo": "", "phone": "", "addr": "", "alias": ["찌그러진"], "note": ""}, {"name": "이모네(거래종료)", "ceo": "", "phone": "", "addr": "", "alias": ["이모네민물메운탕", "이모네민물매운탕"], "note": ""}, {"name": "오늘은냉삼(구-이구집)", "ceo": "", "phone": "", "addr": "", "alias": ["오늘은냉삼"], "note": ""}, {"name": "국민생고기(장곡동)", "ceo": "", "phone": "", "addr": "", "alias": ["국민생고기 장곡"], "note": ""}, {"name": "갈비면옥(갈비나라2호점)", "ceo": "", "phone": "", "addr": "", "alias": ["대패나라", "갈비면옥"], "note": ""}, {"name": "푸줏단(동춘)", "ceo": "", "phone": "", "addr": "", "alias": ["동춘동푸줏단"], "note": ""}, {"name": "오빠막창", "ceo": "", "phone": "", "addr": "", "alias": ["오빠막창"], "note": ""}, {"name": "착한정육점(신정동)", "ceo": "", "phone": "", "addr": "", "alias": ["착한정육점 산현", "착한정육점 (산현)", "착한정육점"], "note": ""}, {"name": "대박축산(금천)하늘소", "ceo": "", "phone": "", "addr": "", "alias": ["대박축산금천", "대박축산 금천", "시흥대박축산"], "note": ""}, {"name": "차이나감자탕", "ceo": "", "phone": "", "addr": "", "alias": ["차이나감자탕"], "note": ""}, {"name": "여기식당", "ceo": "", "phone": "", "addr": "", "alias": ["여기식당"], "note": ""}, {"name": "곱창연가", "ceo": "", "phone": "", "addr": "", "alias": ["곱창연가"], "note": ""}, {"name": "주식회사 정육점", "ceo": "", "phone": "", "addr": "", "alias": ["주식회사정육점"], "note": ""}, {"name": "맛있는한우(부천상동)", "ceo": "", "phone": "", "addr": "", "alias": ["맛있는한우", "맛있는한우 상동"], "note": ""}, {"name": "효자축산(일산)", "ceo": "", "phone": "", "addr": "", "alias": ["효자축산"], "note": ""}, {"name": "도담(은행)", "ceo": "", "phone": "", "addr": "", "alias": ["도담(은행동) 식당", "도담"], "note": ""}, {"name": "바른정육점(사동)", "ceo": "", "phone": "", "addr": "", "alias": ["바른정육점"], "note": ""}, {"name": "한상궁한식주점", "ceo": "", "phone": "", "addr": "", "alias": ["한상궁"], "note": ""}, {"name": "구들장2호점", "ceo": "", "phone": "", "addr": "", "alias": ["구들장"], "note": ""}, {"name": "셀프정육점(포동)", "ceo": "", "phone": "", "addr": "", "alias": ["셀프정육점", "포동셀프정육점", "포동셀프정육"], "note": ""}, {"name": "샛터돌왕구이", "ceo": "", "phone": "", "addr": "", "alias": ["샛터"], "note": ""}, {"name": "백봉(선부동)", "ceo": "", "phone": "", "addr": "", "alias": ["백봉"], "note": ""}, {"name": "정성가득집밥", "ceo": "", "phone": "", "addr": "", "alias": ["정성가득집밥"], "note": ""}, {"name": "오늘도고기&장어((구)으뜸장어)", "ceo": "", "phone": "", "addr": "", "alias": ["으뜸장어", "오늘도고기앤장어", "오늘도고기&장어", "고기앤장어"], "note": ""}, {"name": "맛닭꼬치", "ceo": "", "phone": "", "addr": "", "alias": ["신천동 맛닭꼬치입니다", "맛닭꼬치"], "note": ""}, {"name": "슈퍼킹(사동)", "ceo": "", "phone": "", "addr": "", "alias": ["슈퍼킹"], "note": ""}, {"name": "구워랑", "ceo": "", "phone": "", "addr": "", "alias": ["구워랑"], "note": ""}, {"name": "행복한 숯불돌쇠구이", "ceo": "", "phone": "", "addr": "", "alias": ["돌쇠구이"], "note": ""}, {"name": "장터국밥", "ceo": "", "phone": "", "addr": "", "alias": ["장터국밥"], "note": ""}, {"name": "우리축산정육점(수암동)", "ceo": "", "phone": "", "addr": "", "alias": ["우리축산정육점"], "note": ""}, {"name": "아이비유통(성남)", "ceo": "", "phone": "", "addr": "", "alias": ["아이비유통"], "note": ""}, {"name": "프리미엄정육점(구리)", "ceo": "", "phone": "", "addr": "", "alias": ["프리미엄정육점"], "note": ""}, {"name": "인화숯불갈비", "ceo": "", "phone": "", "addr": "", "alias": ["인화숯불갈비"], "note": ""}, {"name": "대박마포숯불갈비", "ceo": "", "phone": "", "addr": "", "alias": ["대박마포"], "note": ""}, {"name": "찐하오마라탕 그랑시티시그니처", "ceo": "", "phone": "", "addr": "", "alias": ["찐하오마라탕"], "note": ""}, {"name": "안심한우(광명)", "ceo": "", "phone": "", "addr": "", "alias": ["안심한우"], "note": ""}, {"name": "매일정육점(신규)", "ceo": "", "phone": "", "addr": "", "alias": ["매일정육점"], "note": ""}, {"name": "두근반세근반", "ceo": "", "phone": "", "addr": "", "alias": ["두근반세근반"], "note": ""}, {"name": "장군축산도매센터(광명)", "ceo": "", "phone": "", "addr": "", "alias": ["장군축산(광명)", "장군축산"], "note": ""}, {"name": "현대축산(금천)", "ceo": "", "phone": "", "addr": "", "alias": ["현대축산 금천"], "note": ""}, {"name": "농우축산", "ceo": "", "phone": "", "addr": "", "alias": ["농우축산"], "note": ""}, {"name": "오복정육(옥련점)베스트식자재정", "ceo": "", "phone": "", "addr": "", "alias": ["오복정육"], "note": ""}, {"name": "까만돼지", "ceo": "", "phone": "", "addr": "", "alias": ["까만돼지"], "note": ""}, {"name": "대반전", "ceo": "", "phone": "", "addr": "", "alias": ["대반전"], "note": ""}, {"name": "주식회사 두둑", "ceo": "", "phone": "", "addr": "", "alias": ["두둑 양념육 업체신규", "두둑에"], "note": ""}];
 
-let clientDB = [...DEFAULT_CLIENTS];
+let clientDB = DEFAULT_CLIENTS.map(c => ({ ...c, alias: [...c.alias] }));
 let cleanedCsvRowsForExport = [];
 let allChatItems = [];
 let stockItems = [];
@@ -202,7 +203,6 @@ function setUiZoom(zoomPct, skipSave) {
 }
 
 function initDeviceAndZoomUI() {
-    // 저장된 UI 모드가 없으면 현재 화면 해상도 기준으로 자동 판별
     if (!currentUiMode) {
         const w = window.innerWidth;
         if (w <= 560) currentUiMode = 'mobile';
@@ -258,7 +258,9 @@ function saveStateToBrowser(actionLabel) {
                 timeStr: it.timeStr,
                 timeMins: it.timeMins,
                 sender: it.sender,
-                content: it.content
+                content: it.content,
+                splitIndex: it.splitIndex || 0,
+                splitTotal: it.splitTotal || 0
             }));
             localStorage.setItem('mf_saved_chat_items', JSON.stringify(serializableChats));
         }
@@ -297,10 +299,16 @@ function restoreStateFromBrowser() {
         const savedChats = JSON.parse(localStorage.getItem('mf_saved_chat_items') || 'null');
         if (savedChats && Array.isArray(savedChats) && savedChats.length > 0) {
             allChatItems = [];
-            savedChats.forEach(rawIt => pushParsedMessageWithSplit(rawIt));
-            allChatItems.forEach((item, idx) => {
-                item.idx = idx;
+            savedChats.forEach(rawIt => {
+                if (rawIt.splitTotal > 1) {
+                    const item = { ...rawIt };
+                    classifyChatItem(item);
+                    allChatItems.push(item);
+                } else {
+                    pushParsedMessageWithSplit(rawIt);
+                }
             });
+            allChatItems.forEach((item, idx) => { item.idx = idx; });
             inferDeliveryDatesForAllItems();
 
             if (!document.getElementById('orderTargetDate').value) {
@@ -383,7 +391,7 @@ function onFilterCriteriaChange(skipSave) {
 }
 
 /* =========================================================================
-   2. 거래처 CSV 파싱 및 매칭 로직
+   2. 거래처 CSV 파싱 및 병합 매칭 로직
    ========================================================================= */
 function loadClientCsvFile(event) {
     const file = event.target.files[0];
@@ -430,6 +438,23 @@ function parseCsvLine(line) {
     return result;
 }
 
+function upsertClientRecord(rec) {
+    const idx = clientDB.findIndex(c => c.name === rec.name);
+    if (idx >= 0) {
+        const mergedAliases = [...new Set([...(clientDB[idx].alias || []), ...(rec.alias || [])])];
+        clientDB[idx] = {
+            name: rec.name,
+            ceo: rec.ceo || clientDB[idx].ceo || '',
+            phone: rec.phone || clientDB[idx].phone || '',
+            addr: rec.addr || clientDB[idx].addr || '',
+            alias: mergedAliases,
+            note: rec.note || clientDB[idx].note || ''
+        };
+    } else {
+        clientDB.push(rec);
+    }
+}
+
 function processClientCsvText(csvText, isSilentAutoLoad) {
     const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
     if (lines.length < 2) return;
@@ -443,7 +468,7 @@ function processClientCsvText(csvText, isSilentAutoLoad) {
             const c = parseCsvLine(lines[i]);
             if (!c[0]) continue;
             const aliases = c[4] ? c[4].split('|').map(s => s.trim()).filter(Boolean) : [c[0]];
-            clientDB.push({ name: c[0], ceo: c[1]||'', phone: c[2]||'', addr: c[3]||'', alias: aliases, note: c[5]||'' });
+            upsertClientRecord({ name: c[0], ceo: c[1]||'', phone: c[2]||'', addr: c[3]||'', alias: aliases, note: c[5]||'' });
             cleanedCsvRowsForExport.push([c[0], c[1]||'', c[2]||'', c[3]||'', aliases.join('|'), c[5]||'']);
             addedCount++;
         }
@@ -463,13 +488,13 @@ function processClientCsvText(csvText, isSilentAutoLoad) {
             const aliases = [rawName];
             if (cleanAlias && cleanAlias !== rawName) aliases.push(cleanAlias);
 
-            clientDB.push({ name: rawName, ceo, phone, addr, alias: aliases, note });
+            upsertClientRecord({ name: rawName, ceo, phone, addr, alias: aliases, note });
             cleanedCsvRowsForExport.push([rawName, ceo, phone, addr, aliases.join('|'), note]);
             addedCount++;
         }
     }
 
-    document.getElementById('clientLoadMsg').innerText = `✅ 거래처 ${addedCount}건 추가 로드 완료! (총 ${clientDB.length}개 활성 거래처)`;
+    document.getElementById('clientLoadMsg').innerText = `✅ 거래처 ${addedCount}건 병합 완료! (총 ${clientDB.length}개 활성 거래처)`;
     document.getElementById('pillClient').innerText = `거래처: ${clientDB.length}곳`;
     document.getElementById('btnExportCleanCsv').style.display = 'inline-block';
     if (allChatItems.length > 0) {
@@ -490,38 +515,206 @@ function exportCleanedClientsCsv() {
     downloadBlob(csv, "clients.csv");
 }
 
+function getSortedAliasPairs() {
+    const pairs = [];
+    for (const c of clientDB) {
+        for (const al of (c.alias || [c.name])) {
+            if (al && al.replace(/\s+/g, '').length >= 2) {
+                pairs.push({ alias: al, official: c.name, clientObj: c });
+            }
+        }
+    }
+    pairs.sort((a, b) => b.alias.length - a.alias.length);
+    return pairs;
+}
+
 function matchClientFromText(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    if (lines.length === 0) return { matched: false, clientName: "미확인", clientObj: null };
+    if (lines.length === 0) return { matched: false, clientName: "미확인", officialName: "미확인", clientObj: null };
 
-    let candidateLines = [lines[0]];
-    if (lines.length > 1) candidateLines.push(lines[1]);
+    const candidateLines = lines.slice(0, 2);
+    const sortedPairs = getSortedAliasPairs();
 
-    for (let rawLine of candidateLines) {
-        let cleanLine = rawLine.replace(/^(전달:\s*|■+|●+|\*+|내일\s+|오늘\s+|월요일\s+|화요일예약\s+|수요일예약\s+)/g, '').trim();
-        let lineNoSpace = cleanLine.replace(/\s+/g, '').toLowerCase();
+    for (const rawLine of candidateLines) {
+        const cleanLine = rawLine.replace(/^(전달:\s*|■+|●+|\*+|내일\s+|오늘\s+|월요일\s+|화요일예약\s+|수요일예약\s+|목요일\s+|금요일\s+)/g, '').trim();
+        const lineNoSpace = cleanLine.replace(/\s+/g, '').toLowerCase();
 
-        for (let c of clientDB) {
-            for (let al of c.alias) {
-                let alNoSpace = al.replace(/\s+/g, '').toLowerCase();
-                if (alNoSpace.length >= 2 && (lineNoSpace.startsWith(alNoSpace) || cleanLine.includes(al))) {
-                    return { matched: true, clientName: al, officialName: c.name, clientObj: c };
+        for (const p of sortedPairs) {
+            const alNoSpace = p.alias.replace(/\s+/g, '').toLowerCase();
+            if (lineNoSpace.startsWith(alNoSpace) || cleanLine.includes(p.alias)) {
+                const pos = lineNoSpace.indexOf(alNoSpace);
+                if (pos === 0) {
+                    const rem = lineNoSpace.slice(alNoSpace.length);
+                    if (/^(보다|쪽|에서|한테|꺼|가는|방면)/.test(rem)) continue;
                 }
+                return { matched: true, clientName: p.alias, officialName: p.official, clientObj: p.clientObj };
             }
         }
     }
 
-    let firstLine = lines[0].replace(/[●■]/g, ' ').trim();
-    let firstToken = firstLine.split(/[\s\.\,\~]/)[0];
+    const firstLine = lines[0].replace(/[●■]/g, ' ').trim();
+    const firstToken = firstLine.split(/[\s\.\,\~]/)[0];
     if (/정육|마트|축산|푸드|식당|갈비|감자탕|해장국|면옥|한우|삼겹|소매|택배|주물럭|쌈밥|막창|장어|꼬치|국밥/.test(firstLine)) {
         return { matched: true, clientName: firstToken, officialName: firstToken, clientObj: null };
     }
-    return { matched: false, clientName: firstToken || "미확인", officialName: "", clientObj: null };
+    return { matched: false, clientName: firstToken || "미확인", officialName: firstToken || "미확인", clientObj: null };
 }
 
 /* =========================================================================
-   3. 카카오톡 대화 파일 파싱 및 5단계 스마트 납품일 자동판별 알고리즘
+   3. 계근 판별기 + 다중 거래처 합본 분할 + 카카오톡 파싱 + 스마트 납품일 판별
    ========================================================================= */
+const MEAT_START_REGEX = /^(?:국내산|수입|냉장|냉동|한돈|한우|암퇘지|스페인|독일|미국산|호주산|칠레산|브라질|캐나다|테니쉬|데니쉬|두메코|올리멜|토레인|셀렉타|바텔|고원돈|티스|프레칸|프례칸|씨와이푸드|삼겹|목살|목심|미전지|전지|미삼|암삼|특삼|빵삼|등갈비|등뼈|목뼈|갈비|등심|안심|사태|앞사태|앞미사태|뒷사태|항정|가브리|갈매기|미후지|후지|오겹|우삼겹|차돌|스지|살치|부채|장족|앞장족|미니족|돈피|껍데기|잡육|등잡|왕구이|사골|오돌뼈|홍두깨|볼라|설도|늑간|알목|알목심|미추리|잡뼈|우족|덧살|덜미|민찌|수삼|모돈|엘에이|LA|백립|빽립|프렌치렉|숄더렉|삼각살|척갈비|아롱사태|스켄전지|스키너전지|지방전지|목전지|A지방|B지방|돼지)/i;
+const MEAT_ANY_REGEX = /삼겹|목살|목심|미전지|전지|미삼|암삼|특삼|빵삼|특목|냉삼|대패|등갈비|등뼈|목뼈|갈비|등심|안심|사태|앞사태|앞미사태|뒷사태|항정|가브리|갈매기|미후지|후지|오겹|우삼겹|차돌|스지|LA|엘에이|살치|부채|토시|안창|장족|미니족|껍데기|돈피|잡육|등잡|왕구이|사골|오돌뼈|홍두깨|볼라|설도|늑간|알목|두메코|테니쉬|셀렉타|올리멜|토레인|바텔|고원돈|티스|프레칸|목전지|덧살|덜미|민찌|수삼|모돈|백립|빽립|프렌치렉|숄더렉|삼각살|척갈비|아롱사태/i;
+
+function isWeighinMessage(txt) {
+    if (/발주할게요|주문합니다|반품잡아서/.test(txt)) return false;
+
+    const cleanW = txt
+        .replace(/010-\d{3,4}-\d{4}|\d{10,11}/g, '')
+        .replace(/\d{1,3},\d{3}\s*원?/g, '')
+        .replace(/\d+\.\d{3}\s*원?/g, '')
+        .replace(/\d+(?:\.\d+)?\s*~\s*\d+(?:\.\d+)?/g, '')
+        .replace(/\d+\.\d+\s*(?:센치|cm|mm|미리|톤|키로|kg|k|작업|일자|일)/gi, '')
+        .replace(/작업\s*\d+\.\d+/g, '')
+        .replace(/\d{1,2}\.\d{1,2}일(?:자|자로|재고)?/g, '')
+        .replace(/[a-zA-Z]+\d+|\d+[a-zA-Z]+/g, '')
+        .replace(/\d+\s*(?:동|호|번지|층|시|구|읍|면|로|길)/g, '')
+        .replace(/202\d년?/g, '')
+        .replace(/(?:비번|비밀번호)\s*\d+/g, '')
+        .replace(/\d{4}[*#]|8846별표|18079/g, '');
+
+    const decMatches = cleanW.match(/\d+\.\d+/g) || [];
+    if (decMatches.length >= 2) return true;
+    if (decMatches.length >= 1 && /(?<!\d)\d{1,2}(?:대|포|개|각|도누|도누리)|(?<!\d)\d{2}(?:정담|황금)/.test(cleanW)) {
+        return true;
+    }
+
+    const fourDigits = cleanW.match(/(?:^|[^\d])[1-3]\d{3}(?:$|[^\d])/g) || [];
+    if (fourDigits.length >= 2) return true;
+    if (/(?:^|[^\d])\d{3}\s+[1-3]\d{3}(?:$|[^\d])/.test(cleanW)) return true;
+
+    return false;
+}
+
+function detectClientHeaderInLine(rawLine, sortedPairs) {
+    const clean = rawLine.replace(/^(전달:\s*|■+|●+|\*+|내일\s+|오늘\s+|월요일\s+|화요일예약\s+|수요일예약\s+|목요일\s+|금요일\s+)/g, '').trim();
+    if (!clean) return null;
+
+    if (/^(삼호점|심곡동|주소|연락처|받는분|보내는|키는|비번|비밀번호|계근지|반품|패스|삭제)/.test(clean)) {
+        return null;
+    }
+    if (MEAT_START_REGEX.test(clean)) {
+        return null;
+    }
+    if (/부탁|감사|수고|죄송|이상입니다|보내주|입고|배송|전표|팀장님|사장님|과장님|부장님|대표님|기사님|꺼로|만요/.test(clean)) {
+        if (!(MEAT_ANY_REGEX.test(clean) && /\d/.test(clean))) {
+            return null;
+        }
+    }
+
+    const noSpace = clean.replace(/\s+/g, '').toLowerCase();
+    for (const p of sortedPairs) {
+        const alNs = p.alias.replace(/\s+/g, '').toLowerCase();
+        if (noSpace.startsWith(alNs)) {
+            const rem = noSpace.slice(alNs.length);
+            if (/^(보다|쪽|에서|한테|꺼|가는|방면|은|는|이|가|을|를|에|와|과|하고|이랑|도|점|시|구|동|로|길|정육팀장)/.test(rem)) {
+                continue;
+            }
+            const isCorrection = /이거로\s*정정/.test(clean);
+            return { alias: p.alias, official: p.official, isCorrection };
+        }
+    }
+    return null;
+}
+
+function splitMultiOrderMessage(content) {
+    const txt = String(content || '').trim();
+    if (!txt) return [txt];
+
+    if (['재고현황', '발주체크', '단가표', '분류전', '나눌꺼요', '정정해두었습니다'].some(k => txt.includes(k))) {
+        return [txt];
+    }
+    if (/\(대산\)\s*\d+박|\(포크\)\s*\d+박/.test(txt)) {
+        return [txt];
+    }
+    if (isWeighinMessage(txt)) {
+        return [txt];
+    }
+
+    const sortedPairs = getSortedAliasPairs();
+    const lines = txt.split('\n');
+    const headers = [];
+    let hasMeatSincePrev = false;
+
+    lines.forEach((line, idx) => {
+        const s = line.trim();
+        if (!s) return;
+        const hit = detectClientHeaderInLine(s, sortedPairs);
+        if (hit) {
+            if (headers.length === 0 || hasMeatSincePrev) {
+                headers.push({ idx, alias: hit.alias, official: hit.official, isCorrection: hit.isCorrection });
+                hasMeatSincePrev = Boolean(MEAT_ANY_REGEX.test(s) && /\d/.test(s));
+                return;
+            }
+        }
+        if (MEAT_ANY_REGEX.test(s)) {
+            hasMeatSincePrev = true;
+        }
+    });
+
+    const distinctOfficials = [...new Set(headers.map(h => h.official))];
+    if (distinctOfficials.length < 2) {
+        return [txt];
+    }
+
+    const leadingLines = lines.slice(0, headers[0].idx).map(l => l.trim()).filter(Boolean);
+    let leadingPrefix = '';
+    if (leadingLines.length > 0 && leadingLines.some(l => /내일|낼|[월화수목금토일]요일|\d{1,2}\/\d{1,2}|\d{1,2}월\s*\d{1,2}일/.test(l))) {
+        leadingPrefix = leadingLines.join('\n') + '\n';
+    }
+
+    const chunks = [];
+    for (let i = 0; i < headers.length; i++) {
+        const startIdx = headers[i].idx;
+        const endIdx = (i + 1 < headers.length) ? headers[i + 1].idx : lines.length;
+        const chunkLines = lines.slice(startIdx, endIdx)
+            .map(l => l.trim())
+            .filter(l => l && !/^[-─=]{3,}$/.test(l));
+        let chunkText = chunkLines.join('\n').trim();
+        if (i > 0 && !(MEAT_ANY_REGEX.test(chunkText) && /\d/.test(chunkText))) {
+            chunks[chunks.length - 1] += '\n' + chunkText;
+            continue;
+        }
+        if (leadingPrefix) {
+            chunkText = leadingPrefix + chunkText;
+        }
+        if (i + 1 < headers.length && headers[i + 1].isCorrection) {
+            chunkText += '\n(정정취소됨)';
+        }
+        chunks.push(chunkText);
+    }
+    return chunks.length > 1 ? chunks : [txt];
+}
+
+function pushParsedMessageWithSplit(baseItem) {
+    if (!baseItem) return;
+    const chunks = splitMultiOrderMessage(baseItem.content);
+    chunks.forEach((chunkTxt, cIdx) => {
+        const subItem = {
+            dateFull: baseItem.dateFull,
+            dateShort: baseItem.dateShort,
+            timeStr: baseItem.timeStr,
+            timeMins: baseItem.timeMins,
+            sender: baseItem.sender,
+            content: chunkTxt,
+            splitIndex: chunks.length > 1 ? (cIdx + 1) : 0,
+            splitTotal: chunks.length > 1 ? chunks.length : 0
+        };
+        classifyChatItem(subItem);
+        allChatItems.push(subItem);
+    });
+}
+
 async function loadKakaoFiles(event) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
@@ -561,125 +754,9 @@ async function loadKakaoFiles(event) {
     onFilterCriteriaChange(true);
 }
 
-
-/* =========================================================================
-   한 문자에 2개 이상 거래처 발주가 담긴 경우 자동 분할 (예: 양승준 광명꿀+삼대축산, 푸른목장 판교+삼평)
-   ========================================================================= */
-function detectClientHeaderInLine(rawLine) {
-    const clean = rawLine.replace(/^(전달:\s*|■+|●+|\*+|내일\s+|오늘\s+|월요일\s+|화요일예약\s+|수요일예약\s+|목요일\s+|금요일\s+)/g, '').trim();
-    if (!clean) return null;
-
-    // 육류 품목명으로 시작하는 줄은 거래처 헤더가 아님
-    if (/^(삼겹|목살|목심|미전지|전지|미삼|등갈비|등뼈|목뼈|갈비|등심|안심|사태|앞사태|앞미사태|항정|가브리|갈매기|미후지|후지|오겹|우삼겹|차돌|스지|살치|부채|장족|미니족|돈피|잡육|왕구이|사골|오돌뼈|홍두깨|볼라|설도|늑간|알목|두메코|테니쉬|셀렉타|올리멜)/.test(clean)) {
-        return null;
-    }
-
-    const noSpace = clean.replace(/\s+/g, '').toLowerCase();
-
-    // 등록된 거래처 DB를 별명 길이순(긴 이름 우선)으로 검사
-    const sortedClients = [...clientDB].sort((a, b) => {
-        const maxA = Math.max(...(a.alias || [a.name]).map(s => s.length));
-        const maxB = Math.max(...(b.alias || [b.name]).map(s => s.length));
-        return maxB - maxA;
-    });
-
-    for (let c of sortedClients) {
-        for (let al of (c.alias || [c.name])) {
-            const alNs = al.replace(/\s+/g, '').toLowerCase();
-            if (alNs.length >= 2 && noSpace.startsWith(alNs)) {
-                const rem = noSpace.slice(alNs.length);
-                // 문장 중간 인용("음성가는차편", "삼사오보다", "성대꺼", "동탄식자재에") 제외
-                if (/^(보다|쪽|에서|한테|꺼|가는|방면|은|는|이|가|을|를|에|와|과|하고|이랑|도)/.test(rem)) {
-                    continue;
-                }
-                const isCorrection = /이거로\s*정정/.test(clean);
-                return { alias: al, official: c.name, isCorrection };
-            }
-        }
-    }
-    return null;
-}
-
-function splitMultiOrderMessage(content) {
-    const txt = String(content || '').trim();
-    if (!txt) return [txt];
-
-    // 재고현황, 발주체크, 단가표, 브랜드 배분표, 계근 메시지는 분할하지 않음
-    if (['재고현황', '발주체크', '단가표', '분류전', '나눌꺼요', '정정해두었습니다'].some(k => txt.includes(k))) {
-        return [txt];
-    }
-    if (/\(대산\)\s*\d+박|\(포크\)\s*\d+박/.test(txt)) {
-        return [txt];
-    }
-    const cleanW = txt
-        .replace(/010-\d{3,4}-\d{4}|\d{1,3},\d{3}\s*원?|\d+\.\d{3}\s*원?|\d+(?:\.\d+)?\s*~\s*\d+(?:\.\d+)?|\d+\.\d+\s*(?:센치|cm|mm|미리|톤|키로|kg|k|작업)|작업\s*\d+\.\d+/gi, '');
-    if ((cleanW.match(/\d+\.\d+/g) || []).length >= 2) {
-        return [txt];
-    }
-
-    const lines = txt.split('\n');
-    const headers = [];
-    lines.forEach((line, idx) => {
-        const s = line.trim();
-        if (!s) return;
-        const hit = detectClientHeaderInLine(s);
-        if (hit) {
-            headers.push({ idx, alias: hit.alias, official: hit.official, isCorrection: hit.isCorrection });
-        }
-    });
-
-    const distinctOfficials = [...new Set(headers.map(h => h.official))];
-    if (distinctOfficials.length < 2) {
-        return [txt];
-    }
-
-    // 첫 거래처 헤더 이전에 나온 공통 날짜/요일 머리말(예: "월요일", "내일") 보존
-    const leadingLines = lines.slice(0, headers[0].idx).map(l => l.trim()).filter(Boolean);
-    let leadingPrefix = '';
-    if (leadingLines.length > 0 && leadingLines.some(l => /내일|낼|[월화수목금토일]요일|\d{1,2}\/\d{1,2}|\d{1,2}월\s*\d{1,2}일/.test(l))) {
-        leadingPrefix = leadingLines.join('\n') + '\n';
-    }
-
-    const chunks = [];
-    for (let i = 0; i < headers.length; i++) {
-        const startIdx = headers[i].idx;
-        const endIdx = (i + 1 < headers.length) ? headers[i + 1].idx : lines.length;
-        const chunkLines = lines.slice(startIdx, endIdx)
-            .map(l => l.trim())
-            .filter(l => l && !/^[-─=]{3,}$/.test(l));
-        let chunkText = chunkLines.join('\n').trim();
-        if (leadingPrefix) {
-            chunkText = leadingPrefix + chunkText;
-        }
-        if (i + 1 < headers.length && headers[i + 1].isCorrection) {
-            chunkText += '\n(정정취소됨)';
-        }
-        chunks.push(chunkText);
-    }
-    return chunks;
-}
-
-function pushParsedMessageWithSplit(baseItem) {
-    if (!baseItem) return;
-    const chunks = splitMultiOrderMessage(baseItem.content);
-    chunks.forEach((chunkTxt, cIdx) => {
-        const subItem = {
-            dateFull: baseItem.dateFull,
-            dateShort: baseItem.dateShort,
-            timeStr: baseItem.timeStr,
-            timeMins: baseItem.timeMins,
-            sender: baseItem.sender,
-            content: chunkTxt,
-            splitIndex: chunks.length > 1 ? (cIdx + 1) : 0,
-            splitTotal: chunks.length > 1 ? chunks.length : 0
-        };
-        classifyChatItem(subItem);
-        allChatItems.push(subItem);
-    });
-}
-
 function parseSingleKakaoText(text) {
-    const lines = text.split(/\r?\n/);
+    const normalized = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = normalized.split('\n');
     let currentDateFull = "2026-10-13";
     let currentDisplayDate = "10/13";
 
@@ -706,7 +783,7 @@ function parseSingleKakaoText(text) {
             continue;
         }
 
-        let mPc = line.match(pcRegex);
+        const mPc = line.match(pcRegex);
         if (mPc) {
             if (curItem) { pushParsedMessageWithSplit(curItem); }
             const y = mPc[1], m = String(mPc[2]).padStart(2,'0'), d = String(mPc[3]).padStart(2,'0');
@@ -724,7 +801,7 @@ function parseSingleKakaoText(text) {
             continue;
         }
 
-        let mMob = line.match(mobRegex);
+        const mMob = line.match(mobRegex);
         if (mMob) {
             if (curItem) { pushParsedMessageWithSplit(curItem); }
             const timeInfo = convertAmPmTime(mMob[2], mMob[3]);
@@ -762,54 +839,31 @@ function classifyChatItem(item) {
     const txt = item.content.trim();
     const clientMatch = matchClientFromText(txt);
     item.clientName = clientMatch.clientName;
+    item.officialName = clientMatch.officialName || clientMatch.clientName;
     item.isKnownClient = clientMatch.matched;
     item.clientObj = clientMatch.clientObj;
     item.itemKey = `${item.dateFull}_${item.timeStr}_${item.clientName}_${txt.substring(0, 18).replace(/\s+/g, '')}`;
 
     const ignoreKw = [
         '사진', '삭제되었습니다', '재고현황', '발주체크', '분류전', '입금', '반품장',
-        '여기까지', '팩스 보냈습니다', '코드 잡았습니다', '단가표', '원가내역',
+        '여기까지', '팩스 보냈습니다', '코드 잡았습니다', '원가내역',
         '자동차검사', '타이어', '어떤거 주문하신걸까요', '어떤걸로 할까요', '기존 재고 늑간',
         '정정 해두었습니다', '정정취소됨', '복사해서 했었는데', '그냥 박스로주시죠', '인사요'
     ];
     if (ignoreKw.some(k => txt.includes(k))) { item.type = '기타'; return; }
     if (/\(대산\)\s*\d+박|\(포크\)\s*\d+박|나눌꺼요/.test(txt)) { item.type = '기타'; return; }
+    if (isWeighinMessage(txt)) { item.type = '계근'; return; }
 
-    let cleanForWeight = txt
-        .replace(/010-\d{3,4}-\d{4}|\d{10,11}/g, '')
-        .replace(/\d{1,3},\d{3}\s*원?/g, '')
-        .replace(/\d+\.\d{3}\s*원?/g, '')
-        .replace(/\d+(?:\.\d+)?\s*~\s*\d+(?:\.\d+)?/g, '')
-        .replace(/\d+\.\d+\s*(?:센치|cm|mm|미리|톤|키로|kg|k|작업)/gi, '')
-        .replace(/작업\s*\d+\.\d+/g, '')
-        .replace(/\d+\s*(?:동|호|번지|층|시|구|읍|면|로|길)/g, '')
-        .replace(/202\d년?/g, '')
-        .replace(/(?:비번|비밀번호)\s*\d+/g, '')
-        .replace(/\d{4}[*#]|8846별표|18079/g, '');
+    const validLines = txt.split('\n').filter(l => !/전체단가표요|단가표요/.test(l));
+    const txtClean = validLines.join('\n').replace(/팩스/g, '').trim();
 
-    if (/\d+\.\d+|\d+,\d{2}(?!\d)/.test(cleanForWeight)) {
-        if (!/발주할게요|주문합니다|반품잡아서/.test(txt)) {
-            item.type = '계근'; return;
+    if (MEAT_ANY_REGEX.test(txtClean) || /박스|팩|판|키로|kg|덩이|봉/i.test(txtClean)) {
+        if (/납품$|반품$|교환인가요|패스래요|패스요|바꿔달래요|보내야죠|갖고감요|뿐이 안됨|두메코입니다|인가요\?$/.test(txtClean)) {
+            if (!(/(?:삭제|취소|빼달)/.test(txtClean) && MEAT_ANY_REGEX.test(txtClean))) {
+                item.type = '기타'; return;
+            }
         }
-    }
-    if (/(?:^|[^\d])[1-3]\d{3}(?:$|[^\d])/.test(cleanForWeight)) {
-        item.type = '계근'; return;
-    }
-    if (/\d{1,2}(?:대|포|정담|황금|도누|도누리)(?![가-힣])|\d{3}(?:개|각)(?![가-힣])/.test(cleanForWeight)) {
-        item.type = '계근'; return;
-    }
-    if (/냉동\s*미후지\s*전환|일반목으로\s*전환/.test(txt)) {
-        item.type = '계근'; return;
-    }
-
-    const txtNoFax = txt.replace(/팩스/g, '');
-    const meatRegex = /삼겹|목살|미전지|전지|미삼|등갈비|등뼈|갈비|등심|안심|사태|앞사태|항정|가브리|갈매기|미후지|후지|오겹|우삼겹|차돌|스지|LA|엘에이|살치|부채|토시|안창|장족|미니족|껍데기|돈피|잡육|왕구이|목뼈|사골|오돌뼈|홍두깨|볼라|설도|늑간|알목|두메코|테니쉬|셀렉타|올리멜|박스|팩|판|키로|kg|덩이|봉/i;
-
-    if (meatRegex.test(txtNoFax)) {
-        if (/납품$|반품$|교환인가요|삭제해야해요|단가표요|전체단가표|패스래요|패스요|바꿔달래요|보내야죠|갖고감요|뿐이 안됨|더찍어주세요|두메코입니다|인가요\?$/.test(txt)) {
-            item.type = '기타'; return;
-        }
-        if (txt.length <= 10 && !/\d/.test(txt)) {
+        if (txtClean.length <= 10 && !/\d/.test(txtClean)) {
             item.type = '기타'; return;
         }
         item.type = '발주';
@@ -835,7 +889,7 @@ function toShortDate(dateFullStr) {
 }
 
 /* =========================================================================
-   핵심: 5단계 스마트 납품일(targetDeliveryDate) 자동 추론 엔진
+   스마트 납품일(targetDeliveryDate) 자동 추론 엔진 ('여기까지' 미사용 + 정오 12:00 기준)
    ========================================================================= */
 const JS_WEEKDAY_MAP = { '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
 
@@ -864,7 +918,7 @@ function inferDeliveryDatesForAllItems() {
         const msgDt = new Date(item.dateFull + "T00:00:00");
         const msgWd = msgDt.getDay();
 
-        // 1단계-A: 명시적 특정 날짜/이월
+        // 1단계: 명시적 특정 날짜/이월
         const mDate = txt.match(/(\d{1,2})\/(\d{1,2})\s*\([월화수목금토일]\)|(\d{1,2})월\s*(\d{1,2})일\s*(?:자로|이월)/);
         if (mDate) {
             const mo = String(mDate[1] || mDate[3]).padStart(2, '0');
@@ -875,8 +929,8 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        // 1단계-B: 명시적 요일 지정
-        const mWd = txt.match(/(?:^|[^내금당명월화수목토일])(월|화|수|목|금|토|일)(?:요일|욜|주문=)|^\s*(월|화|수|목|금|토|일)\s*$/m);
+        // 2단계: 명시적 요일 지정
+        const mWd = txt.match(/(?:^|[^내금당명월화수목토일])(월|화|수|목|금|토|일)(?:요일|욜|주문=|발주분)|^\s*(월|화|수|목|금|토|일)\s*$/m);
         if (mWd) {
             const wdChar = mWd[1] || mWd[2];
             const targetWd = JS_WEEKDAY_MAP[wdChar];
@@ -888,7 +942,7 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        // 2단계-A: 익일 키워드
+        // 3단계: 익일 키워드
         if (/내일|낼주문|(?:^|[^가-힣])낼(?:$|[^가-힣])|아침에\s*(?:들리|갖을러|가지러)|오전\s*급\s*배송|10시\s*전에/.test(txt)) {
             item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
             item.delivShort = toShortDate(item.targetDeliveryDate);
@@ -896,29 +950,15 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        // 2단계-B: 당일 키워드
-        if (/오늘|당일|금일|지금\s*(?:가|갖|가지러)|조금\s*있다|퇴근\s*(?:길|때|하면서)|오후에|방문\s*예정|\d{1,2}시\s*(?:반\s*)?쯤?\s*(?:온데|방문|찾으러|들린데|갖으러)|즉납|전표\s*하나\s*바로|제\s*코스에서|엄과장님\s*편에/.test(txt)) {
+        // 4단계: 당일 키워드
+        if (/오늘|당일|금일|지금\s*(?:가|갖|가지러)|조금\s*있다|퇴근\s*(?:길|때|하면서|시)|오후에|방문\s*예정|\d{1,2}시\s*(?:반\s*)?쯤?\s*(?:온데|방문|찾으러|들린데|갖으러)|즉납|전표\s*하나\s*바로|제\s*코스에서|엄과장님\s*편에/.test(txt)) {
             item.targetDeliveryDate = item.dateFull;
             item.delivShort = item.dateShort;
             item.delivReason = '당일키워드(오늘/방문)';
             continue;
         }
 
-        // 3단계-A: '●추가' 시간대 판별
-        if (/●\s*추가|●\s*더추가|●\s*또추가|추가요|추가할께요/.test(txt)) {
-            if (mins < 15 * 60) {
-                item.targetDeliveryDate = item.dateFull;
-                item.delivShort = item.dateShort;
-                item.delivReason = '오전추가→당일';
-            } else {
-                item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
-                item.delivShort = toShortDate(item.targetDeliveryDate);
-                item.delivReason = '저녁추가→익일';
-            }
-            continue;
-        }
-
-        // 3단계-B: 당일 후속 '계근(무게 측정)' 매칭 검증
+        // 5단계: 당일 후속 '계근' 매칭 검증
         const token = item.clientName.replace(/\s+/g, '').substring(0, 3);
         let weighedSameDay = false;
         if (token.length >= 2) {
@@ -938,7 +978,7 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        // 4단계: 일요일 발주 -> 월요일(D+1) 납품
+        // 6단계: 일요일 발주 -> 월요일(D+1) 납품
         if (msgWd === 0) {
             item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
             item.delivShort = toShortDate(item.targetDeliveryDate);
@@ -946,15 +986,29 @@ function inferDeliveryDatesForAllItems() {
             continue;
         }
 
-        // 5단계: 13:50 마감선 (14:00 정각 예약발송 법칙)
-        if (mins < 13 * 60 + 50) {
+        // 7단계: 정오(12:00) 기준 당일/익일 판정 ('여기까지' 텍스트 미사용)
+        if (mins < 12 * 60) {
             item.targetDeliveryDate = item.dateFull;
             item.delivShort = item.dateShort;
-            item.delivReason = '13:50이전→당일';
+            item.delivReason = '정오전→당일';
         } else {
             item.targetDeliveryDate = addDaysToDateStr(item.dateFull, 1);
             item.delivShort = toShortDate(item.targetDeliveryDate);
-            item.delivReason = '14시예약/오후→익일';
+            item.delivReason = '정오후→익일';
+        }
+    }
+
+    // 후처리: '●이거로 정정요'가 있으면 같은 거래처·같은 납품일의 직전 주문을 대체(기타) 처리
+    for (let i = 0; i < allChatItems.length; i++) {
+        const cur = allChatItems[i];
+        if (cur.type === '발주' && /이거로\s*정정/.test(cur.content)) {
+            for (let p = 0; p < i; p++) {
+                const prev = allChatItems[p];
+                if (prev.type === '발주' && prev.officialName === cur.officialName && prev.targetDeliveryDate === cur.targetDeliveryDate) {
+                    prev.type = '기타';
+                    prev.delivReason = '정정대체됨';
+                }
+            }
         }
     }
 }
@@ -1228,46 +1282,165 @@ function renderStockTable() {
 /* =========================================================================
    6. 품목별 발주 집계 엔진 (4페이지 일일 발주 현황표 & 5페이지 차감 계산 공용)
    ========================================================================= */
+const DEFAULT_STANDARD_ITEM_NAMES = [
+    "삼겹", "특삼겹", "암삼겹", "빵삼겹",
+    "미삼", "암미삼", "특미삼",
+    "목살", "특목살", "B목살",
+    "미전지", "전지", "지전지",
+    "갈비", "등갈비",
+    "등심", "안심",
+    "사태", "앞미사태",
+    "항정", "가브리", "갈매기",
+    "미후지", "후지",
+    "등뼈", "냉장잡육",
+    "토레인 삼겹", "냉장 알목심f PR", "냉장 살치f PR", "냉장 늑간f CH NBP",
+    "냉장 수입 올리멜 삼겹", "냉장 수입 올리멜 목살"
+];
+
+const DOMESTIC_FRESH_KEYS = new Set([
+    "삼겹", "특삼겹", "암삼겹", "빵삼겹",
+    "미삼", "암미삼", "특미삼",
+    "목살", "특목살", "B목살",
+    "미전지", "전지", "지전지",
+    "갈비", "등갈비",
+    "등심", "안심",
+    "사태", "앞미사태",
+    "항정", "가브리", "갈매기",
+    "미후지", "후지",
+    "등뼈", "냉장잡육"
+]);
+
+const FROZEN_OR_IMPORT_REGEX = /냉동|수입|테니쉬|데니쉬|두메코|올리멜|토레인|셀렉타|바텔|고원돈|티스|프레칸|프례칸|알레한|모돈|대패|스미스|엑셀|IBP|NBP|AMH|호주|미국|스페인|독일|칠레|브라질|캐나다|와규|카라라|킬코이|내셔널|네셔널|얼리이언스|토마스/i;
+
 const ITEM_MATCH_RULES = [
     { key: "특미삼", regex: /특미삼/ },
     { key: "암미삼", regex: /암미삼/ },
-    { key: "미삼", regex: /(?<!특|암)미삼|미박삼겹/ },
-    { key: "특삼겹", regex: /특삼겹|특원삼/ },
-    { key: "암삼겹", regex: /암삼겹|암원삼|암삼(?!겹)|암퇘지\s*삼겹|A삼겹|A삼(?!겹)/ },
+    { key: "미삼", regex: /미삼|미박삼겹/ },
+    { key: "특삼겹", regex: /특삼겹|특원삼|특삼/ },
+    { key: "암삼겹", regex: /암삼겹|암원삼|암삼|암퇘지\s*삼겹|A삼겹|A삼(?![a-zA-Z])/ },
     { key: "빵삼겹", regex: /빵삼겹|빵삼/ },
     { key: "토레인 삼겹", regex: /토레인\s*삼겹|삼겹\s*\d*\s*토레인/ },
-    { key: "냉장 수입 올리멜 삼겹", regex: /수입\s*냉장\s*삼겹|냉장\s*수입\s*삼겹|올리멜\s*삼겹/ },
-    { key: "삼겹", regex: /(?<!특|암|빵|토레인\s*|수입\s*|냉동\s*|모돈\s*|대패\s*|두메코\s*|테니쉬\s*)삼겹/ },
+    { key: "냉장 수입 올리멜 삼겹", regex: /(?:수입\s*냉장|냉장\s*수입|올리멜)\s*삼겹/ },
+    { key: "삼겹", regex: /삼겹|(?<!\S)냉삼/ },
     { key: "특목살", regex: /특목살|특목심|특목/ },
-    { key: "B목살", regex: /B목살|비목살|B목/i },
-    { key: "냉장 수입 올리멜 목살", regex: /수입\s*냉장\s*목살|냉장\s*수입\s*목살|올리멜\s*목살/ },
-    { key: "목살", regex: /(?<!특|B|비|수입|냉장수입|올리멜|고원돈)목살|목심/ },
-    { key: "미전지", regex: /(?<!냉동\s*)미전지/ },
+    { key: "B목살", regex: /B목살|비목살|B목(?![a-zA-Z])/i },
+    { key: "냉장 수입 올리멜 목살", regex: /(?:수입\s*냉장|냉장\s*수입|올리멜)\s*목살/ },
+    { key: "목살", regex: /목살|목심/ },
+    { key: "미전지", regex: /미전지|미\s*앞다리/ },
     { key: "지전지", regex: /지전지|지방전지|스켄전지|스키너전지/ },
-    { key: "전지", regex: /(?<!미|지|지방|스켄|스키너|목|냉동|에이)전지|일반전지|A전지/ },
-    { key: "등갈비", regex: /(?<!바텔|냉동)등갈비/ },
-    { key: "갈비", regex: /(?<!등|LA|엘에이|소|수입|냉동)갈비(?!살)|돈갈비|돼지갈비|생갈비/ },
-    { key: "등심", regex: /(?<!냉동|꽃)등심/ },
-    { key: "안심", regex: /(?<!냉동)안심/ },
-    { key: "앞미사태", regex: /앞미사태|미앞사태|앞사태|앞다리사태/ },
-    { key: "사태", regex: /(?<!앞|미|소|우|아롱)사태|속사태|생사태/ },
-    { key: "항정", regex: /(?<!냉동)항정/ },
+    { key: "전지", regex: /전지|일반전지|A전지/ },
+    { key: "등갈비", regex: /등갈비/ },
+    { key: "갈비", regex: /(?<!LA|엘에이|소|척)갈비(?!살)|돈갈비|돼지갈비|생갈비/ },
+    { key: "등심", regex: /(?<!꽃)등심/ },
+    { key: "안심", regex: /안심/ },
+    { key: "앞미사태", regex: /앞미사태|미앞사태|앞사태|앞다리사태|미사태/ },
+    { key: "사태", regex: /(?<!소|우|아롱)사태|속사태|생사태|뒷사태/ },
+    { key: "항정", regex: /항정/ },
     { key: "가브리", regex: /가브리/ },
     { key: "갈매기", regex: /갈매기/ },
-    { key: "미후지", regex: /(?<!냉동\s*|3mm\s*)미후지/ },
-    { key: "후지", regex: /냉장\s*3(?:mm|미리)\s*후지|3(?:mm|미리)\s*냉장\s*후지|생후지/ },
-    { key: "등뼈", regex: /(?<!냉동|목)등뼈|돈등뼈|돼지등뼈|한돈등뼈/ },
-    { key: "냉장잡육", regex: /잡육/ },
-    { key: "냉장 알목심f PR", regex: /냉장\s*프라임\s*알목|프라임\s*냉장\s*알목|수입\s*냉장\s*알목/ },
+    { key: "미후지", regex: /미후지/ },
+    { key: "후지", regex: /3(?:mm|미리)\s*(?:냉장\s*)?후지|냉장\s*3(?:mm|미리)\s*후지|생후지/ },
+    { key: "등뼈", regex: /(?<!목)등뼈|돈등뼈|돼지등뼈|한돈등뼈/ },
+    { key: "냉장잡육", regex: /(?<!한우\s)잡육/ },
+    { key: "냉장 알목심f PR", regex: /(?:냉장\s*프라임|프라임\s*냉장|수입\s*냉장|프라임)\s*알목/ },
     { key: "냉장 살치f PR", regex: /살치/ },
     { key: "냉장 늑간f CH NBP", regex: /늑간/ }
 ];
+
+function matchLineItemsClean(line) {
+    const isFrozenOrImp = FROZEN_OR_IMPORT_REGEX.test(line);
+    const matched = [];
+    for (const rule of ITEM_MATCH_RULES) {
+        if (rule.regex.test(line)) {
+            if (isFrozenOrImp && DOMESTIC_FRESH_KEYS.has(rule.key)) {
+                continue;
+            }
+            matched.push(rule);
+        }
+    }
+    return matched;
+}
+
+function parseOrderLineQuantities(line) {
+    if (/반품|취소|삭제|빼달|패스/.test(line)) return [];
+    if (/안녕|부탁|감사|발주|주문|이상입니다|대표님|보내주|입고|배송|스펙|선입선출|기름|지방\s*어느정도|끝까지\s*잘라|우편함|냉장고/.test(line) && !/\d/.test(line)) {
+        return [];
+    }
+
+    const matchedRules = matchLineItemsClean(line);
+    if (matchedRules.length === 0) return [];
+
+    let s = line;
+    s = s.replace(/\(\s*합\s*\d+\s*박스[^\)]*\)/g, ' ');
+    s = s.replace(/\([^\)]*(?:일자|판당|사이|정도|만|제외|지우고|포함|재고|행사|할인)[^\)]*\)/g, ' ');
+    const parenBoxOverride = s.match(/\(\s*(\d+)\s*박스로?\s*(?:작업)?\s*\)/);
+    s = s.replace(/\([^\)]*\)|\[[^\]]*\]/g, ' ');
+
+    s = s.replace(/[+-]?\d{1,3}(?:,\d{3})+(?:원|행사|할인|납)?/g, ' ');
+    s = s.replace(/\d+\.\d{3}(?:원)?/g, ' ');
+    s = s.replace(/-\d+\s*(?:원|할인|행사)?/g, ' ');
+    s = s.replace(/\d+(?:\.\d+)?\s*(?:mm|미리|센치|cm)/gi, ' ');
+    s = s.replace(/\d{1,2}\.\d{1,2}일(?:자|자로|재고)?|\d{1,2}월\s*\d{1,2}일(?:자로)?|\d{1,2}\/\d{1,2}|\d{1,2}일(?:자|자로|진|재고|포크|암삼|대산)?/g, ' ');
+    s = s.replace(/\d+(?:\.\d+)?\s*~\s*\d+(?:\.\d+)?\s*(?:키로|kg)?(?:대|이상)?/gi, ' ');
+    s = s.replace(/\d+\s*(?:키로|kg)\s*(?:대|이상)/gi, ' ');
+    s = s.replace(/(미삼|삼겹|암삼|암미삼|특삼|특미삼)\s*1[5-9]\s*(?:키로|kg)\s+(\d+)/gi, '$1 $2');
+    s = s.replace(/\d+호점|1\+\+/g, ' ');
+
+    s = s.replace(/한박스/g, '1박스').replace(/한박/g, '1박').replace(/반박스/g, '0.5박스');
+    s = s.replace(/한판/g, '1판').replace(/한덩이/g, '1덩이').replace(/한덩어리/g, '1덩어리');
+    s = s.replace(/두마리분/g, '2마리분').replace(/한마리분/g, '1마리분').replace(/한마리반/g, '1마리분');
+
+    const targetRules = (/각\s|각각/.test(s)) ? matchedRules : [matchedRules[0]];
+    const results = [];
+
+    for (const rule of targetRules) {
+        if (parenBoxOverride) {
+            const q = parseInt(parenBoxOverride[1], 10);
+            results.push({ key: rule.key, boxes: q, packs: 0, label: `${q}박` });
+            continue;
+        }
+        if (s.includes('0.5박스')) {
+            results.push({ key: rule.key, boxes: 0.5, packs: 0, label: '반박' });
+            continue;
+        }
+        const bm = s.match(/(\d+)\s*(?:박스|빡스|박|box|b)(?![a-zA-Z가-힣])/i);
+        if (bm) {
+            const q = parseInt(bm[1], 10);
+            results.push({ key: rule.key, boxes: q, packs: 0, label: `${q}박` });
+            continue;
+        }
+        const pm = s.match(/(\d+(?:\.\d+)?)\s*(팩|펙|판|봉지|봉|덩어리|덩이|진공|벌|두|마리분|마리|피스|p|개)(?![a-zA-Z가-힣])/i);
+        if (pm) {
+            const pq = parseFloat(pm[1]) || 1;
+            results.push({ key: rule.key, boxes: 0, packs: pq, label: `${pq}${pm[2]}` });
+            continue;
+        }
+        const km = s.match(/(\d+(?:\.\d+)?)\s*(?:키로|kg|킬|k)(?![a-zA-Z가-힣])/i);
+        if (km) {
+            results.push({ key: rule.key, boxes: 0, packs: 1, label: km[0].trim() });
+            continue;
+        }
+        const bare = s.match(/(?:^|[^\d.])(\d{1,2})(?:$|[\s.포대정])/);
+        if (bare) {
+            const q = parseInt(bare[1], 10);
+            results.push({ key: rule.key, boxes: q, packs: 0, label: `${q}박` });
+        }
+    }
+    return results;
+}
 
 function computeOrderAggregation() {
     const orders = getFilteredOrderList(true);
     const summaryMap = {};
 
-    stockItems.forEach(s => {
+    const itemList = stockItems.length > 0
+        ? stockItems
+        : DEFAULT_STANDARD_ITEM_NAMES.map(nm => ({
+            name: nm,
+            brands: { '대산': { boxes: 0 }, '포크': { boxes: 0 }, '기타': { boxes: 0 } }
+        }));
+
+    itemList.forEach(s => {
         summaryMap[s.name] = {
             '대산': { stock: s.brands['대산'].boxes, orderBox: 0, orderPack: 0, clients: [] },
             '포크': { stock: s.brands['포크'].boxes, orderBox: 0, orderPack: 0, clients: [] },
@@ -1275,51 +1448,71 @@ function computeOrderAggregation() {
         };
     });
 
+    const seenSignatures = new Set();
+
     orders.forEach(ord => {
-        const lines = ord.content.split('\n').map(l => l.trim()).filter(Boolean);
-        let msgDefaultBrand = '미지정';
-        if (/대산꺼로|대산으로/.test(ord.content)) msgDefaultBrand = '대산';
-        else if (/포크로|농협/.test(ord.content)) msgDefaultBrand = '포크';
+        const txt = ord.content;
 
-        lines.forEach(line => {
-            if (/안녕|부탁|감사|발주|주문|이상입니다|대표님/.test(line) && !/\d/.test(line)) return;
-
-            for (let rule of ITEM_MATCH_RULES) {
-                if (rule.regex.test(line)) {
-                    const targetItem = summaryMap[rule.key];
-                    if (!targetItem) break;
-
-                    let br = '기타';
-                    if (/대산/.test(line)) br = '대산';
-                    else if (/포크|농협/.test(line)) br = '포크';
-                    else if (/정담|황금|토레인|올리멜|엑셀|IBP|NBP/i.test(line)) br = '기타';
-                    else if (msgDefaultBrand !== '미지정') br = msgDefaultBrand;
-                    else {
-                        if (targetItem['포크'].stock >= targetItem['대산'].stock && targetItem['포크'].stock > 0) br = '포크';
-                        else if (targetItem['대산'].stock > 0) br = '대산';
-                        else br = '기타';
+        // 취소/삭제/패스 메시지면 해당 품목 수량 차감 처리
+        if (/취소|삭제|빼달|패스/.test(txt) && !/반품/.test(txt)) {
+            txt.split('\n').forEach(line => {
+                if (/취소|삭제|빼달|패스/.test(line)) {
+                    const rules = matchLineItemsClean(line);
+                    if (rules.length > 0 && summaryMap[rules[0].key]) {
+                        const targetItem = summaryMap[rules[0].key];
+                        const bm = line.match(/(\d+)\s*(?:박스|박)?/);
+                        const q = bm ? parseInt(bm[1], 10) : 1;
+                        let br = '기타';
+                        if (/대산/.test(line)) br = '대산';
+                        else if (/포크|농협/.test(line)) br = '포크';
+                        else if (targetItem['포크'].orderBox >= q) br = '포크';
+                        else if (targetItem['대산'].orderBox >= q) br = '대산';
+                        targetItem[br].orderBox = Math.max(0, targetItem[br].orderBox - q);
+                        targetItem[br].clients.push(`${ord.clientName}(-${q}취소)`);
                     }
-
-                    const packMatch = line.match(/(\d+(?:\.\d+)?)\s*(팩|펙|판|봉|봉지|덩이|덩어리|키로|kg|k|두|마리)/i);
-                    const boxMatch = line.match(/(\d+)\s*(?:박스|빡스|박|box|b)(?![a-z])/i);
-                    const bareNumMatch = line.match(/(?:^|[^\d.])(\d{1,2})(?:$|[\s.포대정])/);
-
-                    if (boxMatch) {
-                        const q = parseInt(boxMatch[1], 10);
-                        targetItem[br].orderBox += q;
-                        targetItem[br].clients.push(`${ord.clientName}(${q}박)`);
-                    } else if (packMatch) {
-                        const pQty = parseFloat(packMatch[1]) || 1;
-                        const pUnit = packMatch[2];
-                        targetItem[br].orderPack += (pUnit.includes('키로') || pUnit.toLowerCase().includes('k')) ? 1 : pQty;
-                        targetItem[br].clients.push(`${ord.clientName}(${packMatch[0]})`);
-                    } else if (bareNumMatch) {
-                        const q = parseInt(bareNumMatch[1], 10);
-                        targetItem[br].orderBox += q;
-                        targetItem[br].clients.push(`${ord.clientName}(${q}박)`);
-                    }
-                    break;
                 }
+            });
+            return;
+        }
+
+        const lines = txt.split('\n').map(l => l.trim()).filter(Boolean);
+        let msgDefaultBrand = '미지정';
+        if (/대산꺼로|대산으로/.test(txt)) msgDefaultBrand = '대산';
+        else if (/포크로|농협/.test(txt)) msgDefaultBrand = '포크';
+
+        // 동일 거래처의 중복 예약 알림 재발송 방지 시그니처 체크
+        const lineResults = [];
+        lines.forEach(line => {
+            const parsed = parseOrderLineQuantities(line);
+            parsed.forEach(p => lineResults.push({ line, ...p }));
+        });
+        if (lineResults.length > 0) {
+            const sig = `${ord.officialName}|${lineResults.map(r => `${r.key}:${r.boxes}:${r.packs}`).join(',')}`;
+            if (seenSignatures.has(sig)) return;
+            seenSignatures.add(sig);
+        }
+
+        lineResults.forEach(res => {
+            const targetItem = summaryMap[res.key];
+            if (!targetItem) return;
+
+            let br = '기타';
+            if (/대산/.test(res.line)) br = '대산';
+            else if (/포크|농협/.test(res.line)) br = '포크';
+            else if (/정담|황금|토레인|올리멜|엑셀|IBP|NBP/i.test(res.line)) br = '기타';
+            else if (msgDefaultBrand !== '미지정') br = msgDefaultBrand;
+            else {
+                if (targetItem['포크'].stock >= targetItem['대산'].stock && targetItem['포크'].stock > 0) br = '포크';
+                else if (targetItem['대산'].stock > 0) br = '대산';
+                else br = '기타';
+            }
+
+            if (res.boxes > 0) {
+                targetItem[br].orderBox += res.boxes;
+                targetItem[br].clients.push(`${ord.clientName}(${res.label})`);
+            } else if (res.packs > 0) {
+                targetItem[br].orderPack += res.packs;
+                targetItem[br].clients.push(`${ord.clientName}(${res.label})`);
             }
         });
     });
@@ -1450,64 +1643,59 @@ function downloadDiffCsv() {
 /* =========================================================================
    9. [페이지 6] 권역(Zone) 클러스터링 · 최적 동선 · 6대 기사별 바둑판 배차
    ========================================================================= */
-const ADDRESS_PATCH_MAP = {
-    "에이스미트주안": { addr: "인천시 미추홀구 주안로56번길3 (주안동)", phone: "010-9016-1090" },
-    "에이스미트 주안": { addr: "인천시 미추홀구 주안로56번길3 (주안동)", phone: "010-9016-1090" },
-    "충북g마트": { addr: "충북 음성군 맹동면 두성리 1486", phone: "010-8485-6760" },
-    "충북지": { addr: "충북 음성군 맹동면 두성리 1486", phone: "010-8485-6760" },
-    "형제정육점1호점": { addr: "인천광역시 부평구 마장로272번길30 (산곡동)", phone: "010-9440-8463" },
-    "얼음막걸리": { addr: "경기도 시흥시 승지로60번길 101 (능곡동)", note: "비번: 0698" }
-};
-
 function countOrderBoxesAndLoose(orderText) {
     const lines = orderText.split('\n').map(l => l.trim()).filter(Boolean);
     let totalBoxes = 0;
     let totalLoose = 0;
 
     lines.forEach((line, idx) => {
+        if (/반품|취소|삭제|빼달|패스/.test(line)) return;
         if (/010-\d{3,4}-\d{4}|안녕하|발주드리려고|부탁드립|부탁해요|보내주세요|보내주세여|이상입니다|감사합니다|주문합니다|주문드립니다|방문예정|들리겠습니다|차차장님|우편함에|넣어주세요|기름 적은거로/.test(line)) {
-            if (!/(삼겹|목살|미전지|전지|미삼|등갈비|등뼈|갈비|등심|안심|사태|항정|가브리|갈매기|미후지|후지|오겹|우삼겹|차돌|스지|살치|부채|장족|미니족|돈피|잡육|왕구이|목뼈|사골|오돌뼈|홍두깨|볼라|설도|늑간|알목|두메코|테니쉬|셀렉타|올리멜|주물럭|제육)/.test(line)) {
-                return;
-            }
+            if (!MEAT_ANY_REGEX.test(line)) return;
         }
-        if (idx === 0 && !/\d+\s*(박스|빡스|박|box|팩|펙|판|봉|덩이|벌)/i.test(line)) {
+        if (idx === 0 && !/\d+\s*(박스|빡스|박|box|팩|펙|판|봉|덩이|벌|p|k|kg)/i.test(line)) {
             return;
         }
 
         let s = line;
-        s = s.replace(/\((\d+)\s*박스(?:로[^\)]*)?\)/g, ' $1박스 ');
-        s = s.replace(/\([^\)]*\)/g, ' ').replace(/\[[^\]]*\]/g, ' ');
+        s = s.replace(/\(\s*합\s*\d+\s*박스[^\)]*\)/g, ' ');
+        s = s.replace(/\([^\)]*(?:일자|판당|사이|정도|만|제외|지우고|포함|재고|행사|할인)[^\)]*\)/g, ' ');
+        const parenBoxOverride = s.match(/\(\s*(\d+)\s*박스로?\s*(?:작업)?\s*\)/);
+        s = s.replace(/\([^\)]*\)|\[[^\]]*\]/g, ' ');
+
         s = s.replace(/[+-]?\d{1,3}(?:,\d{3})+(?:원|행사|할인|납)?/g, ' ');
-        s = s.replace(/\d+\.\d{3}(?:원)?/g, ' ').replace(/-\d+할인/g, ' ');
+        s = s.replace(/\d+\.\d{3}(?:원)?/g, ' ').replace(/-\d+\s*(?:원|할인|행사)?/g, ' ');
         s = s.replace(/\d+(?:\.\d+)?\s*(?:mm|미리|센치|cm)/gi, ' ');
-        s = s.replace(/\d{1,2}월\s*\d{1,2}일(?:자로)?|\d{1,2}\/\d{1,2}|\d{1,2}일(?:자|자로|재고|진|포크|암삼|대산)?/g, ' ');
-        s = s.replace(/\d+\s*~\s*\d+\s*(?:키로|kg)?(?:대)?/gi, ' ');
+        s = s.replace(/\d{1,2}\.\d{1,2}일(?:자|자로|재고)?|\d{1,2}월\s*\d{1,2}일(?:자로)?|\d{1,2}\/\d{1,2}|\d{1,2}일(?:자|자로|진|재고|포크|암삼|대산)?/g, ' ');
+        s = s.replace(/\d+(?:\.\d+)?\s*~\s*\d+(?:\.\d+)?\s*(?:키로|kg)?(?:대|이상)?/gi, ' ');
         s = s.replace(/\d+\s*(?:키로|kg)\s*(?:대|이상)/gi, ' ');
-        s = s.replace(/(?:미삼|삼겹|암삼|암미삼)\s*1[6789]키로/g, '미삼 ');
+        s = s.replace(/(미삼|삼겹|암삼|암미삼|특삼|특미삼)\s*1[5-9]\s*(?:키로|kg)\s+(\d+)/gi, '$1 $2');
         s = s.replace(/\d+호점|1\+\+/g, ' ');
-        s = s.replace(/한박스/g, '1박스').replace(/한판/g, '1판').replace(/한덩이/g, '1덩이').replace(/한덩어리/g, '1덩어리');
+
+        s = s.replace(/한박스/g, '1박스').replace(/한박/g, '1박').replace(/반박스/g, '0.5박스');
+        s = s.replace(/한판/g, '1판').replace(/한덩이/g, '1덩이').replace(/한덩어리/g, '1덩어리');
         s = s.replace(/두마리분/g, '2마리분').replace(/한마리분/g, '1마리분').replace(/한마리반/g, '1마리분');
 
-        if (!/(삼겹|목살|목심|미전지|전지|미삼|등갈비|등뼈|목뼈|갈비|등심|안심|사태|항정|가브리|갈매기|미후지|후지|오겹|우삼겹|우겹살|차돌|스지|살치|부채|장족|미니족|돈피|껍데기|잡육|등잡|왕구이|사골|오돌뼈|홍두깨|볼라|설도|늑간|알목|두메코|테니쉬|셀렉타|올리멜|주물럭|제육|불고기|미추리|잡뼈|우족|덧살|덜미|민찌|수삼|모돈|엘에이|LA|백립|빽립|프렌치렉|숄더렉|삼각살)/i.test(s)) {
+        if (!MEAT_ANY_REGEX.test(s)) return;
+
+        if (parenBoxOverride) {
+            totalBoxes += parseInt(parenBoxOverride[1], 10);
             return;
         }
 
-        const boxMatches = [...s.matchAll(/(\d+)\s*(?:박스|빡스|박|box|b)(?![a-zA-Z])/gi)];
-        const halfBox = s.includes('반박스') ? 1 : 0;
+        const boxMatches = [...s.matchAll(/(\d+(?:\.\d+)?)\s*(?:박스|빡스|박|box|b)(?![a-zA-Z가-힣])/gi)];
+        let sRem = s.replace(/\d+(?:\.\d+)?\s*(?:박스|빡스|박|box|b)(?![a-zA-Z가-힣])/gi, ' ');
+        const looseMatches = [...sRem.matchAll(/(\d+(?:\.\d+)?)\s*(?:팩|펙|판|봉|봉지|덩이|덩어리|진공|벌|두|마리분|마리|피스|p|개)(?![a-zA-Z가-힣])/gi)];
 
-        let sRem = s.replace(/\d+\s*(?:박스|빡스|박|box|b)(?![a-zA-Z])/gi, ' ').replace(/반박스/g, ' ');
-        const looseMatches = [...sRem.matchAll(/(\d+)\s*(?:팩|펙|판|봉|봉지|덩이|덩어리|진공|벌|두|마리분|마리|피스|p|개)(?![a-zA-Z])/gi)];
-
-        if (boxMatches.length > 0 || halfBox > 0 || looseMatches.length > 0) {
-            boxMatches.forEach(m => { totalBoxes += parseInt(m[1], 10); });
-            totalBoxes += halfBox;
-            looseMatches.forEach(m => { totalLoose += parseInt(m[1], 10); });
+        if (boxMatches.length > 0 || looseMatches.length > 0) {
+            boxMatches.forEach(m => { totalBoxes += parseFloat(m[1]); });
+            looseMatches.forEach(m => { totalLoose += parseFloat(m[1]); });
         } else {
-            const kgMatches = [...sRem.matchAll(/(\d+(?:\.\d+)?)\s*(?:kg|키로|킬|k)(?![a-zA-Z])/gi)];
+            const kgMatches = [...sRem.matchAll(/(\d+(?:\.\d+)?)\s*(?:kg|키로|킬|k)(?![a-zA-Z가-힣])/gi)];
             if (kgMatches.length > 0) {
                 totalLoose += kgMatches.length;
             } else {
-                const bareNums = [...sRem.matchAll(/(?:^|[^\d])(\d{1,2})(?!\d)/g)];
+                const bareNums = [...sRem.matchAll(/(?:^|[^\d.])(\d{1,2})(?!\d)/g)];
                 if (bareNums.length > 0) {
                     totalBoxes += parseInt(bareNums[0][1], 10);
                 }
@@ -1521,7 +1709,6 @@ function countOrderBoxesAndLoose(orderText) {
 function analyzeZoneAndRoute(clientName, addr, orderTextsCombined) {
     const nameAndAddr = `${clientName} ${addr}`;
 
-    // 0. 직접방문 / 택배 최우선 분리
     if (/포동셀프|셀프정육|착한정육|착한\s*산현/.test(clientName) || /택배|방문\s*예정|찾으러|갖으러\s*온데|가지러\s*오신|들리겠습니다/.test(orderTextsCombined)) {
         return {
             zoneCode: 'PICKUP',
@@ -1532,7 +1719,6 @@ function analyzeZoneAndRoute(clientName, addr, orderTextsCombined) {
         };
     }
 
-    // 1. [6권역 -> V0(1호차)] 화성(매송·비봉·병점·동탄) · 오산 · 평택 · 충북 음성 장거리축
     if (/음성|충북|맹동|진천|청주/.test(nameAndAddr)) {
         return { zoneCode: 'V0', zoneName: '6권역(평택·음성)', subArea: '④ 충북 음성', stopOrder: 140, color: '#be123c' };
     }
@@ -1546,7 +1732,6 @@ function analyzeZoneAndRoute(clientName, addr, orderTextsCombined) {
         return { zoneCode: 'V0', zoneName: '6권역(평택·음성)', subArea: '① 화성 매송·비봉', stopOrder: 110, color: '#be123c' };
     }
 
-    // 2. [4권역 -> V5(6호차)] 서울 서남부(동작·관악·영등포·금천) · 광명 · 강서/양천/고양축
     if (/동작|상도|성대/.test(nameAndAddr)) {
         return { zoneCode: 'V5', zoneName: '4권역(서울·광명)', subArea: '① 동작 상도(1순위)', stopOrder: 410, color: '#6d28d9' };
     }
@@ -1563,11 +1748,10 @@ function analyzeZoneAndRoute(clientName, addr, orderTextsCombined) {
         return { zoneCode: 'V5', zoneName: '4권역(서울·광명)', subArea: '⑤ 강서·양천·고양', stopOrder: 450, color: '#6d28d9' };
     }
 
-    // 3. [3권역 -> V4(5호차)] 인천(남동·연수·주안·동구·부평) · 부천축
     if (/남동구|서창|논현|별빛|한우세상|sk축산/i.test(nameAndAddr)) {
         return { zoneCode: 'V4', zoneName: '3권역(인천·부천)', subArea: '① 인천 서창·논현', stopOrder: 310, color: '#0369a1' };
     }
-    if (/연수구|동춘|옥련|오복정육|미추홀|주안|인천\s*동구|화평동|횡성.*인천/.test(nameAndAddr)) {
+    if (/연수구|동춘|옥련|오복정육|미추홀|주안|에이스미트주안|인천\s*동구|화평동|횡성.*인천/.test(nameAndAddr)) {
         return { zoneCode: 'V4', zoneName: '3권역(인천·부천)', subArea: '② 연수·주안·동구', stopOrder: 320, color: '#0369a1' };
     }
     if (/부평|십정|일신|산곡|신박축산|막뚱이|형제정육점1호점/.test(nameAndAddr)) {
@@ -1577,7 +1761,6 @@ function analyzeZoneAndRoute(clientName, addr, orderTextsCombined) {
         return { zoneCode: 'V4', zoneName: '3권역(인천·부천)', subArea: '④ 부천(상동·역곡·원종)', stopOrder: 340, color: '#0369a1' };
     }
 
-    // 4. [5권역 -> V2(3호차)] 군포 · 의왕 · 수원 · 용인 · 성남(판교) · 서울동북부축
     if (/군포|산본|금정|도마교|부곡동|송정|고기바보부곡|고기바보송정|거시기|돌쇠구이/.test(nameAndAddr)) {
         return { zoneCode: 'V2', zoneName: '5권역(군포·수원·판교)', subArea: '① 군포(산본·송정·부곡)', stopOrder: 510, color: '#047857' };
     }
@@ -1597,8 +1780,7 @@ function analyzeZoneAndRoute(clientName, addr, orderTextsCombined) {
         return { zoneCode: 'V2', zoneName: '5권역(군포·수원·판교)', subArea: '⑥ 광진·구리·의정부', stopOrder: 560, color: '#047857' };
     }
 
-    // 5. [2권역 -> V1(2호차)] 시흥 · 대부도권
-    if (/시흥|하상|하중|장곡|능곡|포동|신천|은행동|은계|거모|정왕|배곧|목감|대부/.test(nameAndAddr)) {
+    if (/시흥|하상|하중|장곡|능곡|포동|신천|은행동|은계|거모|정왕|배곧|목감|대부|얼음막걸리/.test(nameAndAddr)) {
         let sub = '② 시흥 신천·은계·포동';
         let seq = 220;
         if (/하상|하중|장곡|능곡|목감|인화|곱창연가|다연|여기식당|청정맛집|오늘은냉삼|국민생고기|얼음막걸리/.test(nameAndAddr)) {
@@ -1611,8 +1793,7 @@ function analyzeZoneAndRoute(clientName, addr, orderTextsCombined) {
         return { zoneCode: 'V1', zoneName: '2권역(시흥·대부)', subArea: sub, stopOrder: seq, color: '#b45309' };
     }
 
-    // 6. [1권역 -> V3(4호차)] 안산(단원·상록) · 화성 새솔동 근거리권
-    if (/안산|단원|상록|선부|신길|초지|고잔|와동|성포|월피|사동|이동|일동|본오|건건|반월|수암|새솔|구워랑/.test(nameAndAddr)) {
+    if (/안산|단원|상록|선부|신길|초지|고잔|와동|성포|월피|사동|이동|일동|본오|건건|반월|수암|새솔|구워랑|대패나라|갈비면옥/.test(nameAndAddr)) {
         let sub = '④ 안산 사동·이동·일동';
         let seq = 640;
         if (/선부|신길|삼부자|대패나라|갈비면옥|백봉|횡성본점|사동쌈엔쌈|쌈엔쌈|샛터|신길양평/.test(nameAndAddr)) {
@@ -1669,13 +1850,12 @@ function getAggregatedDeliveryDestinations() {
     orders.forEach(ord => {
         const key = ord.clientName;
         if (!destMap.has(key)) {
-            const patch = ADDRESS_PATCH_MAP[key] || {};
             destMap.set(key, {
                 clientName: key,
                 officialName: ord.clientObj ? ord.clientObj.name : key,
-                addr: patch.addr || (ord.clientObj ? ord.clientObj.addr : ''),
-                phone: patch.phone || (ord.clientObj ? ord.clientObj.phone : ''),
-                note: patch.note || (ord.clientObj ? ord.clientObj.note : ''),
+                addr: ord.clientObj ? ord.clientObj.addr : '',
+                phone: ord.clientObj ? ord.clientObj.phone : '',
+                note: ord.clientObj ? ord.clientObj.note : '',
                 totalBoxes: 0,
                 totalLoose: 0,
                 isUrgent: false,
@@ -1797,7 +1977,6 @@ function renderDispatchPage() {
         return;
     }
 
-    // [모드 A] '전체 바둑판' 선택 시 -> 기사(호차)별 바둑판 카드 (데스크탑 3열 / 태블릿 2열 / 스마트폰 1열)
     if (selectedVehicleFilter === 'ALL') {
         const groups = [];
         for (let i = 0; i < 6; i++) {
@@ -1843,7 +2022,7 @@ function renderDispatchPage() {
                     const curVal = dispatchMap[d.clientName] || 'UNASSIGNED';
                     const isAssignedClass = (curVal !== 'UNASSIGNED') ? 'assigned' : '';
                     let urgentBadge = d.isUrgent ? `<span class="badge b-urgent">급/오전</span>` : '';
-                    let addrLine = d.addr ? `📍 ${escapeHtml(d.addr)}` : `<span style="color:#9ca3af;">📍 주소 미등록</span>`;
+                    let addrLine = d.addr ? `📍 ${escapeHtml(d.addr)}` : `<span style="color:#9ca3af;">📍 clients.csv 로드 시 주소표시</span>`;
                     if (d.note) addrLine += ` <b style="color:#b45309;">[🔑 ${escapeHtml(d.note)}]</b>`;
 
                     stopsHtml += `
@@ -1878,7 +2057,6 @@ function renderDispatchPage() {
         return;
     }
 
-    // [모드 B] 특정 차량(기사) 1명 선택 시 -> 해당 기사의 각 배송처들을 바둑판 타일로 넓게 전개
     const filteredDests = destinations.filter(d => (dispatchMap[d.clientName] || 'UNASSIGNED') === selectedVehicleFilter);
     if (filteredDests.length === 0) {
         board.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:24px; color:#888; background:#fff; border-radius:8px; border:1px solid var(--border);">선택하신 차량에 배차된 거래처가 없습니다.</div>`;
@@ -1890,7 +2068,7 @@ function renderDispatchPage() {
         const isAssignedClass = (curVal !== 'UNASSIGNED') ? 'assigned' : '';
         let urgentBadge = d.isUrgent ? `<span class="badge b-urgent">급/오전</span>` : '';
 
-        let addrHtml = d.addr ? `<div>📍 ${escapeHtml(d.addr)}</div>` : `<div style="color:#9ca3af;">📍 주소 미등록</div>`;
+        let addrHtml = d.addr ? `<div>📍 ${escapeHtml(d.addr)}</div>` : `<div style="color:#9ca3af;">📍 로컬 clients.csv 로드 시 상세주소 표시</div>`;
         if (d.phone) addrHtml += `<div style="color:#4b5563; margin-top:2px;">📞 ${escapeHtml(d.phone)}</div>`;
         if (d.note) addrHtml += `<div style="color:#b45309; font-weight:bold; margin-top:2px;">🔑 ${escapeHtml(d.note)}</div>`;
 
