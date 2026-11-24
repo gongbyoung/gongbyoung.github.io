@@ -3,72 +3,77 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>회사 재고 파악 자동 완성기</title>
+  <title>회사 재고 파악 자동 완성 & 한장 요약표</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --primary: #2563eb;
       --primary-hover: #1d4ed8;
-      --bg: #f8fafc;
+      --kakao: #fee500;
+      --kakao-text: #191919;
+      --bg: #f1f5f9;
       --card: #ffffff;
-      --border: #e2e8f0;
+      --border: #cbd5e1;
+      --border-light: #e2e8f0;
       --text: #0f172a;
       --muted: #64748b;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "맑은 고딕", sans-serif;
+      font-family: "Malgun Gothic", "맑은 고딕", -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.5;
+      line-height: 1.45;
     }
     .container {
-      max-width: 1180px;
-      margin: 24px auto;
-      padding: 0 16px;
+      max-width: 1380px;
+      margin: 18px auto;
+      padding: 0 16px 40px;
     }
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 18px;
+      margin-bottom: 14px;
       flex-wrap: wrap;
       gap: 10px;
     }
     h1 {
       font-size: 20px;
       margin: 0;
-      font-weight: 700;
+      font-weight: 800;
+      letter-spacing: -0.3px;
     }
     .sub {
-      font-size: 13px;
+      font-size: 12.5px;
       color: var(--muted);
     }
-    .grid {
+    .top-grid {
       display: grid;
       grid-template-columns: 1.15fr 0.85fr;
-      gap: 18px;
+      gap: 16px;
+      margin-bottom: 20px;
     }
-    @media (max-width: 900px) {
-      .grid { grid-template-columns: 1fr; }
+    @media (max-width: 960px) {
+      .top-grid { grid-template-columns: 1fr; }
     }
     .card {
       background: var(--card);
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-light);
       border-radius: 12px;
-      padding: 18px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
     .dropzone {
-      border: 2px dashed #93c5fd;
+      border: 2px dashed #60a5fa;
       background: #eff6ff;
       border-radius: 10px;
-      padding: 26px 16px;
+      padding: 20px 14px;
       text-align: center;
       cursor: pointer;
       transition: all 0.15s ease;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
     .dropzone:hover, .dropzone.dragover {
       border-color: var(--primary);
@@ -76,12 +81,12 @@
     }
     .dropzone strong {
       display: block;
-      font-size: 15px;
+      font-size: 14.5px;
       color: #1e40af;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
     }
     .dropzone span {
-      font-size: 12.5px;
+      font-size: 12px;
       color: #475569;
     }
     .toolbar {
@@ -92,18 +97,30 @@
       margin-bottom: 10px;
       flex-wrap: wrap;
     }
+    .btn-group {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
     .btn {
       border: 1px solid var(--border);
       background: #fff;
       color: var(--text);
-      padding: 8px 14px;
+      padding: 7px 12px;
       border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
+      font-size: 12.5px;
+      font-weight: 700;
       cursor: pointer;
       transition: 0.15s;
     }
-    .btn:hover { background: #f1f5f9; }
+    .btn:hover { background: #f8fafc; }
+    .btn-kakao {
+      background: var(--kakao);
+      border-color: #f5dc00;
+      color: var(--kakao-text);
+    }
+    .btn-kakao:hover { background: #fada0a; }
     .btn-primary {
       background: var(--primary);
       border-color: var(--primary);
@@ -111,28 +128,226 @@
     }
     .btn-primary:hover { background: var(--primary-hover); }
     .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+    /* 카톡 공유용 출력창: 실제 카톡과 동일한 가변폭 한글 글꼴로 정렬 확인 */
     textarea#output {
       width: 100%;
-      height: 680px;
-      font-family: "Consolas", "D2Coding", "Malgun Gothic", monospace;
+      height: 560px;
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
       font-size: 13.5px;
-      line-height: 1.55;
-      padding: 14px;
+      line-height: 1.52;
+      padding: 14px 16px;
       border: 1px solid var(--border);
       border-radius: 8px;
       resize: vertical;
-      background: #fcfcfd;
+      background: #fffef7;
       color: #111827;
+      white-space: pre;
+      overflow-x: auto;
     }
+
     .badge {
       display: inline-block;
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 999px;
       font-size: 12px;
-      font-weight: 600;
-      background: #e0e7ff;
-      color: #3730a3;
+      font-weight: 700;
+      background: #dbeafe;
+      color: #1e40af;
     }
+
+    /* 우측 매핑 테이블 */
+    .mapping-table-wrap {
+      max-height: 520px;
+      overflow-y: auto;
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+    }
+    table.map-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    table.map-tbl th, table.map-tbl td {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border-light);
+      text-align: left;
+    }
+    table.map-tbl th {
+      background: #f8fafc;
+      position: sticky;
+      top: 0;
+      font-weight: 700;
+      z-index: 1;
+    }
+    input.code-input {
+      width: 96px;
+      padding: 3px 6px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    input.note-input {
+      width: 72px;
+      padding: 3px 6px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .unmapped-box {
+      margin-top: 10px;
+      padding: 8px 10px;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      font-size: 11.5px;
+      color: #92400e;
+    }
+
+    /* =========================================================
+       하단: 한 화면에 한 장으로 보는 전체 재고 요약표 페이지
+       ========================================================= */
+    .sheet-section {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    }
+    .sheet-section.fullscreen-mode {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      border-radius: 0;
+      padding: 12px 18px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .sheet-title-wrap {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+    .sheet-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0;
+    }
+    .sheet-stats {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .stat-pill {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      padding: 3px 9px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .stat-pill strong { color: #2563eb; }
+
+    /* 3단 병렬 테이블: 33개 품목 전체가 1화면에 꽉 차게 배치 */
+    .onepage-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      align-items: start;
+    }
+    @media (max-width: 1050px) {
+      .onepage-grid { grid-template-columns: 1fr; }
+    }
+    table.summary-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+      table-layout: fixed;
+    }
+    table.summary-tbl th {
+      background: #1e293b;
+      color: #ffffff;
+      font-weight: 700;
+      padding: 5px 6px;
+      border: 1px solid #334155;
+      text-align: center;
+      font-size: 11px;
+    }
+    table.summary-tbl td {
+      border: 1px solid #cbd5e1;
+      padding: 3.5px 6px;
+      vertical-align: middle;
+      word-break: keep-all;
+    }
+    table.summary-tbl td.col-item {
+      width: 22%;
+      font-weight: 800;
+      background: #f8fafc;
+      text-align: center;
+      color: #0f172a;
+    }
+    table.summary-tbl td.col-sup {
+      width: 17%;
+      text-align: center;
+      font-weight: 600;
+      color: #334155;
+      background: #ffffff;
+    }
+    table.summary-tbl td.col-stock {
+      width: 41%;
+      text-align: left;
+      padding-left: 7px;
+      background: #ffffff;
+    }
+    table.summary-tbl td.col-kg {
+      width: 20%;
+      text-align: right;
+      color: #475569;
+      font-size: 10.5px;
+      background: #ffffff;
+    }
+    tr.row-zero td.col-sup,
+    tr.row-zero td.col-stock,
+    tr.row-zero td.col-kg {
+      color: #94a3b8;
+      background: #fcfcfd;
+    }
+    .stock-chip {
+      display: inline-block;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 11px;
+      margin: 1px 2px 1px 0;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+    .stock-chip.loose {
+      background: #fef3c7;
+      color: #b45309;
+      border-color: #fde68a;
+    }
+    .stock-zero {
+      color: #94a3b8;
+      font-size: 11px;
+    }
+
     .toast {
       position: fixed;
       bottom: 24px;
@@ -142,57 +357,22 @@
       padding: 10px 16px;
       border-radius: 8px;
       font-size: 13px;
+      font-weight: 600;
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.2s;
-      z-index: 999;
+      z-index: 2000;
     }
     .toast.show { opacity: 1; }
-    .mapping-table-wrap {
-      max-height: 540px;
-      overflow-y: auto;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12.5px;
-    }
-    th, td {
-      padding: 7px 8px;
-      border-bottom: 1px solid var(--border);
-      text-align: left;
-    }
-    th {
-      background: #f1f5f9;
-      position: sticky;
-      top: 0;
-      font-weight: 700;
-      z-index: 1;
-    }
-    input.code-input {
-      width: 95px;
-      padding: 4px 6px;
-      border: 1px solid #cbd5e1;
-      border-radius: 5px;
-      font-size: 12px;
-    }
-    input.note-input {
-      width: 72px;
-      padding: 4px 6px;
-      border: 1px solid #cbd5e1;
-      border-radius: 5px;
-      font-size: 12px;
-    }
-    .unmapped-box {
-      margin-top: 12px;
-      padding: 10px 12px;
-      background: #fffbeb;
-      border: 1px solid #fde68a;
-      border-radius: 8px;
-      font-size: 12px;
-      color: #92400e;
+
+    @media print {
+      body { background: #fff; }
+      .top-grid, header, .no-print { display: none !important; }
+      .container { max-width: 100%; margin: 0; padding: 0; }
+      .sheet-section { border: none; box-shadow: none; padding: 0; }
+      .onepage-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 6px; }
+      table.summary-tbl { font-size: 10px; }
+      table.summary-tbl td, table.summary-tbl th { padding: 2.5px 4px; }
     }
   </style>
 </head>
@@ -200,50 +380,53 @@
   <div class="container">
     <header>
       <div>
-        <h1>회사 재고 파악 자동 완성기</h1>
-        <div class="sub">재고현황(통합)(VATPDA) 엑셀 파일을 업로드하면 카카오톡/보고용 텍스트가 자동 생성됩니다.</div>
+        <h1>회사 재고 파악 자동 완성 & 한장 요약표</h1>
+        <div class="sub">엑셀 업로드 즉시 카카오톡 공유용 줄맞춤 텍스트와 한 화면 전체 요약표를 동시에 생성합니다.</div>
       </div>
       <div id="statusBadge" class="badge">엑셀 파일 대기 중</div>
     </header>
 
-    <div class="grid">
-      <!-- 좌측: 업로드 및 결과 텍스트 -->
+    <div class="top-grid">
+      <!-- 좌측: 파일 업로드 및 카톡 공유 텍스트 -->
       <div class="card">
         <div id="dropzone" class="dropzone">
-          <strong>📂 엑셀 파일을 이곳에 끌어다 놓거나 클릭해서 선택하세요</strong>
-          <span>지원 형식: .xlsx, .xls (예: 재고현황(통합)(VATPDA)1.xlsx)</span>
+          <strong>📂 재고현황 엑셀 파일을 끌어다 놓거나 클릭하세요</strong>
+          <span>지원 형식: .xlsx, .xls (전체 행이 포함된 통합 재고현황 파일)</span>
           <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" />
         </div>
 
         <div class="toolbar">
-          <div>
-            <button class="btn btn-primary" onclick="copyOutput()">📋 결과 텍스트 복사</button>
+          <div class="btn-group">
+            <button class="btn btn-kakao" onclick="copyOutput()">💬 카톡 공유용 복사</button>
             <button class="btn" onclick="reparseCurrent()">🔄 다시 생성</button>
           </div>
-          <span class="sub">생성 후 직접 수정도 가능합니다</span>
+          <div class="btn-group">
+            <label style="font-size:12px; color:#334155; cursor:pointer; display:flex; align-items:center; gap:4px;">
+              <input type="checkbox" id="kakaoAlignChk" checked onchange="reparseCurrent()" />
+              카톡 전각 줄맞춤 적용
+            </label>
+          </div>
         </div>
 
-        <textarea id="output" placeholder="엑셀 파일을 업로드하면 이곳에 재고현황 텍스트가 자동으로 완성됩니다."></textarea>
+        <textarea id="output" placeholder="엑셀 파일을 올리면 카카오톡 공유용 줄맞춤 텍스트가 이곳에 자동 완성됩니다."></textarea>
       </div>
 
       <!-- 우측: 상품코드 매핑 관리 -->
       <div class="card">
         <div class="toolbar">
           <strong>⚙️ 상품코드 매핑 설정 (자동 저장)</strong>
-          <div>
-            <button class="btn btn-sm" onclick="resetMapping()">기본값 복원</button>
-          </div>
+          <button class="btn btn-sm" onclick="resetMapping()">기본값 복원</button>
         </div>
-        <p class="sub" style="margin-top:0; margin-bottom:10px;">
-          엑셀 <b>B열(상품코드)</b>과 출력 품목을 연결합니다. 쉼표(<code>,</code>)로 여러 코드를 묶을 수 있습니다.
+        <p class="sub" style="margin:0 0 8px;">
+          엑셀 <b>B열(상품코드)</b>과 품목을 연결합니다. 여러 코드는 쉼표(<code>,</code>)로 구분합니다.
         </p>
 
         <div class="mapping-table-wrap">
-          <table>
+          <table class="map-tbl">
             <thead>
               <tr>
                 <th>품목</th>
-                <th>구분/브랜드</th>
+                <th>거래처/구분</th>
                 <th>상품코드</th>
                 <th>고정표기</th>
               </tr>
@@ -255,94 +438,120 @@
         <div id="unmappedInfo" class="unmapped-box" style="display:none;"></div>
       </div>
     </div>
+
+    <!-- =========================================================
+         결과 나오는 곳 아래: 전체 표를 한 장으로 보는 요약 페이지
+         ========================================================= -->
+    <div id="onePageSection" class="sheet-section">
+      <div class="sheet-header">
+        <div class="sheet-title-wrap">
+          <h2 id="sheetTitle" class="sheet-title">전체 재고 현황 요약표 (한장 보기)</h2>
+          <span class="sub">재고 보유 품목 강조 · 0박 품목 흐림 처리</span>
+        </div>
+        <div class="sheet-stats">
+          <span class="stat-pill">보유 품목: <strong id="statActiveCount">0</strong> / <span id="statTotalCount">0</span></span>
+          <span class="stat-pill">표시 총 박스: <strong id="statTotalBox">0</strong>박</span>
+          <span class="stat-pill">표시 총 중량: <strong id="statTotalKg">0</strong>kg</span>
+          <button class="btn btn-primary btn-sm no-print" id="fullscreenBtn" onclick="toggleFullscreen()">🖥️ 한장 전체화면 보기</button>
+          <button class="btn btn-sm no-print" onclick="window.print()">🖨️ 한장 인쇄</button>
+        </div>
+      </div>
+
+      <div id="onepageGrid" class="onepage-grid">
+        <!-- JS로 3단 테이블 자동 생성 -->
+      </div>
+    </div>
   </div>
 
   <div id="toast" class="toast">클립보드에 복사되었습니다!</div>
 
   <script>
-    // 출력 순서 및 기본 상품코드 매핑 정의
+    // 품목 및 상품코드 기본 매핑 (colGroup: 1=좌측표, 2=중앙표, 3=우측표)
     const DEFAULT_TEMPLATE = [
-      { id: "samgyeop_daesan", item: "삼겹", supplier: "(대산)", codes: "1564", suffix: "", type: "standard" },
-      { id: "samgyeop_pork", item: "삼겹", supplier: "(포크)", codes: "6917", suffix: "", type: "standard" },
-      { id: "samgyeop_jeongdam", item: "삼겹", supplier: "(정담)", codes: "6783", suffix: "", type: "standard" },
+      // [1열: 삼겹 · 목살류]
+      { id: "samgyeop_daesan", col: 1, item: "삼겹", supplier: "(대산)", codes: "1564", suffix: "", type: "standard" },
+      { id: "samgyeop_pork", col: 1, item: "삼겹", supplier: "(포크)", codes: "6917", suffix: "", type: "standard" },
+      { id: "samgyeop_jeongdam", col: 1, item: "삼겹", supplier: "(정담)", codes: "6783", suffix: "", type: "standard" },
 
-      { id: "amsam_daesan", item: "암삼겹", supplier: "(대산)", codes: "1565", suffix: "", type: "standard" },
-      { id: "amsam_pork", item: "암삼겹", supplier: "(포크)", codes: "6918", suffix: "", type: "standard" },
+      { id: "amsam_daesan", col: 1, item: "암삼겹", supplier: "(대산)", codes: "1565", suffix: "", type: "standard" },
+      { id: "amsam_pork", col: 1, item: "암삼겹", supplier: "(포크)", codes: "6918", suffix: "", type: "standard" },
 
-      { id: "teuksam_daesan", item: "특삼겹", supplier: "(대산)", codes: "1988", suffix: "", type: "standard" },
-      { id: "teuksam_pork", item: "특삼겹", supplier: "(포크)", codes: "6921", suffix: "", type: "standard" },
+      { id: "teuksam_daesan", col: 1, item: "특삼겹", supplier: "(대산)", codes: "1988", suffix: "", type: "standard" },
+      { id: "teuksam_pork", col: 1, item: "특삼겹", supplier: "(포크)", codes: "6921", suffix: "", type: "standard" },
 
-      { id: "bbangsam_pork", item: "빵삼겹", supplier: "(포크)", codes: "", suffix: "", type: "standard" },
+      { id: "bbangsam_pork", col: 1, item: "빵삼겹", supplier: "(포크)", codes: "", suffix: "", type: "standard" },
 
-      { id: "misam_daesan", item: "미삼", supplier: "(대산)", codes: "1572", suffix: "", type: "standard" },
-      { id: "misam_pork", item: "미삼", supplier: "(포크)", codes: "6919", suffix: "", type: "standard" },
+      { id: "misam_daesan", col: 1, item: "미삼", supplier: "(대산)", codes: "1572", suffix: "", type: "standard" },
+      { id: "misam_pork", col: 1, item: "미삼", supplier: "(포크)", codes: "6919", suffix: "", type: "standard" },
 
-      { id: "ammisam_daesan", item: "암미삼", supplier: "(대산)", codes: "1583", suffix: "", type: "standard" },
-      { id: "ammisam_pork", item: "암미삼", supplier: "(포크)", codes: "6920", suffix: "", type: "standard" },
+      { id: "ammisam_daesan", col: 1, item: "암미삼", supplier: "(대산)", codes: "1583", suffix: "", type: "standard" },
+      { id: "ammisam_pork", col: 1, item: "암미삼", supplier: "(포크)", codes: "6920", suffix: "", type: "standard" },
 
-      { id: "teukmisam_daesan", item: "특미삼", supplier: "(대산)", codes: "1571,1825", suffix: "", type: "standard" },
-      { id: "teukmisam_pork", item: "특미삼", supplier: "(포크)", codes: "6922", suffix: "", type: "standard" },
+      { id: "teukmisam_daesan", col: 1, item: "특미삼", supplier: "(대산)", codes: "1571,1825", suffix: "", type: "standard" },
+      { id: "teukmisam_pork", col: 1, item: "특미삼", supplier: "(포크)", codes: "6922", suffix: "", type: "standard" },
 
-      { id: "moksal_daesan", item: "목살", supplier: "(대산)", codes: "1575", suffix: "", type: "standard" },
-      { id: "moksal_pork", item: "목살", supplier: "(포크)", codes: "6923", suffix: "", type: "standard" },
+      { id: "moksal_daesan", col: 1, item: "목살", supplier: "(대산)", codes: "1575", suffix: "", type: "standard" },
+      { id: "moksal_pork", col: 1, item: "목살", supplier: "(포크)", codes: "6923", suffix: "", type: "standard" },
 
-      { id: "teukmok_daesan", item: "특목살", supplier: "(대산)", codes: "1570", suffix: "", type: "standard" },
-      { id: "teukmok_pork", item: "특목살", supplier: "(포크)", codes: "6924", suffix: "", type: "standard" },
+      { id: "teukmok_daesan", col: 1, item: "특목살", supplier: "(대산)", codes: "1570", suffix: "", type: "standard" },
+      { id: "teukmok_pork", col: 1, item: "특목살", supplier: "(포크)", codes: "6924", suffix: "", type: "standard" },
 
-      { id: "bmok_jeongdam", item: "B목살", supplier: "(정담)", codes: "", suffix: "", type: "standard" },
+      { id: "bmok_jeongdam", col: 1, item: "B목살", supplier: "(정담)", codes: "", suffix: "", type: "standard" },
 
-      { id: "mijeonji_daesan", item: "미전지", supplier: "(대산)", codes: "1573", suffix: "", type: "standard" },
-      { id: "mijeonji_pork", item: "미전지", supplier: "(포크)", codes: "6925", suffix: "", type: "standard" },
+      // [2열: 전지 · 갈비 · 등심 · 안심 · 사태]
+      { id: "mijeonji_daesan", col: 2, item: "미전지", supplier: "(대산)", codes: "1573", suffix: "", type: "standard" },
+      { id: "mijeonji_pork", col: 2, item: "미전지", supplier: "(포크)", codes: "6925", suffix: "", type: "standard" },
 
-      { id: "jeonji_pork", item: "전지", supplier: "(포크)", codes: "6927", suffix: "", type: "standard" },
+      { id: "jeonji_pork", col: 2, item: "전지", supplier: "(포크)", codes: "6927", suffix: "", type: "standard" },
 
-      { id: "jijeonji_daesan", item: "지전지", supplier: "(대산)", codes: "1609", suffix: "", type: "standard" },
+      { id: "jijeonji_daesan", col: 2, item: "지전지", supplier: "(대산)", codes: "1609", suffix: "", type: "standard" },
 
-      { id: "galbi_daesan", item: "갈비", supplier: "(대산)", codes: "", suffix: "", type: "standard" },
-      { id: "galbi_pork", item: "갈비", supplier: "(포크)", codes: "6928", suffix: "", type: "standard" },
+      { id: "galbi_daesan", col: 2, item: "갈비", supplier: "(대산)", codes: "", suffix: "", type: "standard" },
+      { id: "galbi_pork", col: 2, item: "갈비", supplier: "(포크)", codes: "6928", suffix: "", type: "standard" },
 
-      { id: "deunggalbi_daesan", item: "등갈비", supplier: "(대산)", codes: "1994", suffix: "", type: "standard" },
-      { id: "deunggalbi_pork", item: "등갈비", supplier: "(포크)", codes: "6929", suffix: "", type: "standard" },
+      { id: "deunggalbi_daesan", col: 2, item: "등갈비", supplier: "(대산)", codes: "1994", suffix: "", type: "standard" },
+      { id: "deunggalbi_pork", col: 2, item: "등갈비", supplier: "(포크)", codes: "6929", suffix: "", type: "standard" },
 
-      { id: "deungsim_daesan", item: "등심", supplier: "(대산)", codes: "1568", suffix: "", type: "standard" },
-      { id: "deungsim_pork", item: "등심", supplier: "(포크)", codes: "6931", suffix: "", type: "standard" },
+      { id: "deungsim_daesan", col: 2, item: "등심", supplier: "(대산)", codes: "1568", suffix: "", type: "standard" },
+      { id: "deungsim_pork", col: 2, item: "등심", supplier: "(포크)", codes: "6931", suffix: "", type: "standard" },
 
-      { id: "ansim_pork", item: "안심", supplier: "(포크)", codes: "6930", suffix: "", type: "standard" },
+      { id: "ansim_pork", col: 2, item: "안심", supplier: "(포크)", codes: "6930", suffix: "", type: "standard" },
 
-      { id: "satae_daesan", item: "사태", supplier: "(대산)", codes: "1603", suffix: "", type: "standard" },
-      { id: "satae_pork", item: "사태", supplier: "(포크)", codes: "6932", suffix: "", type: "standard" },
-      { id: "satae_jeongdam", item: "사태", supplier: "(정담)", codes: "1867", suffix: "", type: "standard" },
+      { id: "satae_daesan", col: 2, item: "사태", supplier: "(대산)", codes: "1603", suffix: "", type: "standard" },
+      { id: "satae_pork", col: 2, item: "사태", supplier: "(포크)", codes: "6932", suffix: "", type: "standard" },
+      { id: "satae_jeongdam", col: 2, item: "사태", supplier: "(정담)", codes: "1867", suffix: "", type: "standard" },
 
-      { id: "apmisatae_daesan", item: "앞미사태", supplier: "(대산)", codes: "1670", suffix: "", type: "standard" },
-      { id: "apmisatae_pork", item: "앞미사태", supplier: "(포크)", codes: "6933", suffix: "", type: "standard" },
+      { id: "apmisatae_daesan", col: 2, item: "앞미사태", supplier: "(대산)", codes: "1670", suffix: "", type: "standard" },
+      { id: "apmisatae_pork", col: 2, item: "앞미사태", supplier: "(포크)", codes: "6933", suffix: "", type: "standard" },
 
-      { id: "hangjeong_daesan", item: "항정", supplier: "(대산)", codes: "1866", suffix: "", type: "standard" },
-      { id: "hangjeong_pork", item: "항정", supplier: "(포크)", codes: "6934", suffix: "", type: "standard" },
+      // [3열: 특수부위 · 후지 · 등뼈 · 수입육]
+      { id: "hangjeong_daesan", col: 3, item: "항정", supplier: "(대산)", codes: "1777", suffix: "", type: "standard" },
+      { id: "hangjeong_pork", col: 3, item: "항정", supplier: "(포크)", codes: "6934", suffix: "", type: "standard" },
 
-      { id: "gaburi_daesan", item: "가브리", supplier: "(대산)", codes: "1574", suffix: "", type: "standard" },
-      { id: "gaburi_pork", item: "가브리", supplier: "(포크)", codes: "6935", suffix: "", type: "standard" },
+      { id: "gaburi_daesan", col: 3, item: "가브리", supplier: "(대산)", codes: "1574", suffix: "", type: "standard" },
+      { id: "gaburi_pork", col: 3, item: "가브리", supplier: "(포크)", codes: "6935", suffix: "", type: "standard" },
 
-      { id: "galmaegi_daesan", item: "갈매기", supplier: "(대산)", codes: "1569", suffix: "", type: "standard" },
-      { id: "galmaegi_pork", item: "갈매기", supplier: "(포크)", codes: "6936", suffix: "", type: "standard" },
-      { id: "galmaegi_jeongdam", item: "갈매기", supplier: "(정담)", codes: "6053", suffix: "", type: "standard" },
+      { id: "galmaegi_daesan", col: 3, item: "갈매기", supplier: "(대산)", codes: "1569", suffix: "", type: "standard" },
+      { id: "galmaegi_pork", col: 3, item: "갈매기", supplier: "(포크)", codes: "6936", suffix: "", type: "standard" },
+      { id: "galmaegi_jeongdam", col: 3, item: "갈매기", supplier: "(정담)", codes: "6053", suffix: "", type: "standard" },
 
-      { id: "mihuji_hwanggeum", item: "미후지", supplier: "(황금)", codes: "6627", suffix: "", type: "standard" },
+      { id: "mihuji_hwanggeum", col: 3, item: "미후지", supplier: "(황금)", codes: "6627", suffix: "", type: "standard" },
 
-      { id: "huji_hwanggeum", item: "후지", supplier: "(황금)", codes: "6661", suffix: "", type: "standard" },
+      { id: "huji_hwanggeum", col: 3, item: "후지", supplier: "(황금)", codes: "6661", suffix: "", type: "standard" },
 
-      { id: "deungppyeo_daesan", item: "등뼈", supplier: "(대산)", codes: "1563", suffix: "", type: "standard" },
-      { id: "deungppyeo_pork", item: "등뼈", supplier: "(포크)", codes: "6937", suffix: "", type: "standard" },
+      { id: "deungppyeo_daesan", col: 3, item: "등뼈", supplier: "(대산)", codes: "1563", suffix: "", type: "standard" },
+      { id: "deungppyeo_pork", col: 3, item: "등뼈", supplier: "(포크)", codes: "6937", suffix: "", type: "standard" },
 
-      { id: "torain_samgyeop", item: "토레인 삼겹", supplier: "(토레인)", codes: "4255", suffix: "", type: "single_line" },
+      { id: "torain_samgyeop", col: 3, item: "토레인 삼겹", supplier: "(토레인)", codes: "4255", suffix: "", type: "single_line" },
 
-      { id: "import_almoksim", item: "냉장 알목심f PR", supplier: "IBP", codes: "4243", suffix: "", type: "import_block" },
-      { id: "import_salchi", item: "냉장 살치f PR", supplier: "엑셀", codes: "4775", suffix: "", type: "import_block" },
-      { id: "import_neukgan", item: "냉장 늑간f CH NBP", supplier: "", codes: "4786", suffix: "", type: "import_inline" },
-      { id: "import_olymel_sam", item: "냉장 수입 올리멜 삼겹", supplier: "", codes: "3086", suffix: "~12/18", type: "import_inline" },
-      { id: "import_olymel_mok", item: "냉장 수입 올리멜 목살", supplier: "", codes: "3124", suffix: "~12/18", type: "import_inline" }
+      { id: "import_almoksim", col: 3, item: "냉장 알목심f PR", supplier: "IBP", codes: "4243", suffix: "", type: "import_block" },
+      { id: "import_salchi", col: 3, item: "냉장 살치f PR", supplier: "엑셀", codes: "4775", suffix: "", type: "import_block" },
+      { id: "import_neukgan", col: 3, item: "냉장 늑간f CH NBP", supplier: "-", codes: "4786", suffix: "", type: "import_inline" },
+      { id: "import_olymel_sam", col: 3, item: "냉장 수입 올리멜 삼겹", supplier: "올리멜", codes: "3086", suffix: "~12/18", type: "import_inline" },
+      { id: "import_olymel_mok", col: 3, item: "냉장 수입 올리멜 목살", supplier: "올리멜", codes: "3124", suffix: "~12/18", type: "import_inline" }
     ];
 
-    const STORAGE_KEY = "vatpda_inventory_mapping_v1";
+    const STORAGE_KEY = "vatpda_inventory_mapping_v2";
     let templateData = loadMapping();
     let lastParsedWorkbook = null;
 
@@ -393,7 +602,7 @@
       });
     }
 
-    // 드래그 앤 드롭 및 파일 입력 연결
+    // 드래그 앤 드롭 및 파일 선택
     const dropzone = document.getElementById("dropzone");
     const fileInput = document.getElementById("fileInput");
 
@@ -426,11 +635,10 @@
 
     function reparseCurrent() {
       if (!lastParsedWorkbook) {
-        showToast("먼저 엑셀 파일을 업로드해주세요.");
+        renderOnePageTable([], "전체 재고 현황 요약표 (한장 보기)");
         return;
       }
       processWorkbook(lastParsedWorkbook);
-      showToast("다시 생성되었습니다.");
     }
 
     // 일자(DD) 추출: 식별번호(L1YYMMDD) > 제조일자 > 매입일자
@@ -450,7 +658,7 @@
       return "";
     }
 
-    // 낱개 여부 판별: 매입 평균중량 대비 현재 평균중량이 25% 이상 감소 시 개봉 박스로 판정
+    // 낱개 여부 판별
     function analyzeRowStock(row) {
       const bBox = Number(row.buyBox) || 0;
       const bKg = Number(row.buyKg) || 0;
@@ -473,6 +681,24 @@
       return { fullBoxes: cBox, hasLoose: false };
     }
 
+    // 카톡 가변폭 한글 글꼴 기준 가로 세로 위치 정렬 함수
+    function formatItemPrefix(itemName, useFullWidth) {
+      if (!useFullWidth) {
+        return itemName.padEnd(6, " ") + " ";
+      }
+      // 한글=1단위, 영문/숫자=0.5단위 계산 후 전각공백(\u3000) + 반각공백으로 5.0단위 맞춤
+      let units = 0;
+      for (const ch of itemName) {
+        units += /[가-힣]/.test(ch) ? 1.0 : 0.55;
+      }
+      const targetUnits = 5.0;
+      const diff = Math.max(0.5, targetUnits - units);
+      const fullSpaces = Math.floor(diff);
+      const rem = diff - fullSpaces;
+      const halfSpaces = rem >= 0.25 ? " " : "";
+      return itemName + "\u3000".repeat(fullSpaces) + halfSpaces;
+    }
+
     function processWorkbook(wb) {
       const sheetName = wb.SheetNames[0];
       const sheet = wb.Sheets[sheetName];
@@ -489,14 +715,13 @@
         }
       }
 
-      // 2. 본점 데이터 행 파싱
-      const codeMap = {}; // code -> array of parsed stock entries
+      // 2. 본점 데이터 파싱
+      const codeMap = {};
       const allCodesInFile = new Set();
 
       for (let i = 5; i < rows.length; i++) {
         const r = rows[i];
-        const branch = String(r[0] || "").trim();
-        if (branch !== "본점") continue;
+        if (String(r[0] || "").trim() !== "본점") continue;
 
         const code = String(r[1] || "").trim();
         if (!code) continue;
@@ -521,34 +746,38 @@
         codeMap[code].push(entry);
       }
 
-      // 3. 템플릿 순서대로 텍스트 조립
+      const useFullWidth = document.getElementById("kakaoAlignChk").checked;
+      const supplierIndent = useFullWidth ? "\u3000\u3000\u3000\u3000\u3000" : "         ";
+      const subDateIndent  = useFullWidth ? "\u3000\u3000\u3000\u3000\u3000\u3000\u3000\u3000" : "                ";
+
       const usedCodes = new Set();
       const lines = [reportDateTitle, ""];
+      const summaryRows = [];
 
-      // 품목별 그룹핑 (동일 품목 아래 여러 거래처 배치)
+      // 품목별 그룹핑
       const groupedItems = [];
       templateData.forEach(t => {
         const last = groupedItems[groupedItems.length - 1];
         if (last && last.item === t.item && t.type === "standard") {
           last.entries.push(t);
         } else {
-          groupedItems.push({ item: t.item, type: t.type, entries: [t] });
+          groupedItems.push({ item: t.item, col: t.col, type: t.type, entries: [t] });
         }
       });
 
-      groupedItems.forEach((group, gIdx) => {
+      groupedItems.forEach(group => {
         if (group.type === "standard") {
-          const itemLabel = group.item.padEnd(6, " ");
           let firstLineOfItem = true;
 
-          group.entries.forEach(entry => {
+          group.entries.forEach((entry, eIdx) => {
             const codes = entry.codes.split(",").map(s => s.trim()).filter(Boolean);
             codes.forEach(c => usedCodes.add(c));
 
             const rawRows = codes.flatMap(c => codeMap[c] || []);
-            const formattedParts = formatStockEntries(rawRows, entry.suffix);
+            const dayItems = getDaySummaryList(rawRows, entry.suffix);
+            const formattedParts = dayItems.map(d => d.text);
 
-            const prefix = firstLineOfItem ? `${itemLabel} ` : `         `;
+            const prefix = firstLineOfItem ? formatItemPrefix(group.item, useFullWidth) : supplierIndent;
             firstLineOfItem = false;
 
             if (formattedParts.length === 0) {
@@ -556,9 +785,20 @@
             } else {
               lines.push(`${prefix}${entry.supplier} ${formattedParts[0]}`);
               for (let k = 1; k < formattedParts.length; k++) {
-                lines.push(`                  ${formattedParts[k]}`);
+                lines.push(`${subDateIndent}${formattedParts[k]}`);
               }
             }
+
+            summaryRows.push({
+              col: group.col,
+              item: group.item,
+              rowSpan: eIdx === 0 ? group.entries.length : 0,
+              supplier: entry.supplier,
+              dayItems,
+              rawBox: rawRows.reduce((s, r) => s + r.curBox, 0),
+              rawKg: rawRows.reduce((s, r) => s + r.curKg, 0),
+              suffix: entry.suffix
+            });
           });
           lines.push("");
         } else if (group.type === "single_line") {
@@ -566,48 +806,82 @@
           const codes = entry.codes.split(",").map(s => s.trim()).filter(Boolean);
           codes.forEach(c => usedCodes.add(c));
           const rawRows = codes.flatMap(c => codeMap[c] || []);
-          const formattedParts = formatStockEntries(rawRows, entry.suffix);
+          const dayItems = getDaySummaryList(rawRows, entry.suffix);
+          const formattedParts = dayItems.map(d => d.text);
           const val = formattedParts.length ? formattedParts.join(" / ") : "0박";
           lines.push(`${entry.item} ${entry.supplier} ${val}`);
           lines.push("");
+
+          summaryRows.push({
+            col: group.col,
+            item: entry.item,
+            rowSpan: 1,
+            supplier: entry.supplier,
+            dayItems,
+            rawBox: rawRows.reduce((s, r) => s + r.curBox, 0),
+            rawKg: rawRows.reduce((s, r) => s + r.curKg, 0),
+            suffix: entry.suffix
+          });
         } else if (group.type === "import_block") {
           const entry = group.entries[0];
           const codes = entry.codes.split(",").map(s => s.trim()).filter(Boolean);
           codes.forEach(c => usedCodes.add(c));
           const rawRows = codes.flatMap(c => codeMap[c] || []);
           const summary = summarizeImportStock(rawRows);
+          const indent = useFullWidth ? "\u3000\u3000" : "    ";
           lines.push(entry.item);
-          lines.push(`    ${entry.supplier} ${summary}${entry.suffix ? " " + entry.suffix : ""}`);
+          lines.push(`${indent}${entry.supplier} ${summary.text}${entry.suffix ? " " + entry.suffix : ""}`);
           lines.push("");
+
+          summaryRows.push({
+            col: group.col,
+            item: entry.item,
+            rowSpan: 1,
+            supplier: entry.supplier,
+            dayItems: summary.hasStock ? [{ text: `${summary.text}${entry.suffix ? " " + entry.suffix : ""}`, hasLoose: summary.anyLoose }] : [],
+            rawBox: rawRows.reduce((s, r) => s + r.curBox, 0),
+            rawKg: rawRows.reduce((s, r) => s + r.curKg, 0),
+            suffix: entry.suffix
+          });
         } else if (group.type === "import_inline") {
           const entry = group.entries[0];
           const codes = entry.codes.split(",").map(s => s.trim()).filter(Boolean);
           codes.forEach(c => usedCodes.add(c));
           const rawRows = codes.flatMap(c => codeMap[c] || []);
           const summary = summarizeImportStock(rawRows);
-          lines.push(`${entry.item} ${summary}${entry.suffix ? " " + entry.suffix : ""}`);
+          lines.push(`${entry.item} ${summary.text}${entry.suffix ? " " + entry.suffix : ""}`);
           lines.push("");
+
+          summaryRows.push({
+            col: group.col,
+            item: entry.item,
+            rowSpan: 1,
+            supplier: entry.supplier,
+            dayItems: summary.hasStock ? [{ text: `${summary.text}${entry.suffix ? " " + entry.suffix : ""}`, hasLoose: summary.anyLoose }] : [],
+            rawBox: rawRows.reduce((s, r) => s + r.curBox, 0),
+            rawKg: rawRows.reduce((s, r) => s + r.curKg, 0),
+            suffix: entry.suffix
+          });
         }
       });
 
       document.getElementById("output").value = lines.join("\n").trim();
+      renderOnePageTable(summaryRows, `${reportDateTitle} 전체 요약표`);
 
-      // 미매핑 코드 안내 (돈육/주요 코드 위주 확인용)
+      // 미매핑 코드 안내
       const unmapped = [...allCodesInFile].filter(c => !usedCodes.has(c));
       const infoBox = document.getElementById("unmappedInfo");
       if (unmapped.length > 0) {
+        const preview = unmapped.slice(0, 18).join(", ") + (unmapped.length > 18 ? ` 외 ${unmapped.length - 18}개` : "");
         infoBox.style.display = "block";
-        infoBox.innerHTML = `<b>참고 (엑셀 내 미매핑 상품코드 ${unmapped.length}개):</b> ${unmapped.join(", ")}<br/>필요한 품목이 있다면 우측 매핑표에 코드 번호를 추가하세요.`;
+        infoBox.innerHTML = `<b>참고 (미매핑 상품코드 ${unmapped.length}개):</b> ${preview}<br/>추가할 품목이 있으면 우측 표의 상품코드 칸에 입력 후 엔터를 누르세요.`;
       } else {
         infoBox.style.display = "none";
       }
     }
 
-    // 일자별 합산 및 "N박 [낱] DD" 포맷팅
-    function formatStockEntries(rawRows, suffix) {
+    function getDaySummaryList(rawRows, suffix) {
       if (!rawRows || rawRows.length === 0) return [];
-
-      // 일자별로 그룹핑
       const byDay = new Map();
       rawRows.forEach(r => {
         const day = extractDay(r) || "미상";
@@ -625,23 +899,117 @@
         const looseStr = item.hasLoose ? " 낱" : "";
         const dayStr = item.day !== "미상" ? ` ${item.day}` : "";
         const sufStr = suffix ? ` ${suffix}` : "";
-        results.push(`${item.fullBoxes}박${looseStr}${dayStr}${sufStr}`);
+        results.push({
+          text: `${item.fullBoxes}박${looseStr}${dayStr}${sufStr}`,
+          hasLoose: item.hasLoose
+        });
       });
       return results;
     }
 
-    // 수입육 총 박스 및 낱개 요약 (예: "4박 낱", "7박")
     function summarizeImportStock(rawRows) {
-      if (!rawRows || rawRows.length === 0) return "0박";
+      if (!rawRows || rawRows.length === 0) return { text: "0박", hasStock: false, anyLoose: false };
       let totalFull = 0;
       let anyLoose = false;
+      let totalKg = 0;
       rawRows.forEach(r => {
         const { fullBoxes, hasLoose } = analyzeRowStock(r);
         totalFull += fullBoxes;
+        totalKg += r.curKg;
         if (hasLoose) anyLoose = true;
       });
-      return `${totalFull}박${anyLoose ? " 낱" : ""}`;
+      const hasStock = totalFull > 0 || anyLoose || totalKg > 0;
+      return {
+        text: `${totalFull}박${anyLoose ? " 낱" : ""}`,
+        hasStock,
+        anyLoose
+      };
     }
+
+    // 하단 한장 요약표 렌더링
+    function renderOnePageTable(summaryRows, titleText) {
+      document.getElementById("sheetTitle").textContent = titleText;
+      const grid = document.getElementById("onepageGrid");
+      grid.innerHTML = "";
+
+      let activeCount = 0;
+      let totalBox = 0;
+      let totalKg = 0;
+
+      summaryRows.forEach(r => {
+        const hasStock = r.dayItems.length > 0 || r.rawBox > 0 || r.rawKg > 0;
+        if (hasStock) activeCount++;
+        totalBox += r.rawBox;
+        totalKg += r.rawKg;
+      });
+
+      document.getElementById("statActiveCount").textContent = activeCount;
+      document.getElementById("statTotalCount").textContent = summaryRows.length;
+      document.getElementById("statTotalBox").textContent = totalBox.toLocaleString();
+      document.getElementById("statTotalKg").textContent = totalKg.toFixed(1);
+
+      [1, 2, 3].forEach(colNum => {
+        const colRows = summaryRows.filter(r => r.col === colNum);
+        const table = document.createElement("table");
+        table.className = "summary-tbl";
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th style="width:22%">품목</th>
+              <th style="width:17%">거래처</th>
+              <th style="width:41%">재고 현황 (박스 / 일자)</th>
+              <th style="width:20%">실중량</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        `;
+        const tbody = table.querySelector("tbody");
+
+        colRows.forEach(r => {
+          const tr = document.createElement("tr");
+          const hasStock = r.dayItems.length > 0 || r.rawBox > 0 || r.rawKg > 0;
+          if (!hasStock) tr.className = "row-zero";
+
+          let itemTd = "";
+          if (r.rowSpan > 0) {
+            itemTd = `<td class="col-item" rowspan="${r.rowSpan}">${r.item}</td>`;
+          }
+
+          const stockHtml = r.dayItems.length > 0
+            ? r.dayItems.map(d => `<span class="stock-chip ${d.hasLoose ? "loose" : ""}">${d.text}</span>`).join("")
+            : `<span class="stock-zero">0박${r.suffix ? " " + r.suffix : ""}</span>`;
+
+          const kgHtml = hasStock
+            ? `${r.rawBox}박 / ${r.rawKg.toFixed(1)}kg`
+            : `-`;
+
+          tr.innerHTML = `
+            ${itemTd}
+            <td class="col-sup">${r.supplier || "-"}</td>
+            <td class="col-stock">${stockHtml}</td>
+            <td class="col-kg">${kgHtml}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        grid.appendChild(table);
+      });
+    }
+
+    // 한장 전체화면 토글
+    function toggleFullscreen() {
+      const sec = document.getElementById("onePageSection");
+      const btn = document.getElementById("fullscreenBtn");
+      const isFull = sec.classList.toggle("fullscreen-mode");
+      btn.textContent = isFull ? "✖ 전체화면 닫기 (ESC)" : "🖥️ 한장 전체화면 보기";
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        const sec = document.getElementById("onePageSection");
+        if (sec.classList.contains("fullscreen-mode")) toggleFullscreen();
+      }
+    });
 
     function copyOutput() {
       const textarea = document.getElementById("output");
@@ -651,7 +1019,7 @@
       }
       textarea.select();
       navigator.clipboard.writeText(textarea.value).then(() => {
-        showToast("재고현황 텍스트가 복사되었습니다!");
+        showToast("카톡 공유용 재고현황이 복사되었습니다!");
       });
     }
 
@@ -664,6 +1032,21 @@
 
     // 초기 렌더링
     renderMappingTable();
+    renderOnePageTable(
+      DEFAULT_TEMPLATE.map((t, i, arr) => ({
+        col: t.col,
+        item: t.item,
+        rowSpan: (t.type === "standard" && i > 0 && arr[i - 1].item === t.item && arr[i - 1].type === "standard")
+          ? 0
+          : (t.type === "standard" ? arr.filter(x => x.item === t.item && x.type === "standard").length : 1),
+        supplier: t.supplier,
+        dayItems: [],
+        rawBox: 0,
+        rawKg: 0,
+        suffix: t.suffix
+      })),
+      "전체 재고 현황 요약표 (한장 보기)"
+    );
   </script>
 </body>
 </html>
