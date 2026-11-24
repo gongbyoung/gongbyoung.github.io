@@ -6,6 +6,7 @@
     <title>(주)미트포앤 사내 통합 시스템 (대외비)</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
         :root {
             --primary: #1f4e79;
@@ -542,6 +543,30 @@
         .qv-btn.active { background: var(--accent); color: #ffffff; border-color: #065f46; }
         .qv-btn.active.pickup { background: #374151; color: #ffffff; border-color: #1f2937; }
 
+
+        .weigh-verify-box {
+            margin-top: 2px;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 10.5px;
+            line-height: 1.32;
+        }
+        .weigh-verify-box.ok {
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            color: #166534;
+        }
+        .weigh-verify-box.warn {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            color: #92400e;
+        }
+        .weigh-verify-box.missing {
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+        }
+
         /* 3페이지 낱개 목록 체크리스트 스타일 */
         .loose-item-list { display: flex; flex-direction: column; gap: 4px; }
         .loose-row {
@@ -1010,28 +1035,53 @@
         <div id="orderTileGrid" class="order-tile-grid"></div>
     </div>
 
-    <!-- ==================== [페이지 3: 낱개 목록 (6열 바둑판 & 작업/계근 체크)] ==================== -->
+    <!-- ==================== [페이지 4: 낱개 목록 & 카톡 계근(문자/사진 OCR) 자동대조 검토] ==================== -->
     <div id="pageLoose" class="tab-page">
         <div class="filter-bar">
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                <span id="looseStats" style="font-weight:bold; color:var(--primary); font-size:13.5px;">🔪 당일 낱개 목록: 0건</span>
+                <span id="looseStats" style="font-weight:bold; color:var(--primary); font-size:13.5px;">🔪 낱개·계근 검토: 0건</span>
                 <div class="sort-btn-group">
                     <button type="button" id="btnLooseTypeAll" class="sort-btn active" onclick="setLooseTypeFilter('ALL')">전체</button>
-                    <button type="button" id="btnLooseTypeWork" class="sort-btn" onclick="setLooseTypeFilter('WORK')">🔪 작업·세절만</button>
-                    <button type="button" id="btnLooseTypeSimple" class="sort-btn" onclick="setLooseTypeFilter('SIMPLE')">⚖️ 단순 낱개만</button>
+                    <button type="button" id="btnLooseTypeUnweighed" class="sort-btn" style="border-color:#fca5a5; color:#b91c1c;" onclick="setLooseTypeFilter('UNWEIGHED')">🚨 미계근만</button>
+                    <button type="button" id="btnLooseTypeWork" class="sort-btn" onclick="setLooseTypeFilter('WORK')">🔪 작업·세절</button>
+                    <button type="button" id="btnLooseTypeSimple" class="sort-btn" onclick="setLooseTypeFilter('SIMPLE')">⚖️ 단순낱개</button>
                 </div>
             </div>
             <div class="filter-group">
                 <div class="sort-btn-group">
-                    <button type="button" id="btnLooseGroupClient" class="sort-btn active" onclick="setLooseGroupMode('client')">🏢 거래처별 (6열)</button>
-                    <button type="button" id="btnLooseGroupItem" class="sort-btn" onclick="setLooseGroupMode('item')">🥩 품목별 (6열)</button>
-                    <button type="button" id="btnLooseGroupVehicle" class="sort-btn" onclick="setLooseGroupMode('vehicle')">🚚 호차별 (6열)</button>
+                    <button type="button" id="btnLooseGroupClient" class="sort-btn active" onclick="setLooseGroupMode('client')">🏢 거래처별</button>
+                    <button type="button" id="btnLooseGroupItem" class="sort-btn" onclick="setLooseGroupMode('item')">🥩 품목별</button>
+                    <button type="button" id="btnLooseGroupVehicle" class="sort-btn" onclick="setLooseGroupMode('vehicle')">🚚 호차별</button>
                 </div>
+                <button type="button" class="btn sm" style="background:#0284c7;" onclick="togglePhotoWeighinPanel()">📸 계근사진 OCR 추가</button>
                 <button type="button" class="btn gray sm" onclick="clearLooseChecks()">☑️ 체크초기화</button>
                 <button type="button" class="btn orange sm" onclick="copyKakaoLooseListText()">📋 카톡용 복사</button>
-                <button type="button" class="btn green sm" onclick="downloadLooseCsv()">📥 낱개 CSV 저장</button>
+                <button type="button" class="btn green sm" onclick="downloadLooseCsv()">📥 낱개·계근 CSV</button>
             </div>
         </div>
+
+        <!-- 카톡에 사진(1~2장)으로 올라온 계근지 OCR 인식 & 수동 보완 패널 -->
+        <div id="photoWeighinOcrPanel" class="section-card" style="display:none; background:#f0f9ff; border-color:#7dd3fc; padding:10px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
+                <b style="color:#0369a1; font-size:13px;">📸 카톡 계근 사진(1~2장) 글자 자동 추출 (무료 로컬 OCR · API 불필요)</b>
+                <button type="button" class="btn gray sm" onclick="togglePhotoWeighinPanel()">✕ 접기</button>
+            </div>
+            <p style="margin:0 0 8px 0; font-size:11.5px; color:#334155;">
+                • 카톡방 계근 내역은 문자로 올라온 건이 자동 대조되며, 사진으로 올라온 1~2장은 아래에서 선택하면 글자를 추출해 미계근 항목과 대조할 수 있습니다.
+            </p>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:6px;">
+                <button type="button" class="btn" style="background:#0284c7;" onclick="document.getElementById('photoWeighinFileInput').click()">🖼️ 계근 사진 선택 (1~2장)</button>
+                <input type="file" id="photoWeighinFileInput" accept="image/*" multiple style="display:none;" onchange="runPhotoWeighinOcr(event)">
+                <input type="text" id="photoOcrClientInput" placeholder="거래처명 (사진에 거래처명이 없을 때만 입력)" style="width:230px;">
+                <span id="photoOcrStatus" style="font-size:11.5px; font-weight:bold; color:#047857;"></span>
+            </div>
+            <textarea id="photoOcrTextArea" style="height:85px; margin-bottom:6px;" placeholder="사진에서 추출된 계근 글자가 여기에 표시됩니다. 오타가 있으면 살짝 고친 뒤 [계근 대조에 반영]을 누르세요. (예: 갈비면옥 갈비 9대 2.98 13대 16.8)"></textarea>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                <button type="button" class="btn green sm" onclick="applyPhotoWeighinTextToLoose()">✅ 계근 대조에 반영</button>
+                <div id="photoWeighinLogsList" style="flex:1; min-width:220px;"></div>
+            </div>
+        </div>
+
         <div id="looseTileGrid" class="order-tile-grid"></div>
     </div>
 
@@ -1400,14 +1450,14 @@
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" crossorigin=""></script>
 <div id="pdsToast" class="pds-toast">복사되었습니다!</div>
 
-<script src="js/1_state_utils.js?v=20261124"></script>
-<script src="js/2_auth_admin.js?v=20261124"></script>
-<script src="js/3_kakao_parser.js?v=20261124"></script>
-<script src="js/4_orders_loose.js?v=20261124"></script>
-<script src="js/5_stock_barcode.js?v=20261124"></script>
-<script src="js/6_excel_stock_page.js?v=20261124"></script>
-<script src="js/7_dispatch_map.js?v=20261124"></script>
-<script src="js/8_bgm_nav_init.js?v=20261124"></script>
+<script src="js/1_state_utils.js?v=20261125"></script>
+<script src="js/2_auth_admin.js?v=20261125"></script>
+<script src="js/3_kakao_parser.js?v=20261125"></script>
+<script src="js/4_orders_loose.js?v=20261125"></script>
+<script src="js/5_stock_barcode.js?v=20261125"></script>
+<script src="js/6_excel_stock_page.js?v=20261125"></script>
+<script src="js/7_dispatch_map.js?v=20261125"></script>
+<script src="js/8_bgm_nav_init.js?v=20261125"></script>
 <script>
 if (typeof window.switchTab !== 'function') {
     alert('⚠️ js/ 폴더 내 스크립트 파일들이 같은 경로에 없거나 로드되지 않았습니다.\nindex.html 과 js/ 폴더를 함께 업로드해주세요.');
