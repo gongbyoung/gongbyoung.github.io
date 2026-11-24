@@ -244,28 +244,26 @@ function splitMultiOrderMessage(content) {
     if (/\(대산\)\s*\d+박|\(포크\)\s*\d+박/.test(txt)) {
         return [txt];
     }
-    if (isWeighinMessage(txt)) {
-        return [txt];
-    }
 
+    const isWeighinBlock = isWeighinMessage(txt);
     const sortedPairs = getSortedAliasPairs();
     const lines = txt.split('\n');
     const headers = [];
-    let hasMeatSincePrev = false;
+    let hasItemSincePrev = false;
 
     lines.forEach((line, idx) => {
         const s = line.trim();
         if (!s) return;
         const hit = detectClientHeaderInLine(s, sortedPairs);
         if (hit) {
-            if (headers.length === 0 || hasMeatSincePrev) {
+            if (headers.length === 0 || hasItemSincePrev) {
                 headers.push({ idx, alias: hit.alias, official: hit.official, isCorrection: hit.isCorrection });
-                hasMeatSincePrev = Boolean(MEAT_ANY_REGEX.test(s) && /\d/.test(s));
+                hasItemSincePrev = Boolean((MEAT_ANY_REGEX.test(s) || /특미|특목|알목|우삼|우사태|목전지/.test(s)) && /\d/.test(s));
                 return;
             }
         }
-        if (MEAT_ANY_REGEX.test(s)) {
-            hasMeatSincePrev = true;
+        if (MEAT_ANY_REGEX.test(s) || /특미|특목|알목|우삼|우사태|목전지/.test(s) || /\d+\.\d+/.test(s)) {
+            hasItemSincePrev = true;
         }
     });
 
@@ -276,7 +274,7 @@ function splitMultiOrderMessage(content) {
 
     const leadingLines = lines.slice(0, headers[0].idx).map(l => l.trim()).filter(Boolean);
     let leadingPrefix = '';
-    if (leadingLines.length > 0 && leadingLines.some(l => /내일|낼|[월화수목금토일]요일|\d{1,2}\/\d{1,2}|\d{1,2}월\s*\d{1,2}일/.test(l))) {
+    if (!isWeighinBlock && leadingLines.length > 0 && leadingLines.some(l => /내일|낼|[월화수목금토일]요일|\d{1,2}\/\d{1,2}|\d{1,2}월\s*\d{1,2}일/.test(l))) {
         leadingPrefix = leadingLines.join('\n') + '\n';
     }
 
@@ -288,7 +286,7 @@ function splitMultiOrderMessage(content) {
             .map(l => l.trim())
             .filter(l => l && !/^[-─=]{3,}$/.test(l));
         let chunkText = chunkLines.join('\n').trim();
-        if (i > 0 && !(MEAT_ANY_REGEX.test(chunkText) && /\d/.test(chunkText))) {
+        if (!isWeighinBlock && i > 0 && !(MEAT_ANY_REGEX.test(chunkText) && /\d/.test(chunkText))) {
             chunks[chunks.length - 1] += '\n' + chunkText;
             continue;
         }
