@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>회사 재고 파악 자동 완성 & 한장 요약표</title>
+  <title>재고 파악 자동 완성</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
     :root {
@@ -27,7 +27,7 @@
       line-height: 1.45;
     }
     .container {
-      max-width: 1440px;
+      max-width: 1460px;
       margin: 16px auto;
       padding: 0 16px 36px;
     }
@@ -43,11 +43,11 @@
     .sub { font-size: 12px; color: var(--muted); }
     .top-grid {
       display: grid;
-      grid-template-columns: 1fr 1.05fr;
+      grid-template-columns: 0.96fr 1.04fr;
       gap: 16px;
       margin-bottom: 18px;
     }
-    @media (max-width: 1060px) {
+    @media (max-width: 1080px) {
       .top-grid { grid-template-columns: 1fr; }
     }
     .card {
@@ -102,7 +102,7 @@
 
     textarea#output {
       width: 100%;
-      height: 560px;
+      height: 580px;
       font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
       font-size: 13.5px;
       line-height: 1.5;
@@ -127,14 +127,14 @@
 
     /* 우측 매핑 설정표 */
     .mapping-table-wrap {
-      max-height: 525px;
+      max-height: 545px;
       overflow-y: auto;
       border: 1px solid var(--border-light);
       border-radius: 8px;
     }
     table.map-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
     table.map-tbl th, table.map-tbl td {
-      padding: 4.5px 4px;
+      padding: 4px 4px;
       border-bottom: 1px solid var(--border-light);
       text-align: left;
       vertical-align: middle;
@@ -182,7 +182,6 @@
     .icon-btn.del { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
     .icon-btn.del:hover { background: #fee2e2; }
 
-    /* 원하는 위치에 끼워넣기 에디터 행 */
     tr.insert-row td {
       background: #eff6ff !important;
       border-top: 2px solid #2563eb;
@@ -264,7 +263,7 @@
       gap: 10px;
       align-items: start;
     }
-    @media (max-width: 1060px) {
+    @media (max-width: 1080px) {
       .onepage-grid { grid-template-columns: 1fr; }
     }
     table.summary-tbl {
@@ -366,7 +365,7 @@
     <header>
       <div>
         <h1>회사 재고 파악 자동 완성 & 한장 요약표</h1>
-        <div class="sub">엑셀 업로드 즉시 카톡 공유용 줄맞춤 텍스트와 한 화면 요약표를 생성하며, 원하는 위치에 신규 메이커를 자유롭게 추가할 수 있습니다.</div>
+        <div class="sub">실제 ERP 품목·거래처 코드 매핑 검증 완료 · 행별 + 버튼으로 원하는 위치에 신규 메이커를 즉시 추가할 수 있습니다.</div>
       </div>
       <div id="statusBadge" class="badge">엑셀 파일 대기 중</div>
     </header>
@@ -394,7 +393,7 @@
         <textarea id="output" placeholder="엑셀 파일을 올리면 카카오톡 공유용 줄맞춤 텍스트가 이곳에 자동 완성됩니다."></textarea>
       </div>
 
-      <!-- 우측: 상품코드 매핑 설정 (원하는 위치 삽입 지원) -->
+      <!-- 우측: 상품코드 매핑 설정 -->
       <div class="card">
         <div class="toolbar">
           <strong>⚙️ 상품코드 매핑 설정 (행별 + 로 중간 삽입)</strong>
@@ -412,12 +411,13 @@
           <table class="map-tbl">
             <thead>
               <tr>
-                <th style="width:20%">품목</th>
-                <th style="width:16%">메이커/구분</th>
-                <th style="width:18%">상품코드</th>
-                <th style="width:14%">고정표기</th>
-                <th style="width:11%">요약열</th>
-                <th style="width:21%">삽입 / 순서 / 삭제</th>
+                <th style="width:17%">품목</th>
+                <th style="width:14%">메이커</th>
+                <th style="width:15%">상품코드</th>
+                <th style="width:21%">ERP 상품명 메모</th>
+                <th style="width:12%">고정표기</th>
+                <th style="width:9%">열</th>
+                <th style="width:12%">관리</th>
               </tr>
             </thead>
             <tbody id="mappingBody"></tbody>
@@ -451,95 +451,101 @@
   <div id="toast" class="toast">복사되었습니다!</div>
 
   <script>
-    // 기본 품목-상품코드 매핑 (토레인 삼겹 = 1003 반영)
     const DEFAULT_TEMPLATE = [
       // [1열: 삼겹 · 목살류]
-      { col: 1, item: "삼겹", supplier: "(대산)", codes: "1564", suffix: "", type: "standard" },
-      { col: 1, item: "삼겹", supplier: "(포크)", codes: "6917", suffix: "", type: "standard" },
-      { col: 1, item: "삼겹", supplier: "(정담)", codes: "6783", suffix: "", type: "standard" },
+      { col: 1, item: "삼겹", supplier: "(대산)", codes: "1564", erpName: "돈삼겹(대산)", suffix: "", type: "standard" },
+      { col: 1, item: "삼겹", supplier: "(포크)", codes: "6917", erpName: "돈삼겹f(포크빌리지)", suffix: "", type: "standard" },
+      { col: 1, item: "삼겹", supplier: "(정담)", codes: "7046", erpName: "돈삼겹f(정담한돈)", suffix: "", type: "standard" },
 
-      { col: 1, item: "암삼겹", supplier: "(대산)", codes: "1565", suffix: "", type: "standard" },
-      { col: 1, item: "암삼겹", supplier: "(포크)", codes: "6918", suffix: "", type: "standard" },
+      { col: 1, item: "암삼겹", supplier: "(대산)", codes: "1575", erpName: "돈삼겹f(대산)암", suffix: "", type: "standard" },
+      { col: 1, item: "암삼겹", supplier: "(포크)", codes: "6918", erpName: "돈삼겹f(포크빌리지)암", suffix: "", type: "standard" },
 
-      { col: 1, item: "특삼겹", supplier: "(대산)", codes: "1988", suffix: "", type: "standard" },
-      { col: 1, item: "특삼겹", supplier: "(포크)", codes: "6921", suffix: "", type: "standard" },
+      { col: 1, item: "특삼겹", supplier: "(대산)", codes: "6627", erpName: "돈삼겹f(특)대산", suffix: "", type: "standard" },
+      { col: 1, item: "특삼겹", supplier: "(포크)", codes: "6921", erpName: "돈삼겹f(특)(포크빌리지)", suffix: "", type: "standard" },
 
-      { col: 1, item: "빵삼겹", supplier: "(포크)", codes: "", suffix: "", type: "standard" },
+      { col: 1, item: "빵삼겹", supplier: "(포크)", codes: "", erpName: "", suffix: "", type: "standard" },
 
-      { col: 1, item: "미삼", supplier: "(대산)", codes: "1572", suffix: "", type: "standard" },
-      { col: 1, item: "미삼", supplier: "(포크)", codes: "6919", suffix: "", type: "standard" },
+      { col: 1, item: "미삼", supplier: "(대산)", codes: "1572", erpName: "돈미삼(대산)", suffix: "", type: "standard" },
+      { col: 1, item: "미삼", supplier: "(포크)", codes: "6919", erpName: "돈미삼(포크)", suffix: "", type: "standard" },
+      { col: 1, item: "미삼", supplier: "(정담)", codes: "7047", erpName: "돈미삼(정담한돈)", suffix: "", type: "standard" },
 
-      { col: 1, item: "암미삼", supplier: "(대산)", codes: "1583", suffix: "", type: "standard" },
-      { col: 1, item: "암미삼", supplier: "(포크)", codes: "6920", suffix: "", type: "standard" },
+      { col: 1, item: "암미삼", supplier: "(대산)", codes: "1583", erpName: "돈암미삼(대산)", suffix: "", type: "standard" },
+      { col: 1, item: "암미삼", supplier: "(포크)", codes: "6920", erpName: "돈암미삼(포크)", suffix: "", type: "standard" },
 
-      { col: 1, item: "특미삼", supplier: "(대산)", codes: "1571,1825", suffix: "", type: "standard" },
-      { col: 1, item: "특미삼", supplier: "(포크)", codes: "6922", suffix: "", type: "standard" },
+      { col: 1, item: "특미삼", supplier: "(대산)", codes: "1825", erpName: "돈특미삼(대산)", suffix: "", type: "standard" },
+      { col: 1, item: "특미삼", supplier: "(포크)", codes: "6922", erpName: "돈특미삼(포크)", suffix: "", type: "standard" },
 
-      { col: 1, item: "목살", supplier: "(대산)", codes: "1575", suffix: "", type: "standard" },
-      { col: 1, item: "목살", supplier: "(포크)", codes: "6923", suffix: "", type: "standard" },
+      { col: 1, item: "목살", supplier: "(대산)", codes: "1565", erpName: "돈목살(대산)", suffix: "", type: "standard" },
+      { col: 1, item: "목살", supplier: "(포크)", codes: "6923", erpName: "돈목살(포크)", suffix: "", type: "standard" },
+      { col: 1, item: "목살", supplier: "(정담)", codes: "7048", erpName: "돈목살(정담한돈)", suffix: "", type: "standard" },
 
-      { col: 1, item: "특목살", supplier: "(대산)", codes: "1570", suffix: "", type: "standard" },
-      { col: 1, item: "특목살", supplier: "(포크)", codes: "6924", suffix: "", type: "standard" },
+      { col: 1, item: "특목살", supplier: "(대산)", codes: "1777", erpName: "돈특목살(대산)", suffix: "", type: "standard" },
+      { col: 1, item: "특목살", supplier: "(포크)", codes: "6924", erpName: "돈특목살(포크)", suffix: "", type: "standard" },
 
-      { col: 1, item: "B목살", supplier: "(정담)", codes: "", suffix: "", type: "standard" },
+      { col: 1, item: "B목살", supplier: "(정담)", codes: "7066", erpName: "돈B목살(정담한돈)", suffix: "", type: "standard" },
 
-      // [2열: 전지 · 갈비 · 등심 · 안심 · 사태]
-      { col: 2, item: "미전지", supplier: "(대산)", codes: "1573", suffix: "", type: "standard" },
-      { col: 2, item: "미전지", supplier: "(포크)", codes: "6925", suffix: "", type: "standard" },
+      // [2열: 전지 · 갈비 · 등심 · 안심 · 사태 · 앞미사태]
+      { col: 2, item: "미전지", supplier: "(대산)", codes: "1573", erpName: "돈미전지(대산)", suffix: "", type: "standard" },
+      { col: 2, item: "미전지", supplier: "(포크)", codes: "6925", erpName: "돈미전지(포크)", suffix: "", type: "standard" },
+      { col: 2, item: "미전지", supplier: "(정담)", codes: "7050", erpName: "돈미전지(정담한돈)", suffix: "", type: "standard" },
 
-      { col: 2, item: "전지", supplier: "(포크)", codes: "6927", suffix: "", type: "standard" },
+      { col: 2, item: "전지", supplier: "(포크)", codes: "6927", erpName: "돈전지(포크)", suffix: "", type: "standard" },
 
-      { col: 2, item: "지전지", supplier: "(대산)", codes: "1609", suffix: "", type: "standard" },
+      { col: 2, item: "지전지", supplier: "(대산)", codes: "", erpName: "", suffix: "", type: "standard" },
 
-      { col: 2, item: "갈비", supplier: "(대산)", codes: "", suffix: "", type: "standard" },
-      { col: 2, item: "갈비", supplier: "(포크)", codes: "6928", suffix: "", type: "standard" },
+      { col: 2, item: "갈비", supplier: "(대산)", codes: "", erpName: "", suffix: "", type: "standard" },
+      { col: 2, item: "갈비", supplier: "(포크)", codes: "6928", erpName: "돈갈비(포크)", suffix: "", type: "standard" },
 
-      { col: 2, item: "등갈비", supplier: "(대산)", codes: "1994", suffix: "", type: "standard" },
-      { col: 2, item: "등갈비", supplier: "(포크)", codes: "6929", suffix: "", type: "standard" },
+      { col: 2, item: "등갈비", supplier: "(대산)", codes: "", erpName: "", suffix: "", type: "standard" },
+      { col: 2, item: "등갈비", supplier: "(포크)", codes: "6929", erpName: "돈등갈비(포크)", suffix: "", type: "standard" },
+      { col: 2, item: "등갈비", supplier: "(정담)", codes: "7061", erpName: "돈등갈비(정담한돈)", suffix: "", type: "standard" },
 
-      { col: 2, item: "등심", supplier: "(대산)", codes: "1568", suffix: "", type: "standard" },
-      { col: 2, item: "등심", supplier: "(포크)", codes: "6931", suffix: "", type: "standard" },
+      { col: 2, item: "등심", supplier: "(대산)", codes: "1568", erpName: "돈등심(대산)", suffix: "", type: "standard" },
+      { col: 2, item: "등심", supplier: "(포크)", codes: "6931", erpName: "돈등심(포크)", suffix: "", type: "standard" },
 
-      { col: 2, item: "안심", supplier: "(포크)", codes: "6930", suffix: "", type: "standard" },
+      { col: 2, item: "안심", supplier: "(포크)", codes: "6930", erpName: "돈안심(포크)", suffix: "", type: "standard" },
 
-      { col: 2, item: "사태", supplier: "(대산)", codes: "1603", suffix: "", type: "standard" },
-      { col: 2, item: "사태", supplier: "(포크)", codes: "6932", suffix: "", type: "standard" },
-      { col: 2, item: "사태", supplier: "(정담)", codes: "1867", suffix: "", type: "standard" },
+      { col: 2, item: "사태", supplier: "(대산)", codes: "1603", erpName: "돈사태(대산)", suffix: "", type: "standard" },
+      { col: 2, item: "사태", supplier: "(포크)", codes: "6932", erpName: "돈사태(포크)", suffix: "", type: "standard" },
+      { col: 2, item: "사태", supplier: "(정담)", codes: "7053", erpName: "돈사태(정담한돈)", suffix: "", type: "standard" },
 
-      { col: 2, item: "앞미사태", supplier: "(대산)", codes: "1670", suffix: "", type: "standard" },
-      { col: 2, item: "앞미사태", supplier: "(포크)", codes: "6933", suffix: "", type: "standard" },
+      { col: 2, item: "앞미사태", supplier: "(대산)", codes: "1670", erpName: "돈앞미사태(대산)", suffix: "", type: "standard" },
+      { col: 2, item: "앞미사태", supplier: "(포크)", codes: "6933", erpName: "돈앞미사태(포크)", suffix: "", type: "standard" },
 
       // [3열: 특수부위 · 후지 · 등뼈 · 수입육]
-      { col: 3, item: "항정", supplier: "(대산)", codes: "1777", suffix: "", type: "standard" },
-      { col: 3, item: "항정", supplier: "(포크)", codes: "6934", suffix: "", type: "standard" },
+      { col: 3, item: "항정", supplier: "(대산)", codes: "1570", erpName: "돈항정(대산)", suffix: "", type: "standard" },
+      { col: 3, item: "항정", supplier: "(포크)", codes: "6934", erpName: "돈항정(포크)", suffix: "", type: "standard" },
 
-      { col: 3, item: "가브리", supplier: "(대산)", codes: "1574", suffix: "", type: "standard" },
-      { col: 3, item: "가브리", supplier: "(포크)", codes: "6935", suffix: "", type: "standard" },
+      { col: 3, item: "가브리", supplier: "(대산)", codes: "1571", erpName: "돈가브리(대산)", suffix: "", type: "standard" },
+      { col: 3, item: "가브리", supplier: "(포크)", codes: "6935", erpName: "돈가브리(포크)", suffix: "", type: "standard" },
 
-      { col: 3, item: "갈매기", supplier: "(대산)", codes: "1569", suffix: "", type: "standard" },
-      { col: 3, item: "갈매기", supplier: "(포크)", codes: "6936", suffix: "", type: "standard" },
-      { col: 3, item: "갈매기", supplier: "(정담)", codes: "6053", suffix: "", type: "standard" },
+      { col: 3, item: "갈매기", supplier: "(대산)", codes: "1569", erpName: "돈갈매기(대산)", suffix: "", type: "standard" },
+      { col: 3, item: "갈매기", supplier: "(포크)", codes: "6936", erpName: "돈갈매기(포크)", suffix: "", type: "standard" },
+      { col: 3, item: "갈매기", supplier: "(정담)", codes: "7052", erpName: "돈갈매기(정담한돈)", suffix: "", type: "standard" },
 
-      { col: 3, item: "미후지", supplier: "(황금)", codes: "6627", suffix: "", type: "standard" },
+      { col: 3, item: "미후지", supplier: "(황금)", codes: "", erpName: "", suffix: "", type: "standard" },
+      { col: 3, item: "미후지", supplier: "(정담)", codes: "7059", erpName: "돈미후지(정담한돈)", suffix: "", type: "standard" },
 
-      { col: 3, item: "후지", supplier: "(황금)", codes: "6661", suffix: "", type: "standard" },
+      { col: 3, item: "후지", supplier: "(황금)", codes: "", erpName: "", suffix: "", type: "standard" },
+      { col: 3, item: "후지", supplier: "(정담)", codes: "7060", erpName: "돈후지(정담한돈)", suffix: "", type: "standard" },
 
-      { col: 3, item: "등뼈", supplier: "(대산)", codes: "1563", suffix: "", type: "standard" },
-      { col: 3, item: "등뼈", supplier: "(포크)", codes: "6937", suffix: "", type: "standard" },
+      { col: 3, item: "등뼈", supplier: "(대산)", codes: "1563", erpName: "돈등뼈(대산)", suffix: "", type: "standard" },
+      { col: 3, item: "등뼈", supplier: "(포크)", codes: "6937", erpName: "돈등뼈(포크)", suffix: "", type: "standard" },
+      { col: 3, item: "등뼈", supplier: "(정담)", codes: "7054", erpName: "돈등뼈(정담한돈)", suffix: "", type: "standard" },
 
-      { col: 3, item: "토레인 삼겹", supplier: "(토레인)", codes: "1003", suffix: "", type: "standard" },
+      { col: 3, item: "토레인 삼겹", supplier: "(토레인)", codes: "1003", erpName: "돈삼겹f(토레인)", suffix: "", type: "standard" },
 
-      { col: 3, item: "냉장 알목심f PR", supplier: "IBP", codes: "4243", suffix: "", type: "import_block" },
-      { col: 3, item: "냉장 살치f PR", supplier: "엑셀", codes: "4775", suffix: "", type: "import_block" },
-      { col: 3, item: "냉장 늑간f CH NBP", supplier: "-", codes: "4786", suffix: "", type: "import_inline" },
-      { col: 3, item: "냉장 수입 올리멜 삼겹", supplier: "올리멜", codes: "3086", suffix: "~12/18", type: "import_inline" },
-      { col: 3, item: "냉장 수입 올리멜 목살", supplier: "올리멜", codes: "3124", suffix: "~12/18", type: "import_inline" }
+      { col: 3, item: "냉장 알목심f PR", supplier: "IBP", codes: "4243", erpName: "냉장 알목심f PR", suffix: "", type: "import_block" },
+      { col: 3, item: "냉장 살치f PR", supplier: "엑셀", codes: "4775", erpName: "냉장 살치f PR", suffix: "", type: "import_block" },
+      { col: 3, item: "냉장 늑간f CH NBP", supplier: "-", codes: "4786", erpName: "냉장 늑간f CH NBP", suffix: "", type: "import_inline" },
+      { col: 3, item: "냉장 수입 올리멜 삼겹", supplier: "올리멜", codes: "3086", erpName: "냉장 수입 올리멜 삼겹", suffix: "~12/18", type: "import_inline" },
+      { col: 3, item: "냉장 수입 올리멜 목살", supplier: "올리멜", codes: "3124", erpName: "냉장 수입 올리멜 목살", suffix: "~12/18", type: "import_inline" }
     ];
 
-    const STORAGE_KEY = "vatpda_inventory_mapping_v3";
+    const STORAGE_KEY = "vatpda_inventory_mapping_v4";
     let templateData = loadMapping();
     let lastParsedWorkbook = null;
-    let insertAfterIdx = null; // null이면 닫힘, -1이면 맨 위, 0 이상이면 해당 인덱스 아래 삽입
+    let insertAfterIdx = null;
 
     function loadMapping() {
       try {
@@ -581,6 +587,7 @@
       const item = document.getElementById("new_item_input").value.trim();
       const supplier = document.getElementById("new_supplier_input").value.trim();
       const codes = document.getElementById("new_codes_input").value.trim();
+      const erpName = document.getElementById("new_erp_input").value.trim();
       const suffix = document.getElementById("new_suffix_input").value.trim();
       const col = Number(document.getElementById("new_col_input").value) || 1;
       const type = document.getElementById("new_type_input").value || "standard";
@@ -591,9 +598,8 @@
         return;
       }
 
-      const newEntry = { col, item, supplier, codes, suffix, type };
-      const targetPos = insertAfterIdx + 1;
-      templateData.splice(targetPos, 0, newEntry);
+      const newEntry = { col, item, supplier, codes, erpName, suffix, type };
+      templateData.splice(insertAfterIdx + 1, 0, newEntry);
       insertAfterIdx = null;
       saveMapping();
       renderMappingTable();
@@ -631,22 +637,23 @@
       const tr = document.createElement("tr");
       tr.className = "insert-row";
       tr.innerHTML = `
-        <td colspan="6">
+        <td colspan="7">
           <div class="insert-label">➕ 신규 항목 끼워 넣기 (${afterIdx < 0 ? "맨 위" : `'${refRow.item} ${refRow.supplier}' 바로 아래`})</div>
-          <div style="display:grid; grid-template-columns: 1.1fr 0.95fr 1.1fr 0.8fr 0.7fr 0.9fr auto; gap:4px; align-items:center;">
+          <div style="display:grid; grid-template-columns: 1fr 0.9fr 0.95fr 1.2fr 0.75fr 0.65fr 0.85fr auto; gap:4px; align-items:center;">
             <input id="new_item_input" class="tbl-input bold" value="${refRow.item}" placeholder="품목 (예: 삼겹)" />
             <input id="new_supplier_input" class="tbl-input" placeholder="메이커 (예: (선진))" />
-            <input id="new_codes_input" class="tbl-input" placeholder="상품코드 (예: 6940)" />
+            <input id="new_codes_input" class="tbl-input" placeholder="상품코드" />
+            <input id="new_erp_input" class="tbl-input" placeholder="ERP 상품명 메모" />
             <input id="new_suffix_input" class="tbl-input" placeholder="고정표기" />
-            <select id="new_col_input" class="tbl-select" title="요약표 위치">
-              <option value="1" ${refRow.col === 1 ? "selected" : ""}>1열(좌)</option>
-              <option value="2" ${refRow.col === 2 ? "selected" : ""}>2열(중)</option>
-              <option value="3" ${refRow.col === 3 ? "selected" : ""}>3열(우)</option>
+            <select id="new_col_input" class="tbl-select">
+              <option value="1" ${refRow.col === 1 ? "selected" : ""}>1열</option>
+              <option value="2" ${refRow.col === 2 ? "selected" : ""}>2열</option>
+              <option value="3" ${refRow.col === 3 ? "selected" : ""}>3열</option>
             </select>
-            <select id="new_type_input" class="tbl-select" title="출력형식">
+            <select id="new_type_input" class="tbl-select">
               <option value="standard" ${refRow.type === "standard" ? "selected" : ""}>일반형</option>
-              <option value="import_block" ${refRow.type === "import_block" ? "selected" : ""}>수입(2줄)</option>
-              <option value="import_inline" ${refRow.type === "import_inline" ? "selected" : ""}>수입(1줄)</option>
+              <option value="import_block" ${refRow.type === "import_block" ? "selected" : ""}>수입2줄</option>
+              <option value="import_inline" ${refRow.type === "import_inline" ? "selected" : ""}>수입1줄</option>
             </select>
             <div style="display:flex; gap:3px;">
               <button class="btn btn-primary btn-sm" onclick="confirmInsert()">추가</button>
@@ -677,8 +684,9 @@
         tr.innerHTML = `
           <td><input class="tbl-input bold" value="${row.item}" data-idx="${idx}" data-field="item" /></td>
           <td><input class="tbl-input" value="${row.supplier}" data-idx="${idx}" data-field="supplier" placeholder="(거래처)" /></td>
-          <td><input class="tbl-input" value="${row.codes}" data-idx="${idx}" data-field="codes" placeholder="코드입력" /></td>
-          <td><input class="tbl-input" value="${row.suffix}" data-idx="${idx}" data-field="suffix" placeholder="예:~12/18" /></td>
+          <td><input class="tbl-input" value="${row.codes}" data-idx="${idx}" data-field="codes" placeholder="코드" /></td>
+          <td><input class="tbl-input" value="${row.erpName || ""}" data-idx="${idx}" data-field="erpName" placeholder="ERP상품명" /></td>
+          <td><input class="tbl-input" value="${row.suffix}" data-idx="${idx}" data-field="suffix" placeholder="~12/18" /></td>
           <td>
             <select class="tbl-select" data-idx="${idx}" data-field="col">
               <option value="1" ${row.col === 1 ? "selected" : ""}>1열</option>
@@ -688,9 +696,9 @@
           </td>
           <td>
             <div class="row-actions">
-              <button class="icon-btn add" title="이 줄 바로 아래에 신규 추가" onclick="openInsertAt(${idx})">+</button>
-              <button class="icon-btn" title="위로 이동" onclick="moveRow(${idx}, -1)">▲</button>
-              <button class="icon-btn" title="아래로 이동" onclick="moveRow(${idx}, 1)">▼</button>
+              <button class="icon-btn add" title="바로 아래에 추가" onclick="openInsertAt(${idx})">+</button>
+              <button class="icon-btn" title="위로" onclick="moveRow(${idx}, -1)">▲</button>
+              <button class="icon-btn" title="아래로" onclick="moveRow(${idx}, 1)">▼</button>
               <button class="icon-btn del" title="삭제" onclick="deleteRow(${idx})">×</button>
             </div>
           </td>
@@ -715,7 +723,6 @@
       });
     }
 
-    // 드래그 앤 드롭 및 파일 선택
     const dropzone = document.getElementById("dropzone");
     const fileInput = document.getElementById("fileInput");
 
@@ -768,7 +775,8 @@
       return "";
     }
 
-    // 낱개 여부 판별
+    // 정밀화된 낱개(낱) 판별:
+    // 전체 누적 오차가 1박스 중량의 30% 초과 AND 박스당 평균 중량이 매입 대비 7% 이상 감소한 경우만 낱개로 판정
     function analyzeRowStock(row) {
       const bBox = Number(row.buyBox) || 0;
       const bKg = Number(row.buyKg) || 0;
@@ -779,15 +787,15 @@
       if (cBox === 0 && cKg > 0) return { fullBoxes: 0, hasLoose: true };
       if (bBox > 0 && bKg > 0) {
         const unitBuyKg = bKg / bBox;
+        const unitCurKg = cKg / cBox;
         const expectedKg = cBox * unitBuyKg;
-        if (expectedKg - cKg > unitBuyKg * 0.25) {
+        if ((expectedKg - cKg > unitBuyKg * 0.30) && (unitCurKg < unitBuyKg * 0.93)) {
           return { fullBoxes: Math.max(0, cBox - 1), hasLoose: true };
         }
       }
       return { fullBoxes: cBox, hasLoose: false };
     }
 
-    // 카톡 가변폭 한글 글꼴 가로/세로 위치 계산
     function measureUnits(str) {
       let u = 0;
       for (const ch of str) {
@@ -859,7 +867,6 @@
       const lines = [reportDateTitle, ""];
       const summaryRows = [];
 
-      // 연속된 동일 품목(standard) 그룹핑
       const groupedItems = [];
       templateData.forEach(t => {
         const last = groupedItems[groupedItems.length - 1];
@@ -955,7 +962,6 @@
       document.getElementById("output").value = lines.join("\n").trim();
       renderOnePageTable(summaryRows, `${reportDateTitle} 전체 요약표`);
 
-      // 미매핑 코드 안내 (클릭 시 코드 복사)
       const unmapped = [...allCodesInFile].filter(c => !usedCodes.has(c));
       const infoBox = document.getElementById("unmappedInfo");
       if (unmapped.length > 0) {
@@ -1054,7 +1060,6 @@
           const hasStock = r.dayItems.length > 0 || r.rawBox > 0 || r.rawKg > 0;
           if (!hasStock) tr.className = "row-zero";
 
-          // 같은 열 내에서 연속된 동일 품목은 rowspan 자동 병합
           let span = 0;
           const isPrevSame = idx > 0 && colRows[idx - 1].item === r.item && r.rowSpan !== 1;
           if (!isPrevSame) {
@@ -1086,7 +1091,7 @@
     }
 
     function renderEmptySummary() {
-      const rows = templateData.map((t, i, arr) => ({
+      const rows = templateData.map(t => ({
         col: t.col,
         item: t.item,
         rowSpan: t.type === "standard" ? 2 : 1,
@@ -1132,7 +1137,6 @@
       setTimeout(() => t.classList.remove("show"), 2200);
     }
 
-    // 초기 실행
     renderMappingTable();
     renderEmptySummary();
   </script>
