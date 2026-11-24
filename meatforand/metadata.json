@@ -1,6 +1,0 @@
-{
-  "name": "K-Hub DockOps",
-  "description": "Enterprise logistics operations, cross-docking verification, inventory ledger, and KakaoTalk dispatch console.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
