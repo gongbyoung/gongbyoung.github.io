@@ -21,7 +21,7 @@
         * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "맑은 고딕", sans-serif;
-            margin: 0; padding: 6px; background-color: var(--bg); color: var(--text); font-size: 12.5px;
+            margin: 0; padding: 6px 6px 68px 6px; background-color: var(--bg); color: var(--text); font-size: 12.5px;
             transition: background-color 0.2s;
         }
         .app-container {
@@ -182,18 +182,33 @@
         .b-client { background: #2563eb; font-size: 9.5px; margin-left: 3px; }
         .b-urgent { background: var(--danger); font-size: 9.5px; margin-left: 3px; }
 
-        /* 2페이지 납품일 자동판별 & 수동 원클릭 전환 배지 버튼 */
-        .deliv-badge-btn {
-            display: inline-block; margin-top: 3px; padding: 2px 5px; border-radius: 4px;
-            font-size: 10px; font-weight: bold; border: 1px solid #93c5fd;
-            background: #eff6ff; color: #1e40af; cursor: pointer; transition: all 0.12s;
+        /* 2페이지 납품일 당일/익일 초소형 아이콘 토글 버튼 */
+        .deliv-icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1px 4px;
+            border-radius: 4px;
+            font-size: 9.5px;
+            font-weight: bold;
+            border: 1px solid #93c5fd;
+            background: #eff6ff;
+            color: #1e40af;
+            cursor: pointer;
+            flex-shrink: 0;
+            line-height: 1.25;
+            transition: all 0.12s;
         }
-        .deliv-badge-btn:hover { background: #dbeafe; }
-        .deliv-badge-btn.next-day {
-            background: #fef3c7; color: #92400e; border-color: #f59e0b;
+        .deliv-icon-btn:hover { background: #dbeafe; }
+        .deliv-icon-btn.next-day {
+            background: #fef3c7;
+            color: #92400e;
+            border-color: #f59e0b;
         }
-        .deliv-badge-btn.manual {
-            background: #fae8ff; color: #86198f; border-color: #d946ef;
+        .deliv-icon-btn.manual {
+            background: #fae8ff;
+            color: #86198f;
+            border-color: #d946ef;
         }
 
         .num-pos { color: var(--accent); font-weight: bold; }
@@ -201,7 +216,7 @@
         .num-zero { color: #6b7280; }
 
         /* =================================================================
-           [2페이지 발주 추출 목록] 데스크탑 6열 바둑판 그리드
+           [2페이지 발주 추출 목록] 데스크탑 6열 바둑판 그리드 & 1줄 압축 헤더
            ================================================================= */
         .order-tile-grid {
             display: grid;
@@ -213,7 +228,7 @@
             border: 1px solid #cbd5e1;
             border-top: 3px solid var(--primary);
             border-radius: 7px;
-            padding: 7px 8px;
+            padding: 6px 8px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -223,10 +238,49 @@
         .order-tile-card.is-weight { border-top-color: var(--warn); background: #fffbeb; }
         .order-tile-card.is-other { border-top-color: #9ca3af; background: #f9fafb; }
         .order-tile-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 4px;
             border-bottom: 1px dashed #e2e8f0;
             padding-bottom: 4px;
             margin-bottom: 5px;
+            min-width: 0;
+            white-space: nowrap;
         }
+        .order-tile-dt {
+            font-size: 9.5px;
+            color: #64748b;
+            flex-shrink: 0;
+        }
+        .order-tile-client {
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            min-width: 0;
+        }
+        .order-tile-sender {
+            font-size: 10px;
+            font-weight: bold;
+            color: #475569;
+            flex-shrink: 0;
+        }
+        .order-merged-tag {
+            display: inline-block;
+            background: #059669;
+            color: #ffffff;
+            font-size: 9px;
+            font-weight: bold;
+            padding: 0 4px;
+            border-radius: 3px;
+            margin-left: 2px;
+            vertical-align: middle;
+        }
+        /* 3페이지 낱개 목록 카드 헤더용 */
         .order-tile-meta {
             display: flex;
             justify-content: space-between;
@@ -235,12 +289,6 @@
             color: #4b5563;
             margin-bottom: 2px;
             gap: 2px;
-        }
-        .order-tile-client {
-            font-size: 12.5px;
-            font-weight: bold;
-            color: var(--primary);
-            word-break: keep-all;
         }
         .order-tile-body {
             font-size: 11.5px;
@@ -483,6 +531,222 @@
         .loose-row input[type="checkbox"] { margin-top: 2px; cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
         .loose-tag-work { background: #d97706; color: #fff; font-size: 9.5px; font-weight: bold; padding: 1px 4px; border-radius: 3px; flex-shrink: 0; }
         .loose-tag-simple { background: #0369a1; color: #fff; font-size: 9.5px; font-weight: bold; padding: 1px 4px; border-radius: 3px; flex-shrink: 0; }
+
+        /* =================================================================
+           [화면 하단 플로팅 메뉴 독 + 하단 팝업 탭메뉴 + 백그라운드 뮤직(BGM)]
+           ================================================================= */
+        .bottom-popup-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.32);
+            z-index: 9200;
+        }
+        .bottom-popup-backdrop.open { display: block; }
+
+        .bottom-floating-dock {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9400;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(8px);
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1.5px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+            max-width: 96vw;
+        }
+        .dock-main-btn {
+            border: none;
+            background: #2563eb;
+            color: #ffffff;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 12.5px;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            transition: background 0.15s, transform 0.1s;
+        }
+        .dock-main-btn:hover { background: #1d4ed8; }
+        .dock-main-btn:active { transform: scale(0.97); }
+
+        .dock-bgm-btn {
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            background: rgba(255, 255, 255, 0.12);
+            color: #fde68a;
+            padding: 7px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+        .dock-bgm-btn.playing {
+            background: #059669;
+            color: #ffffff;
+            border-color: #34d399;
+        }
+        .dock-mini-ctrl {
+            border: none;
+            background: rgba(255, 255, 255, 0.18);
+            color: #ffffff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .dock-mini-ctrl:hover { background: rgba(255, 255, 255, 0.32); }
+
+        /* 하단 탭 팝업 시트 */
+        .bottom-tab-popup {
+            display: none;
+            position: fixed;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9500;
+            width: 340px;
+            max-width: 94vw;
+            background: #ffffff;
+            border: 2px solid var(--primary);
+            border-radius: 14px;
+            padding: 10px;
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.35);
+            animation: popUpSlide 0.15s ease-out;
+        }
+        .bottom-tab-popup.open { display: block; }
+        @keyframes popUpSlide {
+            from { opacity: 0; transform: translate(-50%, 10px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        .bottom-popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 6px;
+            margin-bottom: 7px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        .bottom-tab-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .bottom-tab-item {
+            width: 100%;
+            text-align: left;
+            padding: 9px 12px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #1f2937;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.12s;
+        }
+        .bottom-tab-item:hover { background: #eff6ff; border-color: #93c5fd; }
+        .bottom-tab-item.active {
+            background: var(--primary);
+            color: #ffffff;
+            border-color: var(--primary);
+        }
+
+        /* 백그라운드 뮤직(BGM) 팝업 패널 & 플로팅 미니 플레이어 */
+        .bottom-bgm-popup {
+            display: none;
+            position: fixed;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9550;
+            width: 440px;
+            max-width: 95vw;
+            max-height: 82vh;
+            overflow-y: auto;
+            background: #ffffff;
+            border: 2px solid #047857;
+            border-radius: 14px;
+            padding: 11px;
+            box-shadow: 0 14px 36px rgba(15, 23, 42, 0.38);
+        }
+        .bottom-bgm-popup.open { display: block; }
+
+        /* 유튜브/틱톡 IFrame 컨테이너: 백그라운드 재생 유지를 위해 재생 중에는 화면 좌하단에 미니 창으로 유지 */
+        .bgm-media-stage {
+            position: fixed;
+            bottom: 58px;
+            left: 10px;
+            width: 210px;
+            height: 118px;
+            z-index: 9300;
+            background: #0f172a;
+            border: 1.5px solid rgba(255, 255, 255, 0.35);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+            display: none;
+        }
+        .bgm-media-stage.active-mini {
+            display: block;
+        }
+        .bgm-media-stage.in-popup {
+            position: relative;
+            bottom: auto;
+            left: auto;
+            width: 100%;
+            height: 185px;
+            margin-bottom: 8px;
+            display: block;
+        }
+        .bgm-queue-list {
+            max-height: 165px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            margin-top: 7px;
+            background: #f8fafc;
+        }
+        .bgm-queue-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 8px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 11.5px;
+            cursor: pointer;
+        }
+        .bgm-queue-row:last-child { border-bottom: none; }
+        .bgm-queue-row:hover { background: #eff6ff; }
+        .bgm-queue-row.current {
+            background: #ecfdf5;
+            font-weight: bold;
+            color: #065f46;
+        }
     </style>
 </head>
 <body class="ui-desktop">
@@ -525,14 +789,7 @@
         </div>
     </div>
 
-    <!-- 상단 5개 페이지 탭 (3, 4번 제거 -> 3. 낱개 목록 추가) -->
-    <div class="tab-nav">
-        <button class="tab-btn active" onclick="switchTab('page1', this)">1. 데이터 입력</button>
-        <button class="tab-btn" onclick="switchTab('page2', this)">2. 발주 추출 목록</button>
-        <button class="tab-btn" onclick="switchTab('pageLoose', this)">3. 낱개 목록</button>
-        <button class="tab-btn" onclick="switchTab('page5', this)">4. 발주차감 잔여재고</button>
-        <button class="tab-btn" onclick="switchTab('page6', this)">5. 배송처 목록·배차</button>
-    </div>
+
 
     <!-- ==================== [페이지 1: 데이터 입력] ==================== -->
     <div id="page1" class="tab-page active">
@@ -600,7 +857,7 @@
         <div class="filter-bar">
             <div>
                 <span id="orderStats" style="font-weight:bold; color:var(--primary); font-size:13.5px;">📋 조회된 내역: 0건</span>
-                <span style="font-size:11px; color:#555; margin-left:6px;">(💡 <b>[🚚 납품: MM/DD 🔄]</b> 클릭 시 당일 ↔ 익일 전환)</span>
+                <span style="font-size:11px; color:#555; margin-left:6px;">(💡 헤더 <b>[🚚당 / ⏭익]</b> 아이콘 클릭 시 당일 ↔ 익일 전환 · 중복발주 자동제거 및 ●추가 자동병합)</span>
             </div>
             <div class="filter-group">
                 <button class="btn green sm" onclick="downloadOrdersCsv()">📥 발주목록 CSV 저장</button>
@@ -740,8 +997,100 @@
     </div>
 </div>
 
+
+<!-- ==================== [화면 하단 팝업 탭메뉴 & 백그라운드 뮤직(BGM)] ==================== -->
+<div id="bottomPopupBackdrop" class="bottom-popup-backdrop" onclick="closeAllBottomPopups()"></div>
+
+<!-- 하단 탭메뉴 팝업 -->
+<div id="bottomTabPopup" class="bottom-tab-popup" role="dialog" aria-label="화면 메뉴 선택">
+    <div class="bottom-popup-header">
+        <span>📑 작업 화면 이동 (하단 팝업 메뉴)</span>
+        <button type="button" class="btn gray sm" style="padding:2px 7px;" onclick="closeAllBottomPopups()">✕ 닫기</button>
+    </div>
+    <div class="bottom-tab-list">
+        <button type="button" class="bottom-tab-item active" data-page="page1" onclick="switchTab('page1', this)">
+            <span>1. 데이터 입력</span><span style="font-size:11px; opacity:0.8;">카톡·재고·거래처</span>
+        </button>
+        <button type="button" class="bottom-tab-item" data-page="page2" onclick="switchTab('page2', this)">
+            <span>2. 발주 추출 목록</span><span style="font-size:11px; opacity:0.8;">6열 바둑판·납품일</span>
+        </button>
+        <button type="button" class="bottom-tab-item" data-page="pageLoose" onclick="switchTab('pageLoose', this)">
+            <span>3. 낱개 목록</span><span style="font-size:11px; opacity:0.8;">작업·세절·소분체크</span>
+        </button>
+        <button type="button" class="bottom-tab-item" data-page="page5" onclick="switchTab('page5', this)">
+            <span>4. 발주차감 잔여재고</span><span style="font-size:11px; opacity:0.8;">재고-발주 차감표</span>
+        </button>
+        <button type="button" class="bottom-tab-item" data-page="page6" onclick="switchTab('page6', this)">
+            <span>5. 배송처 목록·배차</span><span style="font-size:11px; opacity:0.8;">6호차·지도·냉창</span>
+        </button>
+    </div>
+</div>
+
+<!-- 백그라운드 뮤직(BGM) 설정 및 재생목록 팝업 -->
+<div id="bottomBgmPopup" class="bottom-bgm-popup" role="dialog" aria-label="백그라운드 뮤직 플레이어">
+    <div class="bottom-popup-header" style="color:#047857;">
+        <span>🎵 백그라운드 뮤직 (유튜브 재생목록 · 틱톡 · MP3)</span>
+        <button type="button" class="btn gray sm" style="padding:2px 7px;" onclick="closeAllBottomPopups()">✕ 접기</button>
+    </div>
+
+    <!-- 미디어 스테이지 위치 홀더 (팝업이 열리면 이 안에 플레이어가 표시되고, 닫히면 좌하단 미니창으로 이동해 재생 유지) -->
+    <div id="bgmPopupStageSlot"></div>
+
+    <div style="display:flex; gap:4px; margin-bottom:6px; flex-wrap:wrap;">
+        <input type="text" id="bgmUrlInput" style="flex:1; min-width:180px; font-size:11.5px;" placeholder="유튜브 재생목록(list=...) 또는 영상 / 틱톡 URL 붙여넣기">
+        <button type="button" class="btn green sm" onclick="addBgmUrlFromInput(true)">▶ 바로재생</button>
+        <button type="button" class="btn sm" onclick="addBgmUrlFromInput(false)">➕ 목록추가</button>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:6px;">
+        <div style="display:flex; gap:4px;">
+            <button type="button" class="btn gray sm" onclick="bgmPrevTrack()">⏮ 이전</button>
+            <button type="button" class="btn green sm" id="btnBgmPlayPause" onclick="bgmTogglePlayPause()">⏯ 재생/일시정지</button>
+            <button type="button" class="btn gray sm" onclick="bgmNextTrack()">⏭ 다음</button>
+            <button type="button" class="btn red sm" onclick="bgmStopAll()">⏹ 정지</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:10.5px; font-weight:bold; color:#374151;">🔊</span>
+            <input type="range" id="bgmVolumeSlider" min="0" max="100" value="60" style="width:65px; accent-color:#047857;" oninput="setBgmVolume(this.value)">
+        </div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:4px; flex-wrap:wrap;">
+        <button type="button" class="btn orange sm" onclick="document.getElementById('bgmLocalAudioInput').click()">📂 내 폰/PC 오디오(MP3) 다중선택</button>
+        <input type="file" id="bgmLocalAudioInput" accept="audio/*" multiple style="display:none;" onchange="loadLocalAudioFiles(event)">
+        <button type="button" class="btn gray sm" onclick="clearBgmQueue()">🗑️ 목록비우기</button>
+    </div>
+
+    <div id="bgmQueueList" class="bgm-queue-list"></div>
+
+    <div style="margin-top:6px; font-size:10.5px; color:#4b5563; line-height:1.4; background:#f1f5f9; padding:6px 8px; border-radius:6px;">
+        • <b>유튜브 재생목록:</b> <code>youtube.com/playlist?list=...</code> 주소를 넣으면 전체 곡이 백그라운드에서 자동 연속 재생됩니다.<br>
+        • <b>틱톡(TikTok):</b> 개별 영상 링크 재생을 지원합니다. (틱톡 재생목록은 외부 자동연속재생을 차단하므로 유튜브 재생목록이나 로컬 MP3 다중선택을 권장합니다.)
+    </div>
+</div>
+
+<!-- 실제 재생 IFrame/Audio가 담기는 영구 스테이지 (탭 이동 시에도 음악이 끊기지 않음) -->
+<div id="bgmMediaStage" class="bgm-media-stage">
+    <div id="ytPlayerMount" style="width:100%; height:100%;"></div>
+    <iframe id="tiktokEmbedFrame" style="display:none; width:100%; height:100%; border:none;" allow="autoplay; encrypted-media"></iframe>
+    <audio id="localAudioPlayer" style="display:none;"></audio>
+</div>
+
+<!-- 화면 하단 고정 플로팅 독 -->
+<div class="bottom-floating-dock" role="navigation" aria-label="하단 빠른 메뉴 및 BGM 바">
+    <button type="button" id="btnBottomMenuTrigger" class="dock-main-btn" onclick="toggleBottomTabPopup()">
+        📑 메뉴 · 1. 데이터 입력 ▲
+    </button>
+    <button type="button" id="btnBottomBgmTrigger" class="dock-bgm-btn" onclick="toggleBottomBgmPopup()">
+        🎵 BGM
+    </button>
+    <button type="button" id="btnDockBgmPrev" class="dock-mini-ctrl" style="display:none;" onclick="bgmPrevTrack()" title="이전 곡">⏮</button>
+    <button type="button" id="btnDockBgmToggle" class="dock-mini-ctrl" style="display:none;" onclick="bgmTogglePlayPause()" title="재생/일시정지">⏯</button>
+    <button type="button" id="btnDockBgmNext" class="dock-mini-ctrl" style="display:none;" onclick="bgmNextTrack()" title="다음 곡">⏭</button>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="app_gemi.js?v=20261124loose"></script>
+<script src="app_gemi.js?v=20261124compact"></script>
 <script>
 if (typeof window.switchTab !== 'function') {
     alert('⚠️ app_gemi.js 파일이 같은 폴더에 없거나 로드되지 않았습니다.\nmeatforand_gemi.html 과 app_gemi.js 두 파일을 같은 폴더에 넣어주세요.');
