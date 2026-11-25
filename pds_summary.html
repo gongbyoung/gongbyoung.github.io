@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>회사 재고 파악 & 입고 사진 자동 목록화</title>
+  <title>VAT</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
@@ -30,7 +30,7 @@
       line-height: 1.45;
     }
     .container {
-      max-width: 1460px;
+      max-width: 1480px;
       margin: 14px auto;
       padding: 0 16px 36px;
     }
@@ -79,11 +79,11 @@
 
     .top-grid {
       display: grid;
-      grid-template-columns: 0.96fr 1.04fr;
+      grid-template-columns: 0.94fr 1.06fr;
       gap: 16px;
       margin-bottom: 18px;
     }
-    @media (max-width: 1080px) {
+    @media (max-width: 1100px) {
       .top-grid { grid-template-columns: 1fr; }
     }
     .card {
@@ -150,7 +150,7 @@
 
     textarea#output, textarea#inboundOutput {
       width: 100%;
-      height: 540px;
+      height: 550px;
       font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
       font-size: 13.5px;
       line-height: 1.5;
@@ -175,7 +175,7 @@
 
     /* 우측 매핑 및 입고 목록 테이블 */
     .mapping-table-wrap {
-      max-height: 530px;
+      max-height: 540px;
       overflow-y: auto;
       border: 1px solid var(--border-light);
       border-radius: 8px;
@@ -213,7 +213,7 @@
       background: #eff6ff;
     }
     input.tbl-input.bold { font-weight: 700; }
-    .row-actions { display: flex; gap: 2px; justify-content: center; }
+    .row-actions { display: flex; gap: 2px; justify-content: center; flex-wrap: wrap; }
     .icon-btn {
       border: 1px solid #cbd5e1;
       background: #fff;
@@ -229,6 +229,14 @@
     .icon-btn.add:hover { background: #dbeafe; }
     .icon-btn.del { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
     .icon-btn.del:hover { background: #fee2e2; }
+    .icon-btn.spec {
+      background: #fef3c7;
+      border-color: #f59e0b;
+      color: #92400e;
+      font-size: 10.5px;
+      padding: 2px 4px;
+    }
+    .icon-btn.spec:hover { background: #fde68a; }
 
     tr.insert-row td {
       background: #eff6ff !important;
@@ -361,7 +369,7 @@
       gap: 10px;
       align-items: start;
     }
-    @media (max-width: 1080px) {
+    @media (max-width: 1100px) {
       .onepage-grid { grid-template-columns: 1fr; }
     }
     table.summary-tbl {
@@ -463,7 +471,7 @@
     <header>
       <div>
         <h1>회사 재고 파악 & 입고 내역 사진 자동 목록화</h1>
-        <div class="sub">엑셀 재고현황 자동 완성 + 입고 명세서/원장/집계표 사진 판독 및 목록 생성 통합 도구</div>
+        <div class="sub">검증 완료된 품목 코드 매핑 + 입고 명세서·원장·집계표 사진 판독 및 특삼·특미·특목·빵삼 원클릭 분류 지원</div>
       </div>
       <div id="statusBadge" class="badge">파일 대기 중</div>
     </header>
@@ -503,7 +511,7 @@
             </div>
           </div>
 
-          <textarea id="output" placeholder="엑셀 파일을 올리면 카카오톡 공유용 줄맞춤 텍스트가 이곳에 자동 완성됩니다."></textarea>
+          <textarea id="output" placeholder="엑셀 파일을 올리면 카카오톡 공유용 줄맞춤 텍스트가 이곳에 자동 완성됩니다. (특삼·특미·특목·빵삼은 육안 확인 후 직접 수정 가능)"></textarea>
         </div>
 
         <div class="card">
@@ -564,7 +572,6 @@
          ========================================================= -->
     <div id="panelInbound" class="tab-panel">
       <div class="top-grid">
-        <!-- 좌측: 사진 업로드/붙여넣기 및 정리 텍스트 출력 -->
         <div class="card">
           <div id="imgDropzone" class="dropzone green-zone">
             <strong>📸 입고 내역 사진을 여러 장 끌어다 놓거나 클릭하세요 (Ctrl+V 붙여넣기 가능)</strong>
@@ -584,7 +591,7 @@
             <button class="btn btn-sm" onclick="clearInbound()">전체 비우기</button>
           </div>
 
-          <textarea id="inboundOutput" placeholder="입고 내역 사진(거래명세서, 이력번호 집계표, 출고처 원장)을 올리거나 Ctrl+V로 붙여넣으면 이곳에 거래처별 입고 목록이 자동 생성됩니다."></textarea>
+          <textarea id="inboundOutput" placeholder="입고 내역 사진을 올리거나 Ctrl+V로 붙여넣으면 거래처별 입고 목록이 자동 생성됩니다."></textarea>
 
           <details class="raw-ocr-details">
             <summary style="cursor:pointer; color:#475569; font-weight:700;">🔍 OCR 원문 텍스트 확인 및 수동 텍스트 붙여넣기 파싱</summary>
@@ -595,30 +602,29 @@
           </details>
         </div>
 
-        <!-- 우측: 인식된 입고 내역 상세 표 (직접 수정/추가 가능) -->
         <div class="card">
           <div class="toolbar">
             <div>
-              <strong>📋 인식된 입고 내역 목록 (수정·추가 가능)</strong>
+              <strong>📋 인식된 입고 내역 목록 (육안 선별 전환·분할 지원)</strong>
               <span id="inboundSummaryPill" class="badge" style="background:#d1fae5;color:#065f46;margin-left:6px;">0건 / 0박 / 0kg</span>
             </div>
             <button class="btn btn-primary btn-sm" onclick="addInboundRow()">+ 행 직접 추가</button>
           </div>
           <p class="sub" style="margin:0 0 8px;">
-            사진에서 추출된 품목·수량·중량입니다. 오인식된 숫자가 있다면 표에서 바로 고치면 좌측 목록과 재고 합산에 즉시 반영됩니다.
+            지육회사 명세서에 없는 <b>특삼·특미·특목·빵삼</b>은 해당 줄의 <b>육안선별 버튼(→특목살 등 / 분할)</b>으로 1클릭 전환·분할할 수 있습니다.
           </p>
 
           <div class="mapping-table-wrap" style="max-height: 610px;">
             <table class="map-tbl">
               <thead>
                 <tr>
-                  <th style="width:13%">일자(DD)</th>
-                  <th style="width:15%">거래처</th>
-                  <th style="width:18%">표준 품목</th>
-                  <th style="width:24%">원본 품목명</th>
+                  <th style="width:10%">일자</th>
+                  <th style="width:13%">거래처</th>
+                  <th style="width:15%">표준 품목</th>
+                  <th style="width:22%">육안 선별 (전환/분할)</th>
                   <th style="width:10%">박스</th>
                   <th style="width:13%">중량(kg)</th>
-                  <th style="width:7%">삭제</th>
+                  <th style="width:17%">원본품목 / 삭제</th>
                 </tr>
               </thead>
               <tbody id="inboundTableBody">
@@ -639,7 +645,7 @@
 
   <script>
     // =========================================================
-    // 1. 기본 상품코드 매핑 (11/25 입고사진에서 확인된 대산 코드 반영)
+    // 1. 검증 완료된 63개 상품코드 매핑 (11/25 기준)
     // =========================================================
     const DEFAULT_TEMPLATE = [
       // [1열: 삼겹 · 목살류]
@@ -650,26 +656,26 @@
       { col: 1, item: "암삼겹", supplier: "(대산)", codes: "1575", erpName: "돈원삼겹(암)대산", suffix: "", type: "standard" },
       { col: 1, item: "암삼겹", supplier: "(포크)", codes: "6918", erpName: "돈삼겹(암)포크", suffix: "", type: "standard" },
 
-      { col: 1, item: "특삼겹", supplier: "(대산)", codes: "6627", erpName: "돈삼겹f(특)대산", suffix: "", type: "standard" },
-      { col: 1, item: "특삼겹", supplier: "(포크)", codes: "6921", erpName: "돈삼겹f(특)포크", suffix: "", type: "standard" },
+      { col: 1, item: "특삼겹", supplier: "(대산)", codes: "6627", erpName: "돈삼겹f(특)대산 (육안선별)", suffix: "", type: "standard" },
+      { col: 1, item: "특삼겹", supplier: "(포크)", codes: "6921", erpName: "돈삼겹f(특)포크 (육안선별)", suffix: "", type: "standard" },
 
-      { col: 1, item: "빵삼겹", supplier: "(포크)", codes: "", erpName: "", suffix: "", type: "standard" },
+      { col: 1, item: "빵삼겹", supplier: "(포크)", codes: "", erpName: "빵삼겹(포크) (육안선별)", suffix: "", type: "standard" },
 
       { col: 1, item: "미삼", supplier: "(대산)", codes: "1572", erpName: "돈미삼겹(대산)", suffix: "", type: "standard" },
       { col: 1, item: "미삼", supplier: "(포크)", codes: "6919", erpName: "돈미삼겹(포크)", suffix: "", type: "standard" },
       { col: 1, item: "미삼", supplier: "(정담)", codes: "7047", erpName: "돈미박삼겹살(정담)", suffix: "", type: "standard" },
 
-      { col: 1, item: "암미삼", supplier: "(대산)", codes: "1583,1609", erpName: "돈미삼겹(암)대산", suffix: "", type: "standard" },
+      { col: 1, item: "암미삼", supplier: "(대산)", codes: "1609", erpName: "돈미삼겹(암)대산", suffix: "", type: "standard" },
       { col: 1, item: "암미삼", supplier: "(포크)", codes: "6920", erpName: "돈암미삼(포크)", suffix: "", type: "standard" },
 
-      { col: 1, item: "특미삼", supplier: "(대산)", codes: "1825", erpName: "돈특미삼(대산)", suffix: "", type: "standard" },
-      { col: 1, item: "특미삼", supplier: "(포크)", codes: "6922", erpName: "돈특미삼(포크)", suffix: "", type: "standard" },
+      { col: 1, item: "특미삼", supplier: "(대산)", codes: "1825", erpName: "돈특미삼(대산) (육안선별)", suffix: "", type: "standard" },
+      { col: 1, item: "특미삼", supplier: "(포크)", codes: "6922", erpName: "돈특미삼(포크) (육안선별)", suffix: "", type: "standard" },
 
       { col: 1, item: "목살", supplier: "(대산)", codes: "1565", erpName: "돈목살(대산)", suffix: "", type: "standard" },
       { col: 1, item: "목살", supplier: "(포크)", codes: "6923", erpName: "돈목심(포크)", suffix: "", type: "standard" },
       { col: 1, item: "목살", supplier: "(정담)", codes: "7048", erpName: "돈목심(정담한돈)", suffix: "", type: "standard" },
 
-      { col: 1, item: "특목살", supplier: "(대산)", codes: "1777", erpName: "돈특목살(대산)", suffix: "", type: "standard" },
+      { col: 1, item: "특목살", supplier: "(대산)", codes: "1777", erpName: "돈특목살(대산) (육안선별)", suffix: "", type: "standard" },
       { col: 1, item: "특목살", supplier: "(포크)", codes: "6924", erpName: "돈선별목심(포크)", suffix: "", type: "standard" },
 
       { col: 1, item: "B목살", supplier: "(정담)", codes: "7066", erpName: "돈B목심(정담한돈)", suffix: "", type: "standard" },
@@ -693,6 +699,7 @@
 
       { col: 2, item: "등심", supplier: "(대산)", codes: "1568", erpName: "돈등심(대산)", suffix: "", type: "standard" },
       { col: 2, item: "등심", supplier: "(포크)", codes: "6931", erpName: "돈등심(포크)", suffix: "", type: "standard" },
+      { col: 2, item: "등심", supplier: "(정담)", codes: "7062", erpName: "돈등심(정담한돈)", suffix: "", type: "standard" },
 
       { col: 2, item: "안심", supplier: "(포크)", codes: "6930", erpName: "돈안심(포크)", suffix: "", type: "standard" },
 
@@ -706,18 +713,20 @@
       // [3열: 특수부위 · 후지 · 등뼈 · 수입육]
       { col: 3, item: "항정", supplier: "(대산)", codes: "1570", erpName: "돈항정(대산)", suffix: "", type: "standard" },
       { col: 3, item: "항정", supplier: "(포크)", codes: "6934", erpName: "돈항정(포크)", suffix: "", type: "standard" },
+      { col: 3, item: "항정", supplier: "(정담)", codes: "7055", erpName: "돈항정살(정담한돈)", suffix: "", type: "standard" },
 
       { col: 3, item: "가브리", supplier: "(대산)", codes: "1571", erpName: "돈가브리(대산)", suffix: "", type: "standard" },
       { col: 3, item: "가브리", supplier: "(포크)", codes: "6935", erpName: "돈가브리(포크)", suffix: "", type: "standard" },
+      { col: 3, item: "가브리", supplier: "(정담)", codes: "7051", erpName: "돈등심덧살(정담한돈)", suffix: "", type: "standard" },
 
       { col: 3, item: "갈매기", supplier: "(대산)", codes: "1569", erpName: "돈갈매기(대산)", suffix: "", type: "standard" },
       { col: 3, item: "갈매기", supplier: "(포크)", codes: "6936", erpName: "돈갈매기(포크)", suffix: "", type: "standard" },
       { col: 3, item: "갈매기", supplier: "(정담)", codes: "7052", erpName: "돈갈매기(정담한돈)", suffix: "", type: "standard" },
 
-      { col: 3, item: "미후지", supplier: "(황금)", codes: "", erpName: "", suffix: "", type: "standard" },
+      { col: 3, item: "미후지", supplier: "(황금)", codes: "", erpName: "미후지(황금)", suffix: "", type: "standard" },
       { col: 3, item: "미후지", supplier: "(정담)", codes: "7059", erpName: "미박뒷다리살(정담)", suffix: "", type: "standard" },
 
-      { col: 3, item: "후지", supplier: "(황금)", codes: "", erpName: "", suffix: "", type: "standard" },
+      { col: 3, item: "후지", supplier: "(황금)", codes: "6661", erpName: "후지(황금)", suffix: "", type: "standard" },
       { col: 3, item: "후지", supplier: "(정담)", codes: "7060", erpName: "뒷다리살(정담한돈)", suffix: "", type: "standard" },
 
       { col: 3, item: "등뼈", supplier: "(대산)", codes: "1563", erpName: "돈A등뼈(대산)", suffix: "", type: "standard" },
@@ -733,11 +742,11 @@
       { col: 3, item: "냉장 수입 올리멜 목살", supplier: "올리멜", codes: "3124", erpName: "냉장 수입 올리멜 목살", suffix: "~12/18", type: "import_inline" }
     ];
 
-    const STORAGE_KEY = "vatpda_inventory_mapping_v8";
+    const STORAGE_KEY = "vatpda_inventory_mapping_v9";
     let templateData = loadMapping();
     let lastParsedWorkbook = null;
     let insertAfterIdx = null;
-    let inboundItems = []; // 사진에서 추출된 입고 내역 리스트
+    let inboundItems = [];
 
     function switchTab(tab) {
       document.getElementById("tabBtnStock").classList.toggle("active", tab === "stock");
@@ -1070,9 +1079,8 @@
         }
       }
 
-      // 사진 입고분 합산 옵션 활성화 시 가상 행 결합
       const mergeInbound = document.getElementById("mergeInboundChk").checked;
-      const inboundVirtualMap = {}; // "item|supplier" -> entries
+      const inboundVirtualMap = {};
       if (mergeInbound && inboundItems.length > 0) {
         inboundItems.forEach(ib => {
           const key = `${ib.stdItem}|${ib.supplier}`;
@@ -1340,7 +1348,7 @@
     }
 
     // =========================================================
-    // 3. 입고 내역 사진 OCR & 자동 목록 파싱 엔진
+    // 3. 입고 내역 사진 OCR & 자동 목록 파싱 (특삼/특미/특목/빵삼 육안선별 지원)
     // =========================================================
     const imgDropzone = document.getElementById("imgDropzone");
     const imgFileInput = document.getElementById("imgFileInput");
@@ -1357,14 +1365,11 @@
       if (e.target.files.length) handleImageFiles(e.target.files);
     });
 
-    // Ctrl+V 클립보드 이미지 붙여넣기 지원
     document.addEventListener("paste", (e) => {
       const items = (e.clipboardData || e.originalEvent.clipboardData).items;
       const imageFiles = [];
       for (const item of items) {
-        if (item.type.indexOf("image") !== -1) {
-          imageFiles.push(item.getAsFile());
-        }
+        if (item.type.indexOf("image") !== -1) imageFiles.push(item.getAsFile());
       }
       if (imageFiles.length > 0) {
         switchTab("inbound");
@@ -1372,7 +1377,6 @@
       }
     });
 
-    // 원본 품목명 -> 표준 품목명 자동 매핑
     function normalizeCutName(rawName) {
       const s = rawName.replace(/\s+/g, "");
       if (s.includes("원삼겹(암)") || s.includes("삼겹(암)") || s.includes("암삼겹")) return "암삼겹";
@@ -1414,21 +1418,18 @@
       return rawName.replace(/^돈\/?/, "").split("/")[0];
     }
 
-    // OCR 원문 파서 (3대 입고서 양식 자동 인식)
     function parseOcrText(text, fallbackDay) {
       const extracted = [];
       const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
-      // 일자(DD) 추출
       let docDay = fallbackDay || String(new Date().getDate());
       const mDate = text.match(/202\d[-./](\d{2})[-./](\d{2})/);
       if (mDate) docDay = String(parseInt(mDate[2], 10));
       const mTraceDate = text.match(/L1\d{4}(\d{2})\d{7}/);
       if (mTraceDate) docDay = String(parseInt(mTraceDate[1], 10));
 
-      // 문서 유형 판별
       let supplier = "(기타)";
-      if (text.includes("이력") && text.includes("집계") || text.includes("6807")) {
+      if ((text.includes("이력") && text.includes("집계")) || text.includes("6807")) {
         supplier = "(대산)";
       } else if (text.includes("정담한돈") || text.includes("출고처")) {
         supplier = "(정담)";
@@ -1436,54 +1437,39 @@
         supplier = "(포크)";
       }
 
-      const seenSignatures = new Set(); // 거래명세서 상·하단 중복 제거용
+      const seenSignatures = new Set();
 
       for (const line of lines) {
-        // 합계/누계 줄 제외
         if (/합\s*계|월\s*계|누\s*계|부가세|공급가액|미수금/.test(line)) continue;
 
-        // 양식 1: 이력(묶음)번호별 품목 집계 (예: 돈원삼겹/냉장(진공) 30 Box 525.20 Kg)
+        // 1) 이력번호별 품목집계 (대산)
         const mDaesan = line.match(/(돈[^\s]+(?:냉장|냉동)[^\s]*)\s+(\d+)\s*(?:Box|BOX|box|박스)\s+([\d,.]+)\s*(?:Kg|KG|kg)/i);
         if (mDaesan) {
           const rawName = mDaesan[1].trim();
           const box = parseInt(mDaesan[2], 10);
           const kg = parseFloat(mDaesan[3].replace(/,/g, ""));
-          extracted.push({
-            day: docDay,
-            supplier: "(대산)",
-            stdItem: normalizeCutName(rawName),
-            rawName,
-            box,
-            kg
-          });
+          extracted.push({ day: docDay, supplier: "(대산)", stdItem: normalizeCutName(rawName), rawName, box, kg });
           continue;
         }
 
-        // 양식 2: 정담한돈 출고처 원장 (예: 정담한돈/냉장/국내산/목심 10 110.90 12,500 ...)
+        // 2) 출고처 원장 (정담한돈)
         const mJeongdam = line.match(/(정담한돈\/[^\s]+)\s+(?:출\s*고\s+)?(\d+)\s+([\d,.]+)/);
         if (mJeongdam) {
           const rawName = mJeongdam[1].trim();
           const box = parseInt(mJeongdam[2], 10);
           const kg = parseFloat(mJeongdam[3].replace(/,/g, ""));
-          extracted.push({
-            day: docDay,
-            supplier: "(정담)",
-            stdItem: normalizeCutName(rawName),
-            rawName,
-            box,
-            kg
-          });
+          extracted.push({ day: docDay, supplier: "(정담)", stdItem: normalizeCutName(rawName), rawName, box, kg });
           continue;
         }
 
-        // 양식 3: 둔포축산/사조 매출 거래명세서 (예: 8 돈/삼겹살/진공냉장/국내산 23 429.60 15,500 ...)
+        // 3) 매출 거래명세서 (포크/둔포축산 - 상하단 중복 자동제거)
         const mFork = line.match(/(?:\d+\s+)?(돈\/[^\s]+)\s+(\d+)\s+([\d,.]+)\s+[\d,]+/);
         if (mFork) {
           const rawName = mFork[1].trim();
           const box = parseInt(mFork[2], 10);
           const kg = parseFloat(mFork[3].replace(/,/g, ""));
           const sig = `${rawName}|${box}|${kg}`;
-          if (seenSignatures.has(sig)) continue; // 한 장에 공급받는자/공급자 2번 인쇄된 중복 제거
+          if (seenSignatures.has(sig)) continue;
           seenSignatures.add(sig);
 
           extracted.push({
@@ -1496,7 +1482,6 @@
           });
         }
       }
-
       return extracted;
     }
 
@@ -1512,7 +1497,6 @@
         const file = files[i];
         prog.textContent = `⏳ 이미지 판독 중 (${i + 1} / ${files.length}): ${file.name || "클립보드 이미지"} ...`;
 
-        // 썸네일 추가
         const url = URL.createObjectURL(file);
         const card = document.createElement("div");
         card.className = "thumb-card";
@@ -1554,9 +1538,80 @@
       showToast(`텍스트에서 ${inboundItems.length}건을 다시 추출했습니다.`);
     }
 
+    // 육안 선별 전환 (목살 -> 특목살, 삼겹 -> 특삼겹/빵삼겹, 미삼 -> 특미삼)
+    function convertCut(idx, newCutName) {
+      inboundItems[idx].stdItem = newCutName;
+      renderInboundUI();
+      showToast(`'${newCutName}'(으)로 전환되었습니다.`);
+    }
+
+    // 일부 수량 분할 (예: 목살 10박 중 7박만 특목살로 분할)
+    function splitCut(idx, targetCutName) {
+      const row = inboundItems[idx];
+      if (row.box <= 1) {
+        convertCut(idx, targetCutName);
+        return;
+      }
+      const input = prompt(`전체 ${row.box}박 중 '${targetCutName}'으로 선별된 박스 수를 입력하세요:`, "1");
+      if (input === null) return;
+      const moveBox = parseInt(input, 10);
+      if (isNaN(moveBox) || moveBox <= 0 || moveBox >= row.box) {
+        if (moveBox === row.box) convertCut(idx, targetCutName);
+        else showToast("1 ~ " + (row.box - 1) + " 사이의 숫자를 입력하세요.");
+        return;
+      }
+      const unitKg = row.box > 0 ? (row.kg / row.box) : 0;
+      const moveKg = Number((unitKg * moveBox).toFixed(2));
+      row.box -= moveBox;
+      row.kg = Number((row.kg - moveKg).toFixed(2));
+
+      inboundItems.splice(idx + 1, 0, {
+        day: row.day,
+        supplier: row.supplier,
+        stdItem: targetCutName,
+        rawName: row.rawName + " (육안분할)",
+        box: moveBox,
+        kg: moveKg
+      });
+      renderInboundUI();
+      showToast(`${targetCutName} ${moveBox}박이 분리되었습니다.`);
+    }
+
+    function getVisualCheckButtons(idx, stdItem) {
+      if (stdItem === "목살") {
+        return `
+          <button class="icon-btn spec" onclick="convertCut(${idx}, '특목살')">→특목살</button>
+          <button class="icon-btn" onclick="splitCut(${idx}, '특목살')">분할</button>
+        `;
+      }
+      if (stdItem === "삼겹") {
+        return `
+          <button class="icon-btn spec" onclick="convertCut(${idx}, '특삼겹')">→특삼겹</button>
+          <button class="icon-btn spec" onclick="convertCut(${idx}, '빵삼겹')">→빵삼겹</button>
+          <button class="icon-btn" onclick="splitCut(${idx}, '특삼겹')">분할</button>
+        `;
+      }
+      if (stdItem === "미삼") {
+        return `
+          <button class="icon-btn spec" onclick="convertCut(${idx}, '특미삼')">→특미삼</button>
+          <button class="icon-btn" onclick="splitCut(${idx}, '특미삼')">분할</button>
+        `;
+      }
+      if (stdItem === "특목살") {
+        return `<button class="icon-btn" onclick="convertCut(${idx}, '목살')">↩목살</button>`;
+      }
+      if (stdItem === "특삼겹" || stdItem === "빵삼겹") {
+        return `<button class="icon-btn" onclick="convertCut(${idx}, '삼겹')">↩삼겹</button>`;
+      }
+      if (stdItem === "특미삼") {
+        return `<button class="icon-btn" onclick="convertCut(${idx}, '미삼')">↩미삼</button>`;
+      }
+      return `<span style="color:#94a3b8;font-size:11px;">-</span>`;
+    }
+
     function addInboundRow() {
       const today = String(new Date().getDate());
-      inboundItems.push({ day: today, supplier: "(대산)", stdItem: "삼겹", rawName: "수동입력", box: 1, kg: 0 });
+      inboundItems.push({ day: today, supplier: "(대산)", stdItem: "특목살", rawName: "육안선별입력", box: 1, kg: 0 });
       renderInboundUI();
     }
 
@@ -1599,10 +1654,15 @@
           <td><input class="tbl-input" value="${row.day}" data-i="${idx}" data-f="day" /></td>
           <td><input class="tbl-input bold" value="${row.supplier}" data-i="${idx}" data-f="supplier" /></td>
           <td><input class="tbl-input bold" value="${row.stdItem}" data-i="${idx}" data-f="stdItem" /></td>
-          <td><input class="tbl-input" value="${row.rawName}" data-i="${idx}" data-f="rawName" /></td>
+          <td><div class="row-actions">${getVisualCheckButtons(idx, row.stdItem)}</div></td>
           <td><input class="tbl-input" type="number" value="${row.box}" data-i="${idx}" data-f="box" /></td>
           <td><input class="tbl-input" type="number" step="0.01" value="${row.kg}" data-i="${idx}" data-f="kg" /></td>
-          <td style="text-align:center;"><button class="icon-btn del" onclick="deleteInboundRow(${idx})">×</button></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:3px;">
+              <span style="font-size:10.5px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:85px;" title="${row.rawName}">${row.rawName}</span>
+              <button class="icon-btn del" onclick="deleteInboundRow(${idx})">×</button>
+            </div>
+          </td>
         `;
         tbody.appendChild(tr);
       });
@@ -1616,7 +1676,6 @@
         });
       });
 
-      // 카톡 공유용 입고 목록 텍스트 생성 (거래처별 그룹 + 동일 품목 합산)
       const dayLabel = inboundItems[0]?.day ? `11월 ${inboundItems[0].day}일 입고현황` : "입고현황";
       const bySupplier = new Map();
       inboundItems.forEach(r => {
