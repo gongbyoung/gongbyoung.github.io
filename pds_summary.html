@@ -365,7 +365,7 @@
     <header>
       <div>
         <h1>회사 재고 파악 자동 완성 & 한장 요약표</h1>
-        <div class="sub">최소 간격 카톡 행·열 맞춤 적용 · 우측 표에서 + 버튼으로 원하는 위치에 신규 메이커를 즉시 끼워 넣을 수 있습니다.</div>
+        <div class="sub">소수점 2자리 전환·중량비율 낱개 판정 · 카톡 최소 줄맞춤 · 행별 + 신규 메이커 중간 삽입 지원</div>
       </div>
       <div id="statusBadge" class="badge">엑셀 파일 대기 중</div>
     </header>
@@ -542,7 +542,7 @@
       { col: 3, item: "냉장 수입 올리멜 목살", supplier: "올리멜", codes: "3124", erpName: "냉장 수입 올리멜 목살", suffix: "~12/18", type: "import_inline" }
     ];
 
-    const STORAGE_KEY = "vatpda_inventory_mapping_v5";
+    const STORAGE_KEY = "vatpda_inventory_mapping_v6";
     let templateData = loadMapping();
     let lastParsedWorkbook = null;
     let insertAfterIdx = null;
@@ -775,7 +775,7 @@
       return "";
     }
 
-    // 정밀화된 낱개(낱) 판별
+    // 2단계 복합 낱개(낱) 판별 로직
     function analyzeRowStock(row) {
       const bBox = Number(row.buyBox) || 0;
       const bKg = Number(row.buyKg) || 0;
@@ -784,18 +784,29 @@
 
       if (cBox <= 0 && cKg <= 0) return { fullBoxes: 0, hasLoose: false };
       if (cBox === 0 && cKg > 0) return { fullBoxes: 0, hasLoose: true };
+
+      const buyC2 = Math.round(bKg * 100) % 10;
+      const curC2 = Math.round(cKg * 100) % 10;
+      const isDomestic = (row.origin === "국내산");
+
+      // 규칙 1: 국내산이고 기본 입고 시 소수점 1자리(둘째 자리 0)였는데, 현재 재고 무게가 소수점 2자리(둘째 자리 != 0)로 바뀐 경우 -> 소분/낱개 출고
+      const becameTwoDecimal = isDomestic && (bBox > 0) && (buyC2 === 0) && (curC2 !== 0);
+
+      // 규칙 2: 소수점 둘째 자리가 0인 낱개, 또는 수입육·기본 2자리 입고 품목의 낱개 -> 평균 중량 비율 판정
+      let weightDropLoose = false;
       if (bBox > 0 && bKg > 0) {
         const unitBuyKg = bKg / bBox;
         const unitCurKg = cKg / cBox;
         const expectedKg = cBox * unitBuyKg;
-        // 1박스 잔여 시 평균 중량의 83% 미만이면 개봉 낱개
         if (cBox === 1 && unitCurKg < unitBuyKg * 0.83) {
-          return { fullBoxes: 0, hasLoose: true };
+          weightDropLoose = true;
+        } else if (cBox > 1 && (expectedKg - cKg > unitBuyKg * 0.30) && (unitCurKg < unitBuyKg * 0.90)) {
+          weightDropLoose = true;
         }
-        // 다수 박스 잔여 시 누적 감량 > 1박스의 30% AND 박스당 평균 > 8% 감소 시 개봉 낱개 포함
-        if (cBox > 1 && (expectedKg - cKg > unitBuyKg * 0.30) && (unitCurKg < unitBuyKg * 0.92)) {
-          return { fullBoxes: Math.max(0, cBox - 1), hasLoose: true };
-        }
+      }
+
+      if (becameTwoDecimal || weightDropLoose) {
+        return { fullBoxes: Math.max(0, cBox - 1), hasLoose: true };
       }
       return { fullBoxes: cBox, hasLoose: false };
     }
@@ -848,6 +859,7 @@
 
         const entry = {
           code,
+          origin: String(r[5] || "").trim(),
           buyDate: String(r[7] || "").trim(),
           buyBox: Number(r[8]) || 0,
           buyKg: Number(r[9]) || 0,
@@ -861,7 +873,7 @@
       }
 
       const useFullWidth = document.getElementById("kakaoAlignChk").checked;
-      const BASE_COL_UNITS = 4.6; // 최소 간격 기준열 (4글자 품목 바로 뒤)
+      const BASE_COL_UNITS = 4.6;
       const supplierIndent = makeMinimalIndent(BASE_COL_UNITS, useFullWidth);
 
       const usedCodes = new Set();
