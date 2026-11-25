@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VAT</title>
+  <title>회사 재고 파악 & 입고 사진 자동 목록화</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
@@ -471,7 +471,7 @@
     <header>
       <div>
         <h1>회사 재고 파악 & 입고 내역 사진 자동 목록화</h1>
-        <div class="sub">검증 완료된 품목 코드 매핑 + 입고 명세서·원장·집계표 사진 판독 및 특삼·특미·특목·빵삼 원클릭 분류 지원</div>
+        <div class="sub">검증 완료된 63개 상품코드 매핑 + 입고 사진 판독(회사명 미기재 입고장 = 포크/둔포축산 자동 지정)</div>
       </div>
       <div id="statusBadge" class="badge">파일 대기 중</div>
     </header>
@@ -511,7 +511,7 @@
             </div>
           </div>
 
-          <textarea id="output" placeholder="엑셀 파일을 올리면 카카오톡 공유용 줄맞춤 텍스트가 이곳에 자동 완성됩니다. (특삼·특미·특목·빵삼은 육안 확인 후 직접 수정 가능)"></textarea>
+          <textarea id="output" placeholder="엑셀 파일을 올리면 카카오톡 공유용 줄맞춤 텍스트가 이곳에 자동 완성됩니다."></textarea>
         </div>
 
         <div class="card">
@@ -575,7 +575,7 @@
         <div class="card">
           <div id="imgDropzone" class="dropzone green-zone">
             <strong>📸 입고 내역 사진을 여러 장 끌어다 놓거나 클릭하세요 (Ctrl+V 붙여넣기 가능)</strong>
-            <span>자동 인식 양식: ① 이력번호별 품목집계(대산) ② 매출 거래명세서(포크/둔포) ③ 출고처 원장(정담)</span>
+            <span>회사명 미기재 입고장 / 둔포축산 → 자동 (포크) 지정 · 이력집계표 → (대산) · 출고처원장 → (정담)</span>
             <input type="file" id="imgFileInput" accept="image/*" multiple style="display:none" />
           </div>
 
@@ -605,7 +605,7 @@
         <div class="card">
           <div class="toolbar">
             <div>
-              <strong>📋 인식된 입고 내역 목록 (육안 선별 전환·분할 지원)</strong>
+              <strong>📋 인식된 입고 내역 목록 (회사명 미기재 = (포크) 자동 지정)</strong>
               <span id="inboundSummaryPill" class="badge" style="background:#d1fae5;color:#065f46;margin-left:6px;">0건 / 0박 / 0kg</span>
             </div>
             <button class="btn btn-primary btn-sm" onclick="addInboundRow()">+ 행 직접 추가</button>
@@ -650,7 +650,7 @@
     const DEFAULT_TEMPLATE = [
       // [1열: 삼겹 · 목살류]
       { col: 1, item: "삼겹", supplier: "(대산)", codes: "1564", erpName: "돈원삼겹(대산)", suffix: "", type: "standard" },
-      { col: 1, item: "삼겹", supplier: "(포크)", codes: "6917", erpName: "돈삼겹살(포크)", suffix: "", type: "standard" },
+      { col: 1, item: "삼겹", supplier: "(포크)", codes: "6917", erpName: "돈삼겹살(포크/둔포)", suffix: "", type: "standard" },
       { col: 1, item: "삼겹", supplier: "(정담)", codes: "7046", erpName: "돈삼겹f(정담한돈)", suffix: "", type: "standard" },
 
       { col: 1, item: "암삼겹", supplier: "(대산)", codes: "1575", erpName: "돈원삼겹(암)대산", suffix: "", type: "standard" },
@@ -742,7 +742,7 @@
       { col: 3, item: "냉장 수입 올리멜 목살", supplier: "올리멜", codes: "3124", erpName: "냉장 수입 올리멜 목살", suffix: "~12/18", type: "import_inline" }
     ];
 
-    const STORAGE_KEY = "vatpda_inventory_mapping_v9";
+    const STORAGE_KEY = "vatpda_inventory_mapping_v10";
     let templateData = loadMapping();
     let lastParsedWorkbook = null;
     let insertAfterIdx = null;
@@ -1348,7 +1348,7 @@
     }
 
     // =========================================================
-    // 3. 입고 내역 사진 OCR & 자동 목록 파싱 (특삼/특미/특목/빵삼 육안선별 지원)
+    // 3. 입고 내역 사진 OCR & 자동 목록 파싱 (회사명 미기재 = (포크) 기본 지정)
     // =========================================================
     const imgDropzone = document.getElementById("imgDropzone");
     const imgFileInput = document.getElementById("imgFileInput");
@@ -1428,19 +1428,20 @@
       const mTraceDate = text.match(/L1\d{4}(\d{2})\d{7}/);
       if (mTraceDate) docDay = String(parseInt(mTraceDate[1], 10));
 
-      let supplier = "(기타)";
+      // 회사명 미기재 입고장은 기본 '(포크)' (둔포축산)로 지정
+      let supplier = "(포크)";
       if ((text.includes("이력") && text.includes("집계")) || text.includes("6807")) {
         supplier = "(대산)";
       } else if (text.includes("정담한돈") || text.includes("출고처")) {
         supplier = "(정담)";
-      } else if (text.includes("둔포축산") || text.includes("사조산업") || text.includes("6286")) {
+      } else if (text.includes("둔포") || text.includes("사조산업") || text.includes("포크") || text.includes("6286")) {
         supplier = "(포크)";
       }
 
       const seenSignatures = new Set();
 
       for (const line of lines) {
-        if (/합\s*계|월\s*계|누\s*계|부가세|공급가액|미수금/.test(line)) continue;
+        if (/합\s*계|월\s*계|누\s*계|부가세|공급가액|미수금|전기이월|잔\s*액/.test(line)) continue;
 
         // 1) 이력번호별 품목집계 (대산)
         const mDaesan = line.match(/(돈[^\s]+(?:냉장|냉동)[^\s]*)\s+(\d+)\s*(?:Box|BOX|box|박스)\s+([\d,.]+)\s*(?:Kg|KG|kg)/i);
@@ -1462,8 +1463,8 @@
           continue;
         }
 
-        // 3) 매출 거래명세서 (포크/둔포축산 - 상하단 중복 자동제거)
-        const mFork = line.match(/(?:\d+\s+)?(돈\/[^\s]+)\s+(\d+)\s+([\d,.]+)\s+[\d,]+/);
+        // 3) 둔포축산/포크 거래명세서 또는 회사명 미기재 입고장 (돈/품목... N M ... 또는 일반 품목명 N M)
+        const mFork = line.match(/(?:\d+\s+)?(돈\/[^\s]+)\s+(\d+)\s+([\d,.]+)/);
         if (mFork) {
           const rawName = mFork[1].trim();
           const box = parseInt(mFork[2], 10);
@@ -1474,7 +1475,28 @@
 
           extracted.push({
             day: docDay,
-            supplier: supplier === "(기타)" ? "(포크)" : supplier,
+            supplier,
+            stdItem: normalizeCutName(rawName),
+            rawName,
+            box,
+            kg
+          });
+          continue;
+        }
+
+        // 4) 회사명·슬래시 없이 품목명 + 박스 + 중량만 적힌 간이 입고장 행 (예: "1 삼겹살 23 429.60" -> (포크))
+        const mSimple = line.match(/^(?:\d+\s+)?([가-힣()A-Za-z/]+(?:삼겹|목심|목살|전지|앞다리|후지|뒷다리|갈비|등심|안심|사태|항정|가브리|갈매기|등뼈|장족|돈피)[가-힣()A-Za-z/]*)\s+(\d+)\s+([\d,.]+)/);
+        if (mSimple) {
+          const rawName = mSimple[1].trim();
+          const box = parseInt(mSimple[2], 10);
+          const kg = parseFloat(mSimple[3].replace(/,/g, ""));
+          const sig = `${rawName}|${box}|${kg}`;
+          if (seenSignatures.has(sig)) continue;
+          seenSignatures.add(sig);
+
+          extracted.push({
+            day: docDay,
+            supplier,
             stdItem: normalizeCutName(rawName),
             rawName,
             box,
@@ -1538,14 +1560,12 @@
       showToast(`텍스트에서 ${inboundItems.length}건을 다시 추출했습니다.`);
     }
 
-    // 육안 선별 전환 (목살 -> 특목살, 삼겹 -> 특삼겹/빵삼겹, 미삼 -> 특미삼)
     function convertCut(idx, newCutName) {
       inboundItems[idx].stdItem = newCutName;
       renderInboundUI();
       showToast(`'${newCutName}'(으)로 전환되었습니다.`);
     }
 
-    // 일부 수량 분할 (예: 목살 10박 중 7박만 특목살로 분할)
     function splitCut(idx, targetCutName) {
       const row = inboundItems[idx];
       if (row.box <= 1) {
@@ -1611,7 +1631,7 @@
 
     function addInboundRow() {
       const today = String(new Date().getDate());
-      inboundItems.push({ day: today, supplier: "(대산)", stdItem: "특목살", rawName: "육안선별입력", box: 1, kg: 0 });
+      inboundItems.push({ day: today, supplier: "(포크)", stdItem: "삼겹", rawName: "둔포축산(직접입력)", box: 1, kg: 0 });
       renderInboundUI();
     }
 
