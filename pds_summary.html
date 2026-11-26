@@ -45,7 +45,6 @@
     h1 { font-size: 19px; margin: 0; font-weight: 800; letter-spacing: -0.3px; }
     .sub { font-size: 12px; color: var(--muted); }
 
-    /* 상단 모드 전환 탭 */
     .tab-bar {
       display: flex;
       gap: 8px;
@@ -173,7 +172,6 @@
       color: #1e40af;
     }
 
-    /* 우측 매핑 및 입고 목록 테이블 */
     .mapping-table-wrap {
       max-height: 540px;
       overflow-y: auto;
@@ -271,7 +269,6 @@
       cursor: pointer;
     }
 
-    /* OCR 진행바 & 미리보기 */
     .ocr-progress {
       display: none;
       background: #ecfdf5;
@@ -322,7 +319,6 @@
       border-radius: 6px;
     }
 
-    /* 하단 한장 요약표 */
     .sheet-section {
       background: #ffffff;
       border: 1px solid var(--border);
@@ -471,19 +467,18 @@
     <header>
       <div>
         <h1>회사 재고 파악 & 입고 내역 사진 자동 목록화</h1>
-        <div class="sub">검증 완료된 63개 상품코드 매핑 + 입고 사진 판독(회사명 미기재 입고장 = 포크/둔포축산 자동 지정)</div>
+        <div class="sub">전 품목 상품코드 매핑 완료(늑간 4462 포함) · 신규 메이커는 + 버튼으로 중간 삽입 후 코드만 입력</div>
       </div>
       <div id="statusBadge" class="badge">파일 대기 중</div>
     </header>
 
-    <!-- 상단 탭 메뉴 -->
     <div class="tab-bar no-print">
       <button class="tab-btn active" id="tabBtnStock" onclick="switchTab('stock')">📊 1. 재고현황 엑셀 자동완성</button>
       <button class="tab-btn" id="tabBtnInbound" onclick="switchTab('inbound')">📸 2. 입고 내역 사진 → 목록 자동화 <span id="inboundCountBadge" style="background:#059669;color:#fff;padding:1px 6px;border-radius:99px;font-size:11px;">0</span></button>
     </div>
 
     <!-- =========================================================
-         탭 1: 기존 재고현황 엑셀 자동완성
+         탭 1: 재고현황 엑셀 자동완성
          ========================================================= -->
     <div id="panelStock" class="tab-panel active">
       <div class="top-grid">
@@ -524,7 +519,7 @@
             </div>
           </div>
           <p class="sub" style="margin:0 0 8px;">
-            원하는 줄 우측의 <b>+</b> 버튼을 누르면 <b>바로 그 줄 아래</b>에 다른 메이커/품목을 끼워 넣을 수 있습니다.
+            신규 메이커가 들어오면 원하는 줄 우측의 <b>+</b> 버튼을 눌러 바로 아래에 추가하고 상품코드만 입력하세요.
           </p>
 
           <div class="mapping-table-wrap">
@@ -645,7 +640,7 @@
 
   <script>
     // =========================================================
-    // 1. 검증 완료된 63개 상품코드 매핑 (11/25 기준)
+    // 1. 검증 완료된 64개 상품코드 매핑 (늑간 4462 반영 완료)
     // =========================================================
     const DEFAULT_TEMPLATE = [
       // [1열: 삼겹 · 목살류]
@@ -668,7 +663,7 @@
       { col: 1, item: "암미삼", supplier: "(대산)", codes: "1609", erpName: "돈미삼겹(암)대산", suffix: "", type: "standard" },
       { col: 1, item: "암미삼", supplier: "(포크)", codes: "6920", erpName: "돈암미삼(포크)", suffix: "", type: "standard" },
 
-      { col: 1, item: "특미삼", supplier: "(대산)", codes: "1825", erpName: "돈특미삼(대산) (육안선별)", suffix: "", type: "standard" },
+      { col: 1, item: "특미삼", supplier: "(대산)", codes: "", erpName: "돈특미삼(대산) (육안선별)", suffix: "", type: "standard" },
       { col: 1, item: "특미삼", supplier: "(포크)", codes: "6922", erpName: "돈특미삼(포크) (육안선별)", suffix: "", type: "standard" },
 
       { col: 1, item: "목살", supplier: "(대산)", codes: "1565", erpName: "돈목살(대산)", suffix: "", type: "standard" },
@@ -702,6 +697,7 @@
       { col: 2, item: "등심", supplier: "(정담)", codes: "7062", erpName: "돈등심(정담한돈)", suffix: "", type: "standard" },
 
       { col: 2, item: "안심", supplier: "(포크)", codes: "6930", erpName: "돈안심(포크)", suffix: "", type: "standard" },
+      { col: 2, item: "안심", supplier: "(정담)", codes: "7068", erpName: "돈안심(정담한돈)", suffix: "", type: "standard" },
 
       { col: 2, item: "사태", supplier: "(대산)", codes: "1603", erpName: "돈사태(대산)", suffix: "", type: "standard" },
       { col: 2, item: "사태", supplier: "(포크)", codes: "6932", erpName: "돈사태(포크)", suffix: "", type: "standard" },
@@ -737,12 +733,12 @@
 
       { col: 3, item: "냉장 알목심f PR", supplier: "IBP", codes: "4775", erpName: "냉장 알목심f PR", suffix: "", type: "import_block" },
       { col: 3, item: "냉장 살치f PR", supplier: "엑셀", codes: "4243", erpName: "냉장 살치f PR", suffix: "", type: "import_block" },
-      { col: 3, item: "냉장 늑간f CH NBP", supplier: "-", codes: "4195", erpName: "냉장 늑간f CH NBP", suffix: "", type: "import_inline" },
+      { col: 3, item: "냉장 늑간f CH NBP", supplier: "-", codes: "4462", erpName: "냉장 늑간f CH NBP", suffix: "", type: "import_inline" },
       { col: 3, item: "냉장 수입 올리멜 삼겹", supplier: "올리멜", codes: "3086", erpName: "냉장 수입 올리멜 삼겹", suffix: "~12/18", type: "import_inline" },
       { col: 3, item: "냉장 수입 올리멜 목살", supplier: "올리멜", codes: "3124", erpName: "냉장 수입 올리멜 목살", suffix: "~12/18", type: "import_inline" }
     ];
 
-    const STORAGE_KEY = "vatpda_inventory_mapping_v10";
+    const STORAGE_KEY = "vatpda_inventory_mapping_v12";
     let templateData = loadMapping();
     let lastParsedWorkbook = null;
     let insertAfterIdx = null;
@@ -1428,7 +1424,6 @@
       const mTraceDate = text.match(/L1\d{4}(\d{2})\d{7}/);
       if (mTraceDate) docDay = String(parseInt(mTraceDate[1], 10));
 
-      // 회사명 미기재 입고장은 기본 '(포크)' (둔포축산)로 지정
       let supplier = "(포크)";
       if ((text.includes("이력") && text.includes("집계")) || text.includes("6807")) {
         supplier = "(대산)";
@@ -1443,7 +1438,6 @@
       for (const line of lines) {
         if (/합\s*계|월\s*계|누\s*계|부가세|공급가액|미수금|전기이월|잔\s*액/.test(line)) continue;
 
-        // 1) 이력번호별 품목집계 (대산)
         const mDaesan = line.match(/(돈[^\s]+(?:냉장|냉동)[^\s]*)\s+(\d+)\s*(?:Box|BOX|box|박스)\s+([\d,.]+)\s*(?:Kg|KG|kg)/i);
         if (mDaesan) {
           const rawName = mDaesan[1].trim();
@@ -1453,7 +1447,6 @@
           continue;
         }
 
-        // 2) 출고처 원장 (정담한돈)
         const mJeongdam = line.match(/(정담한돈\/[^\s]+)\s+(?:출\s*고\s+)?(\d+)\s+([\d,.]+)/);
         if (mJeongdam) {
           const rawName = mJeongdam[1].trim();
@@ -1463,7 +1456,6 @@
           continue;
         }
 
-        // 3) 둔포축산/포크 거래명세서 또는 회사명 미기재 입고장 (돈/품목... N M ... 또는 일반 품목명 N M)
         const mFork = line.match(/(?:\d+\s+)?(돈\/[^\s]+)\s+(\d+)\s+([\d,.]+)/);
         if (mFork) {
           const rawName = mFork[1].trim();
@@ -1484,7 +1476,6 @@
           continue;
         }
 
-        // 4) 회사명·슬래시 없이 품목명 + 박스 + 중량만 적힌 간이 입고장 행 (예: "1 삼겹살 23 429.60" -> (포크))
         const mSimple = line.match(/^(?:\d+\s+)?([가-힣()A-Za-z/]+(?:삼겹|목심|목살|전지|앞다리|후지|뒷다리|갈비|등심|안심|사태|항정|가브리|갈매기|등뼈|장족|돈피)[가-힣()A-Za-z/]*)\s+(\d+)\s+([\d,.]+)/);
         if (mSimple) {
           const rawName = mSimple[1].trim();
