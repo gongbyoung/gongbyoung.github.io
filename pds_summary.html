@@ -467,7 +467,7 @@
     <header>
       <div>
         <h1>회사 재고 파악 & 입고 내역 사진 자동 목록화</h1>
-        <div class="sub">전 품목 상품코드 매핑 완료(늑간 4462 포함) · 신규 메이커는 + 버튼으로 중간 삽입 후 코드만 입력</div>
+        <div class="sub">전 품목 상품코드 매핑 완료(특미삼 1825·늑간 4462 포함) · 0박 거래처 자동 숨김 옵션 지원</div>
       </div>
       <div id="statusBadge" class="badge">파일 대기 중</div>
     </header>
@@ -495,13 +495,17 @@
               <button class="btn" onclick="reparseCurrent()">🔄 다시 생성</button>
             </div>
             <div class="btn-group">
-              <label style="font-size:12px; color:#334155; cursor:pointer; display:flex; align-items:center; gap:4px;">
+              <label style="font-size:11.5px; color:#334155; cursor:pointer; display:flex; align-items:center; gap:3px;">
+                <input type="checkbox" id="hideZeroSupplierChk" onchange="reparseCurrent()" />
+                0박 거래처 숨김
+              </label>
+              <label style="font-size:11.5px; color:#334155; cursor:pointer; display:flex; align-items:center; gap:3px;">
                 <input type="checkbox" id="mergeInboundChk" onchange="reparseCurrent()" />
                 사진 입고분 합산
               </label>
-              <label style="font-size:12px; color:#334155; cursor:pointer; display:flex; align-items:center; gap:4px;">
+              <label style="font-size:11.5px; color:#334155; cursor:pointer; display:flex; align-items:center; gap:3px;">
                 <input type="checkbox" id="kakaoAlignChk" checked onchange="reparseCurrent()" />
-                카톡 최소 줄맞춤
+                카톡 줄맞춤
               </label>
             </div>
           </div>
@@ -640,7 +644,7 @@
 
   <script>
     // =========================================================
-    // 1. 검증 완료된 64개 상품코드 매핑 (늑간 4462 반영 완료)
+    // 1. 검증 완료된 64개 상품코드 매핑 (특미삼 1825, 늑간 4462 반영 완료)
     // =========================================================
     const DEFAULT_TEMPLATE = [
       // [1열: 삼겹 · 목살류]
@@ -663,7 +667,7 @@
       { col: 1, item: "암미삼", supplier: "(대산)", codes: "1609", erpName: "돈미삼겹(암)대산", suffix: "", type: "standard" },
       { col: 1, item: "암미삼", supplier: "(포크)", codes: "6920", erpName: "돈암미삼(포크)", suffix: "", type: "standard" },
 
-      { col: 1, item: "특미삼", supplier: "(대산)", codes: "", erpName: "돈특미삼(대산) (육안선별)", suffix: "", type: "standard" },
+      { col: 1, item: "특미삼", supplier: "(대산)", codes: "1825", erpName: "돈특미삼(대산) (육안선별)", suffix: "", type: "standard" },
       { col: 1, item: "특미삼", supplier: "(포크)", codes: "6922", erpName: "돈특미삼(포크) (육안선별)", suffix: "", type: "standard" },
 
       { col: 1, item: "목살", supplier: "(대산)", codes: "1565", erpName: "돈목살(대산)", suffix: "", type: "standard" },
@@ -738,7 +742,7 @@
       { col: 3, item: "냉장 수입 올리멜 목살", supplier: "올리멜", codes: "3124", erpName: "냉장 수입 올리멜 목살", suffix: "~12/18", type: "import_inline" }
     ];
 
-    const STORAGE_KEY = "vatpda_inventory_mapping_v12";
+    const STORAGE_KEY = "vatpda_inventory_mapping_v13";
     let templateData = loadMapping();
     let lastParsedWorkbook = null;
     let insertAfterIdx = null;
@@ -1076,6 +1080,7 @@
       }
 
       const mergeInbound = document.getElementById("mergeInboundChk").checked;
+      const hideZeroSup = document.getElementById("hideZeroSupplierChk").checked;
       const inboundVirtualMap = {};
       if (mergeInbound && inboundItems.length > 0) {
         inboundItems.forEach(ib => {
@@ -1115,20 +1120,34 @@
 
       groupedItems.forEach(group => {
         if (group.type === "standard") {
-          let firstLineOfItem = true;
           const itemU = measureUnits(group.item);
           const padUnits = Math.max(0.30, BASE_COL_UNITS - itemU);
           const actualSupColUnits = itemU + padUnits;
 
-          group.entries.forEach((entry, eIdx) => {
+          const evaluated = group.entries.map(entry => {
             const codes = entry.codes.split(",").map(s => s.trim()).filter(Boolean);
             codes.forEach(c => usedCodes.add(c));
-
             const rawRows = [
               ...codes.flatMap(c => codeMap[c] || []),
               ...(inboundVirtualMap[`${group.item}|${entry.supplier}`] || [])
             ];
             const dayItems = getDaySummaryList(rawRows, entry.suffix);
+            return {
+              entry,
+              rawRows,
+              dayItems,
+              hasStock: dayItems.length > 0
+            };
+          });
+
+          const anyStockInGroup = evaluated.some(e => e.hasStock);
+          const visibleEntries = (hideZeroSup && anyStockInGroup)
+            ? evaluated.filter(e => e.hasStock)
+            : evaluated;
+
+          let firstLineOfItem = true;
+          visibleEntries.forEach(ev => {
+            const { entry, dayItems } = ev;
             const formattedParts = dayItems.map(d => d.text);
 
             const prefix = firstLineOfItem
@@ -1147,19 +1166,21 @@
                 lines.push(`${subDateIndent}${formattedParts[k]}`);
               }
             }
-
-            summaryRows.push({
-              col: entry.col,
-              item: group.item,
-              rowSpan: eIdx === 0 ? group.entries.length : 0,
-              supplier: entry.supplier,
-              dayItems,
-              rawBox: rawRows.reduce((s, r) => s + r.curBox, 0),
-              rawKg: rawRows.reduce((s, r) => s + r.curKg, 0),
-              suffix: entry.suffix
-            });
           });
           lines.push("");
+
+          evaluated.forEach((ev, eIdx) => {
+            summaryRows.push({
+              col: ev.entry.col,
+              item: group.item,
+              rowSpan: eIdx === 0 ? evaluated.length : 0,
+              supplier: ev.entry.supplier,
+              dayItems: ev.dayItems,
+              rawBox: ev.rawRows.reduce((s, r) => s + r.curBox, 0),
+              rawKg: ev.rawRows.reduce((s, r) => s + r.curKg, 0),
+              suffix: ev.entry.suffix
+            });
+          });
         } else if (group.type === "import_block") {
           const entry = group.entries[0];
           const codes = entry.codes.split(",").map(s => s.trim()).filter(Boolean);
