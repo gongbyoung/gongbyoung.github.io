@@ -1,8 +1,7 @@
 /* =========================================================================
-   9. GitHub Private 저장소 카톡 자동 불러오기 플러그인
-      - 대상 저장소: my-github-id/kakao-alarm-log (data/kakao-logs.json)
-      - 기존 meatforand(1~8번 스크립트) 코드를 수정하지 않고 1단계 화면에 자동 연결됩니다.
-      - 토큰은 코드에 저장되지 않으며, 본인 기기 브라우저(localStorage)에만 보관됩니다.
+   9. GitHub Private 카톡 즉시 자동 동기화 + 모바일 초대형 UI(최대 220%) 확장
+      - 페이지 로딩·로그인 시 버튼 없이 즉시 카톡 데이터를 불러와 실행합니다.
+      - 60초 주기 및 화면 복귀 시 자동 갱신됩니다.
    ========================================================================= */
 
 (function () {
@@ -13,7 +12,50 @@
     dataPath: "data/kakao-logs.json"
   };
 
-  const TOKEN_KEY = "meatforand_gh_private_token_v1";
+  let syncIntervalId = null;
+  let isSyncingNow = false;
+  let lastPayloadSignature = "";
+
+  // 1) 기존 setUiZoom(최대 150% 제한)을 최대 220%까지 확장
+  function setUiZoomExpanded(zoomPct, skipSave) {
+    let val = parseInt(zoomPct, 10);
+    if (isNaN(val)) val = window.innerWidth <= 900 ? 150 : 130;
+    val = Math.max(100, Math.min(220, val));
+    if (typeof currentUiZoom !== "undefined") {
+      currentUiZoom = val;
+    }
+    document.documentElement.style.setProperty("--ui-zoom", (val / 100).toFixed(2));
+
+    const sTop = document.getElementById("uiZoomSlider");
+    const vTop = document.getElementById("uiZoomValue");
+    const sP1 = document.getElementById("uiZoomSliderPage1");
+    const vP1 = document.getElementById("uiZoomValuePage1");
+
+    if (sTop) { sTop.max = "220"; sTop.value = String(val); }
+    if (vTop) vTop.innerText = val + "%";
+    if (sP1) { sP1.max = "220"; sP1.value = String(val); }
+    if (vP1) vP1.innerText = val + "%";
+
+    if (!skipSave) {
+      try { localStorage.setItem("mf_ui_zoom", String(val)); } catch (e) {}
+    }
+  }
+  window.setUiZoom = setUiZoomExpanded;
+
+  function applyMobileFriendlyDefaults() {
+    const isPhone = window.innerWidth <= 900;
+    const savedZoom = (() => {
+      try { return parseInt(localStorage.getItem("mf_ui_zoom") || "", 10); } catch (e) { return NaN; }
+    })();
+    if (isPhone) {
+      if (typeof window.setUiMode === "function") {
+        window.setUiMode("mobile", true);
+      }
+      setUiZoomExpanded(!isNaN(savedZoom) && savedZoom >= 130 ? savedZoom : 150, true);
+    } else {
+      setUiZoomExpanded(!isNaN(savedZoom) ? savedZoom : 130, true);
+    }
+  }
 
   function toKstKakaoLine(entry) {
     const d = new Date(entry.receivedAt);
@@ -40,76 +82,20 @@
     };
   }
 
-  function injectPrivateSyncPanel() {
-    if (document.getElementById("ghPrivateSyncBox")) return;
-    const fileInput = document.getElementById("kakaoFileInput");
-    if (!fileInput) return;
-    const uploadZone = fileInput.closest(".upload-zone");
-    if (!uploadZone || !uploadZone.parentNode) return;
+  async function loadKakaoFromPrivateGithub(isSilentAuto) {
+    if (isSyncingNow) return;
+    const token = typeof window.getActivePrivateToken === "function"
+      ? window.getActivePrivateToken()
+      : (sessionStorage.getItem("mf_session_gh_token") || "");
 
-    const savedToken = (() => {
-      try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; }
-    })();
+    if (!token) return;
 
-    const box = document.createElement("div");
-    box.id = "ghPrivateSyncBox";
-    box.style.cssText =
-      "margin-top:10px; padding:12px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px;";
-
-    box.innerHTML =
-      '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:8px;">' +
-        '<b style="color:#1f4e79; font-size:13px;">🔄 GitHub Private 카톡 자동 불러오기 (' + GH_CONFIG.owner + '/' + GH_CONFIG.repo + ')</b>' +
-        '<span id="ghSyncStatus" style="font-size:11.5px; color:#64748b;">' + (savedToken ? '토큰 저장됨' : '최초 1회 토큰 입력 필요') + '</span>' +
-      '</div>' +
-      '<div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">' +
-        '<input id="ghPrivateTokenInput" type="password" placeholder="GitHub 토큰 (github_pat_...)" value="' + savedToken.replace(/"/g, "&quot;") + '" style="flex:1; min-width:180px; padding:7px 9px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px;" />' +
-        '<select id="ghSyncDaysSelect" style="padding:7px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; background:#fff;">' +
-          '<option value="2" selected>최근 2일 (추천)</option>' +
-          '<option value="1">오늘(24시간)</option>' +
-          '<option value="7">최근 7일</option>' +
-          '<option value="0">전체 누적</option>' +
-        '</select>' +
-        '<button type="button" id="btnGhPrivateSync" class="btn green sm" style="white-space:nowrap;">📥 Private 카톡 바로 불러오기</button>' +
-        '<button type="button" id="btnGhTokenClear" class="btn gray sm" style="white-space:nowrap;">토큰 삭제</button>' +
-      '</div>' +
-      '<label style="display:inline-flex; align-items:center; gap:5px; margin-top:7px; font-size:11.5px; color:#475569; cursor:pointer;">' +
-        '<input type="checkbox" id="ghRememberToken" ' + (savedToken ? 'checked' : '') + ' /> 이 기기 브라우저에 토큰 기억하기' +
-      '</label>';
-
-    uploadZone.parentNode.insertBefore(box, uploadZone.nextSibling);
-
-    document.getElementById("btnGhTokenClear").addEventListener("click", function () {
-      try { localStorage.removeItem(TOKEN_KEY); } catch {}
-      document.getElementById("ghPrivateTokenInput").value = "";
-      document.getElementById("ghRememberToken").checked = false;
-      document.getElementById("ghSyncStatus").innerText = "저장된 토큰을 삭제했습니다.";
-    });
-
-    document.getElementById("btnGhPrivateSync").addEventListener("click", loadKakaoFromPrivateGithub);
-  }
-
-  async function loadKakaoFromPrivateGithub() {
-    const tokenEl = document.getElementById("ghPrivateTokenInput");
     const statusEl = document.getElementById("ghSyncStatus");
-    const btn = document.getElementById("btnGhPrivateSync");
-    const rememberEl = document.getElementById("ghRememberToken");
-    const daysVal = Number(document.getElementById("ghSyncDaysSelect").value || "2");
+    const daysEl = document.getElementById("ghSyncDaysSelect");
+    const daysVal = Number(daysEl ? daysEl.value : "2");
 
-    const token = (tokenEl ? tokenEl.value : "").trim();
-    if (!token) {
-      alert("GitHub 토큰(github_pat_...)을 먼저 입력해주세요.");
-      if (tokenEl) tokenEl.focus();
-      return;
-    }
-
-    if (rememberEl && rememberEl.checked) {
-      try { localStorage.setItem(TOKEN_KEY, token); } catch {}
-    } else {
-      try { localStorage.removeItem(TOKEN_KEY); } catch {}
-    }
-
-    if (btn) { btn.disabled = true; btn.innerText = "⏳ 불러오는 중..."; }
-    if (statusEl) statusEl.innerText = "GitHub Private 저장소 연결 중...";
+    isSyncingNow = true;
+    if (statusEl) statusEl.textContent = "⏳ 최신 카톡 자동 동기화 중...";
 
     try {
       const apiUrl =
@@ -128,13 +114,13 @@
       });
 
       if (res.status === 401 || res.status === 403) {
-        throw new Error("토큰 인증 실패 (Private 저장소 Contents 읽기 권한을 확인하세요)");
+        throw new Error("보안 키 권한 오류");
       }
       if (res.status === 404) {
-        throw new Error("data/kakao-logs.json 파일을 찾을 수 없습니다.");
+        throw new Error("data/kakao-logs.json 없음");
       }
       if (!res.ok) {
-        throw new Error("GitHub 응답 오류 (HTTP " + res.status + ")");
+        throw new Error("GitHub 오류 (HTTP " + res.status + ")");
       }
 
       const rawList = await res.json();
@@ -150,10 +136,18 @@
         return true;
       });
 
+      const nowStr = new Date().toTimeString().slice(0, 8);
       if (filtered.length === 0) {
-        if (statusEl) statusEl.innerText = "선택한 기간에 누적된 카톡이 없습니다 (전체 " + list.length + "건).";
+        if (statusEl) statusEl.textContent = "자동 연동 중 · " + nowStr + " (해당 기간 0건)";
         return;
       }
+
+      const sig = daysVal + "|" + filtered.length + "|" + (filtered[0].id || "") + "|" + (filtered[filtered.length - 1].id || "");
+      if (isSilentAuto && sig === lastPayloadSignature && allChatItems.length > 0) {
+        if (statusEl) statusEl.textContent = "✅ 최신 유지 중 · " + nowStr + " (" + filtered.length + "건)";
+        return;
+      }
+      lastPayloadSignature = sig;
 
       const lines = filtered
         .map(toKstKakaoLine)
@@ -163,7 +157,6 @@
 
       const combinedText = lines.join("\n");
 
-      // 기존 meatforand 파서(3_kakao_parser.js) 그대로 실행
       allChatItems = [];
       parseSingleKakaoText(combinedText);
 
@@ -188,32 +181,64 @@
       const msgEl = document.getElementById("kakaoLoadMsg");
       if (msgEl) {
         msgEl.innerText =
-          "✅ GitHub Private 카톡 " + filtered.length + "건 수신 → 총 " + allChatItems.length +
-          "건 분석 완료! (순수발주 " + orderCnt + "건 / 계근 " + weightCnt + "건)";
+          "✅ 자동 로딩 완료 (" + filtered.length + "건 수신 → 순수발주 " + orderCnt + "건 / 계근 " + weightCnt + "건)";
       }
       if (statusEl) {
-        statusEl.innerText = "동기화 완료 (" + filtered.length + "건 반영)";
+        statusEl.textContent = "✅ 자동 동기화 완료 · " + nowStr;
       }
 
       if (typeof saveStateToBrowser === "function") {
-        saveStateToBrowser("GitHub Private 카톡 동기화");
+        saveStateToBrowser("GitHub Private 카톡 자동 동기화");
       }
       if (typeof onFilterCriteriaChange === "function") {
         onFilterCriteriaChange(true);
       }
     } catch (err) {
-      if (statusEl) statusEl.innerText = "❌ " + (err.message || "불러오기 실패");
-      alert("GitHub Private 카톡 불러오기 오류:\n" + (err.message || err));
+      if (statusEl) statusEl.textContent = "⚠️ " + (err.message || "자동 동기화 실패");
     } finally {
-      if (btn) { btn.disabled = false; btn.innerText = "📥 Private 카톡 바로 불러오기"; }
+      isSyncingNow = false;
     }
   }
 
+  function startAutoKakaoSync() {
+    loadKakaoFromPrivateGithub(true);
+    if (syncIntervalId) clearInterval(syncIntervalId);
+    syncIntervalId = setInterval(function () {
+      if (document.visibilityState === "visible") {
+        loadKakaoFromPrivateGithub(true);
+      }
+    }, 60000);
+  }
+
+  function stopAutoKakaoSync() {
+    if (syncIntervalId) {
+      clearInterval(syncIntervalId);
+      syncIntervalId = null;
+    }
+    lastPayloadSignature = "";
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && sessionStorage.getItem("mf_session_gh_token")) {
+      loadKakaoFromPrivateGithub(true);
+    }
+  });
+
   window.loadKakaoFromPrivateGithub = loadKakaoFromPrivateGithub;
+  window.startAutoKakaoSync = startAutoKakaoSync;
+  window.stopAutoKakaoSync = stopAutoKakaoSync;
+
+  function bootSyncAndUi() {
+    applyMobileFriendlyDefaults();
+    // 이미 로그인 세션이 살아있다면 페이지 로딩 즉시 실행
+    if (sessionStorage.getItem("mf_session_gh_token") && sessionStorage.getItem("mf_logged_in_user_id")) {
+      startAutoKakaoSync();
+    }
+  }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", injectPrivateSyncPanel);
+    document.addEventListener("DOMContentLoaded", bootSyncAndUi);
   } else {
-    injectPrivateSyncPanel();
+    bootSyncAndUi();
   }
 })();
