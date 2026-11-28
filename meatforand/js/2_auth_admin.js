@@ -5,14 +5,14 @@
    ========================================================================= */
 
 const GH_PRIVATE_AUTH_REPO = {
-    owner: "my-github-id",
-    repo: "kakao-alarm-log"
+    owner: "gongbyoung",
+    repo: "Private"
 };
 
 const PRIVATE_KEY_LOCAL_STORAGE = 'mf_private_access_key_v2';
 const PRIVATE_KEY_SESSION_STORAGE = 'mf_session_gh_token';
 
-const ALL_MENU_KEYS = ['page1', 'pageExcelStock', 'page2', 'pageLoose', 'pageStockOrg', 'page5', 'page6'];
+const AUTH_MENU_KEYS = ['page1', 'pageExcelStock', 'page2', 'pageLoose', 'pageStockOrg', 'page5', 'page6'];
 
 const DEFAULT_USER_ACCOUNTS = [
     { id: "최규진", pinHash: "defdd5677a09a9cc183af55eff5c11b215058f62440229f7dadbeec48bc9cc2d", role: "admin", menus: { page1: true, pageExcelStock: true, page2: true, pageLoose: true, pageStockOrg: true, page5: true, page6: true } },
@@ -299,7 +299,7 @@ function renderAdminUserPermTable() {
     userAccountsDB.forEach((u, idx) => {
         const isSelf = currentSessionUser && currentSessionUser.id === u.id;
         let menuColsHtml = '';
-        ALL_MENU_KEYS.forEach(mKey => {
+        AUTH_MENU_KEYS.forEach(mKey => {
             const checked = (u.role === 'admin' || (u.menus && u.menus[mKey])) ? 'checked' : '';
             const disabled = u.role === 'admin' ? 'disabled title="관리자는 전체 메뉴 자동 활성"' : '';
             menuColsHtml += `<td style="text-align:center;">
@@ -343,7 +343,7 @@ function changeUserRole(userIdx, newRole) {
     if (!u) return;
     u.role = newRole;
     if (newRole === 'admin') {
-        ALL_MENU_KEYS.forEach(k => { u.menus[k] = true; });
+        AUTH_MENU_KEYS.forEach(k => { u.menus[k] = true; });
     }
     saveUserAccountsDB();
     renderAdminUserPermTable();
