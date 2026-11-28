@@ -786,6 +786,7 @@
         }
         .pds-toast.show { opacity: 1; }
     </style>
+
 <style id="mfMobileBigUiStyle">
   /* =========================================================================
      [스마트폰 초대형 가독성 · 메뉴 2배 이상 확대 · 터치 편의성 업그레이드]
@@ -1029,7 +1030,7 @@
     <div class="login-card">
         <div class="login-confidential-badge">🔒 사내 대외비 보안 인증 게이트</div>
         <h2>🥩 (주)미트포앤 사내 통합 시스템</h2>
-        <p>인가된 임직원만 접속할 수 있습니다. 사원 계정과 사내 비공개 보안 키(my-github-id/kakao-alarm-log) 인증이 완료되면 카톡 발주 내역이 즉시 자동 로딩됩니다.</p>
+        <p>인가된 임직원만 접속할 수 있습니다. 사원 계정과 사내 비공개 보안 키(gongbyoung/Private) 인증이 완료되면 카톡 발주 내역이 즉시 자동 로딩됩니다.</p>
         <div class="login-field">
             <label for="loginUserIdInput">🆔 사원 성명</label>
             <input type="text" id="loginUserIdInput" placeholder="등록된 성명 직접 입력" autocomplete="username" onkeydown="if(event.key==='Enter') handleSystemLogin()">
@@ -1097,14 +1098,14 @@
     <div id="page1" class="tab-page active">
         <div class="section-card">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
-                <h3 style="margin:0;">💬 1단계: Private 카톡 실시간 자동 연동 (my-github-id/kakao-alarm-log)</h3>
+                <h3 style="margin:0;">💬 1단계: Private 카톡 실시간 자동 연동 (gongbyoung/Private)</h3>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
                     <button type="button" id="btnPage1AdminPerm" class="btn purple sm" style="display:none;" onclick="openAdminPermModal()">⚙️ 사원 권한 설정</button>
                     <button class="btn red sm" onclick="clearSavedBrowserData()">🗑️ 브라우저 초기화</button>
                 </div>
             </div>
             <p style="margin-bottom:10px;">
-                • 페이지에 접속하면 비공개 저장소(<b>my-github-id/kakao-alarm-log</b>)의 3개 대화방 카톡 데이터를 <b>버튼 누를 필요 없이 즉시 자동으로 불러와 실행</b>하며, 1분마다 최신 내역으로 자동 갱신됩니다.
+                • 페이지에 접속하면 비공개 저장소(<b>gongbyoung/Private</b>)의 3개 대화방 카톡 데이터를 <b>버튼 누를 필요 없이 즉시 자동으로 불러와 실행</b>하며, 1분마다 최신 내역으로 자동 갱신됩니다.
             </p>
             <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:#f8fafc; padding:12px 14px; border:1px solid var(--border); border-radius:10px;">
                 <label for="ghSyncDaysSelect" style="font-weight:800; color:var(--primary); font-size:15.5px;">📅 자동 조회 기간:</label>
@@ -1118,7 +1119,6 @@
             </div>
             <div id="kakaoLoadMsg" style="margin-top:10px; color:#047857; font-weight:800; font-size:15.5px;"></div>
         </div>
-
         <div class="section-card">
             <h3>🖥️ 화면 글자 및 메뉴 확대 배율 (100% ~ 220% 초대형 지원)</h3>
             <div style="display:flex; align-items:center; flex-wrap:wrap; gap:10px; background:#fff; padding:12px; border:1px solid var(--border); border-radius:10px;">
@@ -1687,15 +1687,16 @@
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" crossorigin=""></script>
 <div id="pdsToast" class="pds-toast">복사되었습니다!</div>
 
+<script id="mfPreShim">var toggleOnlyOrder=window.toggleOnlyOrder||function(){};var toggleKnownClient=window.toggleKnownClient||function(){};</script>
 <script src="js/1_state_utils.js?v=20261125"></script>
-<script src="js/2_auth_admin.js?v=20261128b"></script>
+<script src="js/2_auth_admin.js?v=20261128c"></script>
 <script src="js/3_kakao_parser.js?v=20261125"></script>
 <script src="js/4_orders_loose.js?v=20261125"></script>
 <script src="js/5_stock_barcode.js?v=20261125"></script>
 <script src="js/6_excel_stock_page.js?v=20261125"></script>
 <script src="js/7_dispatch_map.js?v=20261125"></script>
 <script src="js/8_bgm_nav_init.js?v=20261125"></script>
-<script src="js/9_kakao_github_sync.js?v=20261128b"></script>
+<script src="js/9_kakao_github_sync.js?v=20261128c"></script>
 <script>
 if (typeof window.switchTab !== 'function') {
     alert('⚠️ js/ 폴더 내 스크립트 파일들이 같은 경로에 없거나 로드되지 않았습니다.\nindex.html 과 js/ 폴더를 함께 업로드해주세요.');
