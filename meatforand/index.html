@@ -786,41 +786,271 @@
         }
         .pds-toast.show { opacity: 1; }
     </style>
+<style id="mfMobileBigUiStyle">
+  /* =========================================================================
+     [스마트폰 초대형 가독성 · 메뉴 2배 이상 확대 · 터치 편의성 업그레이드]
+     ========================================================================= */
+  :root {
+    --ui-zoom: 1.35;
+  }
+
+  html, body {
+    overflow-x: hidden !important;
+  }
+
+  body {
+    font-size: 14.5px !important;
+    line-height: 1.55 !important;
+    padding-bottom: 124px !important;
+  }
+
+  /* 로그인 화면 초대형 모바일 최적화 */
+  .login-card {
+    width: min(94vw, 480px) !important;
+    padding: 28px 22px !important;
+    border-radius: 18px !important;
+  }
+  .login-card h2 {
+    font-size: 24px !important;
+    line-height: 1.35 !important;
+  }
+  .login-card p {
+    font-size: 15.5px !important;
+    line-height: 1.6 !important;
+  }
+  .login-field label {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    margin-bottom: 6px !important;
+  }
+  .login-field input[type="text"],
+  .login-field input[type="password"] {
+    font-size: 18px !important;
+    min-height: 54px !important;
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+  }
+  .login-submit-btn {
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    min-height: 58px !important;
+    border-radius: 14px !important;
+  }
+  .login-error-msg {
+    font-size: 15px !important;
+    padding: 10px 12px !important;
+  }
+
+  /* 하단 고정 플로팅 메뉴 독 (.app-container 바깥이므로 150%의 2배급 초대형 적용) */
+  .bottom-floating-dock {
+    padding: 12px 14px !important;
+    gap: 10px !important;
+    border-radius: 22px !important;
+    bottom: 12px !important;
+    width: min(96vw, 620px) !important;
+    max-width: 96vw !important;
+    justify-content: space-between !important;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.34) !important;
+  }
+  .dock-main-btn {
+    font-size: 24px !important;
+    font-weight: 800 !important;
+    min-height: 66px !important;
+    padding: 14px 26px !important;
+    border-radius: 16px !important;
+    letter-spacing: -0.02em !important;
+    flex: 1 1 auto !important;
+    justify-content: center !important;
+  }
+  .dock-bgm-btn {
+    font-size: 19px !important;
+    font-weight: 700 !important;
+    min-height: 64px !important;
+    padding: 12px 18px !important;
+    border-radius: 16px !important;
+  }
+  .dock-mini-ctrl {
+    min-width: 54px !important;
+    min-height: 54px !important;
+    font-size: 20px !important;
+  }
+
+  /* 하단 팝업 메뉴 (기존 150%보다 2배 큰 초대형 메뉴 카드) */
+  .bottom-tab-popup {
+    width: min(96vw, 560px) !important;
+    max-height: 82vh !important;
+    padding: 20px !important;
+    border-radius: 22px !important;
+    bottom: 98px !important;
+  }
+  .bottom-popup-header {
+    font-size: 23px !important;
+    font-weight: 800 !important;
+    padding-bottom: 14px !important;
+    margin-bottom: 14px !important;
+  }
+  .bottom-popup-header .btn {
+    font-size: 18px !important;
+    min-height: 48px !important;
+    padding: 10px 18px !important;
+  }
+  .bottom-tab-list {
+    gap: 12px !important;
+  }
+  .bottom-tab-item {
+    min-height: 84px !important;
+    padding: 18px 20px !important;
+    border-radius: 16px !important;
+    gap: 8px !important;
+    align-items: center !important;
+  }
+  .bottom-tab-item span:first-child {
+    font-size: 25px !important;
+    font-weight: 800 !important;
+    line-height: 1.25 !important;
+  }
+  .bottom-tab-item span:last-child {
+    font-size: 17px !important;
+    font-weight: 600 !important;
+    opacity: 0.92 !important;
+  }
+
+  /* 본문 카드, 버튼, 입력창, 표 (.app-container의 --ui-zoom과 조화롭게 확대) */
+  .section-card {
+    padding: 14px !important;
+    border-radius: 12px !important;
+    margin-bottom: 12px !important;
+  }
+  .section-card h3 {
+    font-size: 17px !important;
+    line-height: 1.35 !important;
+    margin-bottom: 8px !important;
+  }
+  .section-card p {
+    font-size: 14px !important;
+    line-height: 1.55 !important;
+  }
+  .btn, .sort-btn, .hdr-icon-btn, .dev-btn {
+    font-size: 14px !important;
+    min-height: 40px !important;
+    padding: 8px 13px !important;
+    border-radius: 8px !important;
+    font-weight: 700 !important;
+  }
+  .btn.sm {
+    font-size: 13.5px !important;
+    min-height: 38px !important;
+    padding: 7px 11px !important;
+  }
+  input[type="text"],
+  input[type="password"],
+  input[type="date"],
+  input[type="search"],
+  input[type="number"],
+  select,
+  .hdr-input,
+  .hdr-select {
+    font-size: 14.5px !important;
+    min-height: 42px !important;
+    padding: 7px 10px !important;
+    border-radius: 8px !important;
+  }
+  textarea {
+    font-size: 14.5px !important;
+    line-height: 1.5 !important;
+    padding: 10px !important;
+  }
+  .table-wrap {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  table th {
+    font-size: 13.5px !important;
+    padding: 9px 7px !important;
+  }
+  table td {
+    font-size: 14.5px !important;
+    padding: 9px 7px !important;
+    line-height: 1.45 !important;
+  }
+  .app-header {
+    padding: 9px 11px !important;
+    gap: 8px !important;
+  }
+  .app-header h1 {
+    font-size: 18px !important;
+  }
+  .user-session-pill, .pill-time {
+    font-size: 13px !important;
+    padding: 5px 9px !important;
+  }
+
+  /* 스마트폰 전용 극대화 (가로 900px 이하) */
+  @media (max-width: 900px) {
+    body {
+      font-size: 15px !important;
+      padding: 6px 6px 132px 6px !important;
+    }
+    .app-header {
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
+    .header-left-group,
+    .header-right-group {
+      width: 100% !important;
+      flex-wrap: wrap !important;
+      gap: 6px !important;
+    }
+    .dock-main-btn {
+      font-size: 26px !important;
+      min-height: 70px !important;
+      padding: 16px 24px !important;
+    }
+    .bottom-tab-item {
+      min-height: 88px !important;
+      padding: 20px 22px !important;
+      flex-direction: column !important;
+      align-items: flex-start !important;
+    }
+    .bottom-tab-item span:first-child {
+      font-size: 26px !important;
+    }
+    .bottom-tab-item span:last-child {
+      font-size: 17.5px !important;
+    }
+  }
+</style>
 </head>
 <body class="ui-desktop">
 
 <!-- ==================== [0. 사내 보안 로그인 게이트 (대외비 자료 차단)] ==================== -->
 <div id="loginGateScreen" class="login-gate-overlay">
     <div class="login-card">
-        <div class="login-confidential-badge">🔒 사내 대외비 자료 보호 시스템</div>
+        <div class="login-confidential-badge">🔒 사내 대외비 보안 인증 게이트</div>
         <h2>🥩 (주)미트포앤 사내 통합 시스템</h2>
-        <p>거래처 단가·주소·출입비밀번호 및 재고·배차 내역은 사내 대외비 자료입니다. 인가된 사원 계정으로 로그인하세요.</p>
-
+        <p>인가된 임직원만 접속할 수 있습니다. 사원 계정과 사내 비공개 보안 키(my-github-id/kakao-alarm-log) 인증이 완료되면 카톡 발주 내역이 즉시 자동 로딩됩니다.</p>
         <div class="login-field">
-            <label for="loginUserSelect">👤 사원 선택 (또는 아래에 이름 직접 입력)</label>
-            <select id="loginUserSelect" onchange="onLoginUserSelectChange()">
-                <option value="">-- 사원 선택 --</option>
-            </select>
+            <label for="loginUserIdInput">🆔 사원 성명</label>
+            <input type="text" id="loginUserIdInput" placeholder="등록된 성명 직접 입력" autocomplete="username" onkeydown="if(event.key==='Enter') handleSystemLogin()">
         </div>
-
         <div class="login-field">
-            <label for="loginUserIdInput">🆔 성명 / 사원 ID</label>
-            <input type="text" id="loginUserIdInput" placeholder="예: 최규진, 한재호, 이명석..." onkeydown="if(event.key==='Enter') handleSystemLogin()">
+            <label for="loginPasswordInput">🔑 사원 비밀번호 (PIN)</label>
+            <input type="password" id="loginPasswordInput" placeholder="개인 PIN 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter') handleSystemLogin()">
         </div>
-
         <div class="login-field">
-            <label for="loginPasswordInput">🔑 접속 비밀번호 (PIN)</label>
-            <input type="password" id="loginPasswordInput" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter') handleSystemLogin()">
+            <label for="loginGithubTokenInput">🛡️ 사내 비공개 보안 키 (GitHub Private 토큰)</label>
+            <input type="password" id="loginGithubTokenInput" placeholder="github_pat_... (최초 1회 입력)" autocomplete="off" onkeydown="if(event.key==='Enter') handleSystemLogin()">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:8px; flex-wrap:wrap;">
+                <label style="display:inline-flex; align-items:center; gap:6px; font-size:14px; color:#334155; margin:0; font-weight:600; cursor:pointer;">
+                    <input type="checkbox" id="loginRememberTokenCheck" style="width:20px; height:20px; margin:0;" />
+                    이 기기 브라우저에만 보안 키 기억
+                </label>
+                <button type="button" onclick="clearSavedPrivateAccessKey()" style="background:none; border:none; color:#64748b; font-size:13.5px; text-decoration:underline; cursor:pointer; padding:4px 0;">저장된 키 삭제</button>
+            </div>
         </div>
-
-        <button type="button" class="login-submit-btn" onclick="handleSystemLogin()">🔓 사내 시스템 접속하기</button>
+        <button type="button" id="btnSystemLoginSubmit" class="login-submit-btn" onclick="handleSystemLogin()">🔓 본인 인증 후 바로 시작</button>
         <div id="loginErrorMsg" class="login-error-msg"></div>
-
-        <div class="login-hint-box">
-            <b>💡 초기 사원 계정 안내 (관리자 페이지에서 변경 가능):</b><br>
-            • <b>관리자:</b> 최규진 (<code>0000</code>) · 한재호 (<code>1111</code>) · 영민 (<code>2222</code>)<br>
-            • <b>사용자:</b> 이명석 · 양승준 · 김석민 · 한승희 · 엄태원 · 최청호 · 표혜영 (초기 PIN: <code>1234</code>)
-        </div>
     </div>
 </div>
 
@@ -852,7 +1082,7 @@
 
             <div class="zoom-control-box" title="화면 글씨와 표 크기를 100%~150%까지 조절합니다">
                 <label for="uiZoomSlider" onclick="setUiZoom(115)">🔍</label>
-                <input type="range" id="uiZoomSlider" class="zoom-slider" min="100" max="150" step="5" value="115" oninput="setUiZoom(this.value)">
+                <input type="range" id="uiZoomSlider" class="zoom-slider" min="100" max="220" step="5" value="115" oninput="setUiZoom(this.value)">
                 <span id="uiZoomValue" class="zoom-val-badge">115%</span>
             </div>
 
@@ -866,34 +1096,41 @@
     <!-- ==================== [페이지 1: 데이터 입력] ==================== -->
     <div id="page1" class="tab-page active">
         <div class="section-card">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
-                <h3 style="margin:0;">💬 1단계: 발주 카카오톡 대화 파일(.txt) 로딩</h3>
-                <div style="display:flex; gap:5px;">
-                    <button type="button" id="btnPage1AdminPerm" class="btn purple sm" style="display:none;" onclick="openAdminPermModal()">⚙️ 사원 계정·메뉴 권한 설정</button>
-                    <button class="btn red sm" onclick="clearSavedBrowserData()">🗑️ 브라우저 저장 초기화</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                <h3 style="margin:0;">💬 1단계: Private 카톡 실시간 자동 연동 (my-github-id/kakao-alarm-log)</h3>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button type="button" id="btnPage1AdminPerm" class="btn purple sm" style="display:none;" onclick="openAdminPermModal()">⚙️ 사원 권한 설정</button>
+                    <button class="btn red sm" onclick="clearSavedBrowserData()">🗑️ 브라우저 초기화</button>
                 </div>
             </div>
-            <p>
-                • 스마트폰/PC 내보내기 파일을 모두 인식하며, 정오(12:00) 마감선·명시적 날짜/요일·다중 거래처 합본 자동 분할·중복제거·`●추가` 자동병합을 지원합니다.
+            <p style="margin-bottom:10px;">
+                • 페이지에 접속하면 비공개 저장소(<b>my-github-id/kakao-alarm-log</b>)의 3개 대화방 카톡 데이터를 <b>버튼 누를 필요 없이 즉시 자동으로 불러와 실행</b>하며, 1분마다 최신 내역으로 자동 갱신됩니다.
             </p>
-            <div class="upload-zone" onclick="document.getElementById('kakaoFileInput').click()">
-                <b>📁 여기를 터치하여 카카오톡 대화 파일(.txt) 선택</b>
-                <div id="kakaoLoadMsg" style="margin-top:6px; color:#047857; font-weight:bold;"></div>
-                <input type="file" id="kakaoFileInput" accept=".txt" multiple onchange="loadKakaoFiles(event)">
+            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:#f8fafc; padding:12px 14px; border:1px solid var(--border); border-radius:10px;">
+                <label for="ghSyncDaysSelect" style="font-weight:800; color:var(--primary); font-size:15.5px;">📅 자동 조회 기간:</label>
+                <select id="ghSyncDaysSelect" onchange="loadKakaoFromPrivateGithub(true)" style="flex:1; min-width:170px; background:#fff;">
+                    <option value="2" selected>최근 2일 (추천)</option>
+                    <option value="1">오늘 (24시간)</option>
+                    <option value="7">최근 7일</option>
+                    <option value="0">전체 누적</option>
+                </select>
+                <span id="ghSyncStatus" style="font-size:14.5px; font-weight:700; color:#047857;">⏳ 자동 연동 대기 중...</span>
             </div>
+            <div id="kakaoLoadMsg" style="margin-top:10px; color:#047857; font-weight:800; font-size:15.5px;"></div>
         </div>
 
         <div class="section-card">
-            <h3>🖥️ 화면 크기 및 UI 확대 배율 설정 (100% ~ 150%)</h3>
-            <div style="display:flex; align-items:center; flex-wrap:wrap; gap:10px; background:#fff; padding:9px; border:1px solid var(--border); border-radius:7px;">
-                <b style="color:var(--primary);">🔍 UI 확대 배율:</b>
-                <input type="range" id="uiZoomSliderPage1" style="flex:1; min-width:150px; accent-color:var(--primary); cursor:pointer;" min="100" max="150" step="5" value="115" oninput="setUiZoom(this.value)">
-                <b id="uiZoomValuePage1" style="color:var(--accent); font-size:13.5px; min-width:42px;">115%</b>
-                <div style="display:flex; gap:5px; flex-wrap:wrap;">
-                    <button type="button" class="btn gray sm" onclick="setUiZoom(100)">100%</button>
-                    <button type="button" class="btn green sm" onclick="setUiZoom(115)">115% (기본)</button>
-                    <button type="button" class="btn sm" onclick="setUiZoom(130)">130%</button>
-                    <button type="button" class="btn orange sm" onclick="setUiZoom(150)">150% (최대)</button>
+            <h3>🖥️ 화면 글자 및 메뉴 확대 배율 (100% ~ 220% 초대형 지원)</h3>
+            <div style="display:flex; align-items:center; flex-wrap:wrap; gap:10px; background:#fff; padding:12px; border:1px solid var(--border); border-radius:10px;">
+                <b style="color:var(--primary); font-size:16px;">🔍 확대 배율:</b>
+                <input type="range" id="uiZoomSliderPage1" style="flex:1; min-width:160px; height:32px; accent-color:var(--primary); cursor:pointer;" min="100" max="220" step="10" value="150" oninput="setUiZoom(this.value)">
+                <b id="uiZoomValuePage1" style="color:var(--accent); font-size:18px; min-width:56px;">150%</b>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; width:100%;">
+                    <button type="button" class="btn gray" onclick="setUiZoom(120)">120%</button>
+                    <button type="button" class="btn green" onclick="setUiZoom(150)">150% (기본)</button>
+                    <button type="button" class="btn" onclick="setUiZoom(180)">180% (크게)</button>
+                    <button type="button" class="btn orange" onclick="setUiZoom(200)">200% (2배)</button>
+                    <button type="button" class="btn purple" onclick="setUiZoom(220)">220% (초대형)</button>
                 </div>
             </div>
         </div>
@@ -1451,14 +1688,14 @@
 <div id="pdsToast" class="pds-toast">복사되었습니다!</div>
 
 <script src="js/1_state_utils.js?v=20261125"></script>
-<script src="js/2_auth_admin.js?v=20261125"></script>
+<script src="js/2_auth_admin.js?v=20261128b"></script>
 <script src="js/3_kakao_parser.js?v=20261125"></script>
 <script src="js/4_orders_loose.js?v=20261125"></script>
 <script src="js/5_stock_barcode.js?v=20261125"></script>
 <script src="js/6_excel_stock_page.js?v=20261125"></script>
 <script src="js/7_dispatch_map.js?v=20261125"></script>
 <script src="js/8_bgm_nav_init.js?v=20261125"></script>
-<script src="js/9_kakao_github_sync.js"></script>
+<script src="js/9_kakao_github_sync.js?v=20261128b"></script>
 <script>
 if (typeof window.switchTab !== 'function') {
     alert('⚠️ js/ 폴더 내 스크립트 파일들이 같은 경로에 없거나 로드되지 않았습니다.\nindex.html 과 js/ 폴더를 함께 업로드해주세요.');
