@@ -6,8 +6,8 @@
 
 (function () {
   const GH_CONFIG = {
-    owner: "my-github-id",
-    repo: "kakao-alarm-log",
+    owner: "gongbyoung",
+    repo: "Private",
     branch: "main",
     dataPath: "data/kakao-logs.json"
   };
@@ -229,6 +229,8 @@
   window.stopAutoKakaoSync = stopAutoKakaoSync;
 
   function bootSyncAndUi() {
+    if (typeof toggleOnlyOrder === "function") window.toggleOnlyOrder = toggleOnlyOrder;
+    if (typeof toggleKnownClient === "function") window.toggleKnownClient = toggleKnownClient;
     applyMobileFriendlyDefaults();
     // 이미 로그인 세션이 살아있다면 페이지 로딩 즉시 실행
     if (sessionStorage.getItem("mf_session_gh_token") && sessionStorage.getItem("mf_logged_in_user_id")) {
